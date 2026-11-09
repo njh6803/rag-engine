@@ -1,0 +1,15 @@
+# N·O·P 보충 원문(2차: 디렉터리 목록으로 찾은 경로)
+qdrant_distributed.md https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/scaling/distributed_deployment.md
+qdrant_horizontal_scaling.md https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/scaling/horizontal-scaling.md
+qdrant_vertical_scaling.md https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/scaling/vertical-scaling.md
+qdrant_usage_statistics.md https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/ops-configuration/usage-statistics.md
+qdrant_security.md https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/security.md
+qdrant_access_control.md https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/deploy-and-scale/access-control.md
+qdrant_multitenant.md https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/deploy-and-scale/multitenant-search.md
+qdrant_capacity_planning.md https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/capacity-planning.md
+qdrant_quotas.md https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/ops-configuration/quotas.md
+milvus_multi_tenancy.md https://raw.githubusercontent.com/milvus-io/milvus-docs/v2.6.x/site/en/reference/multi_tenancy.md
+milvus_replica.md https://raw.githubusercontent.com/milvus-io/milvus-docs/v2.6.x/site/en/reference/replica.md
+milvus_coordinator_ha.md https://raw.githubusercontent.com/milvus-io/milvus-docs/v2.6.x/site/en/reference/coordinator_ha.md
+milvus_quota_limits.md https://raw.githubusercontent.com/milvus-io/milvus-docs/v2.6.x/site/en/reference/sys_config/configure_quotaandlimits.md
+chroma_telemetry_README.md https://raw.githubusercontent.com/chroma-core/chroma/main/chromadb/telemetry/README.md

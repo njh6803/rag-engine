@@ -1,0 +1,42 @@
+FAIL HTTP Error 404: Not Found  chroma_telemetry.md  <- https://raw.githubusercontent.com/chroma-core/chroma/main/docs/docs.trychroma.com/markdoc/content/docs/overview/telemetry.md
+OK       3860  elastic_x_pack_LICENSE
+OK      24921  groonga_limitations.html
+OK      19107  kiwi_README.md
+OK     679450  managed_aws_aurora_ext.html
+OK    1105868  managed_aws_rds_ext.html
+OK     103757  managed_azure_ext.html
+OK     101152  managed_crunchy_ext.html
+OK     110553  managed_digitalocean_ext.html
+OK     203626  managed_gcp_alloydb_ext.html
+OK     263463  managed_gcp_cloudsql_ext.html
+OK      67559  managed_neon_ext_list.html
+OK      29344  managed_neon_pgvector.html
+OK     295368  managed_supabase_pgroonga.html
+OK     232924  managed_supabase_pgvector.html
+FAIL HTTP Error 404: Not Found  meilisearch_known_limits.mdx  <- https://raw.githubusercontent.com/meilisearch/documentation/main/learn/resources/known_limitations.mdx
+FAIL HTTP Error 404: Not Found  meilisearch_telemetry.mdx  <- https://raw.githubusercontent.com/meilisearch/documentation/main/learn/resources/telemetry.mdx
+OK     719533  meilisearch_tree.json
+OK       8213  milvus_architecture.md
+OK      15260  milvus_diskann.md
+FAIL HTTP Error 404: Not Found  milvus_limits.md  <- https://raw.githubusercontent.com/milvus-io/milvus-docs/v2.6.x/site/en/reference/limits.md
+OK       8306  opensearch_disk_based.md
+OK      20535  opensearch_knn_LICENSE
+OK      11357  opensearch_security_plugin_LICENSE
+OK     776029  paradedb_docs_tree.json
+OK       4461  paradedb_enterprise.mdx
+OK      32733  pgroonga_replication.html
+OK      11357  pgvecto_rs_LICENSE
+FAIL HTTP Error 404: Not Found  qdrant_distributed.md  <- https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/guides/distributed_deployment.md
+OK      12282  qdrant_memory_tiers.md
+FAIL HTTP Error 404: Not Found  qdrant_security.md  <- https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/guides/security.md
+FAIL HTTP Error 404: Not Found  qdrant_storage.md  <- https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/concepts/storage.md
+FAIL HTTP Error 404: Not Found  qdrant_telemetry.md  <- https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/guides/telemetry.md
+FAIL HTTP Error 404: Not Found  weaviate_LICENSE_WEAVIATE  <- https://raw.githubusercontent.com/weaviate/weaviate/main/LICENSE-WEAVIATE
+OK       9418  weaviate_cluster.md
+OK       8870  weaviate_collections_limits.mdx
+OK      19078  weaviate_compression.md
+OK      23743  weaviate_multitenancy.md
+FAIL HTTP Error 404: Not Found  weaviate_rbac.md  <- https://raw.githubusercontent.com/weaviate/docs/main/docs/weaviate/configuration/rbac/index.md
+OK      11753  weaviate_replication_arch.md
+OK      30536  weaviate_vector_index.md
+OK       4007  weaviate_wl_dir.json

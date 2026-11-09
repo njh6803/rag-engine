@@ -1,0 +1,6 @@
+library/rabbitmq:4-management amd64 135.5MB
+library/rabbitmq:4 amd64 131.0MB
+aio-pika 10.2.3 license='Apache-2.0' requires_python='<4,>=3.11'
+pika 1.4.4 license='BSD-3-Clause' requires_python='>=3.7'
+celery 5.7.0 license='BSD-3-Clause' requires_python='>=3.10'
+kombu 5.7.0 license='BSD-3-Clause' requires_python='>=3.10'

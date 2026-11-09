@@ -1,0 +1,24 @@
+Cargo v1.20.0: charabia = { version = "0.10.0", default-features = false, features = [
+Cargo v1.20.0: "greek",
+Cargo v1.20.0: "hebrew",
+Cargo v1.20.0: "thai",
+Cargo v1.20.0: "chinese-segmentation",
+Cargo v1.20.0: "chinese-normalization",
+Cargo v1.20.0: ] }
+qdrant-client 1.20.0 Apache-2.0
+requires_python >=3.10
+  dep: fastembed<0.10,>=0.9; extra == "fastembed"
+  dep: fastembed-gpu<0.10,>=0.9; extra == "fastembed-gpu"
+  dep: grpcio>=1.41.0
+  dep: httpx[http2]>=0.20.0
+  dep: numpy>=1.21; python_version == "3.11"
+  dep: numpy<2.3.0,>=1.21; python_version == "3.10"
+  dep: numpy>=1.26; python_version == "3.12"
+  dep: numpy>=2.1.0; python_version == "3.13"
+  dep: numpy>=2.3.0; python_version >= "3.14"
+  dep: orjson>=3.9.15; extra == "orjson"
+  dep: portalocker<5.0,>=2.7.0
+  dep: protobuf>=3.20.0
+  dep: pydantic!=2.0.*,!=2.1.*,!=2.2.0,>=1.10.8
+  dep: urllib3<3,>=1.26.14
+wheel MB 0.47 py.typed: ['qdrant_client/py.typed']

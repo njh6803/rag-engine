@@ -1,0 +1,5 @@
+call_tool signature: (self, name: 'str', arguments: 'dict[str, Any] | None' = None, read_timeout_seconds: 'float | None' = None, progress_callback: 'ProgressFnT | None' = None, *, input_responses: 'InputResponses | None' = None, request_state: 'str | None' = None, meta: 'RequestParamsMeta | None' = None) -> 'CallToolResult'
+report_progress signature: (self, progress: 'float', total: 'float | None' = None, message: 'str | None' = None) -> 'None'
+[기본: 세션 유지 + SSE] result={'result': 'done'} progress_callbacks=3 [(1.0, 3.0, 'step 1'), (2.0, 3.0, 'step 2'), (3.0, 3.0, 'step 3')]
+[stateless_http=True + SSE] result={'result': 'done'} progress_callbacks=3 [(1.0, 3.0, 'step 1'), (2.0, 3.0, 'step 2'), (3.0, 3.0, 'step 3')]
+[stateless_http=True + json_response=True] result={'result': 'done'} progress_callbacks=0 []

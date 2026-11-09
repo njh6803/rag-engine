@@ -1,0 +1,1 @@
+pg_textsearch_limitations.html https://www.postgresql.org/docs/current/textsearch-limitations.html

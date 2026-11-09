@@ -1,0 +1,25 @@
+OK       1900  paradedb_limitations.mdx
+OK       3336  paradedb_high_availability.mdx
+OK       2677  paradedb_logical_replication.mdx
+OK        522  weaviate_wl_LICENSE
+FAIL HTTP Error 404: Not Found  weaviate_enterprise.md  <- https://raw.githubusercontent.com/weaviate/docs/main/docs/deploy/enterprise.md
+OK       7112  weaviate_telemetry.md
+OK       9253  weaviate_rbac_config.md
+OK       3121  meilisearch_LICENSE_EE
+OK        354  meilisearch_LICENSE
+OK       4247  meilisearch_sharding_rs
+FAIL <urlopen error [SSL: CERTIFICATE_VERIFY_  dbengines_vector.html  <- https://db-engines.com/en/ranking/vector+dbms
+FAIL <urlopen error [SSL: CERTIFICATE_VERIFY_  dbengines_vector_all.html  <- https://db-engines.com/en/ranking/vector+dbms/all
+OK    1378522  elastic_subscriptions.pdf
+OK     128408  qdrant_pricing.html
+OK      60169  weaviate_pricing.html
+OK     251915  zilliz_pricing.html
+OK     152100  meilisearch_pricing.html
+OK     726551  paradedb_pricing.html
+OK     448104  elastic_agpl_blog.html
+OK     471725  elastic_license_change_blog.html
+OK     431079  elastic_security_free_blog.html
+OK     368074  qdrant_customers.html
+OK    2964444  so_survey_2025_tech.html
+OK     287865  meilisearch_known_limits.html
+OK     326297  meilisearch_telemetry.html

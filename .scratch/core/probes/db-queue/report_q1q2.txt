@@ -1,0 +1,119 @@
+==============================================================================
+[psycopg]
+  최신 판: 3.3.8  (업로드 2026-11-04T09:37:35)
+  requires_python: '>=3.10'
+  license 필드: ''
+  license_expression: 'LGPL-3.0-only'
+  license_files: ['LICENSE.txt']
+  License 분류자: []
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+  Typing 분류자: []
+  requires_dist: ['typing-extensions>=4.6; python_version < "3.13"', 'tzdata; sys_platform == "win32"', 'psycopg-c==3.3.8; implementation_name != "pypy" and extra == "c"', 'psycopg-binary==3.3.8; implementation_name != "pypy" and extra == "binary"', 'psycopg-pool; extra == "pool"', 'anyio>=4.0; extra == "test"', 'mypy>=2.1.0; implementation_name != "pypy" and extra == "test"', 'pproxy>=2.7; extra == "test"', 'pytest>=6.2.5; extra == "test"', 'pytest-cov>=3.0; extra == "test"', 'pytest-randomly>=3.5; extra == "test"', 'ast-comments>=1.1.2; extra == "dev"', 'black>=26.1.0; extra == "dev"', 'codespell>=2.2; extra == "dev"', 'cython-lint>=0.21; extra == "dev"', 'dnspython>=2.1; extra == "dev"', 'flake8>=4.0; extra == "dev"', 'isort[colors]>=6.0; extra == "dev"', 'isort-psycopg>=0.0.3; extra == "dev"', 'mypy>=2.1.0; extra == "dev"', 'pre-commit>=4.0.1; extra == "dev"', 'types-setuptools>=57.4; extra == "dev"', 'types-shapely>=2.0; extra == "dev"', 'wheel>=0.37; extra == "dev"', 'Sphinx>=9.1; extra == "docs"', 'furo==2025.12.19; extra == "docs"', 'sphinx-autobuild>=2025.8.25; extra == "docs"', 'sphinx-autodoc-typehints>=3.10.2; extra == "docs"']
+  project_urls: {'Changes': 'https://psycopg.org/psycopg3/docs/news.html', 'Code': 'https://github.com/psycopg/psycopg', 'Documentation': 'https://psycopg.org/psycopg3/docs/', 'Funding': 'https://github.com/sponsors/dvarrazzo', 'Homepage': 'https://psycopg.org/', 'Issue Tracker': 'https://github.com/psycopg/psycopg/issues'}
+  최근 판 5개(업로드일, 판): [('2026-11-04T09:37:35', '3.3.8'), ('2026-11-03T03:51:21', '3.3.7'), ('2026-09-18T13:15:29', '3.3.6'), ('2026-08-31T22:39:02', '3.3.5'), ('2026-05-01T23:20:50', '3.3.4')]
+  휠: psycopg-3.3.8-py3-none-any.whl (216209 bytes)
+  휠 속 py.typed: ['psycopg/py.typed']
+  휠 속 .pyi 수: 1
+  휠 최상위: ['psycopg', 'psycopg-3.3.8.dist-info']
+==============================================================================
+[psycopg-binary]
+  최신 판: 3.3.8  (업로드 2026-11-04T09:37:45)
+  requires_python: '>=3.10'
+  license 필드: ''
+  license_expression: 'LGPL-3.0-only'
+  license_files: ['LICENSE.txt']
+  License 분류자: []
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+  Typing 분류자: []
+  requires_dist: None
+  project_urls: {'Changes': 'https://psycopg.org/psycopg3/docs/news.html', 'Code': 'https://github.com/psycopg/psycopg', 'Documentation': 'https://psycopg.org/psycopg3/docs/', 'Funding': 'https://github.com/sponsors/dvarrazzo', 'Homepage': 'https://psycopg.org/', 'Issue Tracker': 'https://github.com/psycopg/psycopg/issues'}
+  최근 판 5개(업로드일, 판): [('2026-11-04T09:37:45', '3.3.8'), ('2026-11-03T03:51:27', '3.3.7'), ('2026-09-18T13:15:36', '3.3.6'), ('2026-08-31T22:39:12', '3.3.5'), ('2026-05-01T23:24:20', '3.3.4')]
+  휠: psycopg_binary-3.3.8-cp312-cp312-win_amd64.whl (3619067 bytes)
+  휠 속 py.typed: ['psycopg_binary/py.typed']
+  휠 속 .pyi 수: 1
+  휠 최상위: ['psycopg_binary', 'psycopg_binary-3.3.8.dist-info', 'psycopg_binary.libs']
+==============================================================================
+[psycopg-pool]
+  최신 판: 3.3.3  (업로드 2026-09-22T15:53:23)
+  requires_python: '>=3.10'
+  license 필드: ''
+  license_expression: 'LGPL-3.0-only'
+  license_files: ['LICENSE.txt']
+  License 분류자: []
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+  Typing 분류자: []
+  requires_dist: ['typing-extensions>=4.6', 'anyio>=4.0; extra == "test"', 'mypy>=2.1.0; extra == "test"', 'pproxy>=2.7; extra == "test"', 'pytest>=6.2.5; extra == "test"', 'pytest-cov>=3.0; extra == "test"', 'pytest-randomly>=3.5; extra == "test"']
+  project_urls: {'Changes': 'https://psycopg.org/psycopg3/docs/news_pool.html', 'Code': 'https://github.com/psycopg/psycopg', 'Documentation': 'https://www.psycopg.org/psycopg3/docs/advanced/pool.html', 'Funding': 'https://github.com/sponsors/dvarrazzo', 'Homepage': 'https://psycopg.org/', 'Issue Tracker': 'https://github.com/psycopg/psycopg/issues'}
+  최근 판 5개(업로드일, 판): [('2026-09-22T15:53:23', '3.3.3'), ('2026-09-18T13:22:53', '3.3.2'), ('2026-05-01T23:31:53', '3.3.1'), ('2025-12-01T11:34:29', '3.3.0'), ('2025-11-21T22:34:31', '3.2.8')]
+  휠: psycopg_pool-3.3.3-py3-none-any.whl (40304 bytes)
+  휠 속 py.typed: ['psycopg_pool/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['psycopg_pool', 'psycopg_pool-3.3.3.dist-info']
+==============================================================================
+[asyncpg]
+  최신 판: 0.32.0  (업로드 2026-10-06T20:30:25)
+  requires_python: '>=3.9.0'
+  license 필드: ''
+  license_expression: 'Apache-2.0'
+  license_files: ['LICENSE']
+  License 분류자: []
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.9']
+  Typing 분류자: []
+  requires_dist: ['async_timeout>=4.0.3; python_version < "3.11.0"', 'gssapi; platform_system != "Windows" and extra == "gssauth"', 'sspilib; platform_system == "Windows" and extra == "gssauth"']
+  project_urls: {'github': 'https://github.com/MagicStack/asyncpg'}
+  최근 판 5개(업로드일, 판): [('2026-10-06T20:30:25', '0.32.0'), ('2025-11-24T23:25:23', '0.31.0'), ('2024-10-20T00:29:08', '0.30.0'), ('2023-11-05T05:57:40', '0.29.0'), ('2023-07-07T01:01:23', '0.28.0')]
+  휠: asyncpg-0.32.0-cp312-cp312-win_amd64.whl (626763 bytes)
+  휠 속 py.typed: 없음
+  휠 속 .pyi 수: 3
+  휠 최상위: ['asyncpg', 'asyncpg-0.32.0.dist-info']
+==============================================================================
+[sqlalchemy]
+  최신 판: 2.1.8  (업로드 2026-11-04T01:18:31)
+  requires_python: '>=3.11'
+  license 필드: ''
+  license_expression: 'MIT'
+  license_files: ['LICENSE', 'AUTHORS']
+  License 분류자: []
+  Python 분류자: ['3.11', '3.12', '3.13', '3.14', '3.15']
+  Typing 분류자: []
+  requires_dist: ['typing-extensions>=4.6.0', 'greenlet>=1; extra == "asyncio"', 'mypy>=2.4; extra == "mypy"', 'types-greenlet>=2; extra == "mypy"', 'pyodbc; extra == "mssql"', 'pymssql; extra == "mssql-pymssql"', 'pyodbc; extra == "mssql-pyodbc"', 'mssql-python>=1.9.0; extra == "mssql-python"', 'mysqlclient>=1.4.0; extra == "mysql"', 'mysql-connector-python; extra == "mysql-connector"', 'mariadb!=1.1.10,!=1.1.2,!=1.1.5,>=1.0.1; extra == "mariadb-connector"', 'oracledb>=2.0.1; extra == "oracle"', 'cx_oracle>=8; extra == "oracle-cxoracle"', 'oracledb>=2.0.1; extra == "oracle-oracledb"', 'psycopg!=3.1.15,>=3.0.7; extra == "postgresql"', 'pg8000>=1.29.3; extra == "postgresql-pg8000"', 'sqlalchemy[asyncio]; extra == "postgresql-asyncpg"', 'asyncpg; extra == "postgresql-asyncpg"', 'psycopg2-binary; extra == "postgresql-psycopg2binary"', 'psycopg2cffi; extra == "postgresql-psycopg2cffi"', 'psycopg!=3.1.15,>=3.0.7; extra == "postgresql-psycopg"', 'psycopg[binary]!=3.1.15,>=3.0.7; extra == "postgresql-psycopgbinary"', 'pymysql; extra == "pymysql"', 'cymysql; extra == "cymysql"', 'sqlalchemy[asyncio]; extra == "aiomysql"', 'aiomysql; extra == "aiomysql"', 'sqlalchemy[asyncio]; extra == "aioodbc"', 'aioodbc; extra == "aioodbc"', 'sqlalchemy[asyncio]; extra == "asyncmy"', 'asyncmy>=0.2.12; extra == "asyncmy"', 'sqlalchemy[asyncio]; extra == "aiosqlite"', 'aiosqlite; extra == "aiosqlite"', 'sqlcipher3_binary; extra == "sqlcipher"']
+  project_urls: {'Changelog': 'https://docs.sqlalchemy.org/latest/changelog/index.html', 'Discussions': 'https://github.com/sqlalchemy/sqlalchemy/discussions', 'Documentation': 'https://docs.sqlalchemy.org', 'Homepage': 'https://www.sqlalchemy.org', 'Issue Tracker': 'https://github.com/sqlalchemy/sqlalchemy/issues', 'Source Code': 'https://github.com/sqlalchemy/sqlalchemy'}
+  최근 판 5개(업로드일, 판): [('2026-11-04T01:18:31', '2.1.8'), ('2026-11-04T00:58:47', '2.0.57'), ('2026-11-03T20:34:34', '2.1.7'), ('2026-11-03T20:25:53', '2.0.56'), ('2026-10-21T16:25:06', '2.1.6')]
+  휠: sqlalchemy-2.1.8-py3-none-any.whl (2067639 bytes)
+  휠 속 py.typed: ['sqlalchemy/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['sqlalchemy', 'sqlalchemy-2.1.8.dist-info']
+==============================================================================
+[alembic]
+  최신 판: 1.20.1  (업로드 2026-10-22T03:24:35)
+  requires_python: '>=3.10'
+  license 필드: ''
+  license_expression: 'MIT'
+  license_files: ['LICENSE']
+  License 분류자: []
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+  Typing 분류자: []
+  requires_dist: ['SQLAlchemy>=2.0', 'Mako', 'typing-extensions>=4.12', 'tomli; python_version < "3.11"', 'tzdata; extra == "tz"']
+  project_urls: {'Changelog': 'https://alembic.sqlalchemy.org/en/latest/changelog.html', 'Documentation': 'https://alembic.sqlalchemy.org/en/latest/', 'Homepage': 'https://alembic.sqlalchemy.org', 'Issue Tracker': 'https://github.com/sqlalchemy/alembic/issues/', 'Source': 'https://github.com/sqlalchemy/alembic/'}
+  최근 판 5개(업로드일, 판): [('2026-10-22T03:24:35', '1.20.1'), ('2026-09-11T19:09:11', '1.20.0'), ('2026-09-04T17:10:11', '1.19.2'), ('2026-08-08T16:32:01', '1.19.1'), ('2026-08-04T18:57:04', '1.19.0')]
+  휠: alembic-1.20.1-py3-none-any.whl (270355 bytes)
+  휠 속 py.typed: ['alembic/py.typed']
+  휠 속 .pyi 수: 2
+  휠 최상위: ['alembic', 'alembic-1.20.1.dist-info']
+==============================================================================
+[yoyo-migrations]
+  최신 판: 9.0.0  (업로드 2024-08-10T09:43:50)
+  requires_python: None
+  license 필드: 'Apache'
+  license_expression: None
+  license_files: None
+  License 분류자: ['License :: OSI Approved :: Apache Software License']
+  Python 분류자: []
+  Typing 분류자: []
+  requires_dist: ['sqlparse', 'tabulate', 'importlib-metadata>=3.6.0', 'PyMySQL; extra == "mysql"', 'psycopg2; extra == "postgres"', 'pyodbc; extra == "pyodbc"']
+  project_urls: {'Homepage': 'https://ollycope.com/software/yoyo/latest/'}
+  최근 판 5개(업로드일, 판): [('2024-08-10T09:43:50', '9.0.0'), ('2022-12-14T14:58:39', '8.2.0'), ('2022-11-03T16:22:45', '8.1.0'), ('2022-10-05T13:27:06', '8.0.0'), ('2021-05-23T13:24:28', '7.3.2')]
+  휠: yoyo_migrations-9.0.0-py3-none-any.whl (49002 bytes)
+  휠 속 py.typed: 없음
+  휠 속 .pyi 수: 0
+  휠 최상위: ['yoyo', 'yoyo_migrations-9.0.0.dist-info']

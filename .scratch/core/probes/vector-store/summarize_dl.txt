@@ -1,0 +1,141 @@
+=== LICENSE heads ===
+charabia_LICENSE: 1071B :: MIT License | Copyright (c) 2020-2025 Meili SAS | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal | in the Software without restriction, including with
+chroma_LICENSE: 11357B :: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION | 1. Definitions. | "License" shall mean the terms and conditions for use, reproduction, | and distribution as defined b
+elasticsearch_LICENSE.txt: 669B :: Source code in this repository is covered by (i) a triple license under the "GNU | Affero General Public License v3.0 only", "the Server Side Public License, v 1", | and the "Elastic License 2.0", or (ii) an "Apache License 2.0" compatible | license or (iii) s
+kagome_LICENSE: 1064B :: MIT License | Copyright (c) 2020 ikawaha | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal | in the Software without restriction, including without lim
+kiwi_LICENSE: 11372B :: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION | 1. Definitions. | "License" shall mean the terms and conditions for use, reproduction, | and distribution as defined b
+lancedb_LICENSE: 11357B :: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION | 1. Definitions. | "License" shall mean the terms and conditions for use, reproduction, | and distribution as defined b
+lindera_LICENSE: 1080B :: MIT License | Copyright (c) 2019 by the project authors. | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal | in the Software without restriction, inclu
+meilisearch_LICENSE: 354B :: # License | Copyright (c) 2019-2025 Meili SAS | Part of this work fall under the Meilisearch Enterprise Edition (EE) and are licensed under the Business Source License 1.1, please refer to [LICENSE-EE](./LICENSE-EE) for details. | The other parts of this work 
+opensearch_LICENSE.txt: 11357B :: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION | 1. Definitions. | "License" shall mean the terms and conditions for use, reproduction, | and distribution as defined b
+paradedb_LICENSE: 34523B :: GNU AFFERO GENERAL PUBLIC LICENSE | Version 3, 19 November 2007 | Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/> | Everyone is permitted to copy and distribute verbatim copies | of this license document, but changing it is not allowed. | 
+pg_tokenizer_LICENSE: 11356B :: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION | 1. Definitions. | "License" shall mean the terms and conditions for use, reproduction, | and distribution as defined b
+pgvectorscale_LICENSE: 909B :: The PostgreSQL License | Permission to use, copy, modify, and distribute this software and its | documentation for any purpose, without fee, and without a written agreement | is hereby granted, provided that the above copyright notice and this paragraph | and 
+typesense_LICENSE.txt: 35148B :: GNU GENERAL PUBLIC LICENSE | Version 3, 29 June 2007 | Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/> | Everyone is permitted to copy and distribute verbatim copies | of this license document, but changing it is not allowed. | Preamble | 
+vchord_bm25_LICENSE: 1271B :: # Dual License Notice | This software is licensed under a dual license model. You may choose to use this software under one of the following licenses: | 1. **GNU Affero General Public License v3 (AGPLv3)** | This program is free software: you can redistribute 
+vchord_LICENSE: 1272B :: # Dual License Notice | This software is licensed under a dual license model. You may choose to use this software under one of the following licenses: | 1. **GNU Affero General Public License v3 (AGPLv3)** | This program is free software: you can redistribute 
+vespa_LICENSE: 11354B :: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION | 1. Definitions. | "License" shall mean the terms and conditions for use, reproduction, | and distribution as defined b
+mecab_COPYING: 240B :: MeCab is copyrighted free software by Taku Kudo <taku@chasen.org> and | Nippon Telegraph and Telephone Corporation, and is released under | any of the GPL (see the file GPL), the LGPL (see the file LGPL), or the | BSD License (see the file BSD).
+mecab_ko_dic_COPYING: 11357B :: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION | 1. Definitions. | "License" shall mean the terms and conditions for use, reproduction, | and distribution as defined b
+
+=== control files ===
+--- paradedb_pg_search.control
+comment = 'pg_search: One Postgres for your application data, full-text search, vector retrieval, and aggregations'
+default_version = '@CARGO_VERSION@'
+module_pathname = '$libdir/pg_search'
+relocatable = false
+superuser = false
+schema = paradedb
+requires = 'vector'
+--- pg_bigm.control
+# pg_bigm extension
+comment = 'text similarity measurement and index searching based on bigrams'
+default_version = '1.2'
+module_pathname = '$libdir/pg_bigm'
+relocatable = true
+--- pgvector_vector.control
+comment = 'vector data type and ivfflat and hnsw access methods'
+default_version = '0.8.7'
+module_pathname = '$libdir/vector'
+relocatable = true
+--- pgvectorscale_vectorscale.control
+comment = 'diskann access method for vector search'
+default_version = '@CARGO_VERSION@'
+#module_pathname = '$libdir/pgvectorscale'
+relocatable = false
+superuser = true
+requires = 'vector'
+--- vchord.control
+comment = 'vchord: Vector database plugin for Postgres, written in Rust, specifically designed for LLM'
+default_version = '0.0.0'
+module_pathname = 'vchord'
+relocatable = true
+superuser = true
+requires = 'vector'
+
+=== GitHub latest releases ===
+chroma_release.json: tag=1.5.9 published=2026-05-05 name=1.5.9
+elasticsearch_release.json: tag=v9.5.6 published=2026-11-02 name=Elasticsearch 9.5.6
+kiwipiepy_release.json: tag=v0.24.1 published=2026-10-20 name=0.24.1
+lancedb_release.json: tag=v0.41.0 published=2026-10-29 name=LanceDB v0.41.0
+meilisearch_release.json: ERR 'cp949' codec can't encode character '\U0001f42b' in position 72: illegal multibyte sequence
+opensearch_release.json: tag=3.9.0 published=2026-09-29 name=3.9.0
+paradedb_release.json: tag=v0.26.6 published=2026-11-08 name=v0.26.6
+pgvectorscale_release.json: tag=0.9.1 published=2026-09-04 name=0.9.1
+typesense_release.json: tag=v30.2 published=2026-04-19 name=Version 30.2
+vchord_release.json: tag=1.1.1 published=2026-02-28 name=1.1.1
+vespa_release.json: tag=v8.781.11 published=2026-11-02 name=Vespa CLI 8.781.11
+
+=== PyPI ===
+--- asyncpg 0.32.0 (2026-10-06) requires_python=>=3.9.0 wheels=81 wheel_MB=[0.5, 0.6, 0.7, 0.8]
+    license='' license_expression='Apache-2.0' classifiers=[]
+    requires(no extra)=['async_timeout>=4.0.3; python_version < "3.11.0"']
+    extras=['gssauth']
+--- chromadb 1.5.9 (2026-05-05) requires_python=>=3.9 wheels=5 wheel_MB=[21.7, 22.6, 22.7, 23.3]
+    license='' license_expression='' classifiers=['License :: OSI Approved :: Apache Software License']
+    requires(no extra)=['build>=1.0.3', 'pydantic>=2.0', 'pydantic-settings>=2.0', 'pybase64>=1.4.1', 'uvicorn[standard]>=0.18.3', 'numpy>=1.22.5', 'typing-extensions>=4.5.0', 'onnxruntime>=1.14.1', 'opentelemetry-api>=1.2.0', 'opentelemetry-exporter-otlp-proto-grpc>=1.2.0', 'opentelemetry-sdk>=1.2.0', 'tokenizers>=0.13.2', 'pypika>=0.48.9', 'tqdm>=4.65.0', 'overrides>=7.3.1', 'importlib-resources', 'graphlib-backport>=1.0.3; python_full_version < "3.9"', 'grpcio>=1.58.0', 'bcrypt>=4.0.1', 'typer>=0.9.0', 'kubernetes>=28.1.0', 'tenacity>=8.2.3', 'pyyaml>=6.0.0', 'mmh3>=4.0.1', 'orjson>=3.9.12', 'httpx>=0.27.0', 'rich>=10.11.0', 'jsonschema>=4.19.0']
+    extras=['dev']
+--- elasticsearch 9.5.1 (2026-09-09) requires_python=>=3.10 wheels=1 wheel_MB=[1.0]
+    license='' license_expression='Apache-2.0' classifiers=['License :: OSI Approved :: Apache Software License']
+    requires(no extra)=['anyio', 'elastic-transport<10,>=9.4.1', 'python-dateutil', 'sniffio', 'typing-extensions']
+    extras=['async', 'dev', 'docs', 'orjson', 'pyarrow', 'requests', 'vectorstore-mmr']
+--- kiwipiepy 0.24.1 (2026-10-20) requires_python=>=3.9 wheels=10 wheel_MB=[3.7, 3.8, 5.2, 5.9]
+    license='' license_expression='Apache-2.0' classifiers=[]
+    requires(no extra)=['kiwipiepy_model<0.25,>=0.24', 'numpy', 'tqdm']
+    extras=[]
+--- lancedb 0.41.0 (2026-10-29) requires_python=>=3.10 wheels=4 wheel_MB=[69.0, 73.2, 76.9, 85.6]
+    license='' license_expression='' classifiers=['License :: OSI Approved :: Apache Software License']
+    requires(no extra)=['deprecation>=2.1.0', 'numpy>=1.24.0', 'overrides>=0.7; python_full_version < "3.12"', 'packaging>=23.0', 'pyarrow>=16', 'pydantic<3,>=2.7.4', 'tqdm>=4.27.0', 'lance-namespace>=0.13.0']
+    extras=['azure', 'clip', 'dev', 'docs', 'embeddings', 'otel', 'pylance', 'siglip', 'tests']
+--- mecab-ko 1.0.3 (2026-10-28) requires_python=>=3.9 wheels=42 wheel_MB=[0.4, 0.5, 0.6, 0.9]
+    license='BSD' license_expression='' classifiers=['License :: OSI Approved :: BSD License']
+    requires(no extra)=['mecab-ko-dic<2.0,>=1.0']
+    extras=[]
+--- meilisearch-python-sdk 8.1.5 (2026-11-04) requires_python=>=3.11 wheels=1 wheel_MB=[0.1]
+    license='MIT License  Copyright (c) 2021 Paul Sanders  Permission is hereby granted, free' license_expression='' classifiers=['License :: OSI Approved :: MIT License', 'Typing :: Typed']
+    requires(no extra)=['camel-converter[pydantic]>=1.0.0', 'httpx2[http2]>=2.0.0', 'pydantic>=2.0.0']
+    extras=['all', 'orjson']
+--- meilisearch 0.43.0 (2026-07-22) requires_python=>=3.10 wheels=1 wheel_MB=[0.0]
+    license='MIT' license_expression='' classifiers=['License :: OSI Approved :: MIT License']
+    requires(no extra)=['requests', 'camel-converter[pydantic]']
+    extras=[]
+--- opensearch-dsl 2.1.0 (2023-03-21) requires_python=>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.* wheels=1 wheel_MB=[0.1]
+    license='Apache-2.0' license_expression='' classifiers=['License :: OSI Approved :: Apache Software License']
+    requires(no extra)=['six', 'python-dateutil', 'opensearch-py (>=2.2.0)', 'ipaddress ; python_version < "3.3"']
+    extras=[]
+--- opensearch-py 3.2.0 (2026-04-27) requires_python=<4,>=3.10 wheels=1 wheel_MB=[0.4]
+    license='Apache-2.0' license_expression='' classifiers=['License :: OSI Approved :: Apache Software License']
+    requires(no extra)=['urllib3<1.27,>=1.26.19; python_version < "3.10"', 'urllib3!=2.2.0,!=2.2.1,<3,>=1.26.19; python_version >= "3.10"', 'requests<3.0.0,>=2.32.0', 'python-dateutil', 'certifi>=2024.07.04', 'Events', 'opensearch-protobufs==1.2.0']
+    extras=['async', 'develop', 'docs', 'kerberos']
+--- pgvector 0.5.1 (2026-10-09) requires_python=>=3.10 wheels=1 wheel_MB=[0.0]
+    license='' license_expression='MIT' classifiers=[]
+    requires(no extra)=[]
+    extras=[]
+--- psycopg 3.3.8 (2026-11-04) requires_python=>=3.10 wheels=1 wheel_MB=[0.2]
+    license='' license_expression='LGPL-3.0-only' classifiers=[]
+    requires(no extra)=['typing-extensions>=4.6; python_version < "3.13"', 'tzdata; sys_platform == "win32"']
+    extras=['binary', 'c', 'dev', 'docs', 'pool', 'test']
+--- pymilvus 3.0.2 (2026-09-18) requires_python=>=3.9 wheels=1 wheel_MB=[0.4]
+    license='' license_expression='' classifiers=['License :: OSI Approved :: Apache Software License']
+    requires(no extra)=['cachetools>=5.0.0', 'grpcio!=1.68.0,!=1.68.1,!=1.69.0,!=1.70.0,!=1.70.1,!=1.71.0,!=1.72.1,!=1.73.0,>=1.66.2; python_version < "3.14"', 'grpcio>=1.75.1; python_version >= "3.14"', 'orjson>=3.10.15', 'pandas>=1.2.4', 'protobuf>=5.27.2', 'python-dotenv<2.0.0,>=1.0.1', 'requests>=2.20.0']
+    extras=['bloom-filter', 'bulk-writer', 'milvus-lite', 'model']
+--- python-mecab-ko 1.3.7 (2024-07-14) requires_python=>=3.7 wheels=45 wheel_MB=[0.3, 0.4, 0.6, 0.7]
+    license='BSD 3-Clause License' license_expression='' classifiers=['License :: OSI Approved :: BSD License']
+    requires(no extra)=['python-mecab-ko-dic']
+    extras=[]
+--- qdrant-client 1.20.0 (2026-10-22) requires_python=>=3.10 wheels=1 wheel_MB=[0.5]
+    license='Apache-2.0' license_expression='' classifiers=['License :: OSI Approved :: Apache Software License']
+    requires(no extra)=['grpcio>=1.41.0', 'httpx[http2]>=0.20.0', 'numpy>=1.21; python_version == "3.11"', 'numpy<2.3.0,>=1.21; python_version == "3.10"', 'numpy>=1.26; python_version == "3.12"', 'numpy>=2.1.0; python_version == "3.13"', 'numpy>=2.3.0; python_version >= "3.14"', 'portalocker<5.0,>=2.7.0', 'protobuf>=3.20.0', 'pydantic!=2.0.*,!=2.1.*,!=2.2.0,>=1.10.8', 'urllib3<3,>=1.26.14']
+    extras=['fastembed', 'fastembed-gpu', 'orjson']
+--- SQLAlchemy 2.1.8 (2026-11-04) requires_python=>=3.11 wheels=71 wheel_MB=[2.1, 2.4, 2.5, 4.3]
+    license='' license_expression='MIT' classifiers=[]
+    requires(no extra)=['typing-extensions>=4.6.0']
+    extras=['aiomysql', 'aioodbc', 'aiosqlite', 'asyncio', 'asyncmy', 'cymysql', 'mariadb-connector', 'mssql', 'mssql-pymssql', 'mssql-pyodbc', 'mssql-python', 'mypy', 'mysql', 'mysql-connector', 'oracle', 'oracle-cxoracle', 'oracle-oracledb', 'postgresql', 'postgresql-asyncpg', 'postgresql-pg8000', 'postgresql-psycopg', 'postgresql-psycopg2binary', 'postgresql-psycopg2cffi', 'postgresql-psycopgbinary', 'pymysql', 'sqlcipher']
+--- typesense 2.1.1 (2026-10-23) requires_python=>=3.9 wheels=1 wheel_MB=[0.2]
+    license='Apache 2.0' license_expression='' classifiers=['License :: OSI Approved :: Apache Software License']
+    requires(no extra)=['httpx>=0.28.1', 'typing-extensions']
+    extras=['httpx2']
+--- weaviate-client 4.24.1 (2026-10-26) requires_python=>=3.10 wheels=1 wheel_MB=[0.7]
+    license='BSD 3-clause' license_expression='' classifiers=[]
+    requires(no extra)=['httpx<0.29.0,>=0.26.0', 'certifi>=2026.10.19', 'validators<1.0.0,>=0.34.0', 'authlib<2.0.0,>=1.7.1', 'pydantic<3.0.0,>=2.12.0', 'grpcio<1.80.0,>=1.59.5; sys_platform != "emscripten"', 'protobuf<7.0.0,>=4.21.6', 'packaging>=21.0']
+    extras=['agents', 'grpc-web']

@@ -1,0 +1,27 @@
+
+===== 5: 레거시(2025-06-18) 핸드셰이크 세션 (기본 stateful) =====
+initialize -> 200 Mcp-Session-Id: b579295ac2c9402e9583545feb415baa
+tools/list with own session id -> 200 {"jsonrpc":"2.0","id":2,"result":{"tools":[{"annotations":{"readOnlyHint":true},"description":"","inputSchema":{"properties":{"x":{"title":"X","type":"integer"}
+tools/list with unknown session id (다른 워커가 받은 꼴) -> 404 {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Session not found"}}
+tools/list with no session id, no initialize -> 400 {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Bad Request: Missing session ID"}}
+SDK Client(mode='legacy') negotiated: 2025-11-25 | tools: ['echo']
+
+===== 5: 레거시(2025-06-18) 핸드셰이크 세션 (stateless_http=True) =====
+initialize -> 200 Mcp-Session-Id: None
+tools/list with unknown session id (다른 워커가 받은 꼴) -> 200 event: message
+data: {"jsonrpc":"2.0","id":2,"result":{"tools":[{"annotations":{"readOnlyHint":true},"description":"","inputSchema":{"properties":{"x":{"title"
+tools/list with no session id, no initialize -> 200 {"jsonrpc":"2.0","id":2,"result":{"tools":[{"annotations":{"readOnlyHint":true},"description":"","inputSchema":{"properties":{"x":{"title":"X","type":"integer"}
+SDK Client(mode='legacy') negotiated: 2025-11-25 | tools: ['echo']
+
+===== 1: allowed_hosts=['kb.example.com:*'] 에 포트 없는 Host =====
+Host=kb.example.com -> 421 Invalid Host header
+Host=kb.example.com:443 -> 400 {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Bad Request: Missin
+Host=KB.example.com:443 -> 421 Invalid Host header
+
+===== 2: 401 때 SDK Client 예외 사슬 =====
+builtins.ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  builtins.ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+    mcp.shared.exceptions.MCPError: Server returned an error response
+mode='legacy' -> builtins.ExceptionGroup unhandled errors in a TaskGroup (1 sub-exception)
+
+===== 끝 =====

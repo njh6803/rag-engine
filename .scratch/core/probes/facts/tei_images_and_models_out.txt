@@ -1,0 +1,40 @@
+ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4 amd64 layers 13 MB 239.3
+ollama/ollama:latest amd64 MB 3392.4 2026-11-06T01:47:41.608855Z
+vllm/vllm-openai:latest-efa amd64 MB 10527.2 2026-11-02T03:07:42.810646Z
+vllm/vllm-openai:v0.33.0-x86_64-zstd amd64 MB 7702.6 2026-11-02T03:10:52.242558Z
+vllm/vllm-openai:v0.33.0-efa amd64 MB 10527.2 2026-11-02T03:07:44.285412Z
+README.md v1.9.4 L71: model with Alibi positions and Mistral, Alibaba GTE, Qwen2 models with Rope positions, MPNet, ModernBERT, Qwen3, and Gemma3.
+README.md v1.9.4 L77: | 2         | 7.57B (Very Expensive) | Qwen3          | [Qwen/Qwen3-Embedding-8B](https://hf.co/Qwen/Qwen3-Embedding-8B)                                 |
+README.md v1.9.4 L78: | 3         | 4.02B (Very Expensive) | Qwen3          | [Qwen/Qwen3-Embedding-4B](https://hf.co/Qwen/Qwen3-Embedding-4B)                                 |
+README.md v1.9.4 L79: | 4         | 509M                   | Qwen3          | [Qwen/Qwen3-Embedding-0.6B](https://hf.co/Qwen/Qwen3-Embedding-0.6B)                             |
+README.md v1.9.4 L94: | N/A       | 340M                   | Qwen3          | [voyageai/voyage-4-nano](https://hf.co/voyageai/voyage-4-nano)                                   |
+README.md v1.9.4 L118: model=Qwen/Qwen3-Embedding-0.6B
+README.md v1.9.4 L398: git clone https://huggingface.co/Qwen/Qwen3-Embedding-0.6B
+README.md v1.9.4 L404: docker run --gpus all -p 8080:80 -v $volume:/data --pull always ghcr.io/huggingface/text-embeddings-inference:cuda-1.9 --model-id /data/Qwen3-Embedding-0.6B
+README.md v1.9.4 L487: model=Qwen/Qwen3-Embedding-0.6B
+README.md v1.9.4 L510: model=Qwen/Qwen3-Embedding-0.6B
+README.md v1.9.4 L539: model=Qwen/Qwen3-Embedding-0.6B
+README.md v1.9.4 L574: model=Qwen/Qwen3-Embedding-0.6B
+README.md v1.9.4 L109: | Re-Ranking         | XLM-RoBERTa | [BAAI/bge-reranker-large](https://huggingface.co/BAAI/bge-reranker-large)                                       |
+README.md v1.9.4 L110: | Re-Ranking         | XLM-RoBERTa | [BAAI/bge-reranker-base](https://huggingface.co/BAAI/bge-reranker-base)                                         |
+README.md v1.9.4 L111: | Re-Ranking         | GTE         | [Alibaba-NLP/gte-multilingual-reranker-base](https://huggingface.co/Alibaba-NLP/gte-multilingual-reranker-base) |
+README.md v1.9.4 L112: | Re-Ranking         | ModernBert  | [Alibaba-NLP/gte-reranker-modernbert-base](https://huggingface.co/Alibaba-NLP/gte-reranker-modernbert-base) |
+README.md v1.9.4 L413: See [this blogpost](https://blog.llamaindex.ai/boosting-rag-picking-the-best-embedding-reranker-models-42d079022e83) by
+README.md v1.9.4 L418: model=BAAI/bge-reranker-large
+README.md v1.9.4 L427: curl 127.0.0.1:8080/rerank \
+router/src/main.rs v1.9.4 L84: /// Control automatic truncation of inputs that exceed the model's maximum supported size.
+router/src/main.rs v1.9.4 L85: /// Defaults to `true` (truncation enabled). Set to `false` to disable truncation; when
+router/src/main.rs v1.9.4 L86: /// disabled and the model's maximum input length exceeds `--max-batch-tokens`, the server
+router/src/main.rs v1.9.4 L87: /// will refuse to start with an error instead of silently truncating sequences.
+router/src/main.rs v1.9.4 L88: ///
+router/src/main.rs v1.9.4 L89: /// Unused for gRPC servers
+router/src/main.rs v1.9.4 L90: #[clap(long, env, default_value = "true", num_args = 0..=1, default_missing_value = "true")]
+router/src/main.rs v1.9.4 L91: auto_truncate: bool,
+router/src/http/server.rs v1.9.4 L1107: path = "/v1/embeddings",
+router/src/http/server.rs v1.9.4 L1772: .route("/v1/embeddings", post(openai_embed))
+router/src/http/server.rs v1.9.4 L173: let truncate = req.truncate.unwrap_or(info.auto_truncate);
+router/src/http/server.rs v1.9.4 L372: let truncate = req.truncate.unwrap_or(info.auto_truncate);
+router/src/http/server.rs v1.9.4 L597: let truncate = req.truncate.unwrap_or(info.auto_truncate);
+router/src/http/server.rs v1.9.4 L786: let truncate = req.truncate.unwrap_or(info.auto_truncate);
+router/src/http/server.rs v1.9.4 L964: let truncate = req.truncate.unwrap_or(info.auto_truncate);
+router/src/http/server.rs v1.9.4 L1168: let truncate = info.auto_truncate;

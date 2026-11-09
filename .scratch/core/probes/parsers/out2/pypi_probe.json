@@ -1,0 +1,738 @@
+{
+  "docling-slim": {
+    "package": "docling-slim",
+    "version": "2.149.0",
+    "requires_python": "<4.0,>=3.10",
+    "license_field": "",
+    "license_expression": "MIT",
+    "license_classifiers": [],
+    "python_classifiers": [
+      "Programming Language :: Python :: 3.10",
+      "Programming Language :: Python :: 3.11",
+      "Programming Language :: Python :: 3.12",
+      "Programming Language :: Python :: 3.13",
+      "Programming Language :: Python :: 3.14"
+    ],
+    "typing_classifier": [],
+    "home_page": null,
+    "project_urls": {
+      "changelog": "https://github.com/docling-project/docling/blob/main/CHANGELOG.md",
+      "homepage": "https://github.com/docling-project/docling",
+      "issues": "https://github.com/docling-project/docling/issues",
+      "repository": "https://github.com/docling-project/docling"
+    },
+    "summary": "Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.",
+    "requires_dist_count": 204,
+    "requires_dist": [
+      "certifi>=2024.7.4",
+      "docling-core<3.0.0,>=2.106.0",
+      "filetype<2.0.0,>=1.2.0",
+      "langcodes<4.0.0,>=3.5.0",
+      "pluggy<2.0.0,>=1.0.0",
+      "pydantic-settings<3.0.0,>=2.3.0",
+      "pydantic<3.0.0,>=2.0.0",
+      "requests<3.0.0,>=2.32.2",
+      "tqdm<5.0.0,>=4.65.0",
+      "accelerate<2,>=1.0.0; extra == \"all\"",
+      "accelerate<2.0.0,>=1.2.1; extra == \"all\"",
+      "arelle-release<3.0.0,>=2.38.17; extra == \"all\"",
+      "beautifulsoup4<5.0.0,>=4.12.3; extra == \"all\"",
+      "defusedxml<0.8.0,>=0.7.1; extra == \"all\"",
+      "docling-core[chunking]<3.0.0,>=2.106.0; extra == \"all\"",
+      "docling-ibm-models<5,>=4.0.2; extra == \"all\"",
+      "docling-parse<8.0.0,>=7.22.2; extra == \"all\"",
+      "easyocr<2.0,>=1.7; extra == \"all\"",
+      "einops<1.0.0,>=0.8.1; extra == \"all\"",
+      "httpx<1.0.0,>=0.28; extra == \"all\"",
+      "huggingface-hub<3,>=0.23; extra == \"all\"",
+      "lxml<7.0.0,>=4.0.0; extra == \"all\"",
+      "mail-parser<5.0.0,>=4.1.4; extra == \"all\"",
+      "marko<3.0.0,>=2.1.2; extra == \"all\"",
+      "mlx-audio<0.7.0,>=0.6.4; (python_version >= \"3.10\" and sys_platform == \"darwin\" and platform_machine == \"arm64\") and extra == \"all\"",
+      "mlx-vlm<1.0.0,>=0.7.0; (python_version >= \"3.10\" and sys_platform == \"darwin\" and platform_machine == \"arm64\") and extra == \"all\"",
+      "mlx-whisper>=0.4.3; (python_version >= \"3.10\" and sys_platform == \"darwin\" and platform_machine == \"arm64\") and extra == \"all\"",
+      "numba>=0.63.0; extra == \"all\"",
+      "numpy<3.0.0,>=1.24.0; extra == \"all\"",
+      "ocrmac<2.0.0,>=1.0.0; sys_platform == \"darwin\" and extra == \"all\"",
+      "onnxruntime-gpu<1.24; (python_version < \"3.11\" and (sys_platform == \"linux\" or sys_platform == \"win32\")) and extra == \"all\"",
+      "onnxruntime-gpu<2.0.0,>=1.24.1; (python_version >= \"3.14\" and (sys_platform == \"linux\" or sys_platform == \"win32\")) and extra == \"all\"",
+      "onnxruntime-gpu<2.0.0; (python_version >= \"3.11\" and python_version < \"3.14\" and (sys_platform == \"linux\" or sys_platform == \"win32\")) and extra == \"all\"",
+      "onnxruntime<1.24; (python_version < \"3.11\" and sys_platform == \"darwin\") and extra == \"all\"",
+      "onnxruntime<2.0.0,>=1.24.1; (python_version >= \"3.14\" and sys_platform == \"darwin\") and extra == \"all\"",
+      "onnxruntime<2.0.0; (python_version >= \"3.11\" and python_version < \"3.14\" and sys_platform == \"darwin\") and extra == \"all\"",
+      "open-clip-torch<4.0.0,>=3.2.0; extra == \"all\"",
+      "openai-whisper>=20250625; extra == \"all\"",
+      "openpyxl<4.0.0,>=3.1.5; extra == \"all\"",
+      "pandas<4.0.0,>=2.1.4; extra == \"all\"",
+      "peft>=0.18.1; extra == \"all\"",
+      "pillow<14.0.0,>=10.0.0; extra == \"all\"",
+      "playwright>=1.58.0; extra == \"all\"",
+      "polyfactory>=2.22.2; extra == \"all\"",
+      "pylatexenc<3.0,>=2.10; extra == \"all\"",
+      "pypdfium2!=4.30.1,<6.0.0,>=4.30.0; extra == \"all\"",
+      "python-docx<2.0.0,>=1.2.0; extra == \"all\"",
+      "python-dotenv~=1.0; extra == \"all\"",
+      "python-oxmsg<0.1.0,>=0.0.2; extra == \"all\"",
+      "python-pptx<2.0.0,>=1.0.2; extra == \"all\"",
+      "qwen-vl-utils>=0.0.11; extra == \"all\"",
+      "rapidocr<4.0.0,>=3.9.1; extra == \"all\"",
+      "rich>=13.0.0; extra == \"all\"",
+      "rtree<2.0.0,>=1.3.0; extra == \"all\"",
+      "scikit-image>=0.19; extra == \"all\"",
+      "scipy<2.0.0,>=1.9.0; extra == \"all\"",
+      "tesserocr<3.0.0,>=2.7.1; extra == \"all\"",
+      "timm<2.0.0,>=1.0.22; extra == \"all\"",
+      "torch<3.0.0,>=2.2.2; extra == \"all\"",
+      "torchaudio<3.0.0,>=2.2.2; extra == \"all\"",
+      "torchvision<1,>=0; extra == \"all\"",
+      "transformers!=5.0.*,!=5.1.*,!=5.10.*,!=5.11.*,!=5.12.*,!=5.13.*,!=5.14.*,!=5.15.*,!=5.2.*,!=5.3.*,!=5.9.*,<6.0.0,>=4.42.0; sys_platform == \"darwin\" and extra == \"all\"",
+      "transformers!=5.0.*,!=5.1.*,!=5.13.0,!=5.2.*,!=5.3.*,<6.0.0,>=4.42.0; sys_platform != \"darwin\" and extra == \"all\"",
+      "transformers<6.0.0,>=5.16.0; extra == \"all\"",
+      "transformers<6.0.0,>=5.16.0; (sys_platform == \"darwin\" and platform_machine == \"arm64\") and extra == \"all\"",
+      "tritonclient[grpc]<3.0.0,>=2.65.0; extra == \"all\"",
+      "typer<0.28.0,>=0.19.0; extra == \"all\"",
+      "websockets<18.0,>=14.0; extra == \"all\"",
+      "whisper-s2t-reborn<2.0.0,>=1.8.0; (sys_platform != \"darwin\" or platform_machine != \"arm64\") and extra == \"all\"",
+      "python-dotenv~=1.0; extra == \"cli\"",
+      "rich>=13.0.0; extra == \"cli\"",
+      "typer<0.28.0,>=0.19.0; extra == \"cli\"",
+      "numpy<3.0.0,>=1.24.0; extra == \"convert-core\"",
+      "pillow<14.0.0,>=10.0.0; extra == \"convert-core\"",
+      "rtree<2.0.0,>=1.3.0; extra == \"convert-core\"",
+      "scipy<2.0.0,>=1.9.0; extra == \"convert-core\"",
+      "numpy<3.0.0,>=1.24.0; extra == \"extract-core\"",
+      "pillow<14.0.0,>=10.0.0; extra == \"extract-core\"",
+      "polyfactory>=2.22.2; extra == \"extract-core\"",
+      "rtree<2.0.0,>=1.3.0; extra == \"extract-core\""
+    ],
+    "release_upload_time": "2026-11-08T08:27:31",
+    "recent_releases": [
+      [
+        "2.149.0",
+        "2026-11-08T08:27:31"
+      ],
+      [
+        "2.148.0",
+        "2026-11-05T16:54:38"
+      ],
+      [
+        "2.147.0",
+        "2026-11-04T14:32:12"
+      ],
+      [
+        "2.146.0",
+        "2026-11-03T06:42:28"
+      ],
+      [
+        "2.145.0",
+        "2026-10-29T14:42:25"
+      ]
+    ],
+    "release_count": 67,
+    "wheel": "docling_slim-2.149.0-py3-none-any.whl",
+    "wheel_size": 1242409,
+    "py_typed_files": [
+      "docling/py.typed"
+    ],
+    "pyi_count": 0,
+    "py_typed": true,
+    "license_files_in_wheel": [
+      "docling_slim-2.149.0.dist-info/licenses/LICENSE"
+    ],
+    "metadata_license_lines": [
+      "License-Expression: MIT",
+      "License-File: LICENSE"
+    ]
+  },
+  "docling-core": {
+    "package": "docling-core",
+    "version": "2.106.0",
+    "requires_python": "<4.0,>=3.10",
+    "license_field": "",
+    "license_expression": "MIT",
+    "license_classifiers": [],
+    "python_classifiers": [
+      "Programming Language :: Python :: 3.10",
+      "Programming Language :: Python :: 3.11",
+      "Programming Language :: Python :: 3.12",
+      "Programming Language :: Python :: 3.13",
+      "Programming Language :: Python :: 3.14",
+      "Programming Language :: Python :: 3.15"
+    ],
+    "typing_classifier": [
+      "Typing :: Typed"
+    ],
+    "home_page": null,
+    "project_urls": {
+      "changelog": "https://github.com/docling-project/docling-core/blob/main/CHANGELOG.md",
+      "homepage": "https://github.com/docling-project",
+      "issues": "https://github.com/docling-project/docling-core/issues",
+      "repository": "https://github.com/docling-project/docling-core"
+    },
+    "summary": "A python library to define and validate data types in Docling.",
+    "requires_dist_count": 34,
+    "requires_dist": [
+      "jsonschema<5.0.0,>=4.16.0",
+      "pydantic!=2.10.0,!=2.10.1,!=2.10.2,<3.0.0,>=2.6.0",
+      "jsonref<2.0.0,>=1.1.0",
+      "tabulate<0.11.0,>=0.9.0",
+      "pandas<4.0.0,>=2.1.4",
+      "pillow<14.0.0,>=10.0.0",
+      "pyyaml<7.0.0,>=5.1",
+      "typing-extensions<5.0.0,>=4.12.2",
+      "typer<0.28.0,>=0.12.5",
+      "latex2mathml<4.0.0,>=3.77.0",
+      "defusedxml<0.8.0,>=0.7.1",
+      "pydantic-settings>=2.14.0",
+      "doclang<0.10,>=0.9",
+      "requests<3.0.0,>=2.34.2",
+      "doclang<0.10,>=0.9; extra == \"dclq\"",
+      "typer<0.28.0,>=0.26.0; extra == \"dclq\"",
+      "lxml>=6.0.2; extra == \"dclq\"",
+      "semchunk<4.0.0,>=2.2.0; extra == \"chunking\"",
+      "tree-sitter<0.27.0,>=0.25.0; extra == \"chunking\"",
+      "tree-sitter-python>=0.23.6; extra == \"chunking\"",
+      "tree-sitter-c>=0.23.4; extra == \"chunking\"",
+      "tree-sitter-javascript>=0.23.1; extra == \"chunking\"",
+      "tree-sitter-typescript>=0.23.2; extra == \"chunking\"",
+      "transformers<6.0.0,>=4.42.0; extra == \"chunking\"",
+      "semchunk<4.0.0,>=2.2.0; extra == \"chunking-openai\"",
+      "tree-sitter<0.27.0,>=0.25.0; extra == \"chunking-openai\"",
+      "tree-sitter-python>=0.23.6; extra == \"chunking-openai\"",
+      "tree-sitter-c>=0.23.4; extra == \"chunking-openai\"",
+      "tree-sitter-javascript>=0.23.1; extra == \"chunking-openai\"",
+      "tree-sitter-typescript>=0.23.2; extra == \"chunking-openai\"",
+      "tiktoken<0.15.0,>=0.9.0; extra == \"chunking-openai\"",
+      "datasets>=4.0.0; extra == \"examples\"",
+      "matplotlib>=3.7.0; extra == \"examples\"",
+      "openpyxl>=3.1.5; extra == \"examples\""
+    ],
+    "release_upload_time": "2026-11-04T13:50:25",
+    "recent_releases": [
+      [
+        "2.106.0",
+        "2026-11-04T13:50:25"
+      ],
+      [
+        "2.105.0",
+        "2026-10-27T16:22:10"
+      ],
+      [
+        "2.104.0",
+        "2026-10-22T14:02:00"
+      ],
+      [
+        "2.103.1",
+        "2026-10-20T14:45:12"
+      ],
+      [
+        "2.103.0",
+        "2026-10-19T16:32:51"
+      ]
+    ],
+    "release_count": 195,
+    "wheel": "docling_core-2.106.0-py3-none-any.whl",
+    "wheel_size": 341839,
+    "py_typed_files": [
+      "docling_core/py.typed"
+    ],
+    "pyi_count": 0,
+    "py_typed": true,
+    "license_files_in_wheel": [
+      "docling_core-2.106.0.dist-info/licenses/LICENSE"
+    ],
+    "metadata_license_lines": [
+      "License-Expression: MIT",
+      "License-File: LICENSE"
+    ]
+  },
+  "docling-parse": {
+    "package": "docling-parse",
+    "version": "7.25.0",
+    "requires_python": ">=3.10",
+    "license_field": "",
+    "license_expression": "MIT",
+    "license_classifiers": [],
+    "python_classifiers": [
+      "Programming Language :: Python :: 3.10",
+      "Programming Language :: Python :: 3.11",
+      "Programming Language :: Python :: 3.12",
+      "Programming Language :: Python :: 3.13",
+      "Programming Language :: Python :: 3.14",
+      "Programming Language :: Python :: 3.15"
+    ],
+    "typing_classifier": [],
+    "home_page": null,
+    "project_urls": {
+      "Homepage": "https://github.com/docling-project/docling-parse",
+      "Repository": "https://github.com/docling-project/docling-parse"
+    },
+    "summary": "Simple package to extract text with coordinates from programmatic PDFs",
+    "requires_dist_count": 4,
+    "requires_dist": [
+      "pillow<14.0.0,>=10.0.0",
+      "pydantic>=2.0.0",
+      "docling-core<3.0.0,>=2.99.0",
+      "pywin32>=305; sys_platform == \"win32\""
+    ],
+    "release_upload_time": "2026-11-09T04:43:16",
+    "recent_releases": [
+      [
+        "7.25.0",
+        "2026-11-09T04:43:16"
+      ],
+      [
+        "7.24.2",
+        "2026-10-29T16:46:58"
+      ],
+      [
+        "7.24.1",
+        "2026-10-28T15:12:12"
+      ],
+      [
+        "7.24.0",
+        "2026-10-27T21:05:55"
+      ],
+      [
+        "7.23.1",
+        "2026-10-26T20:02:12"
+      ]
+    ],
+    "release_count": 107,
+    "wheel": "docling_parse-7.25.0-cp312-cp312-win_amd64.whl",
+    "wheel_size": 12077194,
+    "py_typed_files": [
+      "docling_parse/py.typed"
+    ],
+    "pyi_count": 0,
+    "py_typed": true,
+    "license_files_in_wheel": [
+      "docling_parse/pdf_resources/cmap-resources/LICENSE.md",
+      "docling_parse-7.25.0.dist-info/licenses/LICENSE"
+    ],
+    "metadata_license_lines": [
+      "License-Expression: MIT",
+      "License-File: LICENSE"
+    ]
+  },
+  "pymupdf-layout": {
+    "package": "pymupdf-layout",
+    "version": "2.1",
+    "requires_python": ">=3.11",
+    "license_field": "",
+    "license_expression": null,
+    "license_classifiers": [],
+    "python_classifiers": [],
+    "typing_classifier": [],
+    "home_page": null,
+    "project_urls": null,
+    "summary": null,
+    "requires_dist_count": 2,
+    "requires_dist": [
+      "pymupdf==2.1",
+      "pymupdf4llm==2.1"
+    ],
+    "release_upload_time": "2026-11-02T17:16:05",
+    "recent_releases": [
+      [
+        "2.1",
+        "2026-11-02T17:16:05"
+      ],
+      [
+        "2.0",
+        "2026-10-19T09:47:37"
+      ],
+      [
+        "1.28.2",
+        "2026-08-06T21:40:10"
+      ],
+      [
+        "1.28.0",
+        "2026-06-29T09:05:35"
+      ],
+      [
+        "1.27.2.3",
+        "2026-04-24T14:11:13"
+      ]
+    ],
+    "release_count": 9,
+    "wheel": "pymupdf_layout-2.1-py3-none-any.whl",
+    "wheel_size": 1044,
+    "py_typed_files": [],
+    "pyi_count": 0,
+    "py_typed": false,
+    "license_files_in_wheel": [],
+    "metadata_license_lines": []
+  },
+  "pymupdf4llm": {
+    "package": "pymupdf4llm",
+    "version": "2.1",
+    "requires_python": ">=3.11",
+    "license_field": "",
+    "license_expression": null,
+    "license_classifiers": [],
+    "python_classifiers": [],
+    "typing_classifier": [],
+    "home_page": null,
+    "project_urls": null,
+    "summary": null,
+    "requires_dist_count": 2,
+    "requires_dist": [
+      "pymupdf==2.1",
+      "pymupdf_layout==2.1"
+    ],
+    "release_upload_time": "2026-11-02T17:16:04",
+    "recent_releases": [
+      [
+        "2.1",
+        "2026-11-02T17:16:04"
+      ],
+      [
+        "2.0",
+        "2026-10-19T09:47:36"
+      ],
+      [
+        "1.28.2",
+        "2026-08-06T21:39:44"
+      ],
+      [
+        "1.28.0",
+        "2026-06-29T09:05:11"
+      ],
+      [
+        "1.27.2.3",
+        "2026-04-24T14:11:04"
+      ]
+    ],
+    "release_count": 49,
+    "wheel": "pymupdf4llm-2.1-py3-none-any.whl",
+    "wheel_size": 1023,
+    "py_typed_files": [],
+    "pyi_count": 0,
+    "py_typed": false,
+    "license_files_in_wheel": [],
+    "metadata_license_lines": []
+  },
+  "surya-ocr": {
+    "package": "surya-ocr",
+    "version": "0.23.0",
+    "requires_python": "<4,>=3.10",
+    "license_field": "Apache-2.0",
+    "license_expression": null,
+    "license_classifiers": [],
+    "python_classifiers": [],
+    "typing_classifier": [],
+    "home_page": null,
+    "project_urls": {
+      "Repository": "https://github.com/datalab-to/surya"
+    },
+    "summary": "OCR, layout, reading order, and table recognition in 90+ languages.",
+    "requires_dist_count": 18,
+    "requires_dist": [
+      "beautifulsoup4<5,>=4.12.0",
+      "click<9,>=8.1.8",
+      "filelock<4,>=3.16.0",
+      "filetype<2,>=1.2.0",
+      "httpx<1,>=0.27.0",
+      "huggingface-hub<2,>=1.5.0",
+      "openai<3,>=1.55.0",
+      "opencv-python-headless==4.11.0.86",
+      "pillow<11,>=10.2.0",
+      "platformdirs<5,>=4.3.6",
+      "pydantic-settings<3,>=2.1.0",
+      "pydantic<3,>=2.5.3",
+      "pypdfium2<6,>=5.10.1",
+      "python-dotenv<2,>=1.0.0",
+      "requests<3,>=2.28.0",
+      "torch<3,>=2.7.0",
+      "torchvision<1,>=0.20.0",
+      "transformers>=5.12.1"
+    ],
+    "release_upload_time": "2026-10-29T17:05:04",
+    "recent_releases": [
+      [
+        "0.23.0",
+        "2026-10-29T17:05:04"
+      ],
+      [
+        "0.22.1",
+        "2026-07-20T19:31:26"
+      ],
+      [
+        "0.22.0",
+        "2026-07-17T14:38:42"
+      ],
+      [
+        "0.21.2",
+        "2026-07-15T16:46:47"
+      ],
+      [
+        "0.21.1",
+        "2026-07-08T22:02:48"
+      ]
+    ],
+    "release_count": 95,
+    "wheel": "surya_ocr-0.23.0-py3-none-any.whl",
+    "wheel_size": 211464,
+    "py_typed_files": [],
+    "pyi_count": 0,
+    "py_typed": false,
+    "license_files_in_wheel": [
+      "surya_ocr-0.23.0.dist-info/licenses/LICENSE"
+    ],
+    "metadata_license_lines": [
+      "License: Apache-2.0",
+      "License-File: LICENSE"
+    ]
+  },
+  "pdftext": {
+    "package": "pdftext",
+    "version": "0.7.1",
+    "requires_python": "<4.0,>=3.10",
+    "license_field": "Apache-2.0",
+    "license_expression": null,
+    "license_classifiers": [
+      "License :: OSI Approved :: Apache Software License"
+    ],
+    "python_classifiers": [
+      "Programming Language :: Python :: 3.10",
+      "Programming Language :: Python :: 3.11",
+      "Programming Language :: Python :: 3.12",
+      "Programming Language :: Python :: 3.13",
+      "Programming Language :: Python :: 3.14"
+    ],
+    "typing_classifier": [],
+    "home_page": null,
+    "project_urls": {
+      "Repository": "https://github.com/VikParuchuri/pdftext"
+    },
+    "summary": "Extract structured text from pdfs quickly",
+    "requires_dist_count": 5,
+    "requires_dist": [
+      "click<9.0.0,>=8.1.8",
+      "numpy>=1.24",
+      "pydantic<3.0.0,>=2.7.1",
+      "pydantic-settings<3.0.0,>=2.2.1",
+      "pypdfium2==5.10.1"
+    ],
+    "release_upload_time": "2026-07-08T21:57:15",
+    "recent_releases": [
+      [
+        "0.7.1",
+        "2026-07-08T21:57:15"
+      ],
+      [
+        "0.7.0",
+        "2026-07-01T16:32:21"
+      ],
+      [
+        "0.6.3",
+        "2025-06-11T14:42:08"
+      ],
+      [
+        "0.6.2",
+        "2025-02-28T23:05:15"
+      ],
+      [
+        "0.6.1",
+        "2025-02-26T14:45:07"
+      ]
+    ],
+    "release_count": 36,
+    "wheel": "pdftext-0.7.1-py3-none-any.whl",
+    "wheel_size": 29712,
+    "py_typed_files": [],
+    "pyi_count": 0,
+    "py_typed": false,
+    "license_files_in_wheel": [
+      "pdftext-0.7.1.dist-info/licenses/LICENSE"
+    ],
+    "metadata_license_lines": [
+      "License: Apache-2.0",
+      "License-File: LICENSE",
+      "Classifier: License :: OSI Approved :: Apache Software License"
+    ]
+  },
+  "pyhwpx": {
+    "package": "pyhwpx",
+    "version": "1.7.2",
+    "requires_python": ">=3.9",
+    "license_field": "",
+    "license_expression": null,
+    "license_classifiers": [],
+    "python_classifiers": [],
+    "typing_classifier": [],
+    "home_page": "https://martiniifun.github.io/pyhwpx/",
+    "project_urls": {
+      "Homepage": "https://martiniifun.github.io/pyhwpx/"
+    },
+    "summary": "아래아한글 자동화를 위한 파이썬 모듈 pyhwpx입니다.",
+    "requires_dist_count": 6,
+    "requires_dist": [
+      "numpy",
+      "pandas",
+      "pywin32",
+      "openpyxl",
+      "pyperclip",
+      "Pillow"
+    ],
+    "release_upload_time": "2026-03-19T13:49:06",
+    "recent_releases": [
+      [
+        "1.7.2",
+        "2026-03-19T13:49:06"
+      ],
+      [
+        "1.7.1",
+        "2026-03-18T19:35:22"
+      ],
+      [
+        "1.7.0",
+        "2026-03-18T18:39:02"
+      ],
+      [
+        "1.6.8",
+        "2026-02-16T01:58:20"
+      ],
+      [
+        "1.6.7",
+        "2026-02-14T12:00:56"
+      ]
+    ],
+    "release_count": 464,
+    "wheel": "pyhwpx-1.7.2-py3-none-any.whl",
+    "wheel_size": 375345,
+    "py_typed_files": [],
+    "pyi_count": 0,
+    "py_typed": false,
+    "license_files_in_wheel": [
+      "pyhwpx-1.7.2.dist-info/licenses/license.txt"
+    ],
+    "metadata_license_lines": [
+      "License-File: license.txt"
+    ]
+  },
+  "hwp-extract": {
+    "package": "hwp-extract",
+    "version": "0.1.0",
+    "requires_python": ">=3.9",
+    "license_field": "Modified BSD License ====================  _Copyright © `2024`, `Volexity, Inc`_ _All rights reserved._  Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:  1. Redistributions of source code must retain the a...(truncated)",
+    "license_expression": null,
+    "license_classifiers": [
+      "License :: OSI Approved :: BSD License"
+    ],
+    "python_classifiers": [
+      "Programming Language :: Python :: 3.10",
+      "Programming Language :: Python :: 3.11",
+      "Programming Language :: Python :: 3.12",
+      "Programming Language :: Python :: 3.9"
+    ],
+    "typing_classifier": [],
+    "home_page": null,
+    "project_urls": {
+      "Documentation": "https://github.com/volexity/hwp-extract/blob/master/README.md",
+      "Issues": "https://github.com/volexity/hwp-extract/issues",
+      "Source": "https://github.com/volexity/hwp-extract"
+    },
+    "summary": "Simple object extractor for HWP files.",
+    "requires_dist_count": 2,
+    "requires_dist": [
+      "olefile~=0.47",
+      "pycryptodome~=3.0"
+    ],
+    "release_upload_time": "2024-11-27T09:33:46",
+    "recent_releases": [
+      [
+        "0.1.0",
+        "2024-11-27T09:33:46"
+      ]
+    ],
+    "release_count": 1,
+    "wheel": "hwp_extract-0.1.0-py3-none-any.whl",
+    "wheel_size": 10168,
+    "py_typed_files": [
+      "hwp_extract/py.typed"
+    ],
+    "pyi_count": 0,
+    "py_typed": true,
+    "license_files_in_wheel": [
+      "hwp_extract-0.1.0.dist-info/licenses/LICENSE.md"
+    ],
+    "metadata_license_lines": [
+      "License: Modified BSD License",
+      "Classifier: License :: OSI Approved :: BSD License"
+    ]
+  },
+  "olefile": {
+    "package": "olefile",
+    "version": "0.47",
+    "requires_python": ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*",
+    "license_field": "BSD",
+    "license_expression": null,
+    "license_classifiers": [
+      "License :: OSI Approved :: BSD License"
+    ],
+    "python_classifiers": [
+      "Programming Language :: Python :: 3.10",
+      "Programming Language :: Python :: 3.11",
+      "Programming Language :: Python :: 3.12",
+      "Programming Language :: Python :: 3.5",
+      "Programming Language :: Python :: 3.6",
+      "Programming Language :: Python :: 3.7",
+      "Programming Language :: Python :: 3.8",
+      "Programming Language :: Python :: 3.9"
+    ],
+    "typing_classifier": [],
+    "home_page": "https://www.decalage.info/python/olefileio",
+    "project_urls": {
+      "Download": "https://github.com/decalage2/olefile/tarball/master",
+      "Homepage": "https://www.decalage.info/python/olefileio"
+    },
+    "summary": "Python package to parse, read and write Microsoft OLE2 files (Structured Storage or Compound Document, Microsoft Office)",
+    "requires_dist_count": 2,
+    "requires_dist": [
+      "pytest ; extra == 'tests'",
+      "pytest-cov ; extra == 'tests'"
+    ],
+    "release_upload_time": "2023-12-01T16:22:51",
+    "recent_releases": [
+      [
+        "0.47",
+        "2023-12-01T16:22:51"
+      ],
+      [
+        "0.47.dev4",
+        "2020-11-03T21:26:11"
+      ],
+      [
+        "0.46",
+        "2018-09-10T18:35:52"
+      ],
+      [
+        "0.45.1",
+        "2018-01-25T10:22:22"
+      ],
+      [
+        "0.45",
+        "2018-01-24T22:40:38"
+      ]
+    ],
+    "release_count": 10,
+    "wheel": "olefile-0.47-py2.py3-none-any.whl",
+    "wheel_size": 114565,
+    "py_typed_files": [],
+    "pyi_count": 0,
+    "py_typed": false,
+    "license_files_in_wheel": [
+      "olefile/LICENSE.txt",
+      "olefile/doc/License.html",
+      "olefile/doc/License.md",
+      "olefile-0.47.dist-info/LICENSE.txt"
+    ],
+    "metadata_license_lines": [
+      "License: BSD",
+      "Classifier: License :: OSI Approved :: BSD License",
+      "License"
+    ]
+  }
+}

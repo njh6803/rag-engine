@@ -1,0 +1,11 @@
+library/postgres:18-trixie	last_updated=2026-11-06	compressed_MB={'amd64': 162.5, 'arm64': 161.1}
+pgvector/pgvector:0.8.7-pg18-trixie	last_updated=2026-10-31	compressed_MB={'amd64': 164.1, 'arm64': 162.7}
+groonga/pgroonga:4.1.0-debian-18	last_updated=2026-10-09	compressed_MB={'amd64': 260.9, 'arm64': 258.9}
+groonga/pgroonga:4.1.0-alpine-18	last_updated=2026-10-09	compressed_MB={'amd64': 188.8, 'arm64': 180.9}
+cubeplex/postgresql-pgroonga-pgvector:latest	last_updated=2026-11-07	compressed_MB={'amd64': 196.2, 'arm64': 194.7}
+qdrant/qdrant:v1.20.0	last_updated=2026-10-21	compressed_MB={'amd64': 72.6, 'arm64': 71.5}
+semitechnologies/weaviate:1.40.4	last_updated=2026-11-05	compressed_MB={'amd64': 89.3, 'arm64': 86.1}
+milvusdb/milvus:v3.0.5	last_updated=2026-10-30	compressed_MB={'amd64': 528.5, 'arm64': 536.9}
+milvusdb/milvus:v2.6.27	last_updated=2026-11-06	compressed_MB={'amd64': 378.5, 'arm64': 380.7}
+milvusdb/minio:RELEASE.2024-12-18T13-15-44Z	last_updated=2026-09-28	compressed_MB={'amd64': 62.6, 'arm64': 58.2}
+milvusdb/etcd:3.5.30-r1	last_updated=2026-06-24	compressed_MB={'amd64': 64.9, 'arm64': 60.0}
