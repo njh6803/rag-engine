@@ -47,7 +47,7 @@ pre-commit 에서 HEAD 는 아직 병합 전이라, HEAD 만으로 구하면 C �
 설계·명세·티켓을 쓰는 PR 과 기록만 남기는 PR 이 쓰는 파일이다.
 
 - `docs/journal/*.md`, `.scratch/retro-queue/*.md`
-- `docs/adr/*.md`(색인 `README.md` 포함), `CONTEXT.md`, `docs/PRD.md`
+- `docs/adr/*.md`(색인 `README.md` 포함), `GLOSSARY.md`, `docs/PRD.md`
 - `.scratch/plan.md`(도구가 만든 전체 계획), `.scratch/plan-head.md`(그 손 파일)
 - `docs/constitution/tech.md`, `docs/constitution/README.md`, `docs/constitution/history.md`(헌법 판
   이력의 기록. README 에서 옮겨 온 것이라 더하지 않고, 판을 올린 까닭은 ADR 이력이나 일지에 적는다)
@@ -136,7 +136,7 @@ done 으로 고쳐 커밋하고 다시 푸시하라는 것이다(이미 done 이
 - 고아 브랜치(`git checkout --orphan`)의 첫 커밋은 HEAD 가 없어 지난다(판정 2). 그 뒤의 커밋은
   뿌리 커밋의 트리로 전환을 가른다. 색인을 비우고(`git rm -r --cached .`) 만든 뿌리는 이 파일이 없어
   규약 전으로 지난다.
-- 면제 모양만 고치는 PR 은 고침이 무엇이든 지난다(ADR 의 오타 고침, `CONTEXT.md` 의 말 고침). CI 도
+- 면제 모양만 고치는 PR 은 고침이 무엇이든 지난다(ADR 의 오타 고침, `GLOSSARY.md` 의 말 고침). CI 도
   그 PR 의 티켓 `Status:` 를 보지 않는다.
 - 커밋 검사는 얕은 클론에서 딴 자리가 깊이 밖이면 판정하지 않고 지난다(위 C). 그 클론의 고아
   브랜치도 같다. `git fetch --deepen` 이나 `--unshallow` 로 딴 자리를 가져오면 판정을 받는다. CI 는
@@ -189,7 +189,7 @@ CONVENTION = "규약 원천: docs/agents/issue-tracker.md"
 
 _EXEMPT_FILES = frozenset(
     {
-        "CONTEXT.md",
+        "GLOSSARY.md",
         ".scratch/plan.md",
         ".scratch/plan-head.md",
         "docs/PRD.md",
