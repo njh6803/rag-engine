@@ -40,6 +40,16 @@ source https://raw.githubusercontent.com/pgvector/pgvector/v0.8.7/README.md line
   462: If filtering by many different values, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html).
   480: With approximate indexes, queries with filtering can return less results since filtering is applied *after* the index is scanned. Starting with 0.8.0, you can e
   935: Results are limited by the size of the dynamic candidate list (`hnsw.ef_search`), which is 40 by default. There may be even less results due to dead tuples or f
+--- /up to [0-9,]+ dimensions/ hits=9
+  252: - `vector` - up to 2,000 dimensions
+  253: - `halfvec` - up to 4,000 dimensions
+  254: - `bit` - up to 64,000 dimensions
+  374: - `vector` - up to 2,000 dimensions
+  375: - `halfvec` - up to 4,000 dimensions
+  376: - `bit` - up to 64,000 dimensions
+  829: You can use [half-precision vectors](#half-precision-vectors) or [half-precision indexing](#half-precision-indexing) to index up to 4,000 dimensions or [binary 
+  960: Each vector takes `4 * dimensions + 8` bytes of storage. Each element is a single-precision floating-point number (like the `real` type in Postgres), and all el
+  998: Each half vector takes `2 * dimensions + 8` bytes of storage. Each element is a half-precision floating-point number, and all elements must be finite (no `NaN`,
 --- context 836-850
   836: CREATE TABLE embeddings (model_id bigint, item_id bigint, embedding vector, PRIMARY KEY (model_id, item_id));
   837: ```
@@ -65,3 +75,8 @@ source https://raw.githubusercontent.com/pgvector/pgvector/v0.8.7/README.md line
   935: Results are limited by the size of the dynamic candidate list (`hnsw.ef_search`), which is 40 by default. There may be even less results due to dead tuples or filtering conditions in the query. Enabli
   936: 
   937: Also, note that `NULL` vectors are not indexed (as well as zero vectors for cosine distance).
+--- context 827-830
+  827: #### What if I want to index vectors with more than 2,000 dimensions?
+  828: 
+  829: You can use [half-precision vectors](#half-precision-vectors) or [half-precision indexing](#half-precision-indexing) to index up to 4,000 dimensions or [binary quantization](#binary-quantization) to i
+  830: 

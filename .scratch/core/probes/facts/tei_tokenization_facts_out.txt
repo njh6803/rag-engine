@@ -1,0 +1,114 @@
+source https://raw.githubusercontent.com/huggingface/text-embeddings-inference/v1.9.4/core/src/tokenization.rs lines 651
+--- /fn tokenize\b|fn tokenize_input\b|fn encode_input\b/ hits=3
+  104: pub async fn tokenize(
+  288: fn tokenize_input(
+  368: fn encode_input(
+--- /cannot be empty/ hits=3
+  78: "`inputs` cannot be empty".to_string(),
+  113: "`inputs` cannot be empty".to_string(),
+  146: "`input_ids` cannot be empty".to_string(),
+--- /add_special_tokens/ hits=7
+  107: add_special_tokens: bool,
+  124: add_special_tokens,
+  215: add_special_tokens,
+  231: add_special_tokens,
+  290: add_special_tokens: bool,
+  323: .encode::<&str>(&s, add_special_tokens)?;
+  338: .encode::<(String, String)>((s1, s2), add_special_tokens)?,
+--- /max_input_length/ hits=12
+  33: max_input_length: usize,
+  54: max_input_length,
+  173: max_input_length: usize,
+  203: max_input_length,
+  232: max_input_length,
+  291: max_input_length: usize,
+  301: let limit = max_input_length * MAX_CHAR_MULTIPLIER;
+  372: max_input_length: usize,
+  382: max_length: max_input_length,
+  390: max_input_length,
+  399: if seq_len > max_input_length {
+  401: "`inputs` must have less than {max_input_length} tokens. Given: {seq_len}"
+--- /must have less than/ hits=2
+  305: "`inputs` must have less than {limit} characters. Given: {input_chars}"
+  401: "`inputs` must have less than {max_input_length} tokens. Given: {seq_len}"
+=== lines 104-118
+  104:     pub async fn tokenize(
+  105:         &self,
+  106:         inputs: EncodingInput,
+  107:         add_special_tokens: bool,
+  108:         prompt_name: Option<String>,
+  109:     ) -> Result<(Option<String>, RawEncoding), TextEmbeddingsError> {
+  110:         // Check if inputs is empty
+  111:         if inputs.is_empty() {
+  112:             return Err(TextEmbeddingsError::Empty(
+  113:                 "`inputs` cannot be empty".to_string(),
+  114:             ));
+  115:         }
+  116: 
+  117:         // Create response channel
+  118:         let (response_sender, response_receiver) = oneshot::channel();
+=== lines 286-310
+  286: 
+  287: #[allow(clippy::too_many_arguments)]
+  288: fn tokenize_input(
+  289:     mut inputs: EncodingInput,
+  290:     add_special_tokens: bool,
+  291:     max_input_length: usize,
+  292:     truncate_params: Option<TruncationParams>,
+  293:     default_prompt: Option<String>,
+  294:     prompt_name: Option<String>,
+  295:     prompts: Option<&HashMap<String, String>>,
+  296:     tokenizer: &mut Tokenizer,
+  297: ) -> Result<(Option<String>, RawEncoding), TextEmbeddingsError> {
+  298:     let pre_prompt = prepare_pre_prompt(default_prompt, prompt_name, prompts)?;
+  299: 
+  300:     let input_chars = inputs.count_chars();
+  301:     let limit = max_input_length * MAX_CHAR_MULTIPLIER;
+  302:     if input_chars > limit {
+  303:         if truncate_params.is_none() {
+  304:             return Err(TextEmbeddingsError::Validation(format!(
+  305:                 "`inputs` must have less than {limit} characters. Given: {input_chars}"
+  306:             )));
+  307:         }
+  308:         inputs.apply_limit(limit);
+  309:     }
+  310: 
+=== lines 368-405
+  368: fn encode_input(
+  369:     inputs: EncodingInput,
+  370:     truncate: bool,
+  371:     truncation_direction: TruncationDirection,
+  372:     max_input_length: usize,
+  373:     position_offset: usize,
+  374:     default_prompt: Option<String>,
+  375:     prompt_name: Option<String>,
+  376:     prompts: Option<&HashMap<String, String>>,
+  377:     tokenizer: &mut Tokenizer,
+  378: ) -> Result<ValidEncoding, TextEmbeddingsError> {
+  379:     // Default truncation params
+  380:     let truncate_params = truncate.then_some(TruncationParams {
+  381:         direction: truncation_direction,
+  382:         max_length: max_input_length,
+  383:         strategy: TruncationStrategy::LongestFirst,
+  384:         stride: 0,
+  385:     });
+  386: 
+  387:     let (_, encoding) = tokenize_input(
+  388:         inputs,
+  389:         true,
+  390:         max_input_length,
+  391:         truncate_params,
+  392:         default_prompt,
+  393:         prompt_name,
+  394:         prompts,
+  395:         tokenizer,
+  396:     )?;
+  397:     let seq_len = encoding.len();
+  398: 
+  399:     if seq_len > max_input_length {
+  400:         return Err(TextEmbeddingsError::Validation(format!(
+  401:             "`inputs` must have less than {max_input_length} tokens. Given: {seq_len}"
+  402:         )));
+  403:     }
+  404:     let histogram = metrics::histogram!("te_request_input_length");
+  405:     histogram.record(seq_len as f64);

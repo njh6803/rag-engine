@@ -3,14 +3,15 @@
 보는 것: 차원이 없는 `vector` 열에 캐스트 표현식으로 HNSW 색인을 거는
 문장(`(embedding::vector(3))`), 부분 색인(`WHERE`)과 필터 문단, 반복 스캔
 설정(`hnsw.iterative_scan`, `hnsw.max_scan_tuples`, `hnsw.scan_mem_multiplier`), `hnsw.ef_search`,
-연산자 클래스(`vector_cosine_ops`), 거리 연산자(`<=>`). 지식베이스마다 임베딩 차원이 다를 수 있어
-조각 표의 벡터 열을 어떻게 선언하고 색인하는지를 명세가 정하는 데 썼다.
+연산자 클래스(`vector_cosine_ops`), 거리 연산자(`<=>`), HNSW 가 받는 차원
+상한(`up to 2,000 dimensions`, 827행 FAQ). 지식베이스마다 임베딩 차원이 다를 수 있어 조각 표의 벡터
+열을 어떻게 선언하고 색인하는지를 명세가 정하는 데 썼다.
 
 실행(저장소 루트에서. GitHub raw 하나만 받는다. 표준 라이브러리만):
     uv run python -I -X utf8 .scratch/core/probes/facts/pgvector_readme_facts.py <저장소 밖 폴더>
 출력은 `pgvector_readme_facts_out.txt` 로 남겼다(2026-11-10). 패턴 적중 줄 뒤에 CONTEXT 의 줄 범위
-(차원이 다른 벡터 절과 `ef_search` 문단)를 통째로 찍어, 적중 줄 하나만으로는 대 볼 수 없던 문맥을
-남긴다.
+(차원이 다른 벡터 절, `ef_search` 문단, 2,000차원 넘는 벡터의 FAQ)를 통째로 찍어, 적중 줄
+하나만으로는 대 볼 수 없던 문맥을 남긴다.
 """
 
 from __future__ import annotations
@@ -33,10 +34,11 @@ PATTERNS = [
     r"partial index",
     r"does not have dimensions|without dimensions|untyped",
     r"Filtering",
+    r"up to [0-9,]+ dimensions",
 ]
 # (시작 줄, 끝 줄). 1부터 세는 README 줄 번호다. 차원이 다른 벡터를 한 열에 두는 절과 결과 수가
 # ef_search 로 잘리는 문단이다.
-CONTEXT = [(836, 850), (930, 937)]
+CONTEXT = [(836, 850), (930, 937), (827, 830)]
 
 
 def fetch(dest: Path) -> str:
