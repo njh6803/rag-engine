@@ -1,10 +1,15 @@
 """dl/의 원문에서 라이선스 머리줄, control 파일, GitHub 최신 릴리스, PyPI 메타데이터를 뽑아 적는다.
 
-실행: uv run --no-project python -I .scratch/core/probes/vector-store/summarize_dl.py <dl-dir>
+실행: uv run --no-project python -I -X utf8 .scratch/core/probes/vector-store/summarize_dl.py
+<dl-dir>
 (표준 라이브러리만 쓴다. <dl-dir>은 fetch_raw.py~fetch_raw4.py 가 원문을 내려받은 곳이다. 그 원문은
 저장소 밖 스크래치패드에 있어 세션이 끝나면 사라지니 다시 받아서 돌린다.)
 
 2026-11-09에 돌려 표준 출력을 같은 폴더의 `summarize_dl.txt`로 남겼다(PyPI 절에 각 클라이언트의 판).
+그 실행은 `-X utf8` 없이 cp949 콘솔에서 돌아 GitHub 릴리스 절의 meilisearch 줄이
+`ERR 'cp949' codec …`으로 적혔다(PR #2의 CodeRabbit 지적). 출력은 다시 만들지 않았다.
+dl/의 원문 178건을 다시 받아야 하고, 비교 문서의 Meilisearch 판은 `hub_tags.txt`에서 왔다.
+다시 돌릴 때는 위 명령대로 `-X utf8`을 붙인다.
 """
 
 import json

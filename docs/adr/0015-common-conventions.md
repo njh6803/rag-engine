@@ -8,7 +8,7 @@ date: 2026-11-09
 첫 기능 전에 정하는 규약 일곱이다. 하나씩은 작지만 데이터베이스 열과 계약 형식에 박혀 되돌리기 어렵고, 저장소마다 다르게 하는 자리라 적어 둔다.
 
 - **식별자**는 UUIDv7이고 파이썬에서 만든다(uuid6 MIT 또는 uuid-utils BSD, py.typed를 보고 명세가 하나를 고른다). PostgreSQL 열은 `uuid`다. PostgreSQL 18의 `uuidv7()`는 쓰지 않아 식별자 생성이 데이터베이스 판과 무관하다.
-- **에러 봉투**는 RFC 9457 Problem Details에 우리 `code` 칸을 더한 모양이다. FastAPI의 422도 같은 모양으로 바꾸고, MCP 도구 오류도 같은 `code`를 쓴다.
+- **에러 봉투**는 RFC 9457 Problem Details에 우리 `code` 칸을 더한 모양이다. FastAPI의 422도 같은 모양으로 바꾸고, MCP 도구 오류도 같은 `code`를 쓴다. 어느 오류든 `detail`에 질문 내용이나 문서 내용을 넣지 않는다(원칙 V. 응답 본문의 규칙이고, 로그에 무엇을 싣는지는 아래 로그 항목이다).
 - **시각**은 UTC `timestamptz`로 저장하고 ISO 8601 `Z`로 낸다.
 - **REST 경로**는 `/api/v1/admin/…`(관리 API)와 `/api/v1/ingest/…`(수집 API)이고, `/health`와 `/mcp`는 접두 밖이다.
 - **설정**은 pydantic-settings로 환경 변수 `RAG_*`, `.env`, 비밀 파일을 읽는다.
