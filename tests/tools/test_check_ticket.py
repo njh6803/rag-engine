@@ -183,7 +183,7 @@ def test_면제_모양만_바꾼_커밋은_지난다(저장소: Repo) -> None:
                 ".scratch/retro-queue/README.md": "대기열 폴더\n",
                 "docs/adr/0002-x.md": "결정\n",
                 "docs/adr/README.md": "색인\n",
-                "CONTEXT.md": "용어\n",
+                "GLOSSARY.md": "용어\n",
                 ".scratch/plan.md": "계획\n",
                 ".scratch/plan-head.md": "손 파일\n",
                 "docs/PRD.md": "범위\n",

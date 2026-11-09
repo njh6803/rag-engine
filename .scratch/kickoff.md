@@ -40,7 +40,7 @@
 | 5단계 | 끝남 | docs/PRD.md, 헌법 세 파일과 README(1.0.0), ADR 0001~0005와 색인을 썼고 CLAUDE.md의 `@` 줄을 살렸다 |
 | 6단계 | 끝남 | CODING_STANDARDS.md를 런북 뼈대로 쓰고 agent-os 판단 기준 아홉 줄을 이 스택에 맞춰 씨앗으로 옮겼다. 7단계의 Claude Code Review 워크플로가 읽는 리뷰 관점 넷도 agent-os에서 옮겼다 |
 | 7단계 | 끝남 | 골격(main·server, /health와 MCP 계약 시험, Dockerfile, ci.yml의 python·image·ticket·verify)과 복사 목록을 들였다. 검증 명령은 색인에 올린 뒤 모두 통과했다(pytest 2701+2, pyright, ruff 둘, lint-imports, run_hooks, check_type_escapes, check_instructions, zizmor). pre-commit과 commit-msg 훅을 깔았다. `.scratch/plan.md`를 생성했다 |
-| 8단계 | 진행 중 | |
+| 8단계 | 끝남 | 첫 커밋 9f1ee79, 원격과 main 보호, 첫 PR #1의 CI와 봇 리뷰 확인, 마무리 /context, 체크리스트 대조, 회고(넘김 둘 승인, 하나는 반영, 하나는 대기열). 병합과 next-session은 이 기록 뒤에 한다 |
 
 ## 사람 몫
 
@@ -65,9 +65,13 @@
 | 7단계 | 사람만 | 끄기 전에 이 세션의 입력창에 /context를 친다 | 건너뜀 | jira-* 다섯의 skillOverrides를 settings.json을 처음 만들 때 함께 적어, 끄기 전을 잴 때를 지나쳤다. 에이전트의 차례 실수다 |
 | 7단계 | 사람만 | 안 쓰는 플러그인과 MCP 서버를 /plugin·/mcp 화면에서 끈다 | 건너뜀 | 결정 행에서 사용자가 settings.json에 적어 끄기를 골랐다. MCP 서버는 끄지 않았다 |
 | 7단계 | 사람만 | 끈 뒤에 다시 /context를 친다 | 끝남 | 사용자가 쳤다. 끈 다섯의 스킬이 목록에 없어 세션 안에서 반영된 것을 봤다. 스킬 7.4k, MCP 도구 14.4k(지연 75.6k), 메시지 257.7k, 합 321.1k/400k. 값은 일지 |
-| 8단계 | 허락 | GitHub에 저장소를 만들고 첫 커밋을 푸시한다 | 대기 | 만들고 푸시한다 (추천). 첫 커밋 뒤에 친다 |
+| 8단계 | 허락 | GitHub에 저장소를 만들고 첫 커밋을 푸시한다 | 끝남 | 만들고 푸시한다 (추천). `gh repo create njh6803/rag-engine --public --source=. --push`가 첫 커밋 9f1ee79를 main으로 올렸고, 그 푸시의 CI가 초록이었다 |
 | 8단계 | 결정 | 혼자인지 팀인지 | 끝남 | 혼자 (추천). 리뷰 승인 필수와 CODEOWNERS를 두지 않고 관리자 우회를 허용한다 |
-| 8단계 | 허락 | `tools/protection.json`으로 main을 보호한다 | 대기 | 보호를 건다 (추천). 푸시 뒤에 친다 |
+| 8단계 | 허락 | `tools/protection.json`으로 main을 보호한다 | 끝남 | 보호를 건다 (추천). PUT이 0으로 끝났고, 읽어 보니 필수 검사 verify(strict), 선형 이력, 강제 푸시·삭제 금지, 관리자 우회 허용, 리뷰 필수 없음이다 |
+| 8단계 | 사람만 | `claude setup-token`의 토큰을 시크릿 `CLAUDE_CODE_OAUTH_TOKEN`으로 넣는다 | 끝남 | 넣었다 (추천). `gh secret list`에 그 이름과 넣은 시각(2026-11-09T06:13:09Z)이 있다 |
+| 8단계 | 사람만 | 이 세션의 입력창에 /context를 친다(마무리 확인) | 끝남 | 사용자가 쳤다. 합 248.5k/400k(62%), 메시지 183.8k, 스킬 7.4k, 메모리 5k, MCP 도구 15.1k(지연 74.9k는 합에 들지 않는다). 값은 일지 |
+| 8단계 | 결정 | 건너뛴 사람 몫(7단계의 끄기 전 /context, /mcp 화면의 MCP 서버 끄기)을 지금 할지 | 끝남 | 그대로 둔다 (추천). 끄기 전 /context는 되돌릴 수 없고, MCP 도구는 대부분 지연 로드라 합에 들지 않는다. 두 행은 건너뜀으로 남는다 |
+| 8단계 | 사람만 | CodeRabbit에 로그인하고 이 저장소에 CodeRabbit GitHub App을 설치한다 | 끝남 | 설치했다 (추천). PR #1에 coderabbitai[bot]이 코멘트를 달았다(별이 10개 미만이라 자동 리뷰가 없다는 안내와, `@coderabbitai review`에 답한 리뷰 시작) |
 
 ## 런북 어긋남
 
@@ -87,4 +91,6 @@
 - 7단계: 복사 목록에 `.gitattributes`가 없다. agent-os는 `* text=auto eol=lf`를 두고, 이 PC는 `core.autocrlf=true`라 없으면 워크트리와 클론의 작업 파일이 CRLF가 될 수 있다(서브에이전트의 복사 저장소에서 `git add`가 거의 모든 파일에 CRLF 경고를 냈다). 이번에는 agent-os와 같은 한 줄을 첫 커밋 전에 두었다
 - 7단계: 런북이 바꿀 곳을 적지 않은 시험의 문턱이 agent-os의 저장소 크기에 맞춰져 있다(`test_rewrap_comments`의 파일 수 100, `test_check_instructions`의 도구·불리언 소스 수, `test_queue_open_rows`가 찾는 agent-os 항목, `test_mutate`의 변이 표 하나 이상). 이번에는 rag-engine의 실제 수에 맞추고 "첫 X를 커밋할 때 되살린다"는 주석을 달았다. 런북은 `test_hook_report`의 문턱만 바꿀 곳으로 적었다
 - 7단계: `tools/sibling_overlap.py`는 카나리아 명세가 없는 저장소에서도 하네스를 바꾼 브랜치에 없는 `tools/canary.py`를 돌리라고 알린다. 이번에는 명세가 하나도 없으면 세지 않게 고쳤다
-- 8단계: 런북의 첫 커밋 명령 `SKIP=check-constitution-version git commit`의 `SKIP`이 pre-commit, 검사 러너, pytest를 거쳐 시험이 임시 저장소에서 띄우는 pre-commit까지 이어져, `test_check_constitution_version`의 지운 파일 시험이 `(no files to check)Skipped` 대신 `Skipped`를 보고 실패했다(첫 커밋이 막혔다). 이번에는 결정으로 "conftest가 SKIP을 벗긴다 (추천)"를 골라, `tests/conftest.py`가 `GIT_*`처럼 `SKIP`도 시험 프로세스 환경에서 벗기게 고치고 그 시험(`tests/test_conftest.py`)을 먼저 써서 빨강을 봤다. agent-os의 conftest도 `SKIP`을 벗기지 않는다
+- 8단계: 런북의 첫 커밋 명령 `SKIP=check-constitution-version git commit`의 `SKIP`이 pre-commit, 검사 러너, pytest를 거쳐 시험이 임시 저장소에서 띄우는 pre-commit까지 이어져, `test_check_constitution_version`의 지운 파일 시험이 `(no files to check)Skipped` 대신 `Skipped`를 보고 실패했다(첫 커밋이 막혔다). 이번에는 결정으로 "conftest가 SKIP을 벗긴다 (추천)"를 골라, `tests/conftest.py`가 `GIT_*`처럼 `SKIP`도 시험 프로세스 환경에서 벗기게 고치고 그 시험(`tests/test_conftest.py`)을 먼저 써서 빨강을 봤다. 복사해 온 원본의 conftest도 `SKIP`을 벗기지 않는다
+- 8단계: 런북은 첫 커밋 뒤의 진행 파일과 일지를 `chore/kickoff` 브랜치에 커밋하라고만 적었지만, 7단계가 복사한 커밋 검사(`check-ticket`)가 그 브랜치에 티켓 `.scratch/harness/issues/kickoff.md`가 없다며 커밋을 막았다(일지는 면제 모양이고 진행 파일은 아니다). 이번에는 검사가 안내하는 대로 harness 티켓을 써서 같은 커밋에 실었다
+- 8단계: 첫날 종료 체크리스트는 스킬 목록을 `npx skills ls`로 대조하라고 적지만, 데스크톱 앱의 자동 모드가 그 명령을 외부 코드 실행으로 거부했다. 이번에는 `.claude/skills/`의 폴더와 `skills-lock.json`으로 대조했다
