@@ -1,0 +1,30 @@
+# fetched 2026-11-09
+## Docker Hub: repo	pull_count	star_count	last_updated
+pgvector/pgvector	306,983,100	114	2026-10-31
+groonga/pgroonga	1,158,648	11	2026-10-09
+paradedb/paradedb	4,312,340	26	2026-11-08
+semitechnologies/weaviate	34,799,413	56	2026-11-09
+qdrant/qdrant	56,204,541	121	2026-11-08
+milvusdb/milvus	80,154,738	106	2026-11-09
+chromadb/chroma	8,852,637	76	2026-10-22
+opensearchproject/opensearch	225,305,303	197	2026-10-26
+getmeili/meilisearch	64,828,752	121	2026-11-08
+library/postgres	12,311,071,653	15049	2026-11-07
+library/elasticsearch	988,453,322	6602	2026-11-06
+cubeplex/postgresql-pgroonga-pgvector	10,317	1	2026-11-07
+tensorchord/vchord-postgres	635,151	4	2026-02-28
+
+## pypistats recent: package	last_day	last_week	last_month
+pgvector	780,517	9,890,719	31,134,981
+psycopg	4,762,446	52,411,080	133,610,177
+psycopg2-binary	5,225,202	55,730,049	206,514,204
+kiwipiepy	9,118	95,730	323,273
+weaviate-client	121,938	1,125,860	9,835,248
+qdrant-client	381,383	3,868,431	12,034,960
+pymilvus	60,271	909,753	3,698,902
+chromadb	212,693	2,107,719	6,525,454
+opensearch-py	779,087	8,364,544	39,088,317
+meilisearch	16,620	232,631	608,387
+elasticsearch	885,983	8,397,373	34,064,422
+asyncpg	3,019,690	33,975,221	107,296,977
+lancedb	149,617	1,571,287	7,689,981

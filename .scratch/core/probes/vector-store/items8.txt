@@ -1,0 +1,4 @@
+weaviate_enterprise.mdx https://raw.githubusercontent.com/weaviate/docs/main/docs/deploy/enterprise.mdx
+weaviate_enterprise_note.mdx https://raw.githubusercontent.com/weaviate/docs/main/_includes/feature-notes/enterprise-edition.mdx
+weaviate_collections_limit_note.mdx https://raw.githubusercontent.com/weaviate/docs/main/_includes/feature-notes/collections-limit.mdx
+chroma_LICENSE https://raw.githubusercontent.com/chroma-core/chroma/main/LICENSE

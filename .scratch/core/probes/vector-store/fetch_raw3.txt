@@ -1,0 +1,34 @@
+OK      10226  lance_root_Cargo.toml
+OK        687  lindera_ko_dic_Cargo.toml
+OK       6767  lindera_ko_dic_README.md
+OK        649  lindera_ko_dic_build.rs
+FAIL HTTP Error 404: Not Found  mecab_ko_dic_README_api  <- https://api.bitbucket.org/2.0/repositories/eunjeon/mecab-ko-dic/src/master/README
+OK       4537  mecab_ko_dic_README_md_api
+OK       7337  mecab_ko_dic_src_list.json
+OK      23046  meilisearch_v1.13.0_release.json
+OK       5419  opensearch_knn_memory.md
+OK       3521  opensearch_knn_memory2.md
+OK       4002  opensearch_py_README.md
+OK      14720  paradedb_avail_tok_dir.json
+OK      19727  paradedb_docker_dir.json
+OK      13530  paradedb_hybrid_rrf.mdx
+OK      35044  paradedb_root_dir.json
+OK        737  paradedb_tok_icu.mdx
+OK       4190  paradedb_tok_jieba.mdx
+FAIL HTTP Error 404: Not Found  paradedb_tok_korean.mdx  <- https://raw.githubusercontent.com/paradedb/paradedb/main/docs/reference/tokenizers/available-tokenizers/korean.mdx
+OK       2733  paradedb_tok_lindera.mdx
+OK       1321  paradedb_tokenizers_Cargo.toml
+OK       8536  pgroonga_crash_safe.html
+OK       7817  pgroonga_enable_wal.html
+OK       6401  pgroonga_howto_dir.html
+OK     172986  pgroonga_news.html
+OK       6962  pgroonga_overview.html
+OK      59089  pgroonga_reference_index.html
+OK      52113  pgroonga_releases.json
+OK      14889  pypi_kiwipiepy_model.json
+OK       4427  pypi_mecab-ko-dic.json
+OK      18430  qdrant_capacity.md
+OK       1504  weaviate_LICENSE_BSD
+OK        789  weaviate_LICENSE_root
+OK      52867  weaviate_backups_doc.md
+OK       9693  weaviate_hybrid_concept.md

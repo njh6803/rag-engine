@@ -1,0 +1,187 @@
+==============================================================================
+[testcontainers]
+  최신 판: 4.15.0  (업로드 2026-07-24T23:08:00)
+  requires_python: '>=3.10'
+  license 필드: ''
+  license_expression: 'Apache-2.0'
+  license_files: ['LICENSE.txt']
+  License 분류자: ['License :: OSI Approved :: Apache Software License']
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.14']
+  Typing 분류자: []
+  requires_dist: ['docker', 'python-dotenv', 'typing-extensions', 'urllib3', 'wrapt', 'python-arango>=8; extra == "arangodb"', 'boto3>=1; extra == "aws"', 'httpx; extra == "aws"', 'azure-storage-blob>=12; extra == "azurite"', 'chromadb-client>=1; extra == "chroma"', 'clickhouse-driver; extra == "clickhouse"', 'azure-cosmos>=4; extra == "cosmosdb"', 'httpx; extra == "cratedb"', 'sqlalchemy-cratedb; extra == "cratedb"', 'ibm-db-sa; (platform_machine != "aarch64" and platform_machine != "arm64") and extra == "db2"', 'sqlalchemy; extra == "db2"', 'httpx; extra == "generic"', 'redis>=7; extra == "generic"', 'sqlalchemy; extra == "generic"', 'google-cloud-datastore>=2; extra == "google"', 'google-cloud-pubsub>=2; extra == "google"', 'influxdb-client>=1; extra == "influxdb"', 'influxdb>=5; extra == "influxdb"', 'kubernetes; extra == "k3s"', 'pyyaml>=6.0.3; extra == "k3s"', 'python-keycloak>=6; python_version < "4.0" and extra == "keycloak"', 'boto3>=1; extra == "localstack"', 'cryptography; extra == "mailpit"', 'minio>=7; extra == "minio"', 'pymongo>=4; extra == "mongodb"', 'pymssql>=2; extra == "mssql"', 'sqlalchemy; extra == "mssql"', 'pymysql[rsa]>=1; extra == "mysql"', 'sqlalchemy; extra == "mysql"', 'nats-py>=2; extra == "nats"', 'neo4j>=6; extra == "neo4j"', 'openfga-sdk; extra == "openfga"', 'opensearch-py>=3; python_version < "4.0" and extra == "opensearch"', 'oracledb>=3; extra == "oracle"', 'sqlalchemy; extra == "oracle"', 'oracledb>=3; extra == "oracle-free"', 'sqlalchemy; extra == "oracle-free"', 'qdrant-client>=1; extra == "qdrant"', 'pika>=1; extra == "rabbitmq"', 'redis>=7; extra == "redis"', 'bcrypt>=5; extra == "registry"', 'cassandra-driver>=3; python_version < "3.14" and extra == "scylla"', 'selenium>=4; extra == "selenium"', 'cryptography; extra == "sftp"', 'httpx; extra == "test-module-import"', 'trino; extra == "trino"', 'weaviate-client>=4; extra == "weaviate"']
+  project_urls: {'Homepage': 'https://github.com/testcontainers/testcontainers-python', 'Issue Tracker': 'https://github.com/testcontainers/testcontainers-python/issues', 'Repository': 'https://github.com/testcontainers/testcontainers-python'}
+  최근 판 5개(업로드일, 판): [('2026-07-24T23:08:00', '4.15.0'), ('2026-06-11T01:40:15', '4.15.0rc4'), ('2026-06-03T11:13:42', '4.15.0rc3'), ('2026-04-30T00:47:55', '4.15.0rc2'), ('2026-04-07T23:43:48', '4.15.0rc1')]
+  휠: testcontainers-4.15.0-py3-none-any.whl (160771 bytes)
+  휠 속 py.typed: ['testcontainers/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['testcontainers', 'testcontainers-4.15.0.dist-info']
+==============================================================================
+[pytest-postgresql]
+  최신 판: 10.0.0  (업로드 2026-11-04T15:38:21)
+  requires_python: '>=3.11'
+  license 필드: ''
+  license_expression: 'LGPL-3.0-or-later'
+  license_files: ['COPYING.lesser']
+  License 분류자: []
+  Python 분류자: ['3.11', '3.12', '3.13', '3.14', '3.15']
+  Typing 분류자: []
+  requires_dist: ['mirakuru>=2.6.0', 'packaging', 'port-for>=0.7.3', 'psycopg>=3.0.0', 'pytest>=8.4', 'aiofiles>=23.0; extra == "async"', 'pytest-asyncio>=1.4; extra == "async"']
+  project_urls: {'Bug Tracker': 'https://github.com/dbfixtures/pytest-postgresql/issues', 'Changelog': 'https://github.com/dbfixtures/pytest-postgresql/blob/v10.0.0/CHANGES.rst', 'Source': 'https://github.com/dbfixtures/pytest-postgresql'}
+  최근 판 5개(업로드일, 판): [('2026-11-04T15:38:21', '10.0.0'), ('2026-10-04T13:26:16', '9.1.1'), ('2026-09-04T12:22:33', '9.1.0'), ('2026-08-28T11:40:16', '9.0.0'), ('2026-05-15T19:59:34', '8.1.0')]
+  휠: pytest_postgresql-10.0.0-py3-none-any.whl (42025 bytes)
+  휠 속 py.typed: ['pytest_postgresql/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['pytest_postgresql', 'pytest_postgresql-10.0.0.dist-info']
+==============================================================================
+[pgserver]
+  최신 판: 0.1.4  (업로드 2024-06-08T18:41:18)
+  requires_python: '>=3.9'
+  license 필드: ''
+  license_expression: None
+  license_files: None
+  License 분류자: []
+  Python 분류자: []
+  Typing 분류자: []
+  requires_dist: ['fasteners>=0.19', 'platformdirs>=4.0.0', 'psutil>=5.9.0', 'sysv-ipc; extra == "dev"', 'pytest; extra == "test"', 'psycopg2-binary; extra == "test"', 'sqlalchemy>=2; extra == "test"', 'sqlalchemy-utils; extra == "test"']
+  project_urls: {'repository': 'https://github.com/orm011/pgserver'}
+  최근 판 5개(업로드일, 판): [('2024-06-08T18:41:18', '0.1.4'), ('2024-05-17T21:10:26', '0.1.3'), ('2024-04-23T22:38:21', '0.1.2'), ('2024-04-23T05:05:36', '0.1.1'), ('2024-04-15T18:25:33', '0.1.0')]
+  휠: pgserver-0.1.4-cp312-cp312-win_amd64.whl (12797714 bytes)
+  휠 속 py.typed: ['pgserver/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['pgserver', 'pgserver-0.1.4.dist-info']
+==============================================================================
+[postgresql-wheel]
+  최신 판: 14.1.2  (업로드 2021-12-29T19:56:41)
+  requires_python: '>=3.7,<3.10'
+  license 필드: 'Apache License 2.0'
+  license_expression: None
+  license_files: None
+  License 분류자: ['License :: OSI Approved :: Apache Software License']
+  Python 분류자: ['3.7', '3.8', '3.9']
+  Typing 분류자: []
+  requires_dist: ['pytest']
+  project_urls: {'Homepage': 'https://github.com/michelp/postgresql-wheel'}
+  최근 판 5개(업로드일, 판): [('2021-12-29T19:56:41', '14.1.2'), ('2021-12-28T22:19:40', '14.1.1'), ('2021-12-28T16:47:49', '14.1.0'), ('2021-08-31T15:34:21', '11.13.0'), ('2021-08-30T22:28:13', '13.4.13')]
+  휠: postgresql_wheel-14.1.2-cp37-cp37m-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl (14426 bytes)
+  휠 속 py.typed: 없음
+  휠 속 .pyi 수: 0
+  휠 최상위: ['postgresql', 'postgresql_wheel-14.1.2.dist-info', 'postgresql_wheel.libs']
+==============================================================================
+[py-pglite]
+  최신 판: 0.5.3  (업로드 2025-09-17T04:03:49)
+  requires_python: '>=3.10'
+  license 필드: ''
+  license_expression: 'Apache-2.0'
+  license_files: None
+  License 분류자: ['License :: OSI Approved :: Apache Software License']
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.14']
+  Typing 분류자: []
+  requires_dist: ['psutil>=6.0.0', 'py-pglite[psycopg]; extra == "all"', 'py-pglite[asyncpg]; extra == "all"', 'py-pglite[sqlalchemy]; extra == "all"', 'py-pglite[sqlmodel]; extra == "all"', 'py-pglite[django]; extra == "all"', 'py-pglite[fastapi]; extra == "all"', 'py-pglite[extensions]; extra == "all"', 'py-pglite[examples]; extra == "all"', 'pytest-asyncio>=0.21.0; extra == "all"', 'asyncpg>=0.29.0; extra == "async"', 'pytest-asyncio>=0.21.0; extra == "async"', 'asyncpg>=0.29.0; extra == "asyncpg"', 'django>=4.0.0; extra == "django"', 'pytest-django>=4.5.0; extra == "django"', 'py-pglite[fastapi]; extra == "examples"', 'python-jose>=3.3.0; extra == "examples"', 'passlib>=1.7.4; extra == "examples"', 'bcrypt>=4.3.0; extra == "examples"', 'pgvector>=0.4.1; extra == "extensions"', 'numpy>=1.0.0; extra == "extensions"', 'sqlalchemy>=2.0.41; extra == "fastapi"', 'fastapi>=0.115.12; extra == "fastapi"', 'sqlmodel>=0.0.24; extra == "fastapi"', 'httpx>=0.27.0; extra == "fastapi"', 'psycopg>=3.0.0; extra == "psycopg"', 'sqlalchemy>=2.0.41; extra == "sqlalchemy"', 'sqlalchemy>=2.0.41; extra == "sqlmodel"', 'sqlmodel>=0.0.24; extra == "sqlmodel"', 'py-pglite[extensions]; extra == "test-extensions"']
+  project_urls: {'Documentation': 'https://github.com/wey-gu/py-pglite#readme', 'Homepage': 'https://github.com/wey-gu/py-pglite', 'Issues': 'https://github.com/wey-gu/py-pglite/issues', 'Repository': 'https://github.com/wey-gu/py-pglite'}
+  최근 판 5개(업로드일, 판): [('2025-09-17T04:03:49', '0.5.3'), ('2025-09-16T23:35:30', '0.5.2'), ('2025-09-05T01:00:30', '0.5.1'), ('2025-09-04T09:55:19', '0.5.0'), ('2025-06-15T11:54:42', '0.4.1')]
+  휠: py_pglite-0.5.3-py3-none-any.whl (42375 bytes)
+  휠 속 py.typed: 없음
+  휠 속 .pyi 수: 0
+  휠 최상위: ['py_pglite', 'py_pglite-0.5.3.dist-info']
+==============================================================================
+[uuid6]
+  최신 판: 2025.0.1  (업로드 2025-07-04T18:30:34)
+  requires_python: '>=3.9'
+  license 필드: 'MIT'
+  license_expression: None
+  license_files: ['LICENSE']
+  License 분류자: ['License :: OSI Approved :: MIT License']
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.9']
+  Typing 분류자: []
+  requires_dist: None
+  project_urls: {'Bug Tracker': 'https://github.com/oittaa/uuid6-python/issues', 'Homepage': 'https://github.com/oittaa/uuid6-python'}
+  최근 판 5개(업로드일, 판): [('2025-07-04T18:30:34', '2025.0.1'), ('2025-06-11T20:02:04', '2025.0.0'), ('2024-07-10T16:39:36', '2024.7.10'), ('2024-01-12T08:11:29', '2024.1.12'), ('2023-05-02T09:34:41', '2023.5.2')]
+  휠: uuid6-2025.0.1-py3-none-any.whl (6979 bytes)
+  휠 속 py.typed: ['uuid6/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['uuid6', 'uuid6-2025.0.1.dist-info']
+==============================================================================
+[uuid-utils]
+  최신 판: 1.2.0  (업로드 2026-10-26T11:07:31)
+  requires_python: '>=3.10'
+  license 필드: ''
+  license_expression: 'BSD-3-Clause'
+  license_files: ['LICENSE.md']
+  License 분류자: []
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+  Typing 분류자: []
+  requires_dist: None
+  project_urls: {'Documentation': 'https://github.com/aminalaee/uuid-utils', 'Issues': 'https://github.com/aminalaee/uuid-utils/issues', 'Source': 'https://github.com/aminalaee/uuid-utils'}
+  최근 판 5개(업로드일, 판): [('2026-10-26T11:07:31', '1.2.0'), ('2026-10-26T10:54:06', '0.19.0'), ('2026-10-19T11:20:40', '0.18.0'), ('2026-10-19T11:20:20', '1.1.0'), ('2026-09-08T13:25:03', '1.0.0')]
+  휠: uuid_utils-1.2.0-cp310-abi3-win_amd64.whl (184093 bytes)
+  휠 속 py.typed: ['uuid_utils/py.typed']
+  휠 속 .pyi 수: 2
+  휠 최상위: ['uuid_utils', 'uuid_utils-1.2.0.dist-info']
+==============================================================================
+[python-ulid]
+  최신 판: 4.1.0  (업로드 2026-10-27T13:01:29)
+  requires_python: '>=3.11'
+  license 필드: ''
+  license_expression: 'MIT'
+  license_files: ['LICENSE']
+  License 분류자: ['License :: OSI Approved :: MIT License']
+  Python 분류자: ['3.11', '3.12', '3.13', '3.14']
+  Typing 분류자: []
+  requires_dist: ['typing-extensions; python_version < "3.12"', 'pydantic>=2.0; extra == "pydantic"']
+  project_urls: {'CI': 'https://github.com/mdomke/python-ulid/actions', 'Changelog': 'https://python-ulid.readthedocs.io/en/latest/changelog.html', 'Documentation': 'https://python-ulid.readthedocs.io', 'Homepage': 'https://github.com/mdomke/python-ulid', 'Issues': 'https://github.com/mdomke/python-ulid/issues', 'Repository': 'https://github.com/mdomke/python-ulid'}
+  최근 판 5개(업로드일, 판): [('2026-10-27T13:01:29', '4.1.0'), ('2026-07-20T15:21:40', '4.0.1'), ('2026-07-20T15:05:42', '4.0.0'), ('2026-07-19T22:21:18', '3.2.1'), ('2026-07-17T12:46:36', '3.2.0')]
+  휠: python_ulid-4.1.0-py3-none-any.whl (14638 bytes)
+  휠 속 py.typed: ['ulid/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['python_ulid-4.1.0.dist-info', 'ulid']
+==============================================================================
+[pydantic-settings]
+  최신 판: 2.16.2  (업로드 2026-10-28T11:14:26)
+  requires_python: '>=3.11'
+  license 필드: ''
+  license_expression: 'MIT'
+  license_files: ['LICENSE']
+  License 분류자: ['License :: OSI Approved :: MIT License']
+  Python 분류자: ['3.11', '3.12', '3.13', '3.14', '3.15']
+  Typing 분류자: []
+  requires_dist: ['pydantic>=2.7.0', 'python-dotenv>=1.2.2', 'typing-extensions>=4.0.0', 'typing-inspection>=0.4.0', 'boto3>=1.35.0; extra == "aws-secrets-manager"', 'boto3>=1.35.0; extra == "aws-systems-manager"', 'azure-identity>=1.16.0; extra == "azure-key-vault"', 'azure-keyvault-secrets>=4.8.0; extra == "azure-key-vault"', 'google-cloud-secret-manager>=2.23.1; extra == "gcp-secret-manager"', 'pyyaml>=6.0.1; extra == "yaml"']
+  project_urls: {'Changelog': 'https://github.com/pydantic/pydantic-settings/releases', 'Documentation': 'https://docs.pydantic.dev/dev-v2/concepts/pydantic_settings/', 'Funding': 'https://github.com/sponsors/samuelcolvin', 'Homepage': 'https://github.com/pydantic/pydantic-settings', 'Source': 'https://github.com/pydantic/pydantic-settings'}
+  최근 판 5개(업로드일, 판): [('2026-10-28T11:14:26', '2.16.2'), ('2026-10-20T11:37:17', '2.16.1'), ('2026-10-14T12:44:08', '2.16.0'), ('2026-08-07T09:24:55', '2.15.0'), ('2026-06-19T13:44:55', '2.14.2')]
+  휠: pydantic_settings-2.16.2-py3-none-any.whl (81994 bytes)
+  휠 속 py.typed: ['pydantic_settings/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['pydantic_settings', 'pydantic_settings-2.16.2.dist-info']
+==============================================================================
+[pydantic]
+  최신 판: 2.14.3  (업로드 2026-11-05T09:17:02)
+  requires_python: '>=3.10'
+  license 필드: ''
+  license_expression: 'MIT'
+  license_files: ['LICENSE']
+  License 분류자: []
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+  Typing 분류자: []
+  requires_dist: ['annotated-types>=0.6.0', 'pydantic-core==2.50.4', 'typing-extensions>=4.16.0', 'typing-inspection>=0.4.4', 'email-validator>=2.0.0; extra == "email"', 'tzdata; platform_system == "Windows" and extra == "timezone"']
+  project_urls: {'Changelog': 'https://pydantic.dev/docs/validation/latest/get-started/changelog/', 'Documentation': 'https://pydantic.dev/docs/validation/latest/get-started/', 'Funding': 'https://github.com/sponsors/samuelcolvin', 'Homepage': 'https://github.com/pydantic/pydantic', 'Source': 'https://github.com/pydantic/pydantic'}
+  최근 판 5개(업로드일, 판): [('2026-11-05T09:17:02', '2.14.3'), ('2026-10-29T16:37:10', '2.14.2'), ('2026-10-29T15:35:33', '1.10.27'), ('2026-10-11T18:37:53', '2.14.1'), ('2026-10-08T14:34:46', '2.14.0')]
+  휠: pydantic-2.14.3-py3-none-any.whl (494071 bytes)
+  휠 속 py.typed: ['pydantic/py.typed', 'pydantic/v1/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['pydantic', 'pydantic-2.14.3.dist-info']
+==============================================================================
+[fastapi]
+  최신 판: 0.162.2  (업로드 2026-11-07T15:41:38)
+  requires_python: '>=3.10'
+  license 필드: ''
+  license_expression: 'MIT'
+  license_files: ['LICENSE']
+  License 분류자: []
+  Python 분류자: ['3.10', '3.11', '3.12', '3.13', '3.14']
+  Typing 분류자: ['Typing :: Typed']
+  requires_dist: ['starlette>=0.46.0', 'pydantic>=2.9.0', 'typing-extensions>=4.8.0', 'typing-inspection>=0.4.2', 'annotated-doc>=0.0.2', 'opentelemetry-api>=1.44.0', 'opentelemetry-sdk>=1.44.0; extra == "opentelemetry"', 'opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == "opentelemetry"', 'opentelemetry-sdk>=1.44.0; extra == "standard"', 'opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == "standard"', 'fastapi-cli[standard]>=0.0.32; extra == "standard"', 'fastar>=0.9.0; extra == "standard"', 'httpx<1.0.0,>=0.23.0; extra == "standard"', 'httpx2>=2.0.0; extra == "standard"', 'jinja2>=3.1.5; extra == "standard"', 'python-multipart>=0.0.18; extra == "standard"', 'email-validator>=2.0.0; extra == "standard"', 'uvicorn[standard]>=0.12.0; extra == "standard"', 'pydantic-settings>=2.0.0; extra == "standard"', 'pydantic-extra-types>=2.0.0; extra == "standard"', 'opentelemetry-sdk>=1.44.0; extra == "standard-no-fastapi-cloud-cli"', 'opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == "standard-no-fastapi-cloud-cli"', 'fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.32; extra == "standard-no-fastapi-cloud-cli"', 'httpx<1.0.0,>=0.23.0; extra == "standard-no-fastapi-cloud-cli"', 'httpx2>=2.0.0; extra == "standard-no-fastapi-cloud-cli"', 'jinja2>=3.1.5; extra == "standard-no-fastapi-cloud-cli"', 'python-multipart>=0.0.18; extra == "standard-no-fastapi-cloud-cli"', 'email-validator>=2.0.0; extra == "standard-no-fastapi-cloud-cli"', 'uvicorn[standard]>=0.12.0; extra == "standard-no-fastapi-cloud-cli"', 'pydantic-settings>=2.0.0; extra == "standard-no-fastapi-cloud-cli"', 'pydantic-extra-types>=2.0.0; extra == "standard-no-fastapi-cloud-cli"', 'opentelemetry-sdk>=1.44.0; extra == "all"', 'opentelemetry-exporter-otlp-proto-http>=1.44.0; extra == "all"', 'fastapi-cli[standard]>=0.0.32; extra == "all"', 'httpx<1.0.0,>=0.23.0; extra == "all"', 'httpx2>=2.0.0; extra == "all"', 'jinja2>=3.1.5; extra == "all"', 'python-multipart>=0.0.18; extra == "all"', 'itsdangerous>=1.1.0; extra == "all"', 'pyyaml>=5.3.1; extra == "all"', 'email-validator>=2.0.0; extra == "all"', 'uvicorn[standard]>=0.12.0; extra == "all"', 'pydantic-settings>=2.0.0; extra == "all"', 'pydantic-extra-types>=2.0.0; extra == "all"']
+  project_urls: {'Changelog': 'https://fastapi.tiangolo.com/release-notes/', 'Documentation': 'https://fastapi.tiangolo.com/', 'Homepage': 'https://github.com/fastapi/fastapi', 'Issues': 'https://github.com/fastapi/fastapi/issues', 'Repository': 'https://github.com/fastapi/fastapi'}
+  최근 판 5개(업로드일, 판): [('2026-11-07T15:41:38', '0.162.2'), ('2026-11-07T11:56:02', '0.162.1'), ('2026-10-23T18:47:31', '0.162.0'), ('2026-10-22T22:22:06', '0.161.1'), ('2026-10-22T18:30:41', '0.161.0')]
+  휠: fastapi-0.162.2-py3-none-any.whl (151671 bytes)
+  휠 속 py.typed: ['fastapi/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['fastapi', 'fastapi-0.162.2.dist-info']

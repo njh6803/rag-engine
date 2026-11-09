@@ -1,0 +1,28 @@
+version 1.9.4
+paths ['/decode', '/embed', '/embed_all', '/embed_sparse', '/health', '/info', '/metrics', '/predict', '/rerank', '/similarity', '/tokenize', '/v1/embeddings']
+--- TokenizeRequest required=['inputs']
+  add_special_tokens: {"type": "boolean", "default": "true", "example": "true"}
+  inputs: {"$ref": "#/components/schemas/TokenizeInput"}
+  prompt_name: {"type": "string", "description": "The name of the prompt that should be used by for encoding. If not set, no prompt\nwill be applied.\n\nMust be a key in the `sentence-transformers` configuration `prompts` dictionary.\n
+--- TokenizeInput required=None
+--- SimpleToken required=['id', 'text', 'special']
+  id: {"type": "integer", "format": "int32", "example": 0, "minimum": 0}
+  special: {"type": "boolean", "example": "false"}
+  start: {"type": "integer", "example": 0, "nullable": true, "minimum": 0}
+  stop: {"type": "integer", "example": 2, "nullable": true, "minimum": 0}
+  text: {"type": "string", "example": "test"}
+--- EmbedRequest required=['inputs']
+  dimensions: {"type": "integer", "description": "The number of dimensions that the output embeddings should have. If not set, the original\nshape of the representation will be returned instead.", "default": "null", "example": "null",
+  inputs: {"$ref": "#/components/schemas/Input"}
+  normalize: {"type": "boolean", "default": "true", "example": "true"}
+  prompt_name: {"type": "string", "description": "The name of the prompt that should be used by for encoding. If not set, no prompt\nwill be applied.\n\nMust be a key in the `sentence-transformers` configuration `prompts` dictionary.\n
+  truncate: {"type": "boolean", "default": "false", "example": "false", "nullable": true}
+  truncation_direction: {"allOf": [{"$ref": "#/components/schemas/TruncationDirection"}], "default": "right"}
+--- OpenAICompatRequest required=['input']
+  dimensions: {"type": "integer", "default": "null", "example": "null", "nullable": true, "minimum": 0}
+  encoding_format: {"allOf": [{"$ref": "#/components/schemas/EncodingFormat"}], "default": "float"}
+  input: {"$ref": "#/components/schemas/Input"}
+  model: {"type": "string", "example": "null", "nullable": true}
+  user: {"type": "string", "example": "null", "nullable": true}
+--- TruncationDirection required=None
+tokenize responses {'200': 'Tokenized ids', '400': 'Batch is empty', '413': 'Batch size error', '422': 'Tokenization error'}

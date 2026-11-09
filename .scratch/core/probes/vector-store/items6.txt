@@ -1,0 +1,26 @@
+# N·O·P 보충 원문(1차: 경로를 아는 것)
+paradedb_limitations.mdx https://raw.githubusercontent.com/paradedb/paradedb/main/docs/concepts/limitations.mdx
+paradedb_high_availability.mdx https://raw.githubusercontent.com/paradedb/paradedb/main/docs/operate/deploy/self-hosted/high-availability.mdx
+paradedb_logical_replication.mdx https://raw.githubusercontent.com/paradedb/paradedb/main/docs/operate/deploy/logical-replication/getting-started.mdx
+weaviate_wl_LICENSE https://raw.githubusercontent.com/weaviate/weaviate/main/wl/LICENSE-WEAVIATE
+weaviate_enterprise.md https://raw.githubusercontent.com/weaviate/docs/main/docs/deploy/enterprise.md
+weaviate_telemetry.md https://raw.githubusercontent.com/weaviate/docs/main/docs/deploy/configuration/telemetry.md
+weaviate_rbac_config.md https://raw.githubusercontent.com/weaviate/docs/main/docs/deploy/configuration/authorization.md
+meilisearch_LICENSE_EE https://raw.githubusercontent.com/meilisearch/meilisearch/main/LICENSE-EE
+meilisearch_LICENSE https://raw.githubusercontent.com/meilisearch/meilisearch/main/LICENSE
+meilisearch_sharding_rs https://raw.githubusercontent.com/meilisearch/meilisearch/main/crates/milli/src/sharding/enterprise_edition.rs
+dbengines_vector.html https://db-engines.com/en/ranking/vector+dbms
+dbengines_vector_all.html https://db-engines.com/en/ranking/vector+dbms/all
+elastic_subscriptions.pdf https://www.elastic.co/pdf/subscriptions-2026-08-04.pdf
+qdrant_pricing.html https://qdrant.tech/pricing/
+weaviate_pricing.html https://weaviate.io/pricing
+zilliz_pricing.html https://zilliz.com/pricing
+meilisearch_pricing.html https://www.meilisearch.com/pricing
+paradedb_pricing.html https://www.paradedb.com/pricing
+elastic_agpl_blog.html https://www.elastic.co/blog/elasticsearch-is-open-source-again
+elastic_license_change_blog.html https://www.elastic.co/blog/licensing-change
+elastic_security_free_blog.html https://www.elastic.co/blog/security-for-elasticsearch-is-now-free
+qdrant_customers.html https://qdrant.tech/customers/
+so_survey_2025_tech.html https://survey.stackoverflow.co/2025/technology
+meilisearch_known_limits.html https://www.meilisearch.com/docs/learn/resources/known_limitations
+meilisearch_telemetry.html https://www.meilisearch.com/docs/learn/resources/telemetry

@@ -1,0 +1,141 @@
+==============================================================================
+[alembic-1.20.1-py3-none-any.whl]
+  라이선스 파일: alembic-1.20.1.dist-info/licenses/LICENSE (1059자) -> 판정 MIT
+    머리: Copyright 2009-2026 Michael Bayer. | Permission is hereby granted, free of charge, to any person obtaining a copy of | this software and associated documentation files (the "Software"), to deal in | the Software without restriction, including without limitation the rights to | use, copy, modify, mer
+  키워드 적중: {'LISTEN': ['autogenerate/compare/tables.py', 'op.pyi', 'operations/base.py', 'operations/batch.py', 'operations/ops.py', 'runtime/migration.py'], 'dedupe': ['autogenerate/compare/constraints.py', 'script/revision.py', 'util/__init__.py', 'util/langhelpers.py']}
+  .pyi: ['alembic/context.pyi', 'alembic/op.pyi']
+==============================================================================
+[arq-0.28.0-py3-none-any.whl]
+  라이선스 파일: arq-0.28.0.dist-info/licenses/LICENSE (1110자) -> 판정 MIT
+    머리: The MIT License (MIT) | Copyright (c) 2017 - 2022 Samuel Colvin and other contributors | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal
+==============================================================================
+[asyncpg-0.32.0-cp312-cp312-win_amd64.whl]
+  라이선스 파일: asyncpg-0.32.0.dist-info/licenses/LICENSE (11670자) -> 판정 Apache-2.0
+    머리: Copyright (C) 2016-present the asyncpg authors and contributors. | Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/
+  키워드 적중: {'pg_advisory': ['connection.py', 'pool.py'], 'LISTEN': ['_testbase/__init__.py', '_testbase/fuzzer.py', 'connection.py', 'pool.py'], 'NOTIFY': ['_testbase/fuzzer.py', 'connection.py', 'pool.py']}
+  .pyi: ['asyncpg/pgproto/pgproto.pyi', 'asyncpg/protocol/protocol.pyi', 'asyncpg/protocol/record.pyi']
+==============================================================================
+[celery-5.7.0-py3-none-any.whl]
+  라이선스 파일: celery-5.7.0.dist-info/licenses/LICENSE (2717자) -> 판정 BSD
+    머리: Copyright (c) 2017-2026 Asif Saif Uddin, core team & contributors. All rights reserved. | Copyright (c) 2015-2016 Ask Solem & contributors. All rights reserved. | Copyright (c) 2012-2014 GoPivotal, Inc.  All rights reserved. | Copyright (c) 2009, 2010, 2011, 2012 Ask Solem, and individual contributo
+  키워드 적중: {'LISTEN': ['backends/rpc.py', 'beat.py', 'contrib/rdb.py', 'contrib/testing/worker.py', 'utils/dispatch/signal.py', 'worker/pidbox.py'], 'NOTIFY': ['app/task.py', 'backends/redis.py', 'concurrency/eventlet.py', 'utils/timer2.py'], 'heartbeat': ['app/base.py', 'app/control.py', 'app/defaults.py', 'bin/worker.py', 'concurrency/prefork.py', 'contrib/testing/app.py']}
+==============================================================================
+[chancy-0.26.0-py3-none-any.whl]
+  라이선스 파일: chancy-0.26.0.dist-info/licenses/LICENSE.md (1069자) -> 판정 MIT
+    머리: Copyright (c) 2024 Tyler Kennedy <tk@tkte.ch> | Permission is hereby granted, free of charge, to any person obtaining a copy of | this software and associated documentation files (the "Software"), to deal in | the Software without restriction, including without limitation the rights to | use, copy, 
+  키워드 적중: {'SKIP LOCKED': ['plugins/cron/__init__.py', 'plugins/metrics/metrics.py', 'plugins/recovery.py', 'plugins/reprioritize.py', 'plugins/workflow/__init__.py', 'worker.py'], 'LISTEN': ['app.py', 'cli/worker.py', 'plugins/api/__init__.py', 'plugins/workflow/__init__.py', 'worker.py'], 'NOTIFY': ['app.py', 'cli/worker.py', 'hub.py', 'plugins/api/core.py', 'plugins/leadership.py', 'plugins/pruner.py'], 'heartbeat': ['plugins/recovery.py', 'worker.py']}
+==============================================================================
+[dramatiq-2.2.1-py3-none-any.whl]
+  라이선스 파일: dramatiq-2.2.1.dist-info/licenses/COPYING (35147자) -> 판정 GPL-3.0
+    머리: GNU GENERAL PUBLIC LICENSE | Version 3, 29 June 2007 | Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/> | Everyone is permitted to copy and distribute verbatim copies | of this license document, but changing it is not allowed.
+  라이선스 파일: dramatiq-2.2.1.dist-info/licenses/COPYING.LESSER (7650자) -> 판정 LGPL-3.0
+    머리: GNU LESSER GENERAL PUBLIC LICENSE | Version 3, 29 June 2007 | Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/> | Everyone is permitted to copy and distribute verbatim copies | of this license document, but changing it is not allowed.
+    LGPL 판: Version 3
+  키워드 적중: {'LISTEN': ['cli.py', 'middleware/prometheus.py', 'worker.py'], 'NOTIFY': ['middleware/shutdown.py', 'rate_limits/backend.py', 'rate_limits/backends/redis.py', 'rate_limits/backends/stub.py', 'rate_limits/barrier.py'], 'heartbeat': ['broker.py', 'brokers/rabbitmq.py', 'brokers/redis.py', 'worker.py']}
+==============================================================================
+[dramatiq_pg-0.12.0-py3-none-any.whl]
+  라이선스 파일: dramatiq_pg-0.12.0.dist-info/LICENSE (918자) -> 판정 ?
+    머리: PostgreSQL Licence | Copyright (c) 2019, DALIBO | Permission to use, copy, modify, and distribute this software and its | documentation for any purpose, without fee, and without a written agreement is
+  키워드 적중: {'pg_advisory': ['broker.py'], 'pg_try_advisory': ['broker.py'], 'LISTEN': ['broker.py', 'results.py', 'utils.py'], 'NOTIFY': ['broker.py', 'results.py', 'utils.py']}
+==============================================================================
+[fastapi-0.162.2-py3-none-any.whl]
+  라이선스 파일: fastapi-0.162.2.dist-info/licenses/LICENSE (1084자) -> 판정 MIT
+    머리: The MIT License (MIT) | Copyright (c) 2018 Sebastián Ramírez | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal
+  키워드 적중: {'LISTEN': ['openapi/docs.py', 'sse.py']}
+==============================================================================
+[pgmq-1.1.4-py3-none-any.whl]
+  라이선스 파일: 휠에 없음
+  키워드 적중: {'SKIP LOCKED': ['sql/pgmq.sql'], 'pg_advisory': ['sql/pgmq.sql'], 'pg_try_advisory': ['sql/pgmq.sql'], 'LISTEN': ['api/__main__.py', 'api/config.py', 'notify_listener.py', 'sql/pgmq.sql'], 'NOTIFY': ['_sql.py', 'async_operations.py', 'notify_listener.py', 'sql/pgmq.sql', 'sync_operations.py']}
+==============================================================================
+[pgqueuer-1.6.0-py3-none-any.whl]
+  라이선스 파일: pgqueuer-1.6.0.dist-info/licenses/LICENSE (1066자) -> 판정 MIT
+    머리: MIT License | Copyright (c) 2024 janbjorge | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal
+  키워드 적중: {'SKIP LOCKED': ['adapters/persistence/qb.py'], 'pg_advisory': ['adapters/persistence/queries.py'], 'pg_try_advisory': ['adapters/persistence/qb.py'], 'LISTEN': ['adapters/cli/cli.py', 'adapters/cli/supervisor.py', 'adapters/drivers/asyncpg.py', 'adapters/drivers/psycopg.py', 'adapters/inmemory/driver.py', 'adapters/inmemory/queries.py'], 'NOTIFY': ['adapters/cli/cli.py', 'adapters/drivers/asyncpg.py', 'adapters/drivers/psycopg.py', 'adapters/inmemory/driver.py', 'adapters/inmemory/queries.py', 'adapters/persistence/qb.py'], 'dedupe': ['adapters/cli/cli.py', 'adapters/inmemory/queries.py', 'adapters/mcp/server.py', 'adapters/persistence/qb.py', 'adapters/persistence/queries.py', 'adapters/persistence/query_helpers.py'], 'heartbeat': ['adapters/cli/cli.py', 'adapters/cli/supervisor.py', 'adapters/inmemory/queries.py', 'adapters/mcp/server.py', 'adapters/persistence/qb.py', 'adapters/persistence/queries.py']}
+==============================================================================
+[pgserver-0.1.4-cp312-cp312-win_amd64.whl]
+  라이선스 파일: pgserver-0.1.4.dist-info/LICENSE (11558자) -> 판정 Apache-2.0
+    머리: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+  키워드 적중: {'LISTEN': ['postgres_server.py', 'utils.py']}
+==============================================================================
+[postgresql_wheel-14.1.2-cp37-cp37m-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl]
+  라이선스 파일: postgresql_wheel-14.1.2.dist-info/LICENSE (11357자) -> 판정 Apache-2.0
+    머리: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+==============================================================================
+[procrastinate-3.10.0-py3-none-any.whl]
+  라이선스 파일: procrastinate-3.10.0.dist-info/licenses/LICENSE.md (1175자) -> 판정 MIT
+    머리: MIT License | Copyright (c) 2019-2021, PeopleDoc | Copyright (c) 2021-2023, Joachim Jablon, Eric Lemoine | Copyright (c) 2024-, Joachim Jablon, Kai Schlamp
+  키워드 적중: {'SKIP LOCKED': ['sql/migrations/00.00.00_01_initial.sql', 'sql/migrations/00.05.00_01_drop_started_at_column.sql', 'sql/migrations/00.06.00_01_fix_procrastinate_fetch_job.sql', 'sql/migrations/00.10.00_01_close_fetch_job_race_condition.sql', 'sql/migrations/00.23.00_01_null_locks_excluded.sql', 'sql/migrations/02.00.03_01_add_job_priority.sql'], 'LISTEN': ['app.py', 'blueprints.py', 'cli.py', 'connector.py', 'contrib/aiopg/aiopg_connector.py', 'contrib/django/django_connector.py'], 'NOTIFY': ['app.py', 'cli.py', 'connector.py', 'contrib/aiopg/aiopg_connector.py', 'contrib/django/django_connector.py', 'manager.py'], 'queueing_lock': ['blueprints.py', 'cli.py', 'contrib/aiopg/aiopg_connector.py', 'contrib/django/admin.py', 'contrib/django/migrations/0007_add_queueing_lock_column.py', 'contrib/django/migrations/0008_close_fetch_job_race_condition.py'], 'heartbeat': ['app.py', 'contrib/django/migrations/0034_pre_add_heartbeat.py', 'contrib/django/migrations/0035_post_add_heartbeat.py', 'contrib/django/migrations/0036_add_worker_model.py', 'contrib/django/models.py', 'manager.py']}
+==============================================================================
+[psycopg-3.3.8-py3-none-any.whl]
+  라이선스 파일: psycopg-3.3.8.dist-info/licenses/LICENSE.txt (7652자) -> 판정 LGPL-3.0
+    머리: GNU LESSER GENERAL PUBLIC LICENSE | Version 3, 29 June 2007 | Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/> | Everyone is permitted to copy and distribute verbatim copies | of this license document, but changing it is not allowed.
+    LGPL 판: Version 3
+  키워드 적중: {'NOTIFY': ['__init__.py', '_connection_base.py', 'connection.py', 'connection_async.py', 'errors.py', 'generators.py']}
+  .pyi: ['psycopg/pq/_pq_ctypes.pyi']
+==============================================================================
+[psycopg_binary-3.3.8-cp312-cp312-win_amd64.whl]
+  라이선스 파일: psycopg_binary-3.3.8.dist-info/licenses/LICENSE.txt (7817자) -> 판정 LGPL-3.0
+    머리: GNU LESSER GENERAL PUBLIC LICENSE | Version 3, 29 June 2007 | Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/> | Everyone is permitted to copy and distribute verbatim copies | of this license document, but changing it is not allowed.
+    LGPL 판: Version 3
+  .pyi: ['psycopg_binary/_psycopg.pyi']
+==============================================================================
+[psycopg_pool-3.3.3-py3-none-any.whl]
+  라이선스 파일: psycopg_pool-3.3.3.dist-info/licenses/LICENSE.txt (7652자) -> 판정 LGPL-3.0
+    머리: GNU LESSER GENERAL PUBLIC LICENSE | Version 3, 29 June 2007 | Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/> | Everyone is permitted to copy and distribute verbatim copies | of this license document, but changing it is not allowed.
+    LGPL 판: Version 3
+  키워드 적중: {'NOTIFY': ['null_pool.py', 'null_pool_async.py', 'pool.py', 'pool_async.py']}
+==============================================================================
+[py_pglite-0.5.3-py3-none-any.whl]
+  라이선스 파일: 휠에 없음
+==============================================================================
+[pydantic-2.14.3-py3-none-any.whl]
+  라이선스 파일: pydantic-2.14.3.dist-info/licenses/LICENSE (1129자) -> 판정 MIT
+    머리: The MIT License (MIT) | Copyright (c) 2017 to present Pydantic Services Inc. and individual contributors. | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal
+==============================================================================
+[pydantic_settings-2.16.2-py3-none-any.whl]
+  라이선스 파일: pydantic_settings-2.16.2.dist-info/licenses/LICENSE (1103자) -> 판정 MIT
+    머리: The MIT License (MIT) | Copyright (c) 2022 Samuel Colvin and other contributors | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal
+==============================================================================
+[pytest_postgresql-10.0.0-py3-none-any.whl]
+  라이선스 파일: pytest_postgresql-10.0.0.dist-info/licenses/COPYING.lesser (7651자) -> 판정 LGPL-3.0
+    머리: GNU LESSER GENERAL PUBLIC LICENSE | Version 3, 29 June 2007 | Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/> | Everyone is permitted to copy and distribute verbatim copies | of this license document, but changing it is not allowed.
+    LGPL 판: Version 3
+==============================================================================
+[python_ulid-4.1.0-py3-none-any.whl]
+  라이선스 파일: python_ulid-4.1.0.dist-info/licenses/LICENSE (1056자) -> 판정 MIT
+    머리: Copyright (c) 2017 Martin Domke | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal | in the Software without restriction, including without limitation the rights | to use, copy, modify, merge,
+==============================================================================
+[saq-0.26.5-py3-none-any.whl]
+  라이선스 파일: saq-0.26.5.dist-info/licenses/LICENSE (1065자) -> 판정 MIT
+    머리: MIT License | Copyright (c) 2021 Toby Mao | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal
+  키워드 적중: {'SKIP LOCKED': ['queue/postgres.py'], 'pg_try_advisory': ['queue/postgres.py'], 'LISTEN': ['job.py', 'multiplexer.py', 'queue/base.py', 'queue/postgres.py', 'queue/redis.py', 'types.py'], 'NOTIFY': ['queue/base.py', 'queue/http.py', 'queue/postgres.py', 'queue/redis.py', 'worker.py'], 'heartbeat': ['job.py']}
+==============================================================================
+[sqlalchemy-2.1.8-py3-none-any.whl]
+  라이선스 파일: sqlalchemy-2.1.8.dist-info/licenses/AUTHORS (492자) -> 판정 ?
+    머리: SQLAlchemy was created by Michael Bayer. | Major contributing authors include: | - Mike Bayer | - Jason Kirtland
+  라이선스 파일: sqlalchemy-2.1.8.dist-info/licenses/LICENSE (1100자) -> 판정 MIT
+    머리: Copyright 2005-2026 SQLAlchemy authors and contributors <see AUTHORS file>. | Permission is hereby granted, free of charge, to any person obtaining a copy of | this software and associated documentation files (the "Software"), to deal in | the Software without restriction, including without limitati
+  키워드 적중: {'SKIP LOCKED': ['dialects/mysql/base.py', 'dialects/oracle/base.py', 'dialects/postgresql/base.py', 'sql/selectable.py'], 'LISTEN': ['dialects/mssql/base.py', 'dialects/mssql/pyodbc.py', 'dialects/mysql/base.py', 'dialects/mysql/provision.py', 'dialects/oracle/cx_oracle.py', 'dialects/oracle/oracledb.py'], 'NOTIFY': ['orm/collections.py', 'util/queue.py'], 'dedupe': ['orm/context.py', 'orm/strategies.py', 'sql/base.py', 'sql/elements.py', 'sql/schema.py', 'sql/selectable.py'], 'heartbeat': ['dialects/mysql/reserved_words.py']}
+==============================================================================
+[taskiq_pg-0.2.0-py3-none-any.whl]
+  라이선스 파일: taskiq_pg-0.2.0.dist-info/licenses/LICENSE (1071자) -> 판정 MIT
+    머리: MIT License | Copyright (c) 2025 Oliver Lambson | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal
+  키워드 적중: {'LISTEN': ['broker.py'], 'NOTIFY': ['broker.py']}
+==============================================================================
+[testcontainers-4.15.0-py3-none-any.whl]
+  라이선스 파일: testcontainers-4.15.0.dist-info/licenses/LICENSE.txt (11328자) -> 판정 Apache-2.0
+    머리: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+  키워드 적중: {'LISTEN': ['community/kafka/__init__.py', 'community/neo4j/__init__.py', 'community/ollama/__init__.py', 'community/scylla/__init__.py', 'community/sftp/__init__.py', 'core/wait_strategies.py'], 'heartbeat': ['community/chroma/__init__.py']}
+==============================================================================
+[uuid6-2025.0.1-py3-none-any.whl]
+  라이선스 파일: uuid6-2025.0.1.dist-info/licenses/LICENSE (1063자) -> 판정 MIT
+    머리: MIT License | Copyright (c) 2021 oittaa | Permission is hereby granted, free of charge, to any person obtaining a copy | of this software and associated documentation files (the "Software"), to deal
+==============================================================================
+[uuid_utils-1.2.0-cp310-abi3-win_amd64.whl]
+  라이선스 파일: uuid_utils-1.2.0.dist-info/licenses/LICENSE.md (1512자) -> 판정 BSD
+    머리: Copyright © 2023, Amin Alaee. | All rights reserved. | Redistribution and use in source and binary forms, with or without | modification, are permitted provided that the following conditions are met:
+  .pyi: ['uuid_utils/__init__.pyi', 'uuid_utils/compat/__init__.pyi']
+==============================================================================
+[yoyo_migrations-9.0.0-py3-none-any.whl]
+  라이선스 파일: yoyo_migrations-9.0.0.dist-info/LICENSE.txt (11358자) -> 판정 Apache-2.0
+    머리: Apache License | Version 2.0, January 2004 | http://www.apache.org/licenses/ | TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION

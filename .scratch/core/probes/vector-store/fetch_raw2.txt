@@ -1,0 +1,58 @@
+OK      22466  chroma_py_tree.json
+OK      14510  debian_groonga_tokenizer_mecab.html
+OK      14349  debian_mecab.html
+OK       2375  debian_mecab_ko_dic.html
+OK    2003406  elastic_nori_doc.html
+OK      50394  groonga_news.html
+OK       1064  kagome_dict_ko_LICENSE_master
+OK       2051  kagome_dict_ko_README_master
+OK         99  kagome_dict_ko_go.mod
+OK       1210  lance_tokenizer_Cargo.toml
+OK      42494  lancedb_py_tree.json
+FAIL HTTP Error 404: Not Found  lindera_ko_dic_LICENSE_master  <- https://raw.githubusercontent.com/lindera/lindera-ko-dic/master/LICENSE
+FAIL HTTP Error 404: Not Found  lindera_ko_dic_README_master  <- https://raw.githubusercontent.com/lindera/lindera-ko-dic/master/README.md
+OK      31599  lindera_repo_tree.json
+FAIL HTTP Error 404: Not Found  lucene_nori_NOTICE  <- https://raw.githubusercontent.com/apache/lucene/main/lucene/NOTICE.txt
+FAIL HTTP Error 404: Not Found  lucene_nori_dict_README  <- https://raw.githubusercontent.com/apache/lucene/main/lucene/analysis/nori/README.md
+OK       9664  lucene_root_NOTICE
+OK       3121  meilisearch_LICENSE_EE
+OK       1070  meilisearch_LICENSE_MIT
+FAIL HTTP Error 404: Not Found  meilisearch_embedders_ref.mdx  <- https://raw.githubusercontent.com/meilisearch/documentation/main/reference/api/settings.mdx
+FAIL HTTP Error 404: Not Found  meilisearch_vector_doc.mdx  <- https://raw.githubusercontent.com/meilisearch/documentation/main/learn/ai_powered_search/getting_started_with_ai_search.mdx
+FAIL HTTP Error 404: Not Found  milvus_prereq_doc.md  <- https://raw.githubusercontent.com/milvus-io/milvus-docs/v2.6.x/site/en/getstarted/run_milvus_docker/prerequisite-docker.md
+FAIL HTTP Error 404: Not Found  milvus_prereq_doc_v3.md  <- https://raw.githubusercontent.com/milvus-io/milvus-docs/v3.0.x/site/en/getstarted/run_milvus_docker/prerequisite-docker.md
+OK       4452  opensearch_analyzers_index.md
+OK      24583  opensearch_nori_LICENSE
+OK       1593  opensearch_nori_build.gradle
+OK       2898  opensearch_nori_plugin_src.json
+OK      19601  opensearch_plugins_doc.md
+FAIL HTTP Error 404: Not Found  paradedb_Dockerfile  <- https://raw.githubusercontent.com/paradedb/paradedb/main/docker/Dockerfile
+OK       1922  paradedb_hybrid_dir.json
+OK        979  paradedb_hybrid_overview.mdx
+OK       4084  paradedb_tokenizers_dir.json
+OK       1659  paradedb_tokenizers_overview.mdx
+OK      21379  pg_createextension.html
+OK      61118  pg_extend_extensions.html
+OK       7849  pg_tokenizer_docs_dir.json
+OK       8771  pg_tokenizer_model.md
+OK        154  pgroonga.control
+FAIL HTTP Error 404: Not Found  pgroonga_Makefile  <- https://raw.githubusercontent.com/pgroonga/pgroonga/main/Makefile
+OK     285046  pypi_elasticsearch.json
+OK    1009736  pypi_kiwipiepy.json
+OK     158870  pypi_meilisearch-python-sdk.json
+OK     108557  pypi_meilisearch.json
+OK      42914  pypi_opensearch-py.json
+OK     224545  pypi_pymilvus.json
+OK     213007  pypi_qdrant-client.json
+OK      50944  pypi_typesense.json
+OK     441853  pypi_weaviate-client.json
+FAIL HTTP Error 404: Not Found  qdrant_capacity_doc.md  <- https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/guides/capacity-planning.md
+FAIL HTTP Error 404: Not Found  qdrant_filtering_doc.md  <- https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/concepts/filtering.md
+OK       7905  qdrant_fulltext_doc.md
+OK      13333  typesense_tokenizer.cpp
+OK       2724  typesense_tokenizer.h
+FAIL HTTP Error 404: Not Found  vchord_images_README.md  <- https://raw.githubusercontent.com/tensorchord/VectorChord-images/main/README.md
+OK     601085  vespa_lucene_linguistics.html
+OK      51609  weaviate_env_doc.md
+OK      73008  weaviate_kagome_doc.md
+OK      12403  weaviate_resources_doc.md

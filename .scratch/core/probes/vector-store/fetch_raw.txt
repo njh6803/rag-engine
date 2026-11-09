@@ -1,0 +1,103 @@
+OK       2679  charabia_Cargo.toml  <- https://raw.githubusercontent.com/meilisearch/charabia/main/charabia/Cargo.toml
+OK       1071  charabia_LICENSE  <- https://raw.githubusercontent.com/meilisearch/charabia/main/LICENSE
+OK      11357  chroma_LICENSE  <- https://raw.githubusercontent.com/chroma-core/chroma/main/LICENSE
+OK       8720  chroma_release.json  <- https://api.github.com/repos/chroma-core/chroma/releases/latest
+OK        669  elasticsearch_LICENSE.txt  <- https://raw.githubusercontent.com/elastic/elasticsearch/main/LICENSE.txt
+OK       2511  elasticsearch_release.json  <- https://api.github.com/repos/elastic/elasticsearch/releases/latest
+OK      91853  groonga_scorers.html  <- https://groonga.org/docs/reference/scorer.html
+OK     108611  groonga_token_mecab.html  <- https://groonga.org/docs/reference/tokenizers/token_mecab.html
+OK      69037  groonga_tokenizers.html  <- https://groonga.org/docs/reference/tokenizers.html
+OK       1064  kagome_LICENSE  <- https://raw.githubusercontent.com/ikawaha/kagome/v2/LICENSE
+FAIL HTTP Error 404: Not Found  kagome_dict_ko_LICENSE  <- https://raw.githubusercontent.com/ikawaha/kagome-dict-ko/main/LICENSE
+FAIL HTTP Error 404: Not Found  kagome_dict_ko_README.md  <- https://raw.githubusercontent.com/ikawaha/kagome-dict-ko/main/README.md
+OK      11372  kiwi_LICENSE  <- https://raw.githubusercontent.com/bab2min/Kiwi/main/LICENSE
+OK       3001  kiwipiepy_release.json  <- https://api.github.com/repos/bab2min/kiwipiepy/releases/latest
+OK       4468  lance_index_Cargo.toml  <- https://raw.githubusercontent.com/lancedb/lance/main/rust/lance-index/Cargo.toml
+OK       3292  lance_python_Cargo.toml  <- https://raw.githubusercontent.com/lancedb/lance/main/python/Cargo.toml
+OK      11357  lancedb_LICENSE  <- https://raw.githubusercontent.com/lancedb/lancedb/main/LICENSE
+FAIL HTTP Error 404: Not Found  lancedb_fts_doc.md  <- https://raw.githubusercontent.com/lancedb/lancedb/main/docs/src/fts.md
+OK       1643  lancedb_python_Cargo.toml  <- https://raw.githubusercontent.com/lancedb/lancedb/main/python/Cargo.toml
+OK      33323  lancedb_release.json  <- https://api.github.com/repos/lancedb/lancedb/releases/latest
+OK       1080  lindera_LICENSE  <- https://raw.githubusercontent.com/lindera/lindera/main/LICENSE
+OK       2849  lindera_README.md  <- https://raw.githubusercontent.com/lindera/lindera/main/README.md
+FAIL HTTP Error 404: Not Found  lindera_ko_dic_LICENSE  <- https://raw.githubusercontent.com/lindera/lindera-ko-dic/main/LICENSE
+FAIL HTTP Error 404: Not Found  lindera_ko_dic_README.md  <- https://raw.githubusercontent.com/lindera/lindera-ko-dic/main/README.md
+FAIL HTTP Error 404: Not Found  lucene_NOTICE.txt  <- https://raw.githubusercontent.com/apache/lucene/main/lucene/NOTICE.txt
+OK        240  mecab_COPYING  <- https://raw.githubusercontent.com/taku910/mecab/master/mecab/COPYING
+OK       3192  mecab_ko_README  <- https://bitbucket.org/eunjeon/mecab-ko/raw/master/README.md
+OK      11357  mecab_ko_dic_COPYING  <- https://bitbucket.org/eunjeon/mecab-ko-dic/raw/master/COPYING
+FAIL HTTP Error 404: Not Found  mecab_ko_dic_README  <- https://bitbucket.org/eunjeon/mecab-ko-dic/raw/master/README
+OK        354  meilisearch_LICENSE  <- https://raw.githubusercontent.com/meilisearch/meilisearch/main/LICENSE
+OK       5695  meilisearch_crate_Cargo.toml  <- https://raw.githubusercontent.com/meilisearch/meilisearch/main/crates/meilisearch/Cargo.toml
+OK       5054  meilisearch_milli_Cargo.toml  <- https://raw.githubusercontent.com/meilisearch/meilisearch/main/crates/milli/Cargo.toml
+OK      31914  meilisearch_release.json  <- https://api.github.com/repos/meilisearch/meilisearch/releases/latest
+OK       2464  meilisearch_types_Cargo.toml  <- https://raw.githubusercontent.com/meilisearch/meilisearch/main/crates/meilisearch-types/Cargo.toml
+FAIL HTTP Error 404: Not Found  milvus_doc_prerequisites.md  <- https://raw.githubusercontent.com/milvus-io/milvus-docs/v2.6.x/site/en/getstarted/run_milvus_docker/prerequisite-docker.md
+OK      11357  opensearch_LICENSE.txt  <- https://raw.githubusercontent.com/opensearch-project/OpenSearch/main/LICENSE.txt
+OK       5531  opensearch_doc_additional_plugins.md  <- https://raw.githubusercontent.com/opensearch-project/documentation-website/main/_install-and-configure/additional-plugins/index.md
+OK      40258  opensearch_doc_docker.md  <- https://raw.githubusercontent.com/opensearch-project/documentation-website/main/_install-and-configure/install-opensearch/docker.md
+OK      15798  opensearch_doc_hybrid.md  <- https://raw.githubusercontent.com/opensearch-project/documentation-website/main/_vector-search/ai-search/hybrid-search/index.md
+OK      15040  opensearch_doc_install_index.md  <- https://raw.githubusercontent.com/opensearch-project/documentation-website/main/_install-and-configure/install-opensearch/index.md
+OK       5917  opensearch_doc_knn_filter.md  <- https://raw.githubusercontent.com/opensearch-project/documentation-website/main/_vector-search/filter-search-knn/index.md
+FAIL HTTP Error 404: Not Found  opensearch_doc_nori.md  <- https://raw.githubusercontent.com/opensearch-project/documentation-website/main/_install-and-configure/additional-plugins/analysis-nori-plugin.md
+OK      15797  opensearch_release.json  <- https://api.github.com/repos/opensearch-project/OpenSearch/releases/latest
+OK       4424  paradedb_Cargo.toml  <- https://raw.githubusercontent.com/paradedb/paradedb/main/pg_search/Cargo.toml
+OK      34523  paradedb_LICENSE  <- https://raw.githubusercontent.com/paradedb/paradedb/main/LICENSE
+OK       6390  paradedb_README.md  <- https://raw.githubusercontent.com/paradedb/paradedb/main/README.md
+FAIL HTTP Error 404: Not Found  paradedb_hybrid.mdx  <- https://raw.githubusercontent.com/paradedb/paradedb/main/docs/documentation/guides/hybrid.mdx
+OK        266  paradedb_pg_search.control  <- https://raw.githubusercontent.com/paradedb/paradedb/main/pg_search/pg_search.control
+OK     239984  paradedb_release.json  <- https://api.github.com/repos/paradedb/paradedb/releases/latest
+FAIL HTTP Error 404: Not Found  paradedb_tokenizers.mdx  <- https://raw.githubusercontent.com/paradedb/paradedb/main/docs/documentation/indexing/tokenizers.mdx
+OK        176  pg_bigm.control  <- https://raw.githubusercontent.com/pgbigm/pg_bigm/master/pg_bigm.control
+OK      48328  pg_textsearch_dict.html  <- https://www.postgresql.org/docs/current/textsearch-dictionaries.html
+OK      11356  pg_tokenizer_LICENSE  <- https://raw.githubusercontent.com/tensorchord/pg_tokenizer.rs/main/LICENSE
+OK       2039  pg_tokenizer_README.md  <- https://raw.githubusercontent.com/tensorchord/pg_tokenizer.rs/main/README.md
+OK      42150  pg_trgm_doc.html  <- https://www.postgresql.org/docs/current/pgtrgm.html
+FAIL HTTP Error 404: Not Found  pgroonga.control.in  <- https://raw.githubusercontent.com/pgroonga/pgroonga/main/pgroonga.control.in
+OK        489  pgroonga_README.md  <- https://raw.githubusercontent.com/pgroonga/pgroonga/main/README.md
+OK      62793  pgroonga_create_index.html  <- https://pgroonga.github.io/reference/create-index-using-pgroonga.html
+OK     179315  pgroonga_docker_README.md  <- https://raw.githubusercontent.com/pgroonga/docker/main/README.md
+OK      10134  pgroonga_install_debian.html  <- https://pgroonga.github.io/install/debian.html
+OK      25058  pgroonga_query_expand.html  <- https://pgroonga.github.io/reference/functions/pgroonga-query-expand.html
+OK      11653  pgroonga_score.html  <- https://pgroonga.github.io/reference/functions/pgroonga-score.html
+OK        145  pgvector_vector.control  <- https://raw.githubusercontent.com/pgvector/pgvector/master/vector.control
+OK        909  pgvectorscale_LICENSE  <- https://raw.githubusercontent.com/timescale/pgvectorscale/main/LICENSE
+OK      21514  pgvectorscale_README.md  <- https://raw.githubusercontent.com/timescale/pgvectorscale/main/README.md
+OK      22416  pgvectorscale_release.json  <- https://api.github.com/repos/timescale/pgvectorscale/releases/latest
+OK        188  pgvectorscale_vectorscale.control  <- https://raw.githubusercontent.com/timescale/pgvectorscale/main/pgvectorscale/vectorscale.control
+OK     707851  pypi_asyncpg.json  <- https://pypi.org/pypi/asyncpg/json
+OK     373081  pypi_chromadb.json  <- https://pypi.org/pypi/chromadb/json
+OK     285046  pypi_elasticsearch.json  <- https://pypi.org/pypi/elasticsearch/json
+OK    1009736  pypi_kiwipiepy.json  <- https://pypi.org/pypi/kiwipiepy/json
+OK     227619  pypi_lancedb.json  <- https://pypi.org/pypi/lancedb/json
+OK     204672  pypi_mecab-ko.json  <- https://pypi.org/pypi/mecab-ko/json
+OK     158870  pypi_meilisearch-python-sdk.json  <- https://pypi.org/pypi/meilisearch-python-sdk/json
+OK     108557  pypi_meilisearch.json  <- https://pypi.org/pypi/meilisearch/json
+OK      12231  pypi_opensearch-dsl.json  <- https://pypi.org/pypi/opensearch-dsl/json
+OK      42914  pypi_opensearch-py.json  <- https://pypi.org/pypi/opensearch-py/json
+OK      49874  pypi_pgvector.json  <- https://pypi.org/pypi/pgvector/json
+OK     104265  pypi_psycopg.json  <- https://pypi.org/pypi/psycopg/json
+OK     224545  pypi_pymilvus.json  <- https://pypi.org/pypi/pymilvus/json
+OK     530258  pypi_python-mecab-ko.json  <- https://pypi.org/pypi/python-mecab-ko/json
+OK     213007  pypi_qdrant-client.json  <- https://pypi.org/pypi/qdrant-client/json
+OK    5949921  pypi_sqlalchemy.json  <- https://pypi.org/pypi/sqlalchemy/json
+OK      50944  pypi_typesense.json  <- https://pypi.org/pypi/typesense/json
+OK     441853  pypi_weaviate-client.json  <- https://pypi.org/pypi/weaviate-client/json
+OK      13963  qdrant_Cargo_root.toml  <- https://raw.githubusercontent.com/qdrant/qdrant/master/Cargo.toml
+OK       5503  qdrant_Cargo_segment.toml  <- https://raw.githubusercontent.com/qdrant/qdrant/master/lib/segment/Cargo.toml
+OK       8779  qdrant_Dockerfile  <- https://raw.githubusercontent.com/qdrant/qdrant/master/Dockerfile
+OK      15043  qdrant_hybrid_doc.md  <- https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/search/hybrid-queries.md
+OK      37427  qdrant_indexing_doc.md  <- https://raw.githubusercontent.com/qdrant/landing_page/master/qdrant-landing/content/documentation/manage-data/indexing.md
+OK      35148  typesense_LICENSE.txt  <- https://raw.githubusercontent.com/typesense/typesense/v29.0/LICENSE.txt
+OK       3813  typesense_release.json  <- https://api.github.com/repos/typesense/typesense/releases/latest
+OK        213  vchord.control  <- https://raw.githubusercontent.com/tensorchord/VectorChord/main/vchord.control
+OK       1272  vchord_LICENSE  <- https://raw.githubusercontent.com/tensorchord/VectorChord/main/LICENSE
+OK      13744  vchord_README.md  <- https://raw.githubusercontent.com/tensorchord/VectorChord/main/README.md
+OK       1271  vchord_bm25_LICENSE  <- https://raw.githubusercontent.com/tensorchord/VectorChord-bm25/main/LICENSE
+OK      24313  vchord_bm25_README.md  <- https://raw.githubusercontent.com/tensorchord/VectorChord-bm25/main/README.md
+OK      43474  vchord_release.json  <- https://api.github.com/repos/tensorchord/VectorChord/releases/latest
+OK      11354  vespa_LICENSE  <- https://raw.githubusercontent.com/vespa-engine/vespa/master/LICENSE
+OK      16585  vespa_release.json  <- https://api.github.com/repos/vespa-engine/vespa/releases/latest
+OK      14009  weaviate_filters_doc.md  <- https://raw.githubusercontent.com/weaviate/docs/main/docs/weaviate/concepts/filtering.md
+OK      13793  weaviate_go.mod  <- https://raw.githubusercontent.com/weaviate/weaviate/main/go.mod
+OK      34937  weaviate_hybrid_doc.md  <- https://raw.githubusercontent.com/weaviate/docs/main/docs/weaviate/search/hybrid.md

@@ -1,0 +1,48 @@
+==============================================================================
+[pg0-embedded]
+  최신 판: 0.16.1  (업로드 2026-11-04T15:06:47)
+  requires_python: '>=3.8'
+  license 필드: ''
+  license_expression: 'MIT'
+  license_files: None
+  License 분류자: ['License :: OSI Approved :: MIT License']
+  Python 분류자: ['3.10', '3.11', '3.12', '3.8', '3.9']
+  Typing 분류자: []
+  최근 판 5개(업로드일, 판): [('2026-11-04T15:06:47', '0.16.1'), ('2026-11-04T12:18:55', '0.16.0'), ('2026-09-14T13:42:15', '0.15.2'), ('2026-07-31T19:52:19', '0.15.1'), ('2026-07-29T12:13:12', '0.15.0')]
+  휠: pg0_embedded-0.16.1-py3-none-macosx_14_0_arm64.whl (15796793 bytes)
+  휠 속 py.typed: ['pg0/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['pg0', 'pg0_embedded-0.16.1.dist-info']
+==============================================================================
+[pgembed]
+  최신 판: 0.2.0  (업로드 2026-03-18T15:08:09)
+  requires_python: '>=3.12'
+  license 필드: ''
+  license_expression: None
+  license_files: ['LICENSE']
+  License 분류자: []
+  Python 분류자: []
+  Typing 분류자: []
+  최근 판 5개(업로드일, 판): [('2026-03-18T15:08:09', '0.2.0'), ('2026-03-04T08:44:38', '0.1.9'), ('2026-02-13T04:13:21', '0.1.8'), ('2026-02-04T03:29:13', '0.1.7'), ('2026-01-25T14:00:33', '0.1.6')]
+  휠: pgembed-0.2.0-cp312-cp312-win_amd64.whl (13877913 bytes)
+  휠 속 py.typed: ['pgembed/py.typed']
+  휠 속 .pyi 수: 0
+  휠 최상위: ['pgembed', 'pgembed-0.2.0.dist-info', 'pgembed_pgtextsearch', 'pgembed_pgvector', 'pgembed_pgvectorscale']
+==============================================================================
+[pgbox]
+  최신 판: 0.1.3  (업로드 2026-03-29T19:50:04)
+  requires_python: '>=3.11'
+  license 필드: 'Apache-2.0'
+  license_expression: None
+  license_files: None
+  License 분류자: ['License :: OSI Approved :: Apache Software License']
+  Python 분류자: ['3.11', '3.12', '3.13', '3.14']
+  Typing 분류자: []
+  최근 판 5개(업로드일, 판): [('2026-03-29T19:50:04', '0.1.3')]
+  휠: pgbox-0.1.3-cp312-cp312-macosx_14_0_universal2.whl (10333526 bytes)
+  휠 속 py.typed: 없음
+  휠 속 .pyi 수: 0
+  휠 최상위: ['pgbox', 'pgbox-0.1.3.dist-info']
+==============================================================================
+[pgembed-pgvector]
+  !! PyPI JSON 실패: <HTTPError 404: 'Not Found'>

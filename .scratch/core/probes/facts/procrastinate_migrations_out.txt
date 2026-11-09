@@ -1,0 +1,4 @@
+procrastinate 3.10.0 wheel MB 0.16
+migrations .sql 38
+first procrastinate/sql/migrations/00.00.00_01_initial.sql
+last procrastinate/sql/migrations/03.04.00_50_post_add_retry_failed_job_procedure.sql

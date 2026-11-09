@@ -1,0 +1,106 @@
+
+===== 1: Host 헤더 판정 (기본값: transport_security=None, host=127.0.0.1) =====
+Host=127.0.0.1:port -> 400 {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Bad Request: Missing session ID"}}
+Host=example.com -> 421 Invalid Host header
+Host=kb.example.com:8443 -> 421 Invalid Host header
+Origin=http://evil.example -> 403 Invalid Origin header
+
+===== 3/4: 도구 목록(outputSchema), structuredContent, Context 로 _meta/헤더 읽기 =====
+negotiated protocol_version: 2026-07-28
+- search: read_only_hint=True
+    inputSchema: {"type": "object", "properties": {"query": {"title": "Query", "type": "string"}, "top_k": {"default": 3, "title": "Top K", "type": "integer"}}, "required": ["query"], "title": "searchArguments"}
+    outputSchema: {"$defs": {"Hit": {"properties": {"doc_id": {"title": "Doc Id", "type": "string"}, "score": {"title": "Score", "type": "number"}}, "required": ["doc_id", "score"], "title": "Hit", "type": "object"}}, "properties": {"hits": {"items": {"$ref": "#/$defs/Hit"}, "title": "Hits", "type": "array"}, "total": {"title": "Total", "type": "integer"}}, "required": ["hits", "total"], "title": "SearchResult", "type": "object"}
+- typed_dict_tool: read_only_hint=True
+    inputSchema: {"type": "object", "properties": {"x": {"title": "X", "type": "integer"}}, "required": ["x"], "title": "typed_dict_toolArguments"}
+    outputSchema: {"properties": {"answer": {"title": "Answer", "type": "string"}, "n": {"title": "N", "type": "integer"}}, "required": ["answer", "n"], "title": "TDResult", "type": "object"}
+- str_tool: read_only_hint=True
+    inputSchema: {"type": "object", "properties": {"x": {"title": "X", "type": "integer"}}, "required": ["x"], "title": "str_toolArguments"}
+    outputSchema: {"properties": {"result": {"title": "Result", "type": "string"}}, "required": ["result"], "title": "str_toolOutput", "type": "object"}
+- list_tool: read_only_hint=True
+    inputSchema: {"type": "object", "properties": {"x": {"title": "X", "type": "integer"}}, "required": ["x"], "title": "list_toolArguments"}
+    outputSchema: {"properties": {"result": {"items": {"type": "string"}, "title": "Result", "type": "array"}}, "required": ["result"], "title": "list_toolOutput", "type": "object"}
+- unstructured_tool: read_only_hint=True
+    inputSchema: {"type": "object", "properties": {"x": {"title": "X", "type": "integer"}}, "required": ["x"], "title": "unstructured_toolArguments"}
+    outputSchema: None
+- whoami: read_only_hint=True
+    inputSchema: {"type": "object", "properties": {}, "title": "whoamiArguments"}
+    outputSchema: {"additionalProperties": true, "title": "whoamiDictOutput", "type": "object"}
+search structured_content: {'hits': [{'doc_id': 'd1', 'score': 0.9}], 'total': 1}
+search content: [{'type': 'text', 'text': '{\n  "hits": [\n    {\n      "doc_id": "d1",\n      "score": 0.9\n    }\n  ],\n  "total": 1\n}', 'annotations': None, 'meta': None}]
+typed_dict_tool structured_content: {'answer': 'ok', 'n': 2}
+str_tool structured_content: {'result': '2'}
+list_tool structured_content: {'result': ['2']}
+unstructured_tool structured_content: None | content: {
+  "hits": [],
+  "total": 0
+}
+whoami structured_content: {
+ "meta": {
+  "principal": {
+   "subject": "alice",
+   "groups": [
+    "g1"
+   ]
+  },
+  "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+  "io.modelcontextprotocol/clientInfo": {
+   "name": "mcp",
+   "version": "0.1.0"
+  },
+  "io.modelcontextprotocol/clientCapabilities": {}
+ },
+ "ctx_headers_type": "Headers",
+ "authorization_via_ctx_headers": "Bearer abc123",
+ "x_subject_via_ctx_headers": "alice",
+ "request_type": "Request",
+ "authorization_via_request": "Bearer abc123",
+ "protocol_version": "2026-07-28",
+ "session_id": "n/a",
+ "access_token_client_id": null,
+ "access_token_scopes": null
+}
+
+===== 5: 세션 모드 (기본: stateful, SSE) =====
+legacy initialize -> 200 content-type: text/event-stream Mcp-Session-Id: 81a02ae7f13243d48672f8be93c2c126
+modern ping (2026-07-28) -> 400 content-type: application/json Mcp-Session-Id: None {"jsonrpc":"2.0","id":2,"error":{"code":-32602,"message":"params._meta is missing the required envelope key(s): io.modelcontextprotocol/protocolVersion, io.mode
+SDK Client negotiated: 2026-07-28
+whoami session_id: n/a
+
+===== 1: Host 헤더 판정 (allowed_hosts=['kb.example.com:*','127.0.0.1:*']) =====
+Host=127.0.0.1:port -> 400 {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Bad Request: Missing session ID"}}
+Host=example.com -> 421 Invalid Host header
+Host=kb.example.com:8443 -> 400 {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Bad Request: Missing session ID"}}
+Origin=http://evil.example -> 403 Invalid Origin header
+
+===== 1: Host 헤더 판정 (transport_security=None, host='0.0.0.0') =====
+Host=127.0.0.1:port -> 400 {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Bad Request: Missing session ID"}}
+Host=example.com -> 400 {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Bad Request: Missing session ID"}}
+Host=kb.example.com:8443 -> 400 {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Bad Request: Missing session ID"}}
+Origin=http://evil.example -> 400 {"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Bad Request: Missing session ID"}}
+
+===== 2: Starlette/ASGI 미들웨어로 고정 베어러 토큰 =====
+raw no token -> 401 Bearer error="invalid_token" {"error": "invalid_token"}
+raw /health no token -> 404
+SDK Client no token -> 예외: ExceptionGroup / ExceptionGroup unhandled errors in a TaskGroup (1 sub-exception)
+SDK Client with token -> tools: ['search', 'typed_dict_tool', 'str_tool']
+
+===== 2: AuthSettings 생성 =====
+AuthSettings(issuer_url only) -> ValidationError 1 validation error for AuthSettings
+AuthSettings(issuer_url, resource_server_url, validate_token_resource=False) -> ok; warnings: []
+AuthSettings(... validate_token_resource unset) -> warnings: ['MCPDeprecationWarning']
+MCPServer(token_verifier without auth) -> ValueError Cannot specify auth_server_provider or token_verifier without auth settings
+
+===== 2: SDK 의 token_verifier + AuthSettings 로 베어러 검증 =====
+no token -> 401 Bearer error="invalid_token", error_description="Authentication required", resource_metadata="http://127.0.0.1/.well-known/oauth-protected-resource/mcp" {"error": "invalid_token", "error_description": "Authentication required"}
+wrong token -> 401 {"error": "invalid_token", "error_description": "Authentication required"}
+GET /.well-known/oauth-protected-resource -> 404 Not Found
+GET /.well-known/oauth-protected-resource/mcp -> 200 {"resource":"http://127.0.0.1/mcp","authorization_servers":["https://issuer.example"],"bearer_methods_supported":["header"]}
+good token -> whoami access_token: fixed-client ['read']
+
+===== 5: 세션 모드 (stateless_http=True, json_response=True) =====
+legacy initialize -> 200 content-type: application/json Mcp-Session-Id: None
+modern ping (2026-07-28) -> 400 content-type: application/json Mcp-Session-Id: None {"jsonrpc":"2.0","id":2,"error":{"code":-32602,"message":"params._meta is missing the required envelope key(s): io.modelcontextprotocol/protocolVersion, io.mode
+SDK Client negotiated: 2026-07-28
+whoami session_id: n/a
+
+===== 끝 =====

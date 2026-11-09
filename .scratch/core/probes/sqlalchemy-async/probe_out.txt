@@ -1,0 +1,8 @@
+dialect postgresql psycopg is_async True
+Vector VECTOR(dim=1024)
+alembic templates ['async', 'generic', 'multidb', 'pyproject', 'pyproject_async']
+sqlalchemy 2.1.8 py.typed
+psycopg 3.3.8 py.typed
+pgvector 0.5.1 py.typed
+alembic 1.20.1 py.typed
+greenlet 3.5.6 license MIT AND PSF-2.0
