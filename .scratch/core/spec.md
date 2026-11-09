@@ -1,0 +1,255 @@
+# core 명세: 수집, 색인, 검색의 본체 v0
+
+**Status:** ready-for-agent
+**기능 계획:** `.scratch/core/plan.md`
+**근거:** ADR 0001~0015와 ADR 0002 이력 2026-11-09, 설계 일지 `docs/journal/2026-11-09-2125-core-design.md`(결정 요약 1~26, 추천과 결정이 갈린 곳, `## 다음`), `GLOSSARY.md`, `docs/constitution/tech.md`, 프로브 `.scratch/core/probes/`(README 표). 설계 인터뷰는 하지 않았고(to-spec), 설계가 정하지 않은 것 둘(테스트 이음매, core의 관리 API 범위)만 2026-11-10에 사용자에게 물었다.
+**표시와 수:** 결정을 적은 문단과 항목마다 머리에 표시 하나를 단다. 사실만 적은 문단(Problem Statement, Solution, User Stories, Further Notes의 메모)에는 달지 않는다. `[넘겨받음]`은 설계(ADR, 일지의 결정 요약)가 정한 것을 옮긴 것, `[사용자 선택]`은 이 세션에서 사용자가 고른 것, `[정함]`은 이 명세가 정한 것, `[이력]`은 ADR에 이력을 더한 것, `[거절]`은 두지 않기로 한 것이다. 본문의 표시 수는 `[넘겨받음]` 21, `[사용자 선택]` 2, `[정함]` 91, `[이력]` 2, `[거절]` 6이다. 묶음 표시는 쓰지 않았고, 수는 본문을 고칠 때마다 `grep -o`로 다시 센다(to-spec 스킬 3단계).
+
+이 명세는 `GLOSSARY.md`의 말만 쓴다. 코드 식별자(`UnitOfWork`, `Embedder`, 설정 이름, 표와 칸 이름, JSON 칸 이름)는 영어 그대로다. 구현 파일의 경로는 적지 않고, 규칙 문서·ADR·테스트 선례의 경로만 적는다.
+
+## Problem Statement
+
+조직의 문서는 PDF, DOCX, HWPX 파일로 흩어져 있고, 조직의 에이전트(MCP 클라이언트)는 그 문서에서 질문에 맞는 대목을 찾아 근거와 함께 답하고 싶다. 그런데 문서를 밖으로 보낼 수 없는 조직(폐쇄망)에서 쓸 수 있는, 어떤 MCP 클라이언트에서나 붙는 검색 서버가 없다. 문서 담당자는 문서를 넣고 고치고 지우는 분명한 길을 원하고, 에이전트는 검색 결과마다 문서의 어디에서 온 글인지(근거 위치)와 언제 문서인지(갱신일)를 받아 답의 근거로 적고 싶다. 수집이 도는 동안에도 검색은 멈추지 않아야 하고, 문서 속 지시에 속은 에이전트가 문서를 지우는 일은 구조로 막혀야 한다.
+
+## Solution
+
+문서 담당자가 관리 API(수집 API)나 관리 명령으로 문서 파일을 밀어 넣으면, 서버는 원본을 저장하고 작업을 작업 대기열에 넣어 바로 응답한다. 작업자(별도 프로세스)가 작업을 꺼내 문서를 파싱하고, 지식베이스마다 조각으로 자르고, 임베딩 서버로 벡터를 만들고, 키워드 토큰을 뽑아 그 문서의 옛 조각과 한 번에 바꾼다. 그 사이 검색은 옛 조각을 그대로 본다.
+
+MCP 클라이언트는 같은 서버의 `/mcp` 경로로 접속해 읽기 도구 셋(`search`, `get_document`, `list_knowledge_bases`)만 본다. `search`는 질의를 벡터 검색과 키워드 검색으로 함께 찾아 합치고 리랭커로 순서를 고친 뒤, 조각마다 근거 위치(쪽, 절, 블록 종류와 범위)와 갱신일, 점수를 붙여 돌려준다. 결과에는 `format_version`이 실려 클라이언트가 형식에 기댈 수 있다. 문서를 지우면 즉시 검색에서 빠지고 보관 기간 동안 되살릴 수 있다. 운영자는 관리 명령으로 서버와 작업자를 띄우고 데이터베이스를 마이그레이션하며 첫 토큰을 만들고, 관리 API로 토큰을 발급·회수하고 지식베이스의 상태와 재색인, 작업과 문서의 상태를 본다. 쓰기는 관리 API, 수집 API, 관리 명령으로만 열린다.
+
+## User Stories
+
+1. As a 문서 담당자, I want 문서 파일 하나를 수집 API에 밀어 넣고 바로 작업 ID를 받고 싶다, so that 긴 파싱을 기다리지 않고 다음 문서를 넣을 수 있다.
+2. As a 문서 담당자, I want 같은 키로 파일을 다시 넣으면 옛 문서가 갱신되기를 바란다, so that 문서가 둘이 되지 않는다.
+3. As a 문서 담당자, I want 내용이 같은 파일을 다시 넣었을 때 서버가 건너뛰기를 바란다, so that 재색인 비용이 들지 않는다.
+4. As a 문서 담당자, I want 문서를 넣을 때 그룹과 메타데이터(제목, 시행일 같은 것)와 갱신일을 함께 줄 수 있기를 바란다, so that 검색 결과에 실리는 문서 정보가 정확하다.
+5. As a 문서 담당자, I want 키로 문서를 지울 수 있기를 바란다, so that 폐기된 규정이 검색에 나오지 않는다.
+6. As a 문서 담당자, I want 지운 문서를 보관 기간 안에 같은 키로 다시 넣으면 되살아나기를 바란다, so that 실수로 지운 문서를 되살릴 수 있다.
+7. As a 문서 담당자, I want 작업 ID로 수집이 끝났는지, 실패했으면 왜 실패했는지 보고 싶다, so that 깨진 파일을 고쳐 다시 넣을 수 있다.
+8. As a 문서 담당자, I want 문서 ID나 키로 문서의 상태(받음, 파싱됨, 실패, 삭제됨)와 지식베이스마다의 색인 상태를 보고 싶다, so that 어떤 문서가 검색되는지 안다.
+9. As a 문서 담당자, I want 폴더 하나를 관리 명령 한 줄로 수집하고 끝날 때까지 기다릴 수 있기를 바란다, so that 표본 문서들을 서버 없이도 넣을 수 있다.
+10. As a 문서 담당자, I want 암호가 걸렸거나 깨진 파일이 어떤 까닭으로 거부됐는지 코드로 알고 싶다, so that 같은 실패를 반복하지 않는다.
+11. As a 문서 담당자, I want 너무 큰 파일이 업로드 단계에서 거부되기를 바란다, so that 서버가 멈추지 않는다.
+12. As a MCP 클라이언트, I want 질의와 개수를 주고 조각 목록을 받고 싶다, so that 답을 만들 근거를 얻는다.
+13. As a MCP 클라이언트, I want 조각마다 문서의 키, 제목, 쪽, 절, 블록 범위를 받고 싶다, so that 답에 근거 위치를 적을 수 있다.
+14. As a MCP 클라이언트, I want 조각마다 문서의 갱신일을 받고 싶다, so that 답에 문서가 언제 것인지 적을 수 있다.
+15. As a MCP 클라이언트, I want 결과에 형식의 판이 실리기를 바란다, so that 판이 오를 때 내 파서를 고칠 수 있다.
+16. As a MCP 클라이언트, I want 지식베이스를 이름으로 고르고 안 고르면 기본 지식베이스가 쓰이기를 바란다, so that 설정 없이도 검색이 된다.
+17. As a MCP 클라이언트, I want 그룹과 갱신일 기간으로 결과를 거를 수 있기를 바란다, so that 특정 부서나 최근 문서만 찾을 수 있다.
+18. As a MCP 클라이언트, I want 질의가 벡터와 키워드 둘 다로 검색되기를 바란다, so that 고유 명사와 숫자(조항 번호, 모델 이름)도 놓치지 않는다.
+19. As a MCP 클라이언트, I want 한국어 질의가 형태소 단위로 키워드 검색되기를 바란다, so that 조사와 어미가 달라도 같은 낱말을 찾는다.
+20. As a MCP 클라이언트, I want 리랭커가 순서를 고친 결과를 받고 싶다, so that 상위 몇 개만 써도 답의 근거가 된다.
+21. As a MCP 클라이언트, I want 문서 ID로 문서의 정보와 원하면 전문을 받고 싶다, so that 조각만으로 모자랄 때 문맥을 더 읽는다.
+22. As a MCP 클라이언트, I want 지식베이스 목록과 문서 수를 받고 싶다, so that 어디에서 찾을지 고른다.
+23. As a MCP 클라이언트, I want 도구 목록에 쓰기 도구가 없기를 바란다, so that 내가 문서 속 지시에 속아도 문서를 지울 수 없다.
+24. As a MCP 클라이언트, I want 수집이 도는 동안에도 검색이 응답하기를 바란다, so that 업무 시간에 문서를 넣어도 된다.
+25. As a MCP 클라이언트, I want 수집 중인 문서의 옛 조각과 새 조각이 섞여 나오지 않기를 바란다, so that 답이 한 판의 문서에서 나온다.
+26. As a MCP 클라이언트, I want 오류가 났을 때 코드로 까닭(지식베이스 없음, 문서 없음, 권한 없음, 검색 불가)을 알고 싶다, so that 다시 시도할지 사용자에게 알릴지 정한다.
+27. As a MCP 클라이언트, I want 내 토큰이 허용하는 지식베이스만 보이고 검색되기를 바란다, so that 다른 지식베이스의 존재를 모른다.
+28. As a 운영자, I want 서버와 작업자를 관리 명령으로 따로 띄우고 싶다, so that 작업자 수를 서버와 따로 조절한다.
+29. As a 운영자, I want 데이터베이스 스키마를 관리 명령으로 올리고 기본 그룹·지식베이스가 설정값으로 만들어지기를 바란다, so that 설치 뒤 바로 문서를 넣을 수 있다.
+30. As a 운영자, I want 첫 관리 토큰을 서버 없이 명령으로 만들고 싶다, so that 닭과 달걀 문제 없이 시작한다.
+31. As a 운영자, I want 관리 API로 토큰을 이름·역할·만료·지식베이스 범위와 함께 발급하고 목록을 보고 회수하고 싶다, so that 클라이언트마다 다른 토큰을 주고 유출되면 끊는다.
+32. As a 운영자, I want 토큰 없는 요청과 틀린 토큰이 거부되고 허용 호스트 밖의 요청도 거부되기를 바란다, so that 내부망에서도 기본이 닫힌다.
+33. As a 운영자, I want 지식베이스의 설정(임베딩 모델, 청킹)이 바뀌어 재색인이 필요해지면 관리 API가 그것을 보여 주고, 재색인을 시작하면 끝날 때까지 옛 색인으로 검색되기를 바란다, so that 모델을 바꿔도 검색이 멈추지 않는다.
+34. As a 운영자, I want 작업자가 죽어도 그 작업이 다른 작업자에게 넘어가기를 바란다, so that 수집이 멈춰 있지 않는다.
+35. As a 운영자, I want 일시 실패(임베딩 서버 다운)는 재시도되고 영구 실패(깨진 파일)는 바로 실패로 끝나기를 바란다, so that 대기열이 영구 실패로 막히지 않는다.
+36. As a 운영자, I want 악의적이거나 비정상인 문서(압축 폭탄, 쪽이 수만 장인 PDF)가 작업자를 죽이지 않기를 바란다, so that 다른 문서의 수집이 계속된다.
+37. As a 운영자, I want 로그에 질문 내용, 문서 내용, 토큰이 남지 않고 지연 시간과 요청 ID만 남기를 바란다, so that 로그를 외부 지원에 넘겨도 된다.
+38. As a 운영자, I want 요청마다 요청 ID가 응답 헤더와 로그와 작업에 이어지기를 바란다, so that 느린 검색이나 실패한 수집을 추적한다.
+39. As a 운영자, I want 서버의 생존 확인 경로가 인증 없이 응답하기를 바란다, so that 컨테이너 오케스트레이터가 상태를 본다.
+40. As a 다른 시스템(수집 API 호출자), I want 문서를 HTTP 한 번으로 보내고 202를 받고 싶다, so that 내 쪽 스크립트가 단순하다.
+41. As a 파서 플러그인 작성자, I want 파서 인터페이스가 판이 붙은 Protocol이고 entry point로 끼워지기를 바란다, so that 서버 코드를 고치지 않고 새 형식을 더한다.
+42. As a 클라이언트 개발자, I want 검색 도구의 출력 스키마를 MCP 도구 목록에서 읽을 수 있기를 바란다, so that 형식을 문서 없이도 안다.
+43. As a 리뷰어, I want 층의 경계가 import-linter로 판정되기를 바란다, so that 어댑터가 도메인으로 새는 것을 기계가 잡는다.
+
+## Implementation Decisions
+
+### 층, 패키지, 조립
+
+- [넘겨받음] 층은 `rag_engine.main` > `rag_engine.server`·`rag_engine.worker` > `rag_engine.adapters` > `rag_engine.app` > `rag_engine.domain` 다섯이고 경계는 `pyproject.toml`의 import-linter layers 계약이 판정한다(ADR 0007). 계약을 다섯 층으로 고치고 `CLAUDE.md`의 레이어 절과 `.scratch/plan-head.md`의 목표 배치를 같이 고치는 일은 첫 구현 티켓이 패키지를 만들 때 한다. 포트는 `domain`의 `typing.Protocol`이고 `app`의 유스케이스는 포트만 부른다.
+- [정함] `domain`에는 엔티티(원천, 그룹, 지식베이스, 색인 판, 문서, 파싱 결과와 블록, 조각, 색인 상태, 작업, 토큰)와 포트, 이 저장소의 예외 계층이 있다. 엔티티는 불변 데이터클래스이고 식별자는 표준 라이브러리 `uuid.UUID`다. `app`의 유스케이스는 문서 수집, 문서 삭제, 작업 처리(문서 색인), 검색, 문서 정보 조회, 지식베이스 목록·조회, 재색인 시작, 토큰 발급·목록·회수, 작업·문서 조회, 기본 레코드 보장(마이그레이션 뒤)이다. `adapters`에는 PostgreSQL(SQLAlchemy Core 표 정의, alembic 환경과 마이그레이션, 작업 단위와 세 포트의 어댑터), TEI(임베딩, 리랭커), 파서 셋과 파서 레지스트리와 자식 프로세스 실행기, 청킹 전략, Kiwi 키워드 토크나이저, 로컬 볼륨 파일 저장소, 설정(pydantic-settings), 로그 포매터가 있다. 설정과 로그 포매터는 바깥 환경을 읽고 쓰는 것이라 `adapters`에 두고 `app`과 `domain`은 그것을 import하지 않는다.
+- [정함] 조립은 두 자리다. `server`의 `create_app`이 설정 객체를 받아 엔진, 작업 단위 공장, 어댑터, 유스케이스를 만들고 REST 경로와 MCP 도구를 붙인다. `worker`의 작업자 조립이 같은 설정으로 같은 어댑터를 만들고 작업 처리 루프를 돈다. 둘이 공유하는 조립 코드는 `adapters`에 둔다. 테스트는 설정 객체를 바꿔 넣어 같은 조립을 쓴다.
+- [넘겨받음] MCP 하위 앱은 `MCPServer.streamable_http_app()`을 `"/"`에 마운트하고 REST 경로를 모두 더한 뒤 마지막에 붙이며, 최상위 lifespan이 `session_manager.run()`을 연다(ADR 0005, `.claude/rules/server.md`).
+- [정함] MCP 전송 설정 둘의 조립 자리는 `create_app`이다. 설정 객체의 `RAG_MCP_STATELESS`(기본 true)와 `RAG_MCP_JSON_RESPONSE`(기본 false)를 `streamable_http_app(stateless_http=…, json_response=…)`의 인자로 그대로 넘기고, `RAG_ALLOWED_HOSTS`를 ADR 0014의 두 꼴로 펼쳐 전송 보안 설정의 허용 호스트로 넘긴다. 기본은 세션 없음 + SSE 응답이다(진행률 프로브 `mcp-sdk/probe_progress.py`, 일지 결정 요약 18).
+
+### 포트 열하나와 그 값
+
+- [이력] 포트는 열하나다. ADR 0007의 열(Connector, Transform, Parser, Chunker, Embedder, Reranker, VectorIndex, JobQueue, DocumentStore, BlobStore)에 작업 단위 포트 `UnitOfWork`를 더했다. ADR 0007 이력 2026-11-10과 본문 포인터가 그 변경이다. 아래는 포트마다 무엇의 자리인지(교체 경계, 테스트 가짜 자리, 전략 자리)를 밝힌 것이고, PR #2 둘째 회차 claude-review의 Minor(Chunker·Embedder·Reranker는 구현이 하나뿐인데 포트인 까닭)에 답한다.
+- [정함] `UnitOfWork`는 `begin()`이 비동기 컨텍스트 관리자를 내고, 그 안에서 얻는 작업 단위 객체가 `documents`(DocumentStore), `index`(VectorIndex), `jobs`(JobQueue) 셋을 속성으로 낸다. 셋은 한 연결의 한 트랜잭션을 공유한다. 블록을 예외 없이 나가면 커밋, 예외로 나가면 롤백이다. 명시적 `commit()`은 두지 않는다(두 길이 있으면 한쪽을 잊는다). PostgreSQL 어댑터는 비동기 연결 하나와 트랜잭션을 열고 세 어댑터를 그 연결 위에 만든다. 작업 대기열의 `NOTIFY`는 PostgreSQL이 커밋 시점에 보내므로 작업 단위 안에서 그냥 부르면 된다. 산문에서는 "작업 단위"라 쓰고 대기열의 "작업"과 가른다(`GLOSSARY.md` 작업 항목).
+- [정함] 작업 단위 안에서 얻는 포트는 `DocumentStore`, `VectorIndex`, `JobQueue` 셋뿐이고 나머지 포트는 트랜잭션 밖에서 부른다. 원본은 작업 단위를 열기 전에 새 경로에 저장하고, 작업 단위가 롤백되면 그 요청이 새로 저장한 원본만 지운다(최선 노력. 옛 원본은 건드리지 않는다. 경로 규칙은 "수집 파이프라인과 작업" 절). 지우지 못한 고아 원본은 두고, 정리는 source-sync의 정리 작업이 받는다.
+- [정함] `Connector`와 `Transform`은 플러그인 자리(교체 경계, ADR 0012)다. core에는 구현이 없다. 수집 API와 `ingest` 명령은 커넥터가 아니라 밀어 넣는 원천 종류이고, 파이프라인의 변환 자리는 비워 둔다(변환 목록이 빈 채로 파싱으로 간다). Connector 1.0의 메서드(`list`, `fetch`, `check`)는 ADR 0012가 정했다. Transform의 메서드 모양은 ADR 0012가 명세에 맡겼고, core에 변환이 없으므로 처음 구현하는 source-sync의 명세가 정한다.
+- [정함] `Parser`는 플러그인 자리(교체 경계)이고 테스트 가짜 자리이기도 하다. 내장 셋(PDF, DOCX, HWPX)도 entry point 그룹 `rag_engine.parsers`에 등록해 로드하는 길이 하나다(ADR 0012). 파이프라인 시험은 실제 파서와 작은 픽스처 문서로 하고, 실패 분류(시간 초과, 메모리 초과, 예외)의 시험만 테스트 쪽 가짜 파서를 레지스트리에 더해 한다.
+- [정함] `Chunker`는 전략 자리다. 교체 경계도 테스트 가짜 자리도 아니다. 지식베이스 설정의 전략 이름으로 저장소 안의 구현을 고르고(ADR 0010), search-eval이 전략을 더할 때 `app`을 고치지 않게 하는 것이 포트의 값이다. 결정적이라 시험은 실제 전략으로 한다. 토큰 수를 세는 일은 `Embedder`의 토큰화 메서드에 맡기고, 시험에서는 글자 수로 세는 가짜 토큰 세기를 끼운다.
+- [정함] `Embedder`와 `Reranker`는 외부 서비스의 경계(교체 경계)이자 테스트 가짜 자리다. 다른 임베딩 서버 어댑터의 자리이고(ADR 0010 Consequences), `app`의 동시성·실패 분류 시험에서 가짜가 들어간다. HTTP 표면 시험에서는 실제 TEI 어댑터가 TEI 스텁 서버(Testing Decisions)에 붙는다.
+- [정함] `VectorIndex`, `DocumentStore`, `JobQueue`는 PostgreSQL 어댑터 하나씩이고 작업 단위 안에서만 얻는다. 교체 조건은 ADR 0006 Consequences 첫 항목이다. 시험은 실제 테스트 PostgreSQL이고, 가짜(메모리 안)는 `app`의 동시성 교차 시험에서만 쓴다.
+- [정함] `BlobStore`는 교체 경계다(S3 호환은 나중 어댑터, ADR 0013). core는 로컬 볼륨 어댑터 하나이고 시험은 임시 디렉터리로 한다.
+
+### 설정
+
+- [넘겨받음] 설정은 pydantic-settings가 환경 변수 `RAG_*`, `.env`, 비밀 파일에서 읽는다(ADR 0015). 필수 셋은 `RAG_DATABASE_URL`(연결 문자열 하나, ADR 0002), `RAG_DATA_DIR`(원본 볼륨, ADR 0013), `RAG_ALLOWED_HOSTS`(ADR 0014. 비어 있으면 기동 거부)다. 로그는 `RAG_LOG_FORMAT`(`json` 기본, `text`)이다. 삭제 보관 기간은 `RAG_DELETED_RETENTION_DAYS`(30)다.
+- [정함] 기본 지식베이스의 설정은 환경 변수로 받고 `migrate`가 데이터베이스 행으로 만든다. `RAG_DEFAULT_EMBEDDING_URL`(임베딩 TEI 끝점), `RAG_DEFAULT_EMBEDDING_MODEL`(기본 `BAAI/bge-m3`), `RAG_DEFAULT_EMBEDDING_DIMENSIONS`(1024), `RAG_DEFAULT_RERANKER_URL`(리랭커 TEI 끝점. 비우면 리랭커 없음), `RAG_DEFAULT_RERANKER_MODEL`(`BAAI/bge-reranker-v2-m3`), `RAG_DEFAULT_CHUNKING_STRATEGY`(`structure_first`), `RAG_DEFAULT_CHUNK_TOKENS`(512), `RAG_DEFAULT_CHUNK_OVERLAP_TOKENS`(64). 기본 그룹·지식베이스·원천의 이름은 모두 `default`다.
+- [정함] 수집과 작업자의 설정. `RAG_MAX_UPLOAD_MB`(100), `RAG_WORKER_CONCURRENCY`(작업자 프로세스 하나가 동시에 처리하는 작업 수, 2), `RAG_WORKER_POLL_SECONDS`(5), `RAG_JOB_LEASE_SECONDS`(600), `RAG_JOB_MAX_ATTEMPTS`(6), `RAG_JOB_BACKOFF_BASE_SECONDS`(30), `RAG_TEI_BATCH_SIZE`(TEI 호출 하나(임베딩, 토큰 세기, 리랭크)에 보내는 글의 수, 32. 끝점의 `/info`가 알리는 `max_client_batch_size`보다 크면 그 값으로 낮춘다), `RAG_TEI_TIMEOUT_SECONDS`(60).
+- [정함] 파싱 한도의 설정. `RAG_PARSE_TIMEOUT_SECONDS`(300), `RAG_PARSE_MEMORY_MB`(2048), `RAG_PARSE_MAX_PAGES`(1000), `RAG_PARSE_MAX_UNZIPPED_MB`(512), `RAG_PARSE_MAX_COMPRESSION_RATIO`(100), `RAG_PARSE_MAX_TEXT_MB`(64). ZIP 항목 수 상한 4096은 상수다. 값의 근거는 "파싱의 격리와 자원 한도" 절이다.
+- [정함] 검색의 설정. `RAG_SEARCH_CANDIDATES`(벡터와 키워드 각각의 후보 수, 50), `RAG_SEARCH_DEFAULT_TOP_K`(10), `RAG_SEARCH_MAX_TOP_K`(50), `RAG_SEARCH_TIMEOUT_SECONDS`(질의 임베딩부터 리랭크까지, 20).
+- [정함] 기본값은 계약이 아니라 설정이다. 구현 티켓이 Docker에서 잰 값(수락 기준의 지연 측정)으로 기본값을 바꾸는 일은 ADR 없이 티켓이 한다. 이름을 바꾸거나 뜻을 바꾸는 일만 이 명세를 고친다.
+
+### 데이터 모델과 스키마
+
+- [넘겨받음] 모델은 두 층이다. 문서는 그룹 하나에 속하고, 지식베이스는 그룹 집합 위의 색인 하나이며 자기 임베딩 모델과 청킹 설정을 가진다. 같은 그룹이 지식베이스 둘에 들면 파싱은 한 번, 청킹과 임베딩은 지식베이스마다 한다. 문서는 (원천, 키)로 식별하고 내용 해시는 변경 감지에만 쓴다. 첫 판은 기본 그룹 하나와 기본 지식베이스 하나다(ADR 0008).
+- [넘겨받음] 식별자는 UUIDv7이고 파이썬에서 만들며 열은 `uuid`다. 시각은 UTC `timestamptz`로 저장하고 ISO 8601 `Z`로 낸다(ADR 0015).
+- [정함] UUIDv7 라이브러리는 uuid6 2025.0.1(MIT)이다. 프로브 `uuid/probe.py`(출력 `probe_out.txt`, pyright strict 0 오류 `pyright_out.json`)로 쟀다. uuid6의 값은 표준 라이브러리 `uuid.UUID`의 하위 타입이고(프로브가 MRO와 `str()`로 봤다), 그래서 `uuid.UUID`를 받는 SQLAlchemy `Uuid` 타입과 pydantic `UUID` 칸에도 변환 없이 들어갈 것으로 본다(그 두 자리는 프로브가 재지 않았고 첫 구현 티켓의 타입 검사가 판정한다). 순수 파이썬 휠이라 폐쇄망 반입과 플랫폼이 자유롭다. uuid-utils 1.2.0은 10만 개 생성이 다섯 배 빠르지만(0.05s 대 0.23s) 값이 `uuid.UUID`의 하위 타입이 아니고(호환 모듈을 따로 써야 한다) 바이너리 휠이다. 식별자 생성 속도는 이 서버의 병목이 아니다. 둘 다 같은 밀리초 안에서 단조 증가했다.
+- [정함] 표는 열둘이다. `sources`(원천. 이름 유일, 종류. 첫 판의 종류는 밀어 넣기 `push` 하나), `groups`(그룹. 이름 유일, 설명), `knowledge_bases`(지식베이스. 이름 유일, 설명, 임베딩 끝점·모델·차원, 리랭커 끝점·모델(없을 수 있음), 청킹 전략 이름·상한·겹침, 현재 색인 판 참조(없을 수 있음), 기본 지식베이스 표시(참인 행은 하나뿐, 부분 유일 인덱스)), `knowledge_base_groups`(지식베이스와 그룹의 다대다), `index_versions`(색인 판. 지식베이스 참조, 스키마 판, 임베딩 모델·차원, 청킹 설정 해시, 토크나이저 판, 상태 `building`·`current`·`retired`, 만든 시각, 물러난 시각), `documents`(문서), `document_contents`(파싱 결과), `document_index_states`(색인 상태), `chunks`(조각), `archived_chunks`(보관 표), `jobs`(작업), `tokens`(인증 토큰). 여기에 alembic의 판 표가 더 있다.
+- [정함] `documents`의 칸은 원천 참조, 키, 그룹 참조, 제목, MIME, 크기, 내용 해시(sha256), 원본 경로(파일 저장소의 키), 메타데이터(jsonb 객체), 갱신일 `updated_at`, 시행일 `effective_date`(비움), 접근 그룹 `access_groups`(빈 배열), 상태 `status`(`received`·`parsed`·`failed`), 오류 코드, `deleted_at`, `purged_at`, 만든 시각, 행을 마지막으로 고친 시각이다. (원천 참조, 키)는 유일하다. 갱신일은 문서의 갱신일(검색 결과에 싣는 값)이고 행을 고친 시각과 다르다. 호출자가 갱신일을 주면 그 값, 주지 않으면 내용이 바뀐 수집의 시각이다. 메타데이터만 바뀐 수집은 갱신일을 바꾸지 않는다. 시행일과 접근 그룹은 칸만 두고 채우지 않는다(doc-freshness, doc-permission).
+- [정함] `document_contents`는 문서마다 한 행(최신 파싱 결과)이다. 파서 이름, 파서의 인터페이스 판과 라이브러리 판, 블록 목록(jsonb), 파싱한 원본의 내용 해시, 뽑은 글의 해시, 파싱 시각이 든다. 블록은 종류(`heading`·`paragraph`·`table`·`list_item`), 글, 제목 수준(제목만), 쪽 번호(없을 수 있음), 순번이다. 표 블록의 글은 행마다 한 줄이고 칸은 ` | `로 잇는다.
+- [정함] `document_index_states`는 (문서, 색인 판)마다 한 행이다. 상태 `pending`·`indexed`·`failed`, 조각 수, 오류 코드, 고친 시각이 든다. 재색인의 진행(건설 중인 판에서 남은 문서 수)은 이 표로 센다. "재색인 필요"는 이 표가 아니라 아래 색인 판 요소의 비교로 판정한다.
+- [정함] `chunks`의 칸은 문서 참조, 색인 판 참조, 순번, 글, 토큰 수, 근거 위치(jsonb: 쪽, 절 경로, 블록 종류, 블록 순번 범위), 임베딩 `embedding`(차원 없는 `vector`), 키워드 `keywords`(tsvector), 그리고 필터를 위해 문서에서 복사한 그룹 참조, 갱신일, 시행일, 접근 그룹이다. (색인 판, 문서, 순번)이 유일하다. 복사한 칸은 문서가 바뀌면 같은 트랜잭션에서 같이 고친다. `archived_chunks`는 같은 칸에 보관 시각을 더한 것이고 벡터·키워드 색인은 없다.
+- [이력] 벡터 열은 차원을 적지 않은 `vector`이고 HNSW 색인은 색인 판마다 부분 표현식 색인이다. `CREATE INDEX … USING hnsw ((embedding::vector(D)) vector_cosine_ops) WHERE index_version_id = <판>`을 색인 판을 만드는 트랜잭션에서 만들고(그때 그 판의 조각은 0개라 빠르다), 판이 물러나면 지운다. 질의도 `embedding::vector(D) <=> :query`로 같은 캐스트를 쓴다. 거리는 코사인이다. 키워드의 GIN 색인은 표 전체에 하나다(조건에 색인 판 참조가 함께 들어 GIN 뒤의 필터로 좁혀진다). ADR 0006 이력 2026-11-10과 포인터가 이 변경이다. 근거는 프로브 `facts/pgvector_readme_facts.py`(README 842행의 예)다.
+- [정함] 색인 판의 요소 넷은 스키마 판(코드의 상수. 첫 판은 1), 임베딩 모델 이름과 차원, 청킹 설정 해시(전략 이름·상한·겹침·전략 구현 판을 정렬한 JSON의 sha256), 토크나이저 판(kiwipiepy_model의 판과 키워드 규칙의 판을 붙인 문자열)이다. 지식베이스의 현재 설정에서 계산한 넷이 현재 판의 넷과 다르면 "재색인 필요"다(ADR 0008). 키워드 규칙(품사 집합, 전처리)을 바꾸는 것도 토크나이저 판을 올리는 일이라 재색인이다. 요소마다 재색인의 범위가 다르다(ADR 0008). 임베딩 모델·차원·청킹 해시가 바뀌면 청킹부터 다시 하고, 토크나이저 판만 바뀌면 조각과 임베딩은 그대로 두고 키워드만 다시 만든다(방법은 아래 작업 절).
+- [정함] `jobs`의 칸은 종류(`index_document` 하나), 문서 참조, 상태 `queued`·`running`·`succeeded`·`failed`, 시도 횟수, 다음 실행 시각 `run_after`, 임대 만료 `leased_until`, 작업자 ID, 마지막 오류 코드, 요청 ID, 만든·시작·끝난 시각이다. 같은 문서의 대기(`queued`) 작업은 부분 유일 인덱스로 하나다(ADR 0009). 실행 중인 작업이 있어도 새 대기 작업은 들어가고 뒤에 돈다.
+- [정함] `tokens`의 칸은 이름, 토큰 원문의 sha256(유일), 역할 `admin`·`reader`, 지식베이스 범위(지식베이스 참조 배열. 비면 전부), 만료 시각(없을 수 있음), 회수 시각, 만든 시각이다. 마지막 사용 시각은 두지 않는다(요청마다 쓰기가 생긴다).
+
+### 수집 API
+
+- [넘겨받음] 수집 API는 `POST /api/v1/ingest/documents`의 multipart다. 파일 `file`과 폼 칸 `key`(없으면 파일 이름), `group`(없으면 기본 그룹), `metadata`(JSON 객체 문자열)를 받고, 202와 작업 ID를 돌려준다. 같은 (원천, 키)면 갱신이고 내용 해시가 같으면 건너뛴다. 삭제는 같은 경로의 DELETE다. 크기 상한은 `RAG_MAX_UPLOAD_MB`다. 방향은 다른 시스템이 우리에게 미는 것이다(일지 결정 요약 21).
+- [정함] 폼 칸 `updated_at`(ISO 8601)을 더한다. 호출자가 문서의 갱신일을 알면 넘긴다. 원천은 밀어 넣는 원천 `default` 하나이고 수집 API와 `ingest` 명령이 같은 원천에 넣는다. 제목은 `metadata.title`이 문자열이면 그것, 아니면 확장자를 뗀 파일 이름이다.
+- [정함] 응답은 `action` 칸으로 가른다. 새 문서면 `created`, 내용이나 그룹이 바뀌었으면 `updated`, 지운 문서가 돌아왔으면 `restored`, 내용은 같지만 앞선 색인이 실패한 문서(문서 상태가 `failed`이거나 살아 있는 판의 색인 상태에 `failed`가 있음)면 `requeued`이고, 넷 다 202에 `document_id`와 `job_id`가 실린다(`restored`에서 보관 조각이 살아 있는 판을 모두 채우면 작업이 없어 `job_id`가 null이다). 내용과 그룹이 같고 색인도 실패하지 않았으면 `unchanged`이고 200에 `job_id`가 null이다. 메타데이터·갱신일만 달라졌으면 `unchanged`인 채로 문서 행과 조각의 복사 칸을 같은 트랜잭션에서 고친다. 그룹이 바뀌면 대상 지식베이스가 바뀌므로 복사 칸 수정으로 끝내지 않고 작업을 넣는다(파싱은 해시가 같아 건너뛴다).
+- [정함] 형식은 확장자 `.pdf`·`.docx`·`.hwpx`를 먼저 보고, 없거나 맞지 않으면 바이트 머리(`%PDF`, ZIP 머리와 안의 내용 종류)로 가린다. 셋 밖이면 415 `unsupported_media_type`, 크기를 넘으면 413 `upload_too_large`, 폼 칸 `group`이 없는 그룹 이름이면 404 `group_not_found`다. 이 셋은 작업을 만들지 않고 즉시 거부한다.
+- [정함] `DELETE /api/v1/ingest/documents?key=<키>`가 소프트 삭제다. 204이고, 이미 지운 문서도 204, 없는 키는 404 `document_not_found`다. 키는 URL 인코딩한 쿼리 매개변수다(키에 `/`가 들 수 있다). 키로 문서 상태를 보는 길은 수집 API가 아니라 관리 API의 문서 목록(`key=` 필터)이다.
+- [정함] 같은 키를 동시에 넣는 두 요청은 (원천, 키) 유일 제약과 한 트랜잭션으로 직렬화한다. 뒤의 요청이 충돌하면 한 번 다시 읽어 갱신으로 처리한다.
+- [넘겨받음] 수집 API는 쓰기라 `admin` 역할 토큰이 필요하다(ADR 0001, 0014).
+
+### 수집 파이프라인과 작업
+
+- [정함] 수집 요청의 트랜잭션 전 단계는 원본 저장이다. 파일 저장소에 `RAG_DATA_DIR/blobs/<문서 UUID>/<내용 해시>`로 쓰고(ADR 0013), 그 뒤 작업 단위 하나에서 문서 행을 만들거나 고치고 `index_document` 작업을 넣고 `NOTIFY`한다. 경로에 내용 해시가 들어 갱신의 새 원본이 옛 원본을 덮지 않고, 옛 원본을 읽는 중인 작업자와 경쟁하지 않는다. 옛 원본은 작업 단위가 커밋된 뒤에 지우고(최선 노력), 롤백되면 새 원본을 지운다.
+- [정함] 작업 `index_document`의 뜻은 이 문서를 그 그룹이 든 모든 지식베이스의 살아 있는 색인 판(`current`와 `building`)에 맞추는 것이다. 지정 색인 판 인자는 없다. 그래서 재색인도 문서마다 같은 종류의 작업 하나를 넣으면 되고, 대기 작업의 유일성이 자연스럽다. 처리 순서는 넷이다. 첫째, 문서를 읽어 지워졌으면 아무것도 하지 않고 성공으로 끝낸다. 둘째, 파싱 결과가 없거나 파싱한 내용 해시가 문서의 내용 해시와 다르거나 파서의 판이 바뀌었으면 파싱해(아래 격리 절) 파싱 결과 행을 쓴다(작업 단위 하나). 셋째, 대상 색인 판마다 청킹, 토큰 세기, 임베딩, 키워드 토큰화를 한 뒤 작업 단위 하나에서 그 (문서, 판)의 옛 조각을 지우고 새 조각을 넣고 색인 상태를 `indexed`로 쓴다. 대상 판이 `building`이고 같은 지식베이스의 `current` 판과 임베딩 모델·차원·청킹 해시가 같으면(토크나이저 판만 다른 재색인) 청킹과 임베딩을 하지 않고 `current` 판의 그 문서 조각(글, 위치, 임베딩)을 복사해 키워드만 다시 만든다(ADR 0008이 가른 범위 둘을 작업 종류 하나의 두 길로 한다). 문서가 더는 들지 않는 살아 있는 판(그룹이 바뀐 뒤)에 남은 조각과 색인 상태는 같은 단계에서 지운다. 판이 `building`이고 그 판의 모든 색인 상태가 `indexed`나 `failed`면 같은 작업 단위에서 판 전환을 한다. 넷째, 작업을 `succeeded`로 끝낸다. 문서 단위 원자 교체(ADR 0008)는 셋째 단계의 작업 단위가 보장한다.
+- [정함] 파싱이 영구 실패하면 문서 상태를 `failed`로, 오류 코드를 쓰고, 모든 살아 있는 판에서 그 문서의 조각을 지우고 색인 상태를 `failed`로 쓴다. 옛 조각을 두지 않는 까닭은 원천의 지금 내용을 읽을 수 없는데 옛 글을 답의 근거로 내는 것이 원칙 VI에 어긋나기 때문이다. 작업은 재시도 없이 `failed`로 끝난다. 임베딩의 영구 실패(`embedding_rejected`, `embedding_dimension_mismatch`)는 문서 상태를 바꾸지 않고(파싱은 됐다) 그 (문서, 판)의 옛 조각을 지우고 색인 상태를 `failed`로 쓴다. 같은 내용을 다시 넣으면 `requeued`로 작업이 다시 들어간다.
+- [정함] 실패는 둘로 가른다. 영구 실패는 파싱의 모든 실패(시간 초과, 메모리 초과, 파서 예외, 한도 초과, 암호 문서), 임베딩 서버의 400·413·422, 벡터 차원 불일치다. 일시 실패는 데이터베이스 오류, 임베딩·리랭커 서버의 연결 실패·시간 초과·424·429·5xx, 파일 저장소의 입출력 오류다. 영구 실패는 즉시 `failed`이고, 일시 실패는 `run_after`를 `RAG_JOB_BACKOFF_BASE_SECONDS × 4^(시도 횟수 − 1)`(30초, 2분, 8분, 32분, 그다음부터는 한 시간 상한) 뒤로 두어 다시 예약하며, `RAG_JOB_MAX_ATTEMPTS`(6)를 다 쓰면 `failed`다. 오류 코드는 `parse_timeout`, `parse_memory_exceeded`, `parse_failed`, `too_many_pages`, `document_too_large`, `compressed_too_large`, `encrypted_document`, `embedding_rejected`, `embedding_dimension_mismatch`, `embedding_unavailable`, `database_unavailable`, `blob_store_error`다.
+- [정함] 작업자는 `SELECT … FOR UPDATE SKIP LOCKED`로 `queued`이고 `run_after`가 지난 작업, 또는 `running`인데 `leased_until`이 지난 작업을 하나 꺼내 `running`으로 바꾸고 시도 횟수를 올리며 `leased_until`을 `RAG_JOB_LEASE_SECONDS` 뒤로 둔다(ADR 0009). 처리 중에는 임대 기간의 삼분의 일마다 임대를 늘린다. 작업자가 죽으면 임대가 끝난 뒤 다른 작업자가 가져가고, 그 시도는 횟수에 센다. 작업자 ID는 호스트 이름과 PID다.
+- [정함] 작업자 프로세스는 `LISTEN rag_jobs`로 깨어나고 `RAG_WORKER_POLL_SECONDS`마다 폴링하며, `RAG_WORKER_CONCURRENCY`개의 작업을 비동기로 함께 처리한다. SIGTERM이나 SIGINT를 받으면 새 작업을 꺼내지 않고 진행 중인 작업을 끝낸 뒤 나간다. Windows는 다른 프로세스가 보낸 SIGTERM을 전달하지 않으므로(종료만 시킨다) SIGBREAK(`CTRL_BREAK_EVENT`)를 같은 뜻으로 받는다. 테스트를 위해 지금 꺼낼 수 있는 작업을 모두 처리하고 돌아오는 한 번 돌기 입구를 둔다.
+- [정함] 재색인 시작은 작업 단위 하나에서 한다. 지식베이스에 `building` 판이 있으면 409 `reindex_in_progress`다. 없으면 현재 설정으로 새 색인 판을 `building`으로 만들고 그 판의 HNSW 부분 색인을 만들며, 그 지식베이스의 그룹에 든 살아 있는 문서마다 색인 상태 `pending`을 쓰고 `index_document` 작업을 넣는다(이미 대기 작업이 있으면 건너뛴다). 문서가 하나도 없으면 그 자리에서 판을 전환한다. 응답은 202에 새 색인 판 ID와 넣은 작업 수다.
+- [정함] 판 전환은 지식베이스 행을 잠근 작업 단위에서 현재 판 참조를 새 판으로 바꾸고 새 판을 `current`, 옛 판을 `retired`로 쓴다. 검색은 `current` 판만 보므로 전환 전에는 옛 조각을, 전환 뒤에는 새 조각을 본다(ADR 0008). 옛 판의 조각과 HNSW 색인의 삭제는 전환을 커밋한 뒤 같은 작업자가 별도 트랜잭션에서 한다(큰 지식베이스에서 전환 트랜잭션을 길게 하지 않기 위해서다). 그 사이에 작업자가 죽어 물러난 판에 조각이 남아도 검색에는 보이지 않고, 다음 재색인 시작이 새 판을 만들기 전에 물러난 판의 남은 조각과 색인을 지운다.
+- [정함] 지식베이스에 현재 판이 아직 없으면(설치 직후) 검색은 빈 결과를 낸다. 첫 색인 판은 `migrate`의 기본 레코드 보장이 기본 지식베이스에 `current`로 만든다(조각 0개). 그래서 첫 문서의 작업이 바로 `current` 판에 들어간다.
+
+### 파싱의 격리와 자원 한도
+
+- [정함] 파싱은 작업자 프로세스가 아니라 spawn한 자식 프로세스에서 한다. 자식은 파서 이름, 원본의 경로, 한도를 받고 파싱 결과를 돌려준다. 자식이 `RAG_PARSE_TIMEOUT_SECONDS` 안에 끝나지 않으면 죽이고 `parse_timeout`, 자식이 메모리 한도로 죽거나 `MemoryError`를 내면 `parse_memory_exceeded`, 파서가 예외를 내면 `parse_failed`다. 메모리 한도는 리눅스에서 `RLIMIT_AS`(`RAG_PARSE_MEMORY_MB`)로 걸고, Windows(개발 기계)에서는 걸지 않고 그 사실을 로그에 남긴다. 컨테이너는 리눅스다.
+- [정함] ZIP 컨테이너(DOCX, HWPX)는 파싱 전에 부모가 목록만 읽어 검사한다. 항목 4096개 초과, 압축 해제 합계 `RAG_PARSE_MAX_UNZIPPED_MB` 초과, 압축된 크기가 1MiB를 넘는 항목의 압축비 `RAG_PARSE_MAX_COMPRESSION_RATIO` 초과는 `compressed_too_large`, 암호화된 항목은 `encrypted_document`다. PDF는 암호가 걸려 있으면 `encrypted_document`, 쪽 수가 `RAG_PARSE_MAX_PAGES`를 넘으면 `too_many_pages`다. 뽑은 글이 `RAG_PARSE_MAX_TEXT_MB`(UTF-8 바이트)를 넘으면 `document_too_large`다.
+- [거절] 표 칸 수의 한도는 두지 않는다. 쪽 수, 시간, 메모리, 글 크기의 한도가 표도 덮는다.
+- [정함] 한도 값의 근거. 라이브러리 셋에 내장 한도가 거의 없다는 것을 프로브 `parsers/limits_probe.py`(출력 `limits_probe_out.txt`)로 쟀다. pdfplumber 0.11.10과 pdfminer.six 20260107에는 쪽 수 인자(`maxpages`) 말고 시간·메모리·크기 한도가 없고, python-docx 1.2.0은 lxml 파서에 `remove_blank_text=True, resolve_entities=False`만 주고(`huge_tree`는 주지 않아 lxml 기본값 그대로다) ZIP 한도가 없으며, python-hwpx 6.11.0은 읽기 경로의 `opc/xml_utils.py`에서 `resolve_entities=False, no_network=True, huge_tree=False`를 주고 `opc/security.py`에 ZIP 한도 상수(항목 4096, 항목당 128MiB, 합계 512MiB, 압축비 1000. 출력의 `zip_limit_values` 절)를 가진다. 다만 python-hwpx에는 기본 파서로 `etree.fromstring`·`etree.parse`를 부르는 자리도 25곳 있고(출력의 `xml_default` 절. `oxml/schema.py`의 `XMLParser()`는 옵션이 없다) 그 가운데 어느 것이 HWPX 읽기 경로에 드는지는 재지 않았다. 그래서 python-hwpx의 한도에도 기대지 않는다. 그래서 한도는 우리가 바깥에서 두고, python-hwpx의 값과 겹치는 것은 우리 것이 먼저 걸리게 같거나 엄격하게 잡았다(합계 512MiB는 같고 압축비는 100). 1000쪽, 300초, 2GiB, 64MiB는 어림이고 설정이라 티켓이 바꿀 수 있다.
+- [정함] 파서 인터페이스는 `interface_version` 1.0의 Protocol이다. 받는 MIME 목록, 그리고 원본 바이트와 MIME을 받아 파싱 결과(블록 목록)를 내는 메서드 하나다. 자식 프로세스에서 돌므로 파서는 상태를 들지 않는다. entry point 그룹 `rag_engine.parsers`에 등록하고 major가 다르면 거부하고 기록한다(ADR 0012).
+- [넘겨받음] 내장 파서는 pdfplumber(PDF), python-docx(DOCX), python-hwpx(HWPX)다. 스캔본 OCR과 HWP 5.0 바이너리는 다음 판이다(tech.md 파서 칸, hwp-binary).
+- [정함] 파서가 내는 블록의 최소 규칙. PDF는 쪽마다 글을 줄 단위로 읽어 빈 줄로 문단을 가르고 표는 pdfplumber의 표 추출로 표 블록을 내며 쪽 번호를 붙인다. DOCX는 제목 스타일을 제목 블록(수준 포함)으로, 문단을 문단 블록으로, 표를 표 블록으로 내고 쪽 번호는 없다. HWPX는 문단과 표를 같은 식으로 내고 제목은 개요 수준이 있는 문단을 제목으로 삼으며 쪽 번호는 없다. 글이 하나도 없는 문서(스캔본)는 `parsed`이되 조각이 0개다.
+
+### 청킹과 토큰 세기
+
+- [넘겨받음] 청킹은 `Chunker` 포트 뒤의 전략이고 첫 판은 구조 우선 하나다. 파서가 준 제목·문단·표 경계를 우선하고, 넘치면 문장 경계에서 나누며, 조각 사이에 겹침을 둔다. 상한은 토큰 수로 재고 임베딩 서버의 `/tokenize`로 센다. 기본 512·64 토큰은 어림이고 search-eval이 정한다(ADR 0010).
+- [정함] 구조 우선 전략의 규칙 여섯. 첫째, 블록을 순서대로 걸으며 제목 블록으로 절 경로를 유지하고, 제목 블록은 조각이 되지 않고 다음 조각의 절 경로가 된다. 둘째, 같은 절의 블록을 모아 다음 블록을 더하면 상한을 넘는 지점에서 조각을 닫는다. 셋째, 블록 하나가 상한을 넘으면 문장 경계(kiwipiepy의 문장 분리)에서 나누고, 문장 하나가 넘으면 토큰 경계에서 나눈다. 넷째, 표 블록은 행 단위로 나누고 나뉜 조각마다 머리 행을 되풀이한다. 다섯째, 겹침은 같은 절 안에서만 두고 앞 조각의 끝 문장들을 겹침 토큰 수 안에서 통째로 가져온다. 여섯째, 절의 마지막 조각이 상한의 10% 아래면 앞 조각에 합친다(합쳐도 상한 안일 때).
+- [정함] 임베딩과 키워드에 넣는 글은 절 경로를 ` > `로 이은 한 줄과 빈 줄 뒤의 조각 글이다. 검색 결과의 `text`는 조각 글만이고 절 경로는 `location.section`에 따로 싣는다. 절 경로가 임베딩에 들어야 "제3조 정의"처럼 제목에만 있는 말로도 찾는다.
+- [정함] 근거 위치는 조각이 덮는 블록들에서 만든다. `page`는 첫 블록의 쪽 번호(없으면 null), `section`은 절 경로 배열, `block_kind`는 첫 블록의 종류, `block_range`는 덮은 블록 순번의 처음과 끝이다. 표를 행으로 나눈 조각은 `block_kind`가 `table`이고 `block_range`가 같은 블록을 가리킨다.
+- [정함] 토큰 수는 `/tokenize`에 `add_special_tokens: false`로 문자열 배열을 보내 센다(특수 토큰이 없어 `start`·`stop`이 null인 토큰이 나오지 않는다). 토큰 경계로 나눠야 할 때는 UTF-8 바이트 오프셋을 글자 인덱스로 바꾼다. 글자마다 UTF-8 바이트 길이의 누적 합 배열을 만들고 이분 탐색으로 바이트 오프셋을 글자 인덱스로 옮긴다. 바이트 오프셋이 글자 중간에 떨어지면 그 글자의 앞 경계로 내린다. ADR 0010이 명세에 맡긴 변환이다. `/tokenize`의 입력이 문자열 배열을 받는 것은 프로브 `facts/tei_info_and_rerank_fields.py`로 봤다(`TokenizeInput`이 문자열 또는 문자열 배열).
+- [정함] 토큰 세기는 상한 안인지 가리는 데만 쓰고, 상한 안의 조각은 다시 세지 않는다. 호출은 `RAG_TEI_BATCH_SIZE`개씩 묶는다.
+
+### 임베딩 서버와 리랭커 어댑터
+
+- [넘겨받음] 임베딩은 `/v1/embeddings`, 토큰 세기는 `/tokenize`, 리랭크는 `/rerank`이고 모두 TEI 1.9.4 형식이다. 컨테이너 하나가 모델 하나를 들고 지식베이스 설정에 끝점·모델·차원이 있다(ADR 0010).
+- [정함] 어댑터는 끝점마다 첫 호출 전에 `/info`를 읽어 `model_id`(또는 `served_model_name`)가 지식베이스 설정의 모델과 같은지, `max_input_length`가 조각 상한 이상인지 확인하고 `auto_truncate` 값을 로그에 남긴다. 다르면 그 끝점은 "설정 불일치"이고 검색은 `search_unavailable`, 작업은 일시 실패(`embedding_unavailable`)다. 운영자가 고칠 설정 문제라 영구 실패로 두지 않는다. `/info`의 칸은 프로브 `facts/tei_info_and_rerank_fields.py`로 봤다(`model_id`, `served_model_name`, `model_type`, `max_input_length`, `auto_truncate`가 필수 칸).
+- [정함] 임베딩 호출은 `input`에 문자열 배열(`RAG_TEI_BATCH_SIZE`개씩), `model`에 모델 이름을 싣고 `data[i].embedding`을 순서대로 받는다. 벡터 길이가 설정 차원과 다르면 `embedding_dimension_mismatch`다. 응답 코드 400·413·422는 `embedding_rejected`(영구), 424·429와 연결 실패·`RAG_TEI_TIMEOUT_SECONDS` 초과는 `embedding_unavailable`(일시)이다. OpenAPI가 적은 응답 코드는 이 다섯이고(같은 프로브의 출력), 거기 없는 5xx(프록시나 서버 오류)도 일시로 다룬다.
+- [정함] 리랭크 호출은 `query`, `texts`(후보의 글. 절 경로 포함), `truncate: true`, `truncation_direction: "Right"`(`TruncationDirection`의 열거 값은 `Left`·`Right` 둘이고 기본은 `Right`다. 프로브 `facts/tei_info_and_rerank_fields.py`), `raw_scores: false`, `return_text: false`를 보내고 `index`와 `score` 배열을 받는다. 실패하면 검색은 리랭크 없이 RRF 점수로 응답하지 않고 `search_unavailable`을 낸다. 조용히 품질이 바뀐 결과를 내지 않기 위해서다.
+- [거절] 리랭크 실패 때 RRF 순서로 대체 응답은 하지 않는다.
+- [정함] TEI 응답의 토큰 오프셋(`start`·`stop`)은 입력의 UTF-8 바이트 오프셋이고 특수 토큰은 null이다(ADR 0010). 어댑터의 글자 인덱스 변환은 위 청킹 절의 규칙이다.
+
+### 키워드 토큰
+
+- [넘겨받음] 한국어 형태소 분석은 앱의 kiwipiepy가 하고 토큰을 `to_tsvector('simple', …)`에 넣어 GIN 색인을 걸며 질의도 같은 토크나이저로 자른다(ADR 0006). Kiwi는 py.typed가 없어 우리 스텁을 둔다.
+- [정함] 키워드로 넣는 토큰은 품사 태그가 일반 명사 `NNG`, 고유 명사 `NNP`, 수사 `NR`, 외국어 `SL`, 한자 `SH`, 숫자 `SN`, 어근 `XR`인 토큰과, Kiwi가 한 덩이로 내는 웹 형식 토큰(`W_URL`, `W_EMAIL`, `W_HASHTAG`, `W_SERIAL`)이다. 외국어 토큰은 소문자로 바꾼다. 동사·형용사 어간, 조사, 어미, 의존 명사, 대명사, 기호는 넣지 않는다. 프로브 `kiwi/probe.py`(출력 `probe_out.txt`)로 표본 넷의 토큰을 봤다. "지식베이스"는 `지식/NNG 베이스/NNG`로 갈리고 질의도 같이 갈리므로 맞는다. `normalize_coda`를 켠다. 이 규칙의 판은 1이고 토크나이저 판의 일부다.
+- [정함] Kiwi에 넣기 전에 라틴 글자·숫자 뒤에 붙은 ASCII 문장 부호를 공백으로 뗀다. 프로브에서 영어 문장 끝의 `search.`가 `s/SL earch./SL`로 갈렸고, 마침표를 공백으로 뗀 다섯째 표본은 `search/SL ./SF`로 바로 섰다(`kiwi/probe_out.txt`). 전처리는 토크나이저 규칙의 일부라 바꾸면 판을 올린다.
+- [정함] 조각의 tsvector는 선택한 토큰을 공백으로 이어 `to_tsvector('simple', …)`에 넣어 만든다. 질의는 같은 규칙으로 토큰을 뽑아 OR로 이은 `to_tsquery('simple', …)`이고(토큰이 하나도 없으면 키워드 검색을 건너뛴다), 순위는 `ts_rank_cd`다. 문장 분리(청킹의 문장 경계)는 kiwipiepy의 문장 분리를 쓴다.
+
+### 검색 흐름
+
+- [정함] `search`의 처리는 일곱 단계다. 첫째, 지식베이스를 고른다(인자가 없으면 기본 지식베이스. 없으면 `knowledge_base_not_found`, 토큰 범위 밖이면 `forbidden`). 둘째, 현재 색인 판이 없으면 빈 결과를 낸다. 셋째, 질의를 임베딩하고 키워드 토큰을 뽑는다(둘은 병렬). 넷째, SQL 하나로 후보를 모은다. 벡터 쪽은 현재 판의 조각에서 코사인 거리 순 `RAG_SEARCH_CANDIDATES`개, 키워드 쪽은 같은 조각에서 `ts_rank_cd` 순 같은 수이고, 둘을 바깥 조인해 RRF(`1/(60+순위)`의 합)로 합쳐 후보 수만큼 자른다. 필터(그룹, 갱신일 기간)는 두 쪽의 `WHERE`에 같이 든다. 다섯째, 지식베이스에 리랭커가 있으면 후보 전부를 `RAG_TEI_BATCH_SIZE`개씩 나눠 리랭크하고 점수를 합쳐 점수 순으로 바꾼다(점수는 질의와 글의 쌍마다 독립이라 묶음을 나눠도 같다). 여섯째, `top_k`개를 자르고 결과를 만든다. 일곱째, 지연을 기록한다. 전체가 `RAG_SEARCH_TIMEOUT_SECONDS`를 넘으면 `search_unavailable`이다.
+- [정함] 벡터 쪽 SQL은 트랜잭션 안에서 `SET LOCAL hnsw.ef_search`를 후보 수로 두고, 필터가 있으면 `SET LOCAL hnsw.iterative_scan = relaxed_order`를 더한다. 기본 `ef_search` 40은 후보 50개를 채우지 못한다(pgvector README 935행, 프로브 `facts/pgvector_readme_facts.py`).
+- [거절] 좁은 필터에서 정확 스캔으로 바꾸는 분기는 두지 않는다. 그 필요는 search-eval의 보고서가 잰 뒤에 정한다.
+- [정함] 점수 `score`는 리랭커가 있으면 리랭크 점수, 없으면 RRF 점수다. `rank`는 1부터다. 같은 문서의 조각 여럿이 나와도 합치지 않는다(클라이언트의 몫).
+
+### MCP 도구
+
+- [넘겨받음] MCP로 여는 도구는 `search`, `get_document`, `list_knowledge_bases` 셋뿐이고 이름은 고정이다. 결과 객체에 `format_version`(semver 문자열)이 실리고 형식은 outputSchema로 공개한다(ADR 0001, 0008, 0015). 도구마다 읽기 전용 표지를 단다(`.claude/rules/server.md`).
+- [정함] 첫 판의 `format_version`은 `"1.0"`이다. 도구 주석은 읽기 전용, 파괴적이지 않음, 멱등, 열린 세계 아님이다. 출력 스키마는 pydantic 모델에서 나오고 계약 시험이 스키마와 판을 본다.
+- [정함] `search`의 입력은 `query`(문자열, 비어 있으면 `invalid_argument`), `top_k`(정수, 기본 `RAG_SEARCH_DEFAULT_TOP_K`, 1 이상 `RAG_SEARCH_MAX_TOP_K` 이하), `knowledge_base`(이름, 선택), `filter`(선택. `groups` 그룹 이름 배열, `updated_after`·`updated_before` ISO 8601)다. 출력은 `format_version`, `knowledge_base`(쓴 지식베이스 이름), `results` 배열이다. 결과 하나는 `chunk_id`, `document_id`, `source`(원천 이름), `key`, `title`, `text`, `location`(`page`, `section`, `block_kind`, `block_range`), `updated_at`, `effective_date`(지금은 null), `access_groups`(지금은 빈 배열), `metadata`(문서의 메타데이터), `score`, `rank`다. 킥오프 입력 2절의 칸(조각, 경로·쪽·위치, 갱신일, 점수, 시행일·접근 그룹 칸)을 모두 덮는다.
+- [정함] `get_document`의 입력은 `document_id`와 `include_text`(기본 false)이고, 출력은 `format_version`, `document_id`, `source`, `key`, `title`, `group`, `mime`, `size_bytes`, `updated_at`, `metadata`, `chunk_counts`(지식베이스 이름마다 조각 수), 그리고 `include_text`면 파싱 결과의 블록 글을 빈 줄로 이은 `text`다. 지워진 문서와 토큰 범위 밖 지식베이스에만 든 문서는 `document_not_found`다.
+- [정함] `list_knowledge_bases`는 입력이 없고 출력은 `format_version`과 `knowledge_bases` 배열(`name`, `description`, `document_count`, `is_default`)이다. 토큰 범위 밖은 목록에서 뺀다.
+- [정함] 도구 오류는 `isError`가 참인 결과이고 글 내용 하나가 Problem Details와 같은 모양의 JSON 문자열(`type`, `title`, `status`, `code`, `request_id`)이다. 코드는 `knowledge_base_not_found`, `document_not_found`, `invalid_argument`, `forbidden`, `search_unavailable`, `internal_error`다. `detail`에 질의나 문서 내용을 넣지 않는다(ADR 0015).
+- [정함] 도구 처리기는 요청 헤더에서 인증 결과를 읽는다. 미들웨어가 판정한 토큰 레코드를 ASGI scope에 두고, 도구는 SDK의 Context로 그 요청에 닿는다(프로브 `mcp-sdk/probe_sdk.py`는 Context에서 요청 헤더를 읽는 것까지 봤고, scope에 둔 값을 같은 길로 읽는 것은 재지 않아 첫 구현 티켓이 확인한다).
+
+### 인증과 권한
+
+- [넘겨받음] 토큰은 데이터베이스에 두고 관리 API로 발급·회수하며, 원문은 발급 응답에 한 번만 나오고 저장은 해시다. 판정은 FastAPI 앱 바깥의 ASGI 미들웨어가 REST와 `/mcp` 둘 다에서 베어러 토큰을 보고 401과 403을 낸다. `RAG_ALLOWED_HOSTS`는 필수이고 불일치는 421이다(ADR 0014).
+- [정함] 토큰 원문은 `rag_` 접두와 32바이트 난수의 URL 안전 base64다. 역할은 `admin`(REST와 MCP 전부)과 `reader`(MCP와 `/health`만)다. `reader`가 REST를 부르면 403 `forbidden`이다. 지식베이스 범위는 `reader`에만 뜻이 있고 `admin` 토큰에 범위를 주면 422다. 토큰이 없거나 모르는 해시면 401 `unauthenticated`, 회수됐으면 401 `unauthenticated`(회수 사실을 드러내지 않는다), 만료됐으면 401 `token_expired`다. `/health`만 인증 밖이다.
+- [정함] `bootstrap-token [--name 이름]`(기본 `bootstrap`)은 살아 있는(회수·만료되지 않은) `admin` 토큰이 하나도 없을 때만 발급하고, 있으면 종료 코드 1과 안내를 낸다. 잃어버린 토큰은 데이터베이스에서 회수 시각을 적고 다시 돌리는 것이 운영 절차다.
+
+### 관리 API
+
+- [사용자 선택] core의 관리 API는 최소다. 토큰 발급·목록·회수, 지식베이스 목록·조회(재색인 필요 표시)와 재색인 시작, 작업 조회, 문서 조회다. 그룹·지식베이스·원천의 생성·수정·삭제는 admin과 source-sync가 받는다(Out of Scope). 사용자가 2026-11-10에 세 선택지(최소 관리 API를 core에, 수집·검색만, 관리 API를 넓게) 가운데 골랐다. 고른 선택지의 설명은 원천의 생성·수정·삭제도 admin으로 넘긴다고 적었지만, 이 명세는 그것을 source-sync로 보낸다. 원천 종류(서버 경로, 커넥터)와 연결 정보를 짓는 기능이 source-sync이고 admin 계획은 core와 source-sync의 관리 API 위에 선다고 적혀 있기 때문이다(`.scratch/admin/plan.md`).
+- [정함] 끝점은 `/api/v1/admin` 아래 열이다. `GET /knowledge-bases`(이름, 설명, 문서 수, 현재 색인 판 요약, `reindex_needed`, 건설 중인 판의 진행), `GET /knowledge-bases/{name}`(위에 색인 판 목록과 설정), `POST /knowledge-bases/{name}/reindex`(202, 409 `reindex_in_progress`), `GET /jobs/{job_id}`, `GET /jobs?status=&limit=&after=`(최근 순, 커서는 마지막 작업 ID), `GET /documents/{document_id}`(상태, 오류 코드, 지식베이스마다의 색인 상태와 조각 수, 메타데이터), `GET /documents?status=&group=&key=&limit=&after=`(`key`는 그 키의 문서 하나를 찾는 필터), `POST /tokens`(201. 이름, 역할, 지식베이스 이름 배열(선택), 만료 시각(선택)을 받고 원문을 한 번 돌려준다), `GET /tokens`(원문 없음), `DELETE /tokens/{id}`(204, 회수). 모두 `admin` 역할이다. 커서 페이지는 UUIDv7이 시간순이라 ID 비교로 한다.
+- [넘겨받음] 에러 봉투는 RFC 9457 Problem Details에 `code`를 더한 모양이고 FastAPI의 422도 같은 모양이다(ADR 0015).
+- [정함] Problem Details의 칸은 `type`(`about:blank`), `title`, `status`, `code`, `request_id`, 선택 `detail`이다. 422는 `code: validation_error`에 `errors` 배열(`loc`, `type`, `msg`. 입력 값 `input`과 `ctx`는 싣지 않는다)을 더한다. 미디어 타입은 `application/problem+json`이다. 코드 목록은 `unauthenticated`, `token_expired`, `forbidden`, `validation_error`, `document_not_found`, `knowledge_base_not_found`, `group_not_found`, `job_not_found`, `token_not_found`, `upload_too_large`, `unsupported_media_type`, `reindex_in_progress`, `search_unavailable`, `internal_error`다.
+- [정함] `/health`는 인증 없이 `{"status": "ok"}`만 낸다(지금의 모양 그대로). 데이터베이스나 임베딩 서버를 보지 않는 생존 확인이고, 준비 확인은 두지 않는다.
+
+### 관리 명령
+
+- [넘겨받음] 관리 명령은 `serve`, `worker`, `migrate`, `bootstrap-token`, `ingest <경로> [--wait]` 다섯이다. 명령은 REST와 같은 app 층 유스케이스를 부르고 같은 연결 문자열로 데이터베이스에 직접 붙는다(tech.md 관리 명령 칸, 일지 결정 요약 22). `migrate`가 `alembic upgrade head`를 돌리고 서버는 기동 때 자동으로 돌리지 않는다(ADR 0011).
+- [정함] `migrate`는 마이그레이션 뒤 기본 레코드를 보장한다. 기본 원천 `default`(종류 `push`), 기본 그룹 `default`, 기본 지식베이스 `default`(설정의 `RAG_DEFAULT_*`로. 이미 있으면 설정값으로 고친다)와 그 지식베이스에 기본 그룹을 넣고, 현재 색인 판이 없으면 첫 판을 `current`로 만든다. 멱등이다. 설정이 바뀐 뒤 다시 돌리면 지식베이스의 설정이 바뀌어 "재색인 필요"가 된다. 그것이 테스트가 재색인을 일으키는 길이다.
+- [정함] `ingest <경로> [--group 이름] [--wait] [--timeout 초]`는 파일 하나나 폴더를 받는다. 폴더면 지원 확장자의 파일을 재귀로 걷고 키는 폴더 기준 상대 경로(POSIX 구분자)다. `--group`이 없는 그룹 이름이면 아무 파일도 넣지 않고 종료 코드 1이다. 파일마다 수집 유스케이스를 직접 불러 `action`을 한 줄씩 찍는다. `--wait`면 넣은 작업이 모두 끝날 때까지 폴링하고(작업자가 따로 떠 있어야 한다. 안내를 찍는다), 하나라도 `failed`면 종료 코드 1이다. `--timeout`(기본 0, 무한)이 지나면 종료 코드 2다.
+- [정함] `worker`는 작업자 프로세스를 띄운다. 인자는 없고 설정만 읽는다. `serve`는 지금의 `--host`·`--port`를 유지한다.
+
+### 삭제, 되살림, 묘비
+
+- [넘겨받음] 삭제는 소프트 삭제다. `deleted_at`을 적고 조각을 보관 표로 옮겨 검색 표에는 산 것만 남기며, 보관 기간 뒤 정리 작업이 물리 삭제하고 묘비 행만 남긴다(ADR 0013).
+- [정함] 삭제 요청의 작업 단위는 `deleted_at`을 쓰고, 모든 색인 판의 조각을 `archived_chunks`로 옮기고, 그 문서의 대기 작업을 지운다. 실행 중인 작업은 첫 단계에서 지워진 문서를 보고 성공으로 끝난다.
+- [정함] 되살림은 같은 (원천, 키)가 `deleted_at`은 있고 `purged_at`은 없는 문서로 다시 들어올 때다(ADR 0013이 어림으로 적은 방향 그대로). 같은 작업 단위에서 `deleted_at`을 비우고, 내용 해시가 같으면 보관 표의 조각 가운데 살아 있는 판의 것을 검색 표로 되돌리고 물러난 판의 것은 지우며 `action`은 `restored`다. 삭제와 되살림 사이에 판이 바뀌어 되돌릴 조각이 없는 살아 있는 판이 있으면 작업을 넣는다(`job_id`가 실린다). 내용 해시가 다르면 보관 표의 조각을 지우고 갱신으로 간다(`restored`에 작업 ID). 문서 UUID는 그대로다.
+- [정함] 묘비 행(`purged_at`이 있는 문서)과 같은 (원천, 키)가 다시 오면 그 행을 다시 써서 UUID를 잇고 `action`은 `created`다. 묘비는 "있었다"는 표시이지 새 문서를 막는 장치가 아니다. `GLOSSARY.md` 묘비 항목을 이에 맞춰 고쳤다.
+- [거절] 정리 작업(보관 기간이 지난 문서의 물리 삭제)과 되살리는 관리 API는 core에 없다. core는 설정 이름 `RAG_DELETED_RETENTION_DAYS`와 묘비 행의 모양(`purged_at`)만 정한다.
+
+### 로그, 요청 ID, 지연 기록
+
+- [넘겨받음] 로그는 JSON Lines이고 필드는 `time`, `level`, `logger`, `event`, `request_id`, `duration_ms`이며, 예외는 타입·프레임·이 저장소가 정의한 예외의 메시지만 싣는다. 엔진은 `hide_parameters=True`다. 질문 내용, 연결 정보, 문서 내용은 남기지 않고 검색은 지연만 남긴다(ADR 0004, 0011, 0015, 원칙 V).
+- [정함] 요청 ID는 요청마다 서버가 UUIDv7로 만들고 응답 헤더 `X-Request-Id`로 돌려준다. 들어오는 `X-Request-Id`는 믿지 않고 쓰지 않는다(로그 주입을 막는다). 수집 요청이 넣은 작업은 그 요청 ID를 들고, 작업자 로그의 `request_id`는 그 값이다.
+- [정함] 로그 이벤트. `http_request`(메서드, 경로 템플릿, 상태 코드, 지연), `search`(임베딩·SQL·리랭크 지연과 전체 지연. 지식베이스 이름, `top_k`, 후보 수, 결과 수는 싣지 않는다. ADR 0004가 검색은 지연만 남긴다고 정했다), `job_started`·`job_finished`(작업 ID, 종류, 문서 ID, 시도 횟수, 결과, 오류 코드, 파싱·임베딩·쓰기 지연). 문서의 키와 제목은 로그에 싣지 않고 문서 ID만 싣는다. 질의 글은 어디에도 싣지 않는다.
+
+### 테스트 데이터베이스와 이미지 판
+
+- [넘겨받음] 테스트용 PostgreSQL은 Docker의 `pgvector/pgvector:0.8.7-pg18-trixie`(운영과 같은 판)이고 `RAG_TEST_DATABASE_URL`이 가리키는 데이터베이스를 쓰며 없으면 skip이 아니라 실패한다. 검사 러너가 `compose.test.yml`로 띄우는 변경은 하네스 티켓이다(tech.md 테스트 칸, `.scratch/plan-head.md`).
+- [정함] 격리는 템플릿 데이터베이스다. 세션 픽스처가 `RAG_TEST_DATABASE_URL`의 서버에 템플릿 데이터베이스를 만들어 alembic을 한 번 올리고, 테스트마다 템플릿에서 복제한 새 데이터베이스를 만들어 쓰고 지운다. 그래서 테스트가 서로의 행을 보지 않고 마이그레이션은 세션에 한 번만 돈다. 테스트 역할에는 데이터베이스 생성 권한이 있어야 한다(compose의 기본 역할이 그렇다). Windows 개발 기계에서는 psycopg 비동기를 위해 Selector 이벤트 루프를 테스트 설정이 고른다(ADR 0011).
+
+## Testing Decisions
+
+- [사용자 선택] 주 이음매는 서버의 HTTP 표면이다. REST는 httpx로, MCP는 공식 SDK의 클라이언트로 접속하고, 뒤에는 Docker의 실제 테스트 PostgreSQL과 TEI 스텁 서버를 붙인다. 작업자는 테스트 안에서 한 번 돌기 입구로 돌린다. 보조 이음매는 PostgreSQL 어댑터의 SQL과 파서(픽스처 문서)이고, `app`을 가짜 포트로 시험하는 것은 실제 데이터베이스로 재현하기 어려운 동시성 교차와 실패 분류뿐이다. 사용자가 2026-11-10에 세 선택지(HTTP 표면 + 실제 PG + TEI 스텁, 유스케이스 단위 + 가짜 포트, 전부 실물) 가운데 골랐다. ADR 0007 Consequences의 첫 항목은 이 선택으로 범위가 좁아져 이력과 포인터를 달았다.
+- [정함] 좋은 테스트는 바깥에서 보이는 행동만 본다. 수집 API로 넣고 작업자를 한 번 돌린 뒤 MCP `search`로 찾아 결과의 칸을 보는 식이다. 표의 행 수나 내부 함수 호출을 보지 않고, SQL 어댑터 시험도 두 작업자가 같은 작업을 꺼내지 않는다는 식으로 행동을 쓴다. 테스트 이름은 한국어 행동 명세다(`CODING_STANDARDS.md`). 비동기 테스트는 `async def`이고 `RuntimeWarning`은 에러이며 skip은 실패다(`.claude/rules/tests.md`).
+- [정함] TEI 스텁은 테스트가 띄우는 작은 ASGI 앱 하나로 임베딩 끝점과 리랭커 끝점 둘을 흉내 낸다. `/info`는 설정한 `model_id`·`max_input_length`·`auto_truncate`·`model_type`을 내고, `/v1/embeddings`는 결정적 벡터(글을 낱말로 갈라 낱말 해시로 정한 차원에 부호를 더한 뒤 정규화한 단어 주머니 벡터. 같은 글은 같은 벡터, 낱말이 겹치면 가까운 벡터)를 내고, `/tokenize`는 낱말과 기호 단위의 토큰에 UTF-8 바이트 오프셋을 붙여 내며 `add_special_tokens`가 참이면 앞뒤에 오프셋이 null인 특수 토큰을 더하고, `/rerank`는 질의와 글의 낱말 집합 겹침으로 점수를 낸다. 스텁은 요청 횟수와 마지막 요청 본문을 기억해 테스트가 배치 크기와 `truncate` 같은 칸을 단언할 수 있게 한다. 선례는 `/v1/embeddings` 하나를 고정 난수 벡터로 흉내 낸 프로브 `embedding/fake_server.py`이고, 스텁은 그것을 끝점 넷과 결정적 벡터로 넓힌다. 실제 모델의 품질은 search-eval의 몫이다.
+- [정함] 시험하는 모듈과 주요 사례. 계약 시험(`tests/contract/`): 도구 목록이 셋이고 모두 읽기 전용 표지가 있으며 outputSchema에 `format_version`이 있다, `search`·`get_document`·`list_knowledge_bases`의 결과가 스키마와 판 `"1.0"`에 맞는다, 토큰 없는 접속은 401, 허용 호스트 밖은 421, 범위 밖 지식베이스는 `forbidden`. HTTP 시험: 수집 → 작업자 한 번 → 검색의 왕복(PDF, DOCX, HWPX 픽스처 하나씩), `action` 다섯(`created`, `updated`, `unchanged`, `restored`, `requeued`)과 그룹 변경 뒤의 작업, 415·413·404, 삭제 뒤 검색에서 빠짐, 되살림(판 전환을 사이에 둔 것 포함), 재색인 시작과 전환 전후의 검색 결과, 토크나이저 판만 바뀐 재색인이 임베딩을 다시 부르지 않음, 관리 API 열과 Problem Details 모양, `reader`의 REST 403, `/health`. 작업자 시험: 영구 실패 즉시 `failed`, 일시 실패의 백오프와 최대 시도, 임대 만료 뒤 다른 작업자의 인수, 두 작업자가 같은 작업을 꺼내지 않음, 파싱 자식 프로세스의 시간 초과·예외·메모리 한도(리눅스에서는 한도가 걸리고 Windows에서는 "걸지 않음"이 기록되는 두 갈래를 한 테스트가 플랫폼에 따라 단언한다. skip이 아니다). 어댑터 시험: 작업 단위의 커밋·롤백, 색인 판마다 HNSW 부분 색인이 있고 물러나면 없음, RRF SQL의 순위, 보관 표 이동, TEI 어댑터의 바이트 오프셋 → 글자 인덱스 변환(한국어·이모지가 섞인 글), 배치 크기, 오류 코드 매핑. 청킹 시험: 규칙 여섯을 글자 수로 세는 가짜 토큰 세기로. 키워드 시험: 품사 선택과 전처리, 질의와 조각이 같은 토큰을 낸다. 관리 명령 시험: `migrate`의 멱등과 설정 변경 뒤 "재색인 필요", `bootstrap-token`의 거부, `ingest --wait`의 종료 코드.
+- [정함] 작업자 프로세스를 실제로 띄우는 시험은 하나다. `rag-engine worker`를 하위 프로세스로 띄워 `NOTIFY`로 깨어나 작업을 처리하고 종료 신호에 끝나는 것을 본다(리눅스는 SIGTERM, Windows는 `CTRL_BREAK_EVENT`를 보내는 플랫폼 갈래이고 skip이 아니다). 나머지는 한 번 돌기 입구로 인프로세스에서 한다.
+- [정함] 픽스처 문서는 작다. DOCX와 HWPX는 각 라이브러리의 쓰기 기능으로 테스트가 만들고(제목, 문단, 표가 든 두세 쪽 분량), PDF는 글이 든 작은 파일 하나를 저장소에 둔다. 암호 PDF, 압축 폭탄 ZIP(큰 0 바이트 항목), 쪽 수가 많은 PDF는 테스트가 만든다.
+- [정함] 선례. MCP 계약 시험 `tests/contract/test_mcp_tools.py`(uvicorn을 스레드로 띄우고 SDK 클라이언트로 접속), `tests/test_health.py`, `tests/conftest.py`(UTF-8, `GIT_*` 벗기기, skip을 실패로), 가짜 임베딩 서버 `.scratch/core/probes/embedding/fake_server.py`, Context에서 헤더를 읽는 `.scratch/core/probes/mcp-sdk/probe_sdk.py`.
+- [정함] 수락 기준의 지연 측정("동시 요청 여러 개의 검색 지연을 대상 사양에서 재서 프로브로 남긴다")은 테스트가 아니라 프로브다. 마지막 구현 티켓이 Docker에서 실제 TEI(CPU 이미지)와 표본 문서들로 재고 `.scratch/core/probes/`에 스크립트와 출력을 남긴다. 그 결과는 설정 기본값(후보 수, 배치 크기)을 바꿀 수 있고 계약은 바꾸지 않는다.
+
+## Out of Scope
+
+- [넘겨받음] 첫 슬라이스가 만들지 않는 것은 원천과 동기화(커넥터, 주기 실행, 정리 작업), 관리자 페이지, 이미지와 단독 compose, 스캔본 OCR과 HWP 5.0 바이너리, 접근 그룹으로 거르는 검색(칸만 둔다), 답 생성이다(`.scratch/plan-head.md`).
+- [정함] source-sync가 받는 것: 커넥터와 변환 인터페이스의 메서드 모양과 변환 단계 끼우기, 서버 경로 원천, 원천의 생성·수정·삭제 관리 API, 보관 기간이 지난 문서의 정리 작업과 주기, 보관 중인 문서를 되살리는 관리 API, 고아 원본의 정리. `.scratch/source-sync/plan.md` 본문에 적었다. 그 계획의 Blocked by는 core와 release-image다.
+- [정함] admin이 받는 것: 그룹과 지식베이스의 생성·수정·삭제 관리 API, 화면이 요구하는 문서·작업 목록 조회의 확장. `.scratch/admin/plan.md` 본문에 적었다. 그 계획의 Blocked by는 source-sync(그 뒤에 core)다.
+- [정함] release-image가 받는 것: 서버·작업자 이미지를 둘로 가르는 Dockerfile 변경(core는 킥오프의 Dockerfile 하나에서 `rag-engine worker`가 돌게만 한다), TEI 컨테이너 둘과 마이그레이션 서비스의 compose 항목, 모델 파일의 폐쇄망 반입, 메모리 예산(32GB 기준, 16GB 최소)의 문서화. `.scratch/release-image/plan.md` 본문에 적었다. 그 계획의 Blocked by는 core다.
+- [정함] search-eval이 받는 것: 조각 상한·겹침 기본값의 판정, 키워드 품사 집합의 재검토, 리랭커와 후보 수의 효과, 정확 스캔 분기의 필요, 시멘틱 청킹 전략. `.scratch/search-eval/plan.md` 본문에 적었다. 그 계획의 Blocked by는 core다.
+- [넘겨받음] doc-permission이 접근 그룹 필터와 주체(`_meta`)를, doc-freshness가 시행일과 "오래됨" 칸을, change-log가 토큰 발급·회수와 문서 변경의 기록을, hwp-binary가 HWP 5.0을 받는다. core는 칸만 둔다(ADR 0008, 0014, `.scratch/kickoff-input.md` 2절). 그 계획들의 Blocked by는 모두 core 뒤의 기능이다.
+- [거절] 커넥터의 `changes_since`, S3 파일 저장소, RabbitMQ 어댑터, 시멘틱 청킹, 로컬 토크나이저는 설계가 거부했거나 나중으로 미룬 것이고 이 명세도 두지 않는다(ADR 0009, 0010, 0012, 0013).
+- [거절] 준비 확인(readiness) 끝점, 토큰의 마지막 사용 시각, 들어오는 `X-Request-Id` 신뢰, 결과의 문서 단위 묶기는 두지 않는다.
+
+## Further Notes
+
+- 명세가 잰 것 다섯은 프로브 README 표의 2026-11-10 행이다. UUIDv7 라이브러리 둘(`uuid/probe.py`), pgvector README 원문의 색인 문법(`facts/pgvector_readme_facts.py`), TEI OpenAPI의 `/info`·`/rerank`·`TokenizeInput` 칸(`facts/tei_info_and_rerank_fields.py`), 파서 셋과 pdfminer.six의 내장 한도(`parsers/limits_probe.py`), Kiwi의 토큰 출력(`kiwi/probe.py`). 넷은 pyright strict를 0 오류로 지났고 Kiwi 프로브는 kiwipiepy에 py.typed가 없어 스텁 없음 오류 하나가 남는다(ADR 0006이 우리 스텁을 두기로 한 사정 그대로다).
+- 어림으로 남긴 것(구현 티켓이 Docker에서 재고 설정 기본값으로 바꾼다): 후보 수 50과 TEI 배치 32, 파싱 한도 값 넷(1000쪽, 300초, 2GiB, 64MiB), 백오프 밑수 30초.
+- [넘겨받음] 하네스 티켓이 먼저다. 검사 러너가 `compose.test.yml`로 테스트 데이터베이스를 띄우고 내리는 변경은 `.scratch/harness/issues/`의 티켓이고, core의 첫 구현 티켓은 그 티켓에 Blocked by를 건다. 그 티켓이 아직 없으므로 `/to-tickets`가 core 티켓을 쪼갤 때 하네스 티켓도 함께 쓴다(문서만 바뀐 커밋에서 pytest를 건너뛸지는 그 티켓이 정한다. 일지 `## 다음`).
+- [정함] 첫 구현 티켓은 계약 티켓이다. 포트 열하나와 파서 인터페이스 1.0, 다섯 층의 패키지와 import-linter 계약, `CLAUDE.md` 레이어 절과 `.scratch/plan-head.md` 목표 배치, 스키마(alembic 첫 판)를 만들고 다른 티켓을 막는다(`docs/agents/issue-tracker.md`).
+- 이 명세가 ADR 본문을 바꾼 곳은 둘이고 이력과 포인터를 달았다. ADR 0006(부분 HNSW 색인의 단위와 벡터 열), ADR 0007(포트 열하나와 포트의 값, 테스트 이음매). `GLOSSARY.md`에는 되살림과 색인 상태를 더하고 작업과 묘비 항목을 고쳤다.
+- 다음 단계는 `spec-reviewer`의 검토 뒤 `/to-tickets .scratch/core/spec.md`다(새 세션). core 티켓은 Docker가 있는 로컬 세션에서 돈다.
