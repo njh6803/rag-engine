@@ -1,0 +1,129 @@
+# 로컬 pre-commit과 같은 검사. 훅은 각자 설치해야 하므로 CI가 최종 판정이다. 파이썬(python), 컨테이너 이미지(image),
+# 커밋 검사(ticket)가 잡 셋으로 함께 돌고, 필수 검사는 그 결과를 모으는 verify 하나다(docs/constitution/operations.md).
+# 잡을 더하면 verify 의 needs 에 넣는다. 빠뜨리면 verify 가 빨갛다.
+# 체크아웃하는 잡은 모두 persist-credentials: false 다. 모두 PR 의 코드를 짓고 돌리는데 체크아웃 뒤에 github.com 을 상대로
+# 한 git 명령(push, 인증된 fetch)이 없어서, 체크아웃 토큰을 .git/config 에 남기지 않는다(CWE-522).
+# 워크플로 하드닝은 zizmor 가 판정한다(설정은 .github/zizmor.yml). 빠뜨리면 artipacked 가, 서드파티 액션을 해시 대신
+# 태그로 가져오면 unpinned-uses 가 python 잡을 빨갛게 한다. 자격 증명이 필요한 잡이 생기면 그 체크아웃 줄에
+# `# zizmor: ignore[artipacked]` 와 까닭을 함께 둔다.
+# 잡마다 timeout-minutes 를 둔다. 없으면 기본값 360분까지 매달린다. 첫 값은 지난 실행이 없어 어림이다.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    # ubuntu-latest 가 26.04(ripgrep 15)로 넘어가 rg 14 의 동작을 가정한 tests/tools/test_hook_env_read_rg.py 가
+    # agent-os 에서 깨졌다. 그 시험을 그대로 복사했으므로 24.04 에 고정한다.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pyright
+      - run: uv run lint-imports
+      - run: command -v rg > /dev/null || { sudo apt-get update -q && sudo apt-get install -y -q ripgrep; }
+      - run: uv run pytest -q
+      - run: uv run python tools/check_instructions.py
+      - run: uv run python tools/check_type_escapes.py
+      - run: uv run python tools/run_hooks.py
+      - run: uv run zizmor --offline --strict-collection --config .github/zizmor.yml .
+
+  # 컨테이너 이미지는 첫날부터 CI 에서 짓는다(operations.md 검증). 판 태그를 붙여 내는 것은 release-image 다. 지은
+  # 이미지를 띄워 /health 가 답하는지까지 본다. 진입점이나 root 가 아닌 사용자의 권한이 틀리면 짓기는 초록이어도
+  # 여기서 빨갛다.
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: docker build -t rag-engine:ci .
+      - run: docker run -d --name rag-engine -p 8000:8000 rag-engine:ci
+      - run: |
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs rag-engine
+          exit 1
+
+  # 커밋 검사. pre-commit 은 훅을 건너뛴 커밋(--no-verify)을 보지 못하므로 PR 마다 PR 의 머리 브랜치·머리 커밋·base
+  # 커밋으로 같은 판정을 하고, 가리키는 티켓의 Status: 가 done 인지까지 본다. PR 값은 env 로 넘긴다(워크플로 감사가
+  # 식의 바로 펼침을 주입으로 잡는다).
+  ticket:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - env:
+          PR_HEAD_REF: ${{ github.head_ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          marker=$(uuidgen)
+          echo "::stop-commands::$marker"
+          python3 tools/check_ticket.py --ci
+
+  # 필수 검사. 건너뛴 잡은 필수 검사여도 성공으로 보고되고(GitHub 문서), 앞 잡이 실패하면 needs 로 이은 잡은
+  # 기본적으로 건너뛴다. 그래서 always() 로 언제나 돌고, needs 의 결과가 모두 success 일 때만 초록이다.
+  # failure 뿐 아니라 cancelled 와 skipped 도 빨강이다.
+  # needs 에 없는 잡은 필수 검사 밖에서 돈다. 그래서 같은 실행의 모든 시도(filter=all)의 잡 이름을 API 로 읽어, 자기
+  # 밖의 잡이 needs 에 없으면 빨강이다. 지금 시도만 읽지 않는 것은, 실패한 잡만 다시 돌린 시도에서는 앞 시도의 잡이
+  # 새 시도로 옮겨지는 중이라 목록에서 빠질 수 있기 때문이다. 잡에 name: 을 두지 않으므로 API 의 잡 이름이 잡 id 와
+  # 같다. 읽은 목록에 verify 자신이 없으면(빈 목록이면) 비교할 것이 없어 조용히 초록이 되므로 그것도 빨강이다.
+  # 일부러 필수 검사 밖에 둘 잡이 생기면 아래 차집합에 그 이름을 예외로 더한다. verify 뒤에 도는 잡(needs: [verify])은
+  # 첫 시도에서는 verify 가 도는 동안 목록에 없어 이 검사가 보지 못하고, 순환이라 needs 에 넣을 수도 없다. 그런 잡은
+  # 필수 검사 밖이다.
+  verify:
+    if: always()
+    needs: [python, image, ticket]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          pages=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=all&per_page=100")
+          names=$(jq -c '[.[].jobs[].name] | unique' <<< "$pages")
+          echo "이 실행의 잡: $names"
+          if ! jq -e 'index("verify") != null' <<< "$names" > /dev/null; then
+            echo "::error::잡 목록에 verify 가 없다. 목록을 읽지 못한 것이다."
+            exit 1
+          fi
+          outside=$(jq -c --argjson needs "$NEEDS" '. - ["verify"] - ($needs | keys)' <<< "$names")
+          if [ "$outside" != "[]" ]; then
+            echo "::error::verify 의 needs 에 없는 잡: $outside. 필수 검사 밖에서 돈다."
+            exit 1
+          fi
+          jq -e 'all(.[]; .result == "success")' <<< "$NEEDS" > /dev/null

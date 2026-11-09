@@ -1,0 +1,5 @@
+interface:
+  display_name: "Retro"
+  short_description: "세션 회고. 마무리를 말할 때와 단계를 닫을 때 돌린다."
+policy:
+  allow_implicit_invocation: false

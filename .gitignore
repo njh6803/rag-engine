@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.import_linter_cache/
+# 뿌리의 파이썬 산출물(uv build)
+/dist/
+*.egg-info/
+# 개발용 값만 두고 커밋하지 않는다(operations.md 설치처 정보)
+.env
+.idea/
+# 워크트리. 클론마다 다른 .git/info/exclude 에만 있으면 새 클론에서 주 체크아웃의 ruff 가 사본까지
+# 검사하고 git add -A 가 워크트리를 내장 저장소로 스테이지한다(agent-os 2026-10-05 워크트리 감사).
+/.claude/worktrees/
+# 플랜 모드의 계획 파일. 저장소의 기록이 아니다. 추적하지 않는 채로 남으면 주 체크아웃이 깨끗하지 않아
+# tidy-checkouts 가 당기지 않는다.
+/.claude/plans/
+# Git Bash 의 grep·sh 가 죽으며 작업 폴더에 남기는 덤프
+*.stackdump

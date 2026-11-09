@@ -1,0 +1,118 @@
+# Claude Code Review. PR 봇 둘 중 하나. 담당은 유지보수성·경계.
+# 보안·버그·성능은 PR 직전 CodeRabbit CLI(돌지 못하면 `/security-review`와 `bug-perf-review`)와 PR의 CodeRabbit이 본다.
+# 역할 분담과 "초록 착시"는 docs/constitution/operations.md의 리뷰 파이프라인.
+# 시크릿 CLAUDE_CODE_OAUTH_TOKEN은 사람이 `claude setup-token`으로 만들어 저장소 시크릿에 넣는다.
+# 이 파일을 바꾼 PR에서는 액션이 리뷰를 건너뛰고 초록이 된다. 액션이 이 파일을 기본 브랜치의 것과 비교해 다르면
+# 실행하지 않는다(agent-os PR #3·#6 실측, 로그 경고 "Skipping action due to workflow validation").
+# 체크아웃은 토큰을 남기지 않는다(persist-credentials: false). 액션은 그 토큰에 기대지 않고, 지우는 코드는 checkout v7의 includeIf를 못 봐 리뷰 내내 남겼다(agent-os 일지 2026-10-07-14).
+# 리뷰 액션은 비밀과 쓰기 토큰을 쥐므로 태그가 아니라 커밋 해시로 고정하고 판은 손으로 올린다(agent-os 대기열 142).
+#
+# 플러그인 대신 직접 프롬프트. 단일 에이전트가 요약 코멘트를 남기는 것이 완료 조건이고 뒤의 스텝이
+# 그 코멘트를 검사한다. agent-os에서 플러그인이 서브에이전트를 백그라운드로 띄우고 턴을 끝내, 헤드리스 실행이
+# 그 전에 끝나 코멘트 없이 초록이 되곤 했다(그 저장소의 PR #2·#4·#5).
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+# 같은 PR에 푸시가 이어지면 앞선 리뷰를 취소한다. 낡은 diff에 코멘트가 달리는 것을 막는다.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  claude-review:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Record start time
+        id: start
+        run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@58985842b834ed26087302ba27d07bc24ca8697a # v1.0.244
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 기본값은 Claude의 메시지를 숨긴다. 코멘트 없는 초록의 원인을 보려면 켜야 한다(agent-os PR #2 실측).
+          show_full_output: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            이 PR을 리뷰하고 요약 코멘트를 하나 남긴다. 한국어로 쓴다. 코드 식별자, 파일 경로, 기술 용어는 원문 그대로 둔다.
+
+            절차. 이 턴 안에서 직접 읽고 직접 판단한다.
+            1. `gh pr view $PR --json title,body`와 `gh pr diff $PR`로 설명과 diff를 읽는다.
+            2. 저장소 루트의 CLAUDE.md와 그것이 임포트하는 docs/constitution/principles.md, CODING_STANDARDS.md, GLOSSARY.md(있으면)를 읽는다. 바뀐 파일의 경로에 해당하는 .claude/rules/*.md가 있으면 함께 읽는다. 각 파일의 paths 프론트매터로 판단한다.
+            3. 담당은 유지보수성과 경계다. 유지보수성은 CODING_STANDARDS.md의 리뷰 관점 넷과 판단 기준을 적용한다. 경계는 헌법 원칙 가운데 import-linter가 못 보는 것이다. mcp, FastAPI, 파서, 임베딩 모델, DB 드라이버의 타입이 반환값이나 예외로 계약(검색 도구의 형식, 수집 API, 커넥터·변환·파서 인터페이스)과 도메인 코드로 새는지(CODING_STANDARDS.md). MCP에 쓰기 도구(수집, 삭제, 재색인)가 등록되는지(원칙 IV, ADR 0001). 특정 클라이언트의 코드, 이름, 계획에 기대는지(원칙 III). 계약이 바뀌었는데 판, 계약 시험(tests/contract/), ADR, 명세가 같이 바뀌었는지(원칙 VII). 플러그인 자리 셋(커넥터·변환·파서, ADR 0003) 밖에 새 플러그인 자리가 생기거나 설치처 고유의 규칙이 제품 코드에 들어왔는지.
+            4. 심각도는 CODING_STANDARDS.md의 분류를 쓰고 지적마다 [Critical] [Major] [Minor] [Nit] 태그를 단다. 범위는 위 두 축뿐이다. CODING_STANDARDS.md의 "리뷰하지 않는 것"은 CI가, 보안과 성능은 PR 직전 CodeRabbit CLI(돌지 못하면 `/security-review`와 `bug-perf-review`)와 PR의 CodeRabbit이 맡는다. 예외 하나, Critical 등급의 보안 문제(로그에 질문 내용·연결 정보·문서 내용이 실림(원칙 V), 인증이나 접근 그룹을 건너뛰는 경로, 검증 없는 코드 실행)는 [Critical] 태그로 적는다. 지적은 근거를 댄 확정 진술로 쓴다.
+            5. 완료 조건: 요약을 Write 도구로 작업 디렉터리의 `review-comment.md`에 쓰고, `gh pr comment ${{ github.event.pull_request.number }} --body-file review-comment.md`를 다른 명령과 잇지 않고 단독으로 쳐서 게시한다. 허용된 게시 명령은 글자 그대로 이 하나이고, 본문 파일의 경로를 바꾸면 거부된다. 제목은 "## 코드 리뷰". 지적이 없으면 "지적 없음"과 무엇을 봤는지 두 줄. 파일과 행이 특정되는 지적은 mcp__github_inline_comment__create_inline_comment로 인라인 코멘트도 남길 수 있다. 게시는 그 명령이 출력한 코멘트 URL로 확인한다. URL이 나오지 않았으면 게시되지 않은 것이다. 이미 있는 "## 코드 리뷰" 코멘트는 앞선 실행의 것일 수 있으니 이번 게시의 확인으로 쓰지 않는다(agent-os PR #116).
+            6. 도구는 허용 목록 안의 것만 쓴다. 파일은 Read와 Grep 도구로 읽고 찾으며, 변경은 `gh pr diff`로 본다. `.git/` 아래를 읽는 것, git 명령, `cat`·`grep`·`head` 같은 셸 읽기 명령은 거부되므로 `gh` 출력에도 파이프를 잇지 않는다. curl, WebFetch, 그 밖의 셸 명령도 거부되어 턴만 쓴다(agent-os PR #19 실측: 거부 12건으로 턴 상한 초과).
+          # 턴 상한 80: agent-os PR #19(파일 15개)에서 47턴을 써 40을 넘겼다. 거부된 호출을 빼도 여유가 필요하다.
+          # 액션은 Claude가 도는 동안 앱 토큰을 .git/config의 origin URL에 둔다. 허용 목록 밖이어도 Claude Code가
+          # 읽기 전용으로 보는 명령(cat, sort, git remote 등)은 묻지 않고 돌고, 경로를 glob으로 적으면 Read 거부를
+          # 지나 그 파일을 읽었다. 그래서 .git/과 git을 막고 그런 읽기 명령을 이름으로 막으며, 게시는 고정 경로의
+          # 명령 하나만 허용한다(agent-os 대기열 146). 목록은 agent-os가 Claude Code 2.1.292에서 잰 것이라 액션을 올려
+          # 판이 바뀌면 그 저장소의 탐침 review_git_read.py를 이 저장소의 .scratch/harness/probes/로 옮겨 다시 잰다.
+          claude_args: >-
+            --allowedTools "Read,Glob,Grep,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment ${{ github.event.pull_request.number }} --body-file review-comment.md),mcp__github_inline_comment__create_inline_comment"
+            --disallowedTools "Read(./.git),Read(./.git/**),Bash(git:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(nl:*),Bash(tac:*),Bash(grep:*),Bash(egrep:*),Bash(fgrep:*),Bash(rg:*),Bash(strings:*),Bash(od:*),Bash(hexdump:*),Bash(cut:*),Bash(column:*),Bash(rev:*),Bash(diff:*),Bash(cmp:*)"
+            --max-turns 80
+
+      - name: Fail when Claude left no comment
+        # 초록 착시를 빨강으로. 실행 시작 뒤 생긴 claude[bot] 코멘트가 0개면 실패한다.
+        # 이 파일을 바꾼 PR은 액션이 건너뛰므로(위 5행) 코멘트를 세지 않는다. 대신 그 PR이 이 파일과 기록(일지,
+        # 대기열 폴더, 티켓, 하네스 탐침) 밖의 파일을 함께 실으면 실패한다. 함께 실린 파일이 리뷰 없이 병합되기
+        # 때문이다(agent-os 대기열 158). 티켓은 커밋 검사가 PR마다 요구하는 수용 기준 글이라 코드가 빠져나가지 않는다.
+        # 다른 워크플로(ci.yml)만 바꾼 PR은 액션이 돌므로 센다(agent-os 대기열 50). 바뀐 파일 목록은 pulls
+        # files API로 받아 이름 바꾸기의 옛 경로까지 본다. `gh pr diff --name-only`는 새 경로만 찍고 한글 이름을
+        # 따옴표로 감쌌다(agent-os PR #70·#153). 목록을 얻지 못하면 어느 쪽인지 가를 수 없어 그 까닭을 찍고 실패한다.
+        # 전에는 그 실패가 이 파일을 바꾸지 않은 PR로 읽혀 코멘트를 셌다(agent-os PR #171의 HTTP 500, 대기열 161).
+        # 가짜 gh로 돌리는 탐침은 agent-os의 review_workflow.py이고 이 저장소에는 옮기지 않았다.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          STARTED_AT: ${{ steps.start.outputs.at }}
+        run: |
+          self='.github/workflows/claude-code-review.yml'
+          if ! files="$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)')"; then
+            echo "::error::바뀐 파일 목록을 얻지 못했다(gh api pulls/files 실패). 이 워크플로를 바꾼 PR인지 가를 수 없어 실패로 만든다. 잡을 다시 돌린다."
+            exit 1
+          fi
+          if printf '%s\n' "$files" | grep -qxF "$self"; then
+            # 탐침은 이 파일의 변경이 근거로 드는 측정이라 함께 싣는다. 티켓은 .scratch/<폴더>/issues/ 바로 아래의
+            # .md 뿐이다. 그 아래 더 깊은 경로와 같은 폴더의 spec.md 같은 파일은 기록이 아니다. 일지와 대기열은
+            # 폴더라 앞부분만 보고, 그 아래 더 깊은 경로도 기록으로 받는다.
+            others="$(printf '%s\n' "$files" | grep -vxF "$self" \
+              | grep -vE '^(docs/journal/|\.scratch/retro-queue/|\.scratch/[^/]+/issues/[^/]+\.md$|\.scratch/harness/probes/)' || [ $? -eq 1 ])"
+            if [ -n "$others" ]; then
+              echo "::error::이 워크플로를 바꾼 PR은 리뷰가 건너뛰므로 일지·대기열·티켓·하네스 탐침 밖의 파일을 함께 싣지 않는다. 아래 파일은 따로 PR로 낸다."
+              printf '%s\n' "$others"
+              exit 1
+            fi
+            echo "이 워크플로를 바꾼 PR: 액션이 건너뛰므로 코멘트는 세지 않는다"
+            exit 0
+          fi
+          # --paginate는 페이지마다 배열을 따로 내므로 jq -s로 먼저 합친 뒤 센다
+          count="$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            | jq -s --arg t "$STARTED_AT" 'add | map(select(.user.login == "claude[bot]" and .created_at >= $t)) | length')"
+          echo "claude[bot] 코멘트 (${STARTED_AT} 이후): ${count}"
+          if [ "$count" = "0" ]; then
+            echo "::error::Claude Code Review가 코멘트를 남기지 않았다. 초록이 리뷰를 뜻하지 않으므로 실패로 만든다."
+            exit 1
+          fi

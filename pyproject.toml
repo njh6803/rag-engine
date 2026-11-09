@@ -1,0 +1,97 @@
+[project]
+name = "rag-engine"
+version = "0.0.0"
+description = "MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 검색 서버"
+readme = "README.md"
+requires-python = "==3.12.*"
+# 원천은 docs/constitution/tech.md 의 스택 표다. mcp 는 major 2 로 묶는다(ADR 0005).
+dependencies = [
+    "fastapi>=0.162",
+    "uvicorn>=0.54",
+    "mcp>=2.3,<3",
+]
+
+[project.scripts]
+rag-engine = "rag_engine.main:main"
+
+[dependency-groups]
+# httpx 는 HTTP 표면을 미는 테스트 클라이언트다. 다른 의존성 뒤에서 이미 락파일에 있어도 선언한다. 전이
+# 의존에 기댄 테스트는 그 경로가 바뀌는 날 조용히 깨진다.
+dev = [
+    "ruff",
+    "pyright",
+    "pytest",
+    "pytest-asyncio",
+    "import-linter",
+    "pre-commit",
+    "httpx>=0.28",
+    # 워크플로 하드닝의 판정자. 판은 uv.lock 이 고정해 pre-commit 러너와 CI 가 같은 판을 돈다.
+    "zizmor>=1.30.1",
+    # pre-commit 러너의 pytest 만 프로세스 여럿에 나눠 돌린다. 손으로 치는 pytest 와 CI 는 한 프로세스다.
+    "pytest-xdist>=3.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_engine"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "DTZ", "TD", "FBT", "PLW0717"]
+# TD003(이슈 링크)은 로컬 트래커라 대신 TD002의 괄호에 티켓 경로를 쓴다: TODO(core/03): ...
+ignore = ["TD003"]
+# PLW0717(except 가 붙은 try 몸통의 문장 수)은 preview 규칙이다. 코드로 이름을 댄 preview 규칙만 켜고,
+# 접두로 고른 E·B 같은 묶음의 preview 규칙은 들이지 않는다. preview 를 [tool.ruff] 가 아니라 여기 두어
+# 포매터의 서식은 그대로다. preview 규칙은 판마다 바뀔 수 있고 판은 uv.lock 이 고정한다.
+preview = true
+explicit-preview-rules = true
+
+[tool.ruff.lint.pylint]
+max-statements-in-try = 5
+
+[tool.pyright]
+include = ["src", "tests", "tools"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# tools/ 의 순수 함수를 tests/tools/ 에서 import 하기 위해 저장소 루트를 경로에 둔다
+pythonpath = ["."]
+# importlib 모드: tests/ 하위 디렉터리에 같은 파일명이 있어도 모듈명 충돌이 없다
+# strict-markers: 선언하지 않은 마커(오타)는 경고가 아니라 수집 오류다
+addopts = "--import-mode=importlib --strict-markers"
+# 한국어 매개변수 id 를 \uXXXX 로 바꾸지 않는다. 바꾸면 실패 출력에서 사례를 읽지 못하고 매개변수 id 로
+# 고른 -k 선택이 빈다. 인쇄되지 않는 문자만 되돌리는 것과 출력이 cp949 로 깨지지 않게 하는 것은
+# tests/conftest.py 가 맡는다
+disable_test_id_escaping_and_forfeit_all_rights_to_community_support = true
+# 비동기 테스트는 async def 하나로 쓴다. 데코레이터도 마커도 없다
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+# await 를 빼먹은 코루틴이 경고만 내고 초록으로 지나가지 않게 한다. 경고 전부를 올리지는 않는다
+filterwarnings = [
+    "error::RuntimeWarning",
+    # await 누락은 GC 시점에 터져서 pytest가 unraisable 로 감싼다. 그것도 올려야 실제로 빨개진다
+    "error::pytest.PytestUnraisableExceptionWarning",
+]
+
+[tool.importlinter]
+root_packages = ["rag_engine"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "main -> server"
+type = "layers"
+layers = [
+    "rag_engine.main",
+    "rag_engine.server",
+]

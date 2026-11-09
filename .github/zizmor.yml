@@ -1,0 +1,11 @@
+# zizmor 설정. 게이트는 tools/run_checks.py 의 CHECKS 와 ci.yml 의 python 잡이 같은 명령으로 돌고, 이 파일을
+# --config 로 가리킨다. 자동 탐색은 위로 올라가며 .git 디렉터리를 찾아 그 자리에서 설정을 찾는데, 워크트리의 .git 은
+# 파일이라 바깥 주 체크아웃에서 찾았다(agent-os).
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # actions/ 조직의 액션은 러너를 돌리는 쪽과 신뢰 경계가 같아 ref 고정(태그·브랜치)을 허용한다. 나머지는 태그가 그
+        # 저장소의 권한만으로 옮겨지므로 커밋 해시로 고정하고 판을 주석으로 단다(`@<해시> # v1.2.3`). 판은 손으로 올린다.
+        "actions/*": ref-pin
+        "*": hash-pin

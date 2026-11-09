@@ -1,0 +1,7 @@
+# 허용 목록이다. 이미지에 드는 것만 연다. .env, .scratch, .claude 가 짓기 문맥에 실리지 않는다.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+**/__pycache__

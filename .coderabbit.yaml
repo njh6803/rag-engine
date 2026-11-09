@@ -1,0 +1,79 @@
+# CodeRabbit 설정. PR 자동 리뷰(GitHub App)와 로컬 CLI(coderabbit-review 서브에이전트)가 둘 다 읽는다.
+# 공개 저장소라 PR 자동 리뷰를 켜 둔다. agent-os에서는 별 10개 미만인 공개 저장소가 자동 리뷰를 받지 않아
+# PR마다 @coderabbitai review로 요청해야 돌았다(next-session merge.md 2가 그 요청을 남긴다). 이 저장소의
+# 실측과 누가 언제 무엇을 보는지는 docs/constitution/operations.md의 리뷰 파이프라인.
+# 여기서는 보안·버그·성능만 본다. 유지보수성·경계는 Claude Code Review, 포맷·타입·import 경계는 CI.
+language: "ko-KR"
+
+reviews:
+  profile: "chill"
+  auto_review:
+    enabled: true
+    drafts: false
+  # 상태 코멘트("Review skipped" 등)는 끈 채로 둔다. 리뷰 코멘트만 남는다.
+  review_status: false
+  # 사전 검사의 독스트링 커버리지(기본 warning, 80%)는 끈다. 위 머리말대로 여기서는 보안·버그·성능만
+  # 보고, 테스트 이름이 행동 명세인 저장소라 테스트 헬퍼까지 세는 커버리지는 기준이 아니다(agent-os 대기열 69).
+  # "off"는 따옴표로 둔다 — YAML 1.1 파서는 맨 off 를 불리언 false 로 읽는다. 키와 값은 agent-os에서 설정
+  # 스키마 v2로 쟀다(그 저장소의 프로브 coderabbit_schema.py).
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+  # ruff는 훅과 CI가 돌린다. 여기서 또 돌리면 같은 지적이 두 번 나온다.
+  tools:
+    ruff:
+      enabled: false
+  # 제외는 생성물, 락파일, 남이 쓴 스킬뿐이다. 로컬 CLI도 이 목록을 읽으므로
+  # 테스트처럼 우리가 쓴 것을 빼면 로컬에서도 리뷰를 못 받는다(선행 저장소 실측).
+  path_filters:
+    - "!**/__pycache__/**"
+    - "!uv.lock"
+    - "!skills-lock.json"
+    - "!.claude/skills/**"
+  path_instructions:
+    - path: "**"
+      instructions: |
+        보안 취약점, 실제 버그, 성능 문제에 집중한다.
+        코드 스타일, 네이밍, 포매팅, 함수 길이·복잡도·인자 수, 미사용 변수, import 순서,
+        층 사이의 import 경계 위반은 지적하지 않는다. ruff, pyright strict, import-linter가
+        CI에서 강제한다(CODING_STANDARDS.md "리뷰하지 않는 것").
+        설계, 추상화, 이름, 모듈 응집은 Claude Code Review가 담당하므로 생략한다.
+        이 저장소의 특수성: 설치형 문서 검색 서버이고 답을 생성하지 않는다. MCP 클라이언트는 대개
+        LLM 에이전트라 문서 속 지시에 속을 수 있다. 그래서 MCP에는 읽기 도구만 연다. 수집, 삭제,
+        재색인 같은 쓰기가 MCP 도구로 열리는 경로는 Critical이다(원칙 IV, ADR 0001).
+        권한은 기본이 닫힘이다. 인증 없는 요청, 접근 그룹을 쓰는 설치에서 주체 없는 요청이 지나가는
+        경로와, 볼 수 없는 문서의 조각이 결과에 실리는 경로는 Critical이다(원칙 V).
+        질문 내용, 연결 정보(비밀번호, 토큰, 연결 문자열), 원본 문서의 내용이 로그·진단 묶음·변경
+        기록·지표·오류 응답에 실리는 경로는 Critical이다. 검색은 지연 시간만 남긴다(원칙 V, ADR 0004).
+        수집한 문서는 믿을 수 없는 입력이다. 파서와 변환이 문서 내용으로 파일 경로를 짓거나 외부
+        명령·네트워크에 닿는지, 큰 파일과 압축 파일로 메모리·디스크가 바닥나는지 본다.
+    - path: "src/rag_engine/**"
+      instructions: |
+        패키지 전체다. 층은 core 설계 인터뷰가 정하고, 정하면 층마다 블록을 나눈다.
+        수집 파이프라인(커넥터 → 변환 → 파싱 → 청킹 → 색인, ADR 0003)과 검색이 들어설 자리다.
+        원천에서 지운 문서가 색인에서도 지워지는지(원칙 VI), 접근 그룹으로 거르기 전에 조각을 내는
+        경로가 없는지(원칙 V), SQL을 문자열 이어 붙이기로 짓는지, 커넥터·변환·파서 플러그인을 검증
+        없이 import하거나 실행하는지, async 함수 안의 블로킹 호출(동기 파일 I/O, time.sleep, 동기
+        DB·HTTP 호출)을 본다.
+    - path: "src/rag_engine/server.py"
+      instructions: |
+        REST와 MCP를 여는 FastAPI 앱이다(ADR 0005). MCP에 등록되는 도구가 읽기뿐인지,
+        인증과 인가가 REST 라우트와 /mcp 양쪽에 걸리는지, 오류 응답에 스택·경로·환경·연결 정보가
+        새는지, transport_security의 허용 호스트가 설정 밖에서 넓어지는지 본다.
+    - path: "src/rag_engine/main.py"
+      instructions: |
+        관리 명령(argparse)이다. 쓰기를 여는 자리다. 인자로 받은 연결 문자열이나 비밀이 출력·로그·
+        예외 메시지에 실리는지, 셸을 거쳐 외부 명령을 띄우는지 본다.
+    - path: "tests/**"
+      instructions: |
+        실제 연결 문자열·토큰·비밀번호가 하드코딩되는지, .env나 바깥 서비스(실제 데이터베이스,
+        네트워크)에 기대는 시험이 환경이 없을 때 skip으로 초록이 되는지(원칙 I), 표본 문서가 공개
+        문서 묶음이 아니라 설치처의 문서인지(docs/constitution/operations.md 설치처 정보) 본다.
+    - path: "Dockerfile"
+      instructions: |
+        컨테이너는 root가 아닌 사용자로 돈다(docs/constitution/tech.md). 마지막 USER가 root인지,
+        비밀이 이미지 레이어(ARG, ENV, 복사된 .env)에 남는지 본다.
+    - path: ".github/workflows/**"
+      instructions: |
+        시크릿이 로그나 아티팩트로 새는지, pull_request_target 같은 위험한 트리거를 쓰는지,
+        권한이 최소인지 본다.

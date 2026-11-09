@@ -1,0 +1,1 @@
+{"allow_deletions":false,"allow_force_pushes":false,"enforce_admins":false,"required_linear_history":true,"required_pull_request_reviews":null,"required_status_checks":{"contexts":["verify"],"strict":true},"restrictions":null}

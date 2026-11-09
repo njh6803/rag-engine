@@ -1,0 +1,228 @@
+{
+  "env": {
+    "PYTHONUTF8": "1"
+  },
+  "permissions": {
+    "allow": [
+      "PowerShell(pwsh -NoProfile -File C:\\project\\rag-engine\\tools\\open_session.ps1 -Action send -Folder C:\\project\\rag-engine -PromptFile *)"
+    ],
+    "deny": [
+      "Read(//**/.env)",
+      "Edit(//**/.env)",
+      "PowerShell(Get-Content *.env*)",
+      "PowerShell(Select-String *.env*)"
+    ]
+  },
+  "skillOverrides": {
+    "jira-commit": "off",
+    "jira-complete": "off",
+    "jira-create": "off",
+    "jira-start": "off",
+    "jira-test": "off"
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_prompt_directive.py",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_stop_korean.py",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_journal_retro.py",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_ruff_line_width.py",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_line_separators.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell|mcp__plugin_github_github__create_pull_request|mcp__plugin_github_github__merge_pull_request|mcp__github__create_pull_request|mcp__github__merge_pull_request",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_pr_next_session.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_webfetch_summary.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_grep_omitted.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "EnterWorktree",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_worktree_skill_overrides.py",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_bash_heredoc.py",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_bash_python_stub.py",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_bash_gate_pipe.py",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_bash_cd_outside.py",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_bash_commit_msg.py",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_bash_msys_pathconv.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_git_main_commit.py",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_pr_head_sync.py",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_push_behind_main.py",
+            "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_push_delete_open_pr.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_env_read.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell|Read|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_user_settings_read.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_grill_design_check.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__ccd_session__start_session",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_session_card.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project \"${CLAUDE_PROJECT_DIR}\" --no-sync python \"${CLAUDE_PROJECT_DIR}/tools/launch_hook.py\" hook_midturn_korean.py",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "pyright-lsp@claude-plugins-official": true,
+    "document-skills@anthropic-agent-skills": false,
+    "example-skills@anthropic-agent-skills": false,
+    "skill-creator@claude-plugins-official": false,
+    "code-review@claude-plugins-official": false,
+    "slack@claude-plugins-official": false
+  }
+}
