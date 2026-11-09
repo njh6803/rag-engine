@@ -19,4 +19,5 @@ PostgreSQL(ADR 0002)에 붙는 드라이버와 마이그레이션 도구를 정�
 
 - greenlet 의존이 든다. Windows에서 psycopg 비동기는 기본 ProactorEventLoop과 호환되지 않아 Selector 이벤트 루프가 필요하므로(psycopg 3 문서 비동기 절의 경고를 읽음. 프로브는 접속하지 않아 재지 않았다) 개발 기계의 테스트 설정에 반영한다.
 - `rag-engine migrate`가 `alembic upgrade head`를 돌리고, 서버 기동 때 자동으로 돌리지 않는다. compose는 서버 앞에 한 번 도는 마이그레이션 서비스를 둔다.
+- 엔진은 `create_async_engine(…, hide_parameters=True)`로 만든다. SQLAlchemy의 `StatementError`(그 하위의 `DBAPIError`도)는 메시지에 `[SQL: …]`와 `[parameters: …]`를 붙이고, 이 옵션이 참일 때만 뒤를 `[SQL parameters hidden due to hide_parameters=True]`로 바꾼다(2.1.8 `sqlalchemy/exc.py`의 `StatementError._sql_message`를 프로브 가상환경에서 읽음). 바인딩 값에는 조각 본문과 검색 질의가 들어 원칙 V와 ADR 0004의 대상이다. 로그 필드에 예외를 어떻게 싣는지는 ADR 0015다.
 - `uv run --with`가 Windows에서 greenlet 휠 설치에 실패한 일(os error 32)이 있어 프로브는 임시 가상환경으로 돌렸다. 저장소 의존성으로 들이면 `uv sync`가 같은 휠을 설치하므로 첫 티켓에서 다시 확인한다.

@@ -12,7 +12,7 @@ date: 2026-11-09
 - **시각**은 UTC `timestamptz`로 저장하고 ISO 8601 `Z`로 낸다.
 - **REST 경로**는 `/api/v1/admin/…`(관리 API)와 `/api/v1/ingest/…`(수집 API)이고, `/health`와 `/mcp`는 접두 밖이다.
 - **설정**은 pydantic-settings로 환경 변수 `RAG_*`, `.env`, 비밀 파일을 읽는다.
-- **로그**는 표준 라이브러리 logging에 우리 포매터를 붙여 JSON Lines를 stdout으로 낸다. 필드는 `time`(UTC), `level`, `logger`, `event`, `request_id`, `duration_ms`이고 예외는 스택을 필드로 싣는다. `RAG_LOG_FORMAT=text`가 사람용 모드다. 무엇을 남기지 않는지는 원칙 V와 ADR 0004다.
+- **로그**는 표준 라이브러리 logging에 우리 포매터를 붙여 JSON Lines를 stdout으로 낸다. 필드는 `time`(UTC), `level`, `logger`, `event`, `request_id`, `duration_ms`이고 예외는 스택을 필드로 싣는다. 그 필드에 싣는 것은 예외의 타입과 프레임(파일, 줄, 함수)과 이 저장소가 정의한 예외의 메시지뿐이고, 서드파티 예외의 메시지는 싣지 않는다. 서드파티 예외의 메시지에는 입력 값이 실릴 수 있기 때문이다. SQLAlchemy의 `StatementError`는 메시지에 SQL과 바인딩 값을 붙이고(ADR 0011이 엔진을 `hide_parameters=True`로 만들어 값을 가린다), 그 바인딩 값에는 조각 본문과 검색 질의가 든다. 어댑터가 서드파티 예외를 이 저장소의 예외로 바꿀 때도 메시지를 옮기지 않는다. `RAG_LOG_FORMAT=text`가 사람용 모드다. 무엇을 남기지 않는지는 원칙 V와 ADR 0004다.
 - **검색 도구 형식의 판**(원칙 VII)은 결과 객체의 `format_version` 칸(semver 문자열)이고, 형식은 MCP 도구 목록의 outputSchema로 공개하며, 도구 이름은 고정한다. 칸 추가는 minor, 칸 삭제와 뜻 변경은 major이고, MCP 클라이언트로 접속하는 계약 시험이 판과 스키마를 판정한다. SDK 2.3.0이 outputSchema를 싣고 structuredContent를 돌려주는 것은 프로브 `mcp-sdk/probe_sdk.py` 3절에서 확인했다(프로토콜 2026-07-28).
 
 ## Considered Options
