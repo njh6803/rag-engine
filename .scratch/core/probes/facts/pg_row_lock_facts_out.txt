@@ -1,0 +1,69 @@
+doc https://www.postgresql.org/docs/18/explicit-locking.html sentences 171
+--- /SELECT FOR KEY SHARE of these rows will be blocked/ hits=1
+  That is, other transactions that attempt UPDATE , DELETE , SELECT FOR UPDATE , SELECT FOR NO KEY UPDATE , SELECT FOR SHARE or SELECT FOR KEY SHARE of these rows will be blocked until the current transaction ends;
+--- /will not block SELECT FOR KEY SHARE/ hits=1
+  this lock will not block SELECT FOR KEY SHARE commands that attempt to acquire a lock on the same rows.
+--- /SELECT FOR UPDATE is blocked, but not SELECT FOR NO KEY UPDATE/ hits=1
+  SELECT FOR UPDATE is blocked, but not SELECT FOR NO KEY UPDATE .
+--- /also acquired by any UPDATE that does not acquire a FOR UPDATE lock/ hits=1
+  This lock mode is also acquired by any UPDATE that does not acquire a FOR UPDATE lock.
+--- /UPDATE that modifies the values of certain columns/ hits=1
+  The FOR UPDATE lock mode is also acquired by any DELETE on a row, and also by an UPDATE that modifies the values of certain columns.
+--- /set of columns considered for the UPDATE case/ hits=1
+  Currently, the set of columns considered for the UPDATE case are those that have a unique index on them that can be used in a foreign key (so partial indexes and expressional indexes are not considered), but this may change in the future.
+--- /Row-level locks are released at transaction end/ hits=1
+  Row-level locks are released at transaction end or during savepoint rollback, just like table-level locks.
+doc https://www.postgresql.org/docs/18/transaction-iso.html sentences 184
+--- /Read Committed is the default isolation level/ hits=1
+  Read Committed Isolation Level # Read Committed is the default isolation level in PostgreSQL .
+--- /sees only data committed before the query began/ hits=1
+  When a transaction uses this isolation level, a SELECT query (without a FOR UPDATE/SHARE clause) sees only data committed before the query began;
+doc https://www.postgresql.org/docs/18/sql-select.html sentences 537
+--- /SKIP LOCKED ?, any selected rows that cannot be immediately locked are skipped/ hits=1
+  With SKIP LOCKED , any selected rows that cannot be immediately locked are skipped.
+source https://raw.githubusercontent.com/postgres/postgres/REL_18_STABLE/src/backend/utils/adt/ri_triggers.c lines 3434
+--- /^RI_FKey_check\(/ hits=1
+  274: RI_FKey_check(TriggerData *trigdata)
+--- /FOR KEY SHARE/ hits=16
+  306: * SELECT FOR KEY SHARE will get on it.
+  396: *		   FOR KEY SHARE OF x
+  409: *		FOR KEY SHARE OF x
+  412: * Note if FOR KEY SHARE ever allows GROUP BY and HAVING
+  450: appendStringInfoString(&querybuf, " FOR KEY SHARE OF x");
+  567: *		   FOR KEY SHARE OF x
+  580: *	  FOR KEY SHARE OF x
+  583: * Note if FOR KEY SHARE ever allows GROUP BY and HAVING
+  619: appendStringInfoString(&querybuf, " FOR KEY SHARE OF x");
+  752: * SELECT FOR KEY SHARE will get on it.
+=== RI_FKey_check starts at line 274; query build lines 420-450
+  420: 		if (riinfo->hasperiod)
+  421: 		{
+  422: 			quoteOneName(attname,
+  423: 						 RIAttName(pk_rel, riinfo->pk_attnums[riinfo->nkeys - 1]));
+  424: 
+  425: 			appendStringInfo(&querybuf,
+  426: 							 "SELECT 1 FROM (SELECT %s AS r FROM %s%s x",
+  427: 							 attname, pk_only, pkrelname);
+  428: 		}
+  429: 		else
+  430: 		{
+  431: 			appendStringInfo(&querybuf, "SELECT 1 FROM %s%s x",
+  432: 							 pk_only, pkrelname);
+  433: 		}
+  434: 		querysep = "WHERE";
+  435: 		for (int i = 0; i < riinfo->nkeys; i++)
+  436: 		{
+  437: 			Oid			pk_type = RIAttType(pk_rel, riinfo->pk_attnums[i]);
+  438: 			Oid			fk_type = RIAttType(fk_rel, riinfo->fk_attnums[i]);
+  439: 
+  440: 			quoteOneName(attname,
+  441: 						 RIAttName(pk_rel, riinfo->pk_attnums[i]));
+  442: 			sprintf(paramname, "$%d", i + 1);
+  443: 			ri_GenerateQual(&querybuf, querysep,
+  444: 							attname, pk_type,
+  445: 							riinfo->pf_eq_oprs[i],
+  446: 							paramname, fk_type);
+  447: 			querysep = "AND";
+  448: 			queryoids[i] = fk_type;
+  449: 		}
+  450: 		appendStringInfoString(&querybuf, " FOR KEY SHARE OF x");
