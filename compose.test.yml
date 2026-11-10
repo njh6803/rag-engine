@@ -1,0 +1,30 @@
+# 테스트용 PostgreSQL. 검사 러너(tools/run_checks.py)가 서버가 안 보이면 `up -d --wait` 로 띄우고, 손으로 치는
+# pytest 는 아래 주소를 RAG_TEST_DATABASE_URL 로 준 개발자가 쓴다.
+#   docker compose -f compose.test.yml up -d --wait
+#   RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test uv run pytest
+# 이미지는 운영과 같은 판이다(ADR 0006, tech.md 테스트 칸). CI 의 python 잡 서비스 컨테이너도 같은 이미지·역할이고,
+# 주소와 이 파일이 맞는지는 tests/tools/test_run_checks_database.py 가 글자로 맞댄다.
+# POSTGRES_USER 는 이미지가 슈퍼유저로 만들어, 02~03 의 템플릿 데이터베이스를 만들 권한이 있다.
+# 데이터는 tmpfs 에 둔다. 컨테이너를 내리거나 다시 시작하면 사라지고, 시험은 템플릿 데이터베이스를 스스로 만든다.
+# fsync 를 끈 것은 지워도 되는 시험 데이터라서다. 운영 설정이 아니다.
+name: rag-engine-test
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+    environment:
+      POSTGRES_USER: rag_test
+      POSTGRES_PASSWORD: rag_test
+      POSTGRES_DB: rag_test
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    # -h 는 필수다. 기본값은 유닉스 소켓인데, 이미지가 처음 초기화하는 동안 뜨는 임시 서버가 그 소켓으로 답해
+    # 진짜 서버가 TCP 로 뜨기 전에 healthy 가 된다(2026-11-10 러너로 첫 띄움에서 손으로 봤다).
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U rag_test -d rag_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

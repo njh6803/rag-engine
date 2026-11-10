@@ -5,6 +5,9 @@
 # 기계마다 한 번: PowerShell 7(pwsh)을 PATH 에, PATH 에 rg 나 Claude Code(claude)
 #   (pytest 의 tests/tools/test_hook_env_read_rg.py 가 부른다. claude 는 실행 이름 rg 로 띄운다. 없으면
 #   건너뛰지 않고 빨갛다)
+# 커밋할 때마다: Docker 가 켜져 있어야 한다(RAG_TEST_DATABASE_URL 이 이미 닿는 PostgreSQL 을 가리키면 없어도 된다).
+#   검사 러너가 pytest 전에 테스트 PostgreSQL 을 띄운다(compose.test.yml, tools/run_checks.py 독스트링).
+#   문서만 고친 커밋도 마찬가지다.
 default_install_hook_types: [pre-commit, commit-msg]
 # 훅은 기본으로 커밋 직전에만 돈다. 커밋 메시지 훅만 commit-msg 단계다. 단계를 적지 않은 always_run 훅은
 # commit-msg 단계에서 한 번 더 돌아 pyright·pytest 가 커밋마다 두 번이 된다(agent-os 대기열 118).

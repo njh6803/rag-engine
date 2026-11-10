@@ -26,7 +26,7 @@ MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 �
 | README.md | 사람이 처음 볼 때 | 구조가 바뀔 때 |
 
 ## 검증 명령
-- 테스트: `uv run pytest` / 린트: `uv run ruff check .`과 `uv run ruff format --check .` / 타입체크: `uv run pyright` / 경계: `uv run lint-imports`
+- 테스트: `uv run pytest`(테스트 PostgreSQL이 필요하다. 검사 러너가 띄우고, 손으로 치기 전에는 `docker compose -f compose.test.yml up -d --wait`와 `RAG_TEST_DATABASE_URL`을 준비한다. 값은 `compose.test.yml` 머리 주석) / 린트: `uv run ruff check .`과 `uv run ruff format --check .` / 타입체크: `uv run pyright` / 경계: `uv run lint-imports`
 - 훅·CI만 도는 게이트: pre-commit의 검사 러너(`tools/run_checks.py`의 `CHECKS`)와 그 밖의 pre-commit 훅, CI의 `image`·`ticket` 잡과 필수 검사 `verify`.
 - 손으로 치는 것과 훅·CI만 도는 게이트를 가른다. 티켓의 "검사 N이 초록"은 손으로 치는 것을 말한다.
 

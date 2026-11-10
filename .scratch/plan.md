@@ -11,7 +11,7 @@ core 다음은 release-image와 search-eval이다. 판을 고정한 이미지가
 
 이정표는 `docs/PRD.md`의 성공의 정의가 원천이다. 공개 시연(2027-01 초)은 core, search-eval, release-image, 0.1(2027-03 초 무렵)은 슬라이스 2까지, 1.0(2027년 상반기, 어림)은 슬라이스 3까지다.
 
-core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌고 없으면 실패하므로(`docs/constitution/tech.md` 테스트 칸), 검사 러너가 테스트 DB를 띄우는 변경은 core의 첫 티켓(core 01)이고 나머지 core 티켓은 그 티켓 뒤에 선다(설계 일지는 하네스 티켓으로 적었지만 2026-11-10 티켓 세션에서 사용자가 core 01로 골랐다. core 명세 Further Notes). 러너가 pytest를 always_run으로 돌리므로 그 변경 뒤에는 문서 PR과 하네스 chore를 포함한 모든 커밋에 Docker가 필요하고, Docker가 없는 클라우드 세션은 커밋할 수 없다. 이 분기는 next-session 결정표에 없으므로 지시문의 '어디서' 본문에 적고, 결정표에 더하는 일은 core 01이 함께 한다.
+core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌고 없으면 실패하므로(`docs/constitution/tech.md` 테스트 칸), 검사 러너가 테스트 DB를 띄우는 변경은 core의 첫 티켓(core 01)이고 나머지 core 티켓은 그 티켓 뒤에 선다(설계 일지는 하네스 티켓으로 적었지만 2026-11-10 티켓 세션에서 사용자가 core 01로 골랐다. core 명세 Further Notes). 러너가 pytest를 always_run으로 돌리므로 그 변경 뒤에는 문서 PR과 하네스 chore를 포함한 모든 커밋에 Docker가 필요하고, Docker가 없는 클라우드 세션은 커밋할 수 없다. 이 분기는 core 01이 next-session 결정표 아래의 Docker 갈래로 더했다.
 
 ## 목표 배치
 
@@ -35,7 +35,7 @@ Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 
 
 | 슬라이스 | 기능 | 내용 | Blocked by | Status |
 |---|---|---|---|---|
-| 1 | [core](core/plan.md) | 수집, 색인, 검색의 본체 v0. 관리 API로 넣은 문서를 MCP 읽기 도구로 근거 위치와 갱신일이 붙은 조각으로 찾는다 | 없음 | todo |
+| 1 | [core](core/plan.md) | 수집, 색인, 검색의 본체 v0. 관리 API로 넣은 문서를 MCP 읽기 도구로 근거 위치와 갱신일이 붙은 조각으로 찾는다 | 없음 | in-progress |
 | 2 | [admin](admin/plan.md) | 관리자 페이지 v0. 현황, 원천, 문서, 검색 시험 화면에서 문서를 올리고 지우며 잘 찾아지는지 확인한다 | source-sync | todo |
 | 2 | [backup-upgrade](backup-upgrade/plan.md) | 색인, 원본 문서, 데이터베이스를 명령 하나로 백업하고 복원하며, 판 올림 때 다시 색인해야 하는지 알린다 | source-sync | todo |
 | 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 판, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync | todo |

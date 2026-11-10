@@ -6,6 +6,8 @@
 
 **Status:** ready-for-agent
 
+**01이 넘긴 것:** 테스트 서버 하나(컨테이너 `rag-engine-test-postgres-1`, 포트 55432)를 워크트리와 세션 전부가 함께 쓰고 러너는 컨테이너를 내리지 않는다(`tools/run_checks.py` 독스트링). 그래서 세션 픽스처가 만드는 템플릿 데이터베이스와 복제본의 이름은 세션(프로세스)마다 달라야 하고(예: 이름에 `uuid4` 토막), 세션이 끝나면 지운다. pytest-xdist 작업자(러너는 `-n`으로 나눠 돈다)마다 세션 픽스처가 한 번씩 돌므로 작업자마다 템플릿을 따로 만든다. `RAG_TEST_DATABASE_URL`의 스킴은 `postgresql://`(psycopg 직접 접속용)이라 SQLAlchemy 엔진에는 `postgresql+psycopg://`로 바꿔 쓴다. 판정 픽스처는 `tests/conftest.py`의 `database_url`이다.
+
 - [ ] 설정 객체(pydantic-settings)가 명세 "설정" 절의 `RAG_*`를 모두 읽는다. 필수 셋이 없으면 시작하지 않고, `RAG_JOB_BACKOFF_BASE_SECONDS`는 실수를 받는다.
 - [ ] 엔진(`hide_parameters=True`)과 PostgreSQL 작업 단위가 명세 "포트 열셋과 그 값" 절대로 돈다(예외 없이 나가면 커밋, 예외면 롤백, 속성들이 한 연결의 한 트랜잭션을 공유). 이 티켓은 속성 `catalog`와 `index`(판의 HNSW 부분 색인을 만드는 `VectorIndex`)를 두고, `documents`·`jobs`는 05가, 조각 쓰기와 검색 질의는 07이 더한다. Windows에서는 Selector 이벤트 루프를 고른다(ADR 0011).
 - [ ] `Catalog` 어댑터가 원천·그룹·지식베이스·색인 판 레코드를 맡고, 판의 HNSW 부분 색인은 `VectorIndex` 어댑터가 만든다(명세 "포트 열셋과 그 값" 절의 표와 포트 대응).

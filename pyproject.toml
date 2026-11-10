@@ -29,6 +29,9 @@ dev = [
     "zizmor>=1.30.1",
     # pre-commit 러너의 pytest 만 프로세스 여럿에 나눠 돌린다. 손으로 치는 pytest 와 CI 는 한 프로세스다.
     "pytest-xdist>=3.8.0",
+    # 테스트 데이터베이스에 붙는 드라이버(core 01). 판은 ADR 0011 이 근거로 든 psycopg 3.3.x 다. SQLAlchemy 와 함께
+    # 런타임 의존성으로 올리는 것은 core 02 가 하고, 그때 이 줄을 옮긴다.
+    "psycopg[binary]>=3.3,<3.4",
 ]
 
 [build-system]
