@@ -56,3 +56,38 @@ CodeRabbit CLI(`coderabbit-review` 에이전트)는 돌지 못했다. `coderabbi
   - 남긴 것: `tests/conftest.py`의 `make_seeded_database`와 `empty_database_url` 정리 루프가 DROP 한 번이 실패하면 나머지 복제본을 지우지 못한다. 서버 연결이 끊기는 때뿐이라 드물어 선택 사항으로 둔다.
   - 보류: `upgrade_to_head`(alembic)를 두 프로세스가 동시에 도는 첫 설치는 확인하지 못했다(스레드 시험은 120초 안에 끝나지 않았다). alembic 구간에 어드바이저리 락이 없다(`migrate.py`). 이 티켓의 수용 기준에 없고 02에서 온 `upgrade_to_head`의 몫이라 고치지 않았다.
 - `/security-review`: 보고할 취약점 없음. 동적 SQL은 HNSW DDL 하나뿐이고 들어가는 값이 UUID와 검증된 정수 차원이다.
+
+## PR 봇 리뷰 (첫 회차)
+
+PR #7(`a86a269`)에서 CodeRabbit과 claude-review가 각각 첫 리뷰를 달았다. 검사는 모두 초록이었고(`verify` 포함), 두 봇 모두 Critical·Major가 없다.
+
+고친 것:
+- claude-review Minor: `ConfigurationError`가 `RagEngineError` 밖에서 `Exception`을 상속하는 이유가 없었다. 독스트링에 "작업 오류 코드나 HTTP 응답으로 나가는 오류가 아니라서 오류 코드를 드는 `RagEngineError` 밖에 둔다"를 더했다.
+- claude-review Nit: `_installed_version`이 `version()`을 감싼 한 줄이라 이유가 보이지 않았다. 시험이 설치 판을 바꾸려고 monkeypatch하는 자리라는 주석을 달았다.
+- claude-review Nit: 시험 이름에 속성명이 들어 있었다. `test_카탈로그와_색인_쓰기는_한_트랜잭션이라_함께_롤백된다`로 바꿨다.
+
+남긴 것과 이유(PR 코멘트에도 남겼다):
+- CodeRabbit Minor, `bootstrap.py`의 `upgrade_to_head` 앞에 세션 수준 어드바이저리 락: 두 프로세스가 빈 DB에서 동시에 `migrate`를 치는 첫 설치를 막으려는 지적이다. 이 티켓의 수용 기준에 없고 alembic을 부르는 `migrate.upgrade_to_head`는 02가 둔 것이라 이번에 더하지 않았다. 아래 "다음"에 적었다.
+- claude-review Minor, `main.py`의 `_migrate`가 `pydantic.ValidationError`를 직접 잡고 `RAG_` 접두를 두 곳에 둔다: 바깥 층이 칸 이름만 찍는 길이라 지금은 둘뿐이다. `Settings`를 읽는 명령이 `serve`나 작업자로 늘면 `Settings` 쪽의 `ConfigurationError` 변환으로 옮기는 편이 낫다.
+- claude-review Minor, `NotImplementedError` 자리: 의도된 자리이고 소유 티켓을 05·07 머리에 적었다(`migrate`가 부르는 것은 `catalog`와 `create_version_index`뿐이고, `migrate` 시험이 끝까지 도는 것이 그 증거다).
+
+## 회고
+
+후보 여섯을 냈다. 승인 0, 기각 6, 넘김 0이다. 사용자에게 묻는 것은 없다. 대기열(`uv run python tools/queue_open_rows.py`)은 열린 항목 19개이고 만료할 항목은 없었다. 회차 5 이상은 `spec-review-transition-crossing`(8회차)과 `gate-pipe-read-status`(5회차)이고 둘 다 이 세션의 일이 아니다. 이 일지로 더하거나 닫은 대기열 항목은 없다.
+
+기각:
+- **새로 쓴 사실 문장의 근거를 열지 않고 적었다.** 사건: `build_test_settings` 독스트링의 "환경 변수를 읽지 않는다"가 거짓이었고, 05 티켓 메모의 "모두 멱등"과 "같은 이름이 이미 있으면"이 틀렸으며(`add_group_to_knowledge_base`의 키는 이름이 아니라 쌍이다), 이 일지의 초안에도 확인하지 않은 문장 넷이 있어 다시 읽다 스스로 고쳤다. 앞의 셋은 셀프 리뷰와 PR 직전 리뷰가 잡았다. 판정: 리뷰가 잡도록 둔 기준(`code-review`의 주장 검증 목록과 6단계 1)을 어겨 리뷰가 잡은 사건이라 회차로 세지 않는다. 문장이 참인지는 검사로 옮길 수 없고 새 판단 기준도 아니다. 같은 가족의 열린 항목 `measured-claim-beyond-probe`(3회차, 코드 독스트링의 출처 없는 어림까지 번졌다)가 처방을 넓힐지를 chore에 맡겨 두었다. 이 사건은 거기에 회차를 더하지 않고 일지에만 남긴다(그 항목의 처방은 프로브 출력에서 값을 찾는 것이라 이 사건과 길이 다르다).
+- 큰 heredoc(75줄)과 맨 `python` heredoc, 영어 중간 문장, 한글 폭 2의 E501: 훅이 그 자리에서 막거나 알렸고(`hook_*`, 편집 직후의 ruff 안내) 고쳐 다시 했다.
+- 편집 직후 IDE의 pyright 진단이 낡은 값으로 떴다(`Settings`와 새 모듈이 "unknown"): 02 일지가 이미 기각한 일이고 이번에도 `uv run pyright`가 0 오류로 판정했다. 잘못된 조치는 없었다.
+- CodeRabbit CLI 실행을 권한 분류기가 거부했다: `operations.md` 리뷰 파이프라인이 CLI가 못 돌면 대체 둘이 같은 축을 본다고 이미 정했고 그대로 했다.
+- 일지에 이미 지운 옛 주석 문구를 따옴표로 인용해 `check-quotes`가 경고했다: 경고가 그 자리에서 알렸고 막는 검사가 아니다.
+- PR 템플릿의 "새 환경 변수는 `.env.example`에 있다" 줄이 저장소에 없는 파일을 가리킨다. 이 PR의 체크리스트는 그 줄을 비우고 이유를 적었다. 사건에 손실이 없고(사건 없이 떠올린 것) 고칠 길이 둘이라(파일을 두거나 줄을 고친다) 승인하지 않는다. 줄을 빼는 쪽은 사람의 확인을 느슨하게 하는 것이라 넘김이기도 하다. 아래 "다음"에 정할 일로 둔다.
+
+## 다음
+
+- core의 프론티어는 04(앱 조립, 토큰 인증, Problem Details, 로그)와 06(TEI·Kiwi·청킹)이다. 둘 다 Blocked by가 03뿐이라 03이 병합되면 나란히 돈다(05는 04를, 07은 05·06을 기다린다). 두 티켓 머리의 "03이 넘긴 것"을 읽는다(06: 판 상수 둘과 `compute_index_elements`의 위치, kiwipiepy 의존성).
+- 04는 `Settings`를 앱 조립이 처음 쓰는 티켓이다. `tests/conftest.py`의 `make_settings`와 `seeded_database_url` 픽스처를 쓰고, `main.py`의 `_migrate`가 `pydantic.ValidationError`를 직접 풀어 `RAG_` 접두를 `settings.py`와 두 곳에 둔다(claude-review 첫 회차 Minor). `serve`가 `Settings`를 읽게 되면 `Settings` 쪽의 `ConfigurationError` 변환으로 옮기는 편이 낫다. 04의 수용 기준에는 없다.
+- 05가 `documents`·`jobs`와 색인 상태(`get_state`, `save_state`)를, 07이 `replace_chunks`와 검색 질의를 구현한다. 소유 티켓은 각 티켓 머리의 "03이 넘긴 것"에 있다.
+- 사용자가 정할 것: 이 저장소에 `.env.example`이 없고 어느 core 티켓도 만들지 않는데 PR 템플릿 체크리스트는 그 파일을 가리킨다. 파일을 둘 티켓(`Settings`의 `RAG_*`를 앱 조립이 처음 읽는 04가 자연스럽다)을 정하거나 템플릿의 줄을 고칠지 정한다.
+- 열린 일: `migrate.upgrade_to_head`(alembic)를 두 프로세스가 동시에 치는 첫 설치가 막혀 있지 않다(CodeRabbit 첫 회차 Minor, 어드바이저리 락을 `upgrade_to_head` 앞에서 잡는 방법). 02가 둔 `migrate.py`의 몫이라 03에서 더하지 않았고, 받을 티켓은 정하지 않았다. `serve`와 `migrate`를 함께 띄우는 설치 방식이 정해질 때 같이 본다.
+- 사용자가 정할 것 둘(ADR 0007 본문 8행 포인터, 헌법 patch 1.1.3)은 02 일지의 "다음"에서 그대로 열려 있다.

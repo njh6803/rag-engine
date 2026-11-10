@@ -112,7 +112,7 @@ async def test_블록을_예외로_나가면_롤백한다(engine: AsyncEngine) -
         assert await transaction.catalog.get_group("기획팀") is None
 
 
-async def test_catalog와_index는_한_트랜잭션에_들어_함께_롤백된다(
+async def test_카탈로그와_색인_쓰기는_한_트랜잭션이라_함께_롤백된다(
     engine: AsyncEngine, empty_database_url: str
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)

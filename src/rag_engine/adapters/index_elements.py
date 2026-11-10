@@ -28,6 +28,7 @@ KEYWORD_RULES_VERSION: Final = "1"
 
 
 def _installed_version(distribution: str) -> str:
+    # 시험이 설치 판을 바꿔 판 요소가 달라지는 것을 보려고 이 자리를 monkeypatch한다.
     return version(distribution)
 
 
