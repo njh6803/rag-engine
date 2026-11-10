@@ -1,0 +1,142 @@
+# core 02(계약 티켓)가 더한 시험의 변이. 구현 뒤에 쓴 시험이라 빨강을 본 적이 없어 변이로 본다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/contract_mutations.toml
+# import-linter의 금지 import는 pytest 밖이라 표에 없고 손으로 봤다(일지 2026-11-10 core 02).
+
+[[mutation]]
+name = "대기 작업 부분 유일 색인을 실행 중 작업에 건다"
+tests = ["tests/adapters/test_migrations.py", "-k", "대기_작업"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/migrations/versions/0001_initial_schema.py"
+old = '''postgresql_where=sa.text("status = 'queued'"),'''
+new = '''postgresql_where=sa.text("status = 'running'"),'''
+
+[[mutation]]
+name = "기본 지식베이스 표시의 유일 색인에서 유일을 뺀다"
+tests = ["tests/adapters/test_migrations.py", "-k", "기본_지식베이스"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/migrations/versions/0001_initial_schema.py"
+old = '''        ["is_default"],
+        unique=True,'''
+new = '''        ["is_default"],
+        unique=False,'''
+
+[[mutation]]
+name = "벡터 열에 차원을 적는다"
+tests = ["tests/adapters/test_migrations.py", "-k", "벡터_열"]
+expect = "red"
+expect_output = ["expected 3 dimensions"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/migrations/versions/0001_initial_schema.py"
+old = '''sa.Column("embedding", Vector(), nullable=False),'''
+new = '''sa.Column("embedding", Vector(3), nullable=False),'''
+
+[[mutation]]
+name = "작업 코드 하나의 이름을 바꾼다"
+tests = ["tests/domain/test_errors.py"]
+expect = "red"
+expect_output = ["worker_gone"]
+
+[[mutation.edit]]
+file = "src/rag_engine/domain/errors.py"
+old = '''WORKER_LOST = "worker_lost"'''
+new = '''WORKER_LOST = "worker_gone"'''
+
+[[mutation]]
+name = "블록 순번의 하한을 풀어 준다"
+tests = ["tests/domain/test_parsing.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/domain/entities.py"
+old = '''if self.ordinal < 0:'''
+new = '''if self.ordinal < -5:'''
+
+[[mutation]]
+name = "도구 오류가 Problem Details 코드까지 받는다"
+tests = ["tests/server/test_problems.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/problems.py"
+old = '''if code not in TOOL_ERROR_CODES:'''
+new = '''if code not in TOOL_ERROR_CODES | PROBLEM_ERROR_CODES:'''
+
+[[mutation]]
+name = "metadata 폼 칸의 JSON 문자열 풀이를 건너뛴다"
+tests = ["tests/server/test_ingest_models.py"]
+expect = "red"
+expect_output = ["Input should be a valid dictionary"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/ingest_models.py"
+old = '''        if not isinstance(value, str):
+            return value
+        try:'''
+new = '''        if isinstance(value, str):
+            return value
+        try:'''
+
+[[mutation]]
+name = "format_version 상수를 올린다"
+tests = ["tests/server/test_tool_models.py"]
+expect = "red"
+expect_output = ["1.0.1"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/tool_models.py"
+old = '''FORMAT_VERSION: Final = "1.0.0"'''
+new = '''FORMAT_VERSION: Final = "1.0.1"'''
+
+[[mutation]]
+name = "제목 수준의 하한을 풀어 준다"
+tests = ["tests/domain/test_parsing.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/domain/entities.py"
+old = '''self.level < 1:'''
+new = '''self.level < -5:'''
+
+[[mutation]]
+name = "오류 모델이 코드와 다른 상태를 받는다"
+tests = ["tests/server/test_problems.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/problems.py"
+old = '''if self.status != expected:'''
+new = '''if self.status < 0:'''
+
+[[mutation]]
+name = "metadata의 NaN 검사를 끈다"
+tests = ["tests/server/test_ingest_models.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/ingest_models.py"
+old = '''if not _is_finite(parsed):'''
+new = '''if False:'''
+
+[[mutation]]
+name = "갱신일을 UTC로 맞추지 않는다"
+tests = ["tests/server/test_tool_models.py"]
+expect = "red"
+expect_output = ["+09:00"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/tool_models.py"
+old = '''    return value.astimezone(UTC)'''
+new = '''    return value'''

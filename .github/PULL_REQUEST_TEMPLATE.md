@@ -30,7 +30,7 @@
 
 <!-- 실제로 바뀐 경로만 체크한다. 괄호는 그 영역을 바꿀 때 같이 확인할 것 -->
 
-- [ ] `src/rag_engine/server.py` — HTTP와 MCP 표면(FastAPI 앱, `/health`, `/mcp`) (MCP에는 읽기 도구만 등록했는가(원칙 IV, ADR 0001). 검색 도구의 형식을 바꿨으면 `tests/contract/`의 계약 시험과 판을 함께 바꿨는가(원칙 VII). 인증 없는 요청과, 접근 그룹을 쓰는 설치에서 주체 없는 요청을 거부하는가(원칙 V). 질문 내용·연결 정보·원본 문서의 내용이 로그·오류 응답에 실리지 않는가(원칙 V, ADR 0004). mcp·FastAPI의 타입이 계약과 도메인으로 새지 않는가(`CODING_STANDARDS.md`))
+- [ ] `src/rag_engine/server/` — HTTP와 MCP 표면(FastAPI 앱, `/health`, `/mcp`)과 출력 모델 (MCP에는 읽기 도구만 등록했는가(원칙 IV, ADR 0001). 검색 도구의 형식을 바꿨으면 `tests/contract/`의 계약 시험과 판을 함께 바꿨는가(원칙 VII). 인증 없는 요청과, 접근 그룹을 쓰는 설치에서 주체 없는 요청을 거부하는가(원칙 V). 질문 내용·연결 정보·원본 문서의 내용이 로그·오류 응답에 실리지 않는가(원칙 V, ADR 0004). mcp·FastAPI의 타입이 계약과 도메인으로 새지 않는가(`CODING_STANDARDS.md`))
 - [ ] `src/rag_engine/main.py` — 관리 명령 (쓰기(수집, 삭제, 재색인)는 관리 명령·관리 API·수집 API로만 여는가(원칙 IV). `main → server` 방향은 `pyproject.toml`의 import-linter 계약이 판정한다)
 - [ ] `src/rag_engine/`의 새 모듈·층 — 층은 core 설계 인터뷰가 정한다 (새 층을 더했으면 import-linter 계약에 넣었는가, 플러그인 자리 셋(커넥터·변환·파서, ADR 0003) 밖의 새 추상화가 아닌가, 설치처의 정보가 들어오지 않았는가(ADR 0003))
 - [ ] `tests/contract/` — 계약 시험 (공식 MCP SDK의 클라이언트로 HTTP 접속해 보는가, 쓰기 도구가 없음을 계속 보는가)

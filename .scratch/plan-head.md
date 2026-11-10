@@ -19,11 +19,11 @@ core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌�
 ```
 src/rag_engine/
   main.py                  관리 명령(argparse). serve → server. core 가 worker, migrate, bootstrap-token, ingest <경로> 를 더한다(ADR 0007·0011·0014)
-  server.py                create_app() 하나가 FastAPI 앱을 조립한다. /health, REST(/api/v1/admin, /api/v1/ingest, ADR 0015), MCP 하위 앱(/mcp, ADR 0005). 조립만 하고 유스케이스는 app 에
-  worker/                  슬라이스 1. 작업자 조립. 작업 대기열에서 작업을 꺼내 수집 파이프라인을 돈다(ADR 0009)
-  adapters/                슬라이스 1. PostgreSQL(SQLAlchemy·alembic·pgvector·Kiwi), TEI, 파서, 커넥터, 작업 대기열, 파일 저장소(ADR 0006·0010·0011·0013)
+  server/                  create_app() 하나가 FastAPI 앱을 조립한다(app.py). /health, REST(/api/v1/admin, /api/v1/ingest, ADR 0015), MCP 하위 앱(/mcp, ADR 0005). 조립만 하고 유스케이스는 app 에. MCP 출력 모델과 format_version(tool_models.py), 수집 API 모델(ingest_models.py), Problem Details(problems.py)는 core 02 가 둔다
+  worker/                  슬라이스 1. 작업자 조립. 작업 대기열에서 작업을 꺼내 수집 파이프라인을 돈다(ADR 0009). server 와 독립 형제다
+  adapters/                슬라이스 1. PostgreSQL(SQLAlchemy·alembic·pgvector·Kiwi), TEI, 파서, 커넥터, 작업 대기열, 파일 저장소(ADR 0006·0010·0011·0013). 표 정의와 alembic 첫 판은 adapters/postgres 에 core 02 가 둔다
   app/                     슬라이스 1. 유스케이스(수집, 동기화, 검색, 재색인, 삭제, 토큰). 포트만 부른다
-  domain/                  슬라이스 1. 엔티티와 포트 Protocol(ADR 0007·0008·0012). 층의 경계는 import-linter 계약
+  domain/                  슬라이스 1. 엔티티, 포트 Protocol, 예외와 오류 코드, 파서 인터페이스(ADR 0007·0008·0012). core 02 가 계약을 둔다. 층의 경계는 import-linter 계약
 tests/contract/            MCP 계약 시험. core 가 검색 도구의 형식(format_version, ADR 0015)과 쓰기 도구 없음을 더한다(원칙 VII, ADR 0001)
 compose.test.yml           슬라이스 1. 테스트 PostgreSQL(pgvector/pgvector:0.8.7-pg18-trixie, 운영과 같은 판). 검사 러너가 없으면 띄운다(core 01)
 Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 슬라이스 2의 release-image 가 판 태그, 단독 compose(서버, 작업자, PostgreSQL, 임베딩 TEI, 리랭커 TEI), SBOM과 CVE 스캔을 더한다

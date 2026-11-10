@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src/rag_engine/server.py"
+  - "src/rag_engine/server/**"
 ---
 
 # HTTP 표면 규칙
