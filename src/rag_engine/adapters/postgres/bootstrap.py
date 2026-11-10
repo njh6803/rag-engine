@@ -30,7 +30,8 @@ async def _run_default_records_use_case(
 
 
 def migrate_database(settings: Settings) -> None:
-    # 설정이 모자라면 스키마를 올리기 전에 멈춘다.
+    # 끝점처럼 설정이 비어 있으면 스키마를 올리기 전에 멈춘다. 차원 상한과 청킹 전략은 유스케이스가
+    # 판정하므로 스키마가 오른 뒤에 걸리고, 그때도 레코드는 만들지 않는다.
     default_knowledge_base = settings.default_knowledge_base()
     upgrade_to_head(settings.database_url)
     run_in_selector_loop(
