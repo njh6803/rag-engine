@@ -6,6 +6,8 @@
 
 **Status:** ready-for-agent
 
+**03이 넘긴 것:** 판의 상수 둘은 `adapters/index_elements.py`의 `STRUCTURE_FIRST_VERSION`(구조 우선 전략의 구현 판)과 `KEYWORD_RULES_VERSION`(키워드 규칙 판)이고, 판 요소 함수 `compute_index_elements`가 청킹 해시와 토크나이저 판에 그 둘과 kiwipiepy·kiwipiepy_model의 설치 판(`importlib.metadata`)을 넣는다. kiwipiepy 0.24.1(모델 0.24.0)은 03이 `pyproject.toml`에 이미 들였다.
+
 - [ ] TEI 임베딩 어댑터(`Embedder`): 끝점마다 첫 호출 전 `/info` 확인(모델 이름, `max_input_length`가 조각 상한 이상, `auto_truncate`를 로그에), 다르면 "설정 불일치"로 `embedding_unavailable`. `/tokenize`는 `add_special_tokens: false`의 문자열 배열이고, 특수 토큰 수는 켜고 끈 두 번의 차로 센다. `/v1/embeddings`는 `RAG_TEI_BATCH_SIZE`개씩 보내고 `max_client_batch_size`가 더 작으면 그 값으로 낮춘다(명세 "임베딩 서버와 리랭커 어댑터" 절).
 - [ ] 오류 번역: 400·413·422는 `embedding_rejected`, 424·429·5xx·연결 실패·시간 초과는 `embedding_unavailable`, 벡터 길이가 다르면 `embedding_dimension_mismatch`이고 서드파티 메시지는 옮기지 않는다.
 - [ ] TEI 스텁(시험이 띄우는 ASGI 앱 하나)이 `/info`, `/v1/embeddings`(결정적 단어 주머니 벡터), `/tokenize`(UTF-8 바이트 오프셋, 특수 토큰), `/rerank`(낱말 겹침 점수)를 흉내 내고 요청 횟수와 마지막 본문을 기억한다(명세 Testing Decisions. 선례 `.scratch/core/probes/embedding/fake_server.py`).

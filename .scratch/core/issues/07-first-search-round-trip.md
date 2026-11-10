@@ -6,6 +6,8 @@
 
 **Status:** ready-for-agent
 
+**03이 넘긴 것:** `PostgresVectorIndex`에 판의 HNSW 부분 색인 만들기(`create_version_index`, 색인 이름은 `version_index_name`)만 있고 조각 쓰기(`replace_chunks`)와 검색 질의는 없다. 색인 상태는 05, `delete_chunks`는 10·11, `archive_chunks`는 11이 처음 부를 때 구현한다(05의 메모). 질의는 색인과 같은 캐스트 `embedding::vector(D)`를 써야 그 색인을 탄다(명세 "데이터 모델과 스키마"). 첫 판의 색인이 카탈로그에 있음은 03이 시험했고, 벡터 질의가 그것을 쓰는지(EXPLAIN)는 이 티켓이 본다.
+
 - [ ] 작업자의 한 번 돌기 입구와 작업 꺼내기(`FOR UPDATE SKIP LOCKED`, `queued`이고 `run_after`가 지난 것 또는 임대가 끝난 `running`, 시도 횟수 +1, 올린 세대 비움, `leased_until`). 임대 연장·인수의 완성은 13이다.
 - [ ] `index_document`의 네 단계(명세 "수집 파이프라인과 작업" 절): 첫째(지워진 문서는 성공, 세대 올림, 작업 행 조건), 둘째(파싱 필요 판정과 파싱 결과 행, 문서 상태 `parsed`), 셋째(살아 있는 판을 대상 판으로 읽어 판마다 청킹·임베딩·키워드, 세대 대조, 옛 조각을 지우고 새 조각과 복사 칸, 색인 상태 `indexed`), 넷째(`succeeded`). 셋째 단계가 문서 단위 원자 교체를 보장한다(ADR 0008). 전환 검사는 여기서 부르는 자리만 두고 14가 채운다.
 - [ ] 파서 레지스트리가 entry point 그룹 `rag_engine.parsers`에서 파서를 로드하고(ADR 0012), 파싱은 spawn한 자식 프로세스에서 한다(파서 이름, 원본 경로, 한도를 넘긴다). 한도와 실패 분류의 완성은 08이다.

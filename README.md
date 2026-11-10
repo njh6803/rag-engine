@@ -43,18 +43,19 @@ docker run --rm -p 8000:8000 rag-engine
 
 ```
 src/rag_engine/
-  main.py      관리 명령(argparse). `rag-engine serve` 가 HTTP 서버를 띄운다
+  main.py      관리 명령(argparse). `rag-engine serve` 가 HTTP 서버를 띄우고 `rag-engine migrate` 가 스키마를 올려 기본 레코드를 보장한다
   server/      FastAPI 앱(app.py)과 출력 모델. /health 와 MCP Streamable HTTP(/mcp)를 한 앱이 연다(ADR 0005).
                MCP 출력 모델(tool_models.py), 수집 API 모델(ingest_models.py), Problem Details(problems.py)
   worker/      작업자 조립(슬라이스 1이 채운다)
-  adapters/    포트의 구현. postgres/ 에 표 정의(tables.py)와 alembic 첫 판(migrations/)
-  app/         유스케이스(슬라이스 1이 채운다)
+  adapters/    포트의 구현. settings.py(설정 객체), index_elements.py(색인 판 요소), postgres/ 에 표 정의(tables.py), alembic 첫 판(migrations/), 작업 단위와 Catalog·VectorIndex 어댑터, migrate 의 조립(bootstrap.py)
+  app/         유스케이스. default_records.py(migrate 의 기본 레코드 보장)
   domain/      엔티티, 포트 Protocol, 예외와 오류 코드, 파서 인터페이스. 서드파티는 uuid6만 쓴다(금지 목록은 pyproject.toml의 import-linter 계약)
 tests/
   contract/    MCP 계약 시험. 공식 SDK 클라이언트로 HTTP 접속해 도구 목록을 본다
   domain/      도메인 값 객체, 오류 코드, 파서 인터페이스의 시험
   server/      출력 모델과 Problem Details의 시험
-  adapters/    alembic 첫 판이 만드는 색인 형식의 시험. 테스트 PostgreSQL이 필요하다
+  adapters/    설정, 색인 판 요소, 작업 단위와 Catalog·VectorIndex 어댑터, alembic 첫 판이 만드는 색인 형식의 시험. 테스트 PostgreSQL이 필요하다
+  conftest.py  테스트 PostgreSQL의 템플릿 데이터베이스(기본 레코드가 든 복제본 `seeded_database_url`)와 설정 객체 공장 `make_settings`
   tools/       하네스 도구의 시험
 compose.test.yml  테스트용 PostgreSQL(pgvector, 운영과 같은 이미지 판). 검사 러너가 없으면 띄운다
 tools/         훅, 검사, 검사 러너. 규약은 .claude/rules/tools.md

@@ -27,15 +27,23 @@ pre-commit 은 `SKIP` 에 든 훅을 건너뛰고, 그 값은 검사 러너와 p
 함수, `pytest.param(id=...)`)는 이 훅을 거치지 않아 보지 않는다.
 """
 
+import asyncio
 import importlib.util
 import io
 import os
 import sys
+from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
+from urllib.parse import urlsplit
+from uuid import uuid4
 
+import psycopg
 import pytest
+from psycopg import sql
 from tools.run_checks import TEST_DATABASE_ENV, database_problem
 
+from rag_engine.adapters.postgres.bootstrap import migrate_database
+from rag_engine.adapters.settings import Settings
 from tools import run_hooks
 
 CHECKOUT = Path(run_hooks.__file__).resolve().parents[1]
@@ -58,6 +66,14 @@ def pytest_configure(config: pytest.Config) -> None:
         f"rag_engine 이 이 체크아웃({CHECKOUT})의 src 가 아니라 {origin} 에서 불린다. 다른"
         " 체크아웃의 .venv 인터프리터다. 이 체크아웃에서 uv run pytest 로 돌린다"
     )
+
+
+def pytest_asyncio_loop_factories(
+    config: pytest.Config, item: pytest.Item
+) -> Mapping[str, Callable[[], asyncio.AbstractEventLoop]]:
+    """psycopg 비동기는 Windows 의 기본 ProactorEventLoop 과 맞지 않아 Selector 루프를 쓴다
+    (ADR 0011)."""
+    return {"selector": asyncio.SelectorEventLoop}
 
 
 def pytest_make_parametrize_id(config: pytest.Config, val: object, argname: str) -> str | None:
@@ -83,6 +99,109 @@ def database_url() -> str:
     if problem is not None:
         pytest.fail(problem, pytrace=False)
     return os.environ[TEST_DATABASE_ENV]
+
+
+def replace_database(url: str, name: str) -> str:
+    return urlsplit(url)._replace(path=f"/{name}").geturl()
+
+
+def _create_database(admin_url: str, name: str, template: str | None = None) -> None:
+    query = sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name))
+    if template is not None:
+        query += sql.SQL(" TEMPLATE {}").format(sql.Identifier(template))
+    with psycopg.connect(admin_url, autocommit=True) as admin:
+        admin.execute(query)
+
+
+def _drop_database(admin_url: str, name: str) -> None:
+    with psycopg.connect(admin_url, autocommit=True) as admin:
+        admin.execute(
+            sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
+        )
+
+
+def build_test_settings(database_url: str, data_dir: Path, **overrides: object) -> Settings:
+    """시험의 설정 객체. `.env` 를 읽지 않고, 환경 변수는 아무도 쓰지 않는 접두로 읽어 개발자
+    셸의 `RAG_*` 가 시험을 바꾸지 못한다. 값은 `overrides` 가 덮고, 없는 칸 이름은 거부한다."""
+    unknown = set(overrides) - set(Settings.model_fields)
+    if unknown:
+        raise ValueError(f"설정에 없는 칸이다: {sorted(unknown)}")
+    values: dict[str, object] = {
+        "database_url": database_url,
+        "data_dir": data_dir,
+        "allowed_hosts": ["localhost"],
+        "default_embedding_url": "http://tei:80",
+        "default_reranker_url": "http://reranker:80",
+        **overrides,
+    }
+    return Settings(_env_file=None, _env_prefix="RAG_TEST_UNUSED_", **values)
+
+
+@pytest.fixture
+def make_settings(tmp_path: Path) -> Callable[..., Settings]:
+    """`make_settings(database_url, 칸=값, …)` 으로 시험의 설정 객체를 짓는다."""
+
+    def make(database_url: str, **overrides: object) -> Settings:
+        return build_test_settings(database_url, tmp_path, **overrides)
+
+    return make
+
+
+@pytest.fixture
+def empty_database_url(database_url: str) -> Iterator[str]:
+    """시험마다 빈 데이터베이스를 하나 만들고 끝나면 지운다. 이름에 무작위 토막을 붙이는 까닭은
+    테스트 서버 하나를 워크트리와 세션이 함께 쓰기 때문이다(core 01)."""
+    name = f"rag_empty_{uuid4().hex}"
+    _create_database(database_url, name)
+    try:
+        yield replace_database(database_url, name)
+    finally:
+        _drop_database(database_url, name)
+
+
+@pytest.fixture(scope="session")
+def template_database_name(
+    database_url: str, tmp_path_factory: pytest.TempPathFactory
+) -> Iterator[str]:
+    """세션(xdist 작업자마다 한 번)에 템플릿 데이터베이스를 만들고 alembic 과 기본 레코드
+    보장을 돌린다. 끝나면 지운다(명세 "테스트 데이터베이스와 이미지 판")."""
+    name = f"rag_template_{uuid4().hex}"
+    _create_database(database_url, name)
+    try:
+        settings = build_test_settings(
+            replace_database(database_url, name), tmp_path_factory.mktemp("data")
+        )
+        migrate_database(settings)
+        yield name
+    finally:
+        _drop_database(database_url, name)
+
+
+@pytest.fixture
+def make_seeded_database(
+    database_url: str, template_database_name: str
+) -> Iterator[Callable[[], str]]:
+    """부를 때마다 템플릿에서 복제한 데이터베이스(기본 레코드가 든다)의 주소를 낸다. 시험이 끝나면
+    만든 것을 모두 지운다."""
+    created: list[str] = []
+
+    def make() -> str:
+        name = f"rag_test_{uuid4().hex}"
+        _create_database(database_url, name, template=template_database_name)
+        created.append(name)
+        return replace_database(database_url, name)
+
+    try:
+        yield make
+    finally:
+        for name in created:
+            _drop_database(database_url, name)
+
+
+@pytest.fixture
+def seeded_database_url(make_seeded_database: Callable[[], str]) -> str:
+    """기본 레코드가 든 데이터베이스 하나. 시험마다 새로 복제하고 끝나면 지운다."""
+    return make_seeded_database()
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:

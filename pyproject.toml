@@ -18,6 +18,10 @@ dependencies = [
     "pgvector>=0.5,<0.6",
     "uuid6>=2025.0.1",
     "pydantic>=2.14,<3",
+    # 설정은 pydantic-settings(ADR 0015), 문장 분리기와 키워드 토크나이저는 kiwipiepy(ADR 0006)다.
+    # 03 은 kiwipiepy 를 import 하지 않고 설치된 판만 읽는다. 측정한 판은 프로브 kiwi/ 의 0.24.1 이다.
+    "pydantic-settings>=2.14,<3",
+    "kiwipiepy>=0.24.1,<0.25",
 ]
 
 [project.scripts]
