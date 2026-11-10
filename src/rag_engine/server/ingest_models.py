@@ -5,7 +5,6 @@
 """
 
 import math
-from enum import StrEnum
 from typing import Final
 from uuid import UUID
 
@@ -19,6 +18,8 @@ from pydantic import (
     ValidationError,
     field_validator,
 )
+
+from rag_engine.domain.entities import IngestAction
 
 _METADATA: Final = TypeAdapter(dict[str, JsonValue])
 _NUL: Final = "\x00"
@@ -44,16 +45,6 @@ def _has_nul(value: JsonValue) -> bool:
     if isinstance(value, dict):
         return any(_NUL in key or _has_nul(item) for key, item in value.items())
     return False
-
-
-class IngestAction(StrEnum):
-    """수집이 문서에 한 일. `unchanged`만 200이고 나머지 넷은 202다."""
-
-    CREATED = "created"
-    UPDATED = "updated"
-    UNCHANGED = "unchanged"
-    RESTORED = "restored"
-    REQUEUED = "requeued"
 
 
 class IngestFields(BaseModel):

@@ -25,6 +25,16 @@ class SourceKind(StrEnum):
     PUSH = "push"
 
 
+class IngestAction(StrEnum):
+    """수집이 문서에 한 일. `unchanged`만 200이고 나머지 넷은 202다."""
+
+    CREATED = "created"
+    UPDATED = "updated"
+    UNCHANGED = "unchanged"
+    RESTORED = "restored"
+    REQUEUED = "requeued"
+
+
 class IndexVersionStatus(StrEnum):
     """색인 판의 상태. 현재 판과 건설 중인 판을 합쳐 살아 있는 판이라 부른다(GLOSSARY.md)."""
 

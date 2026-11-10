@@ -12,7 +12,8 @@ from uuid import UUID
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from rag_engine.domain.entities import Chunk, IndexState, IndexVersion
+from rag_engine.adapters.postgres import tables
+from rag_engine.domain.entities import Chunk, Document, IndexState, IndexVersion
 
 _NOT_YET = "이 어댑터에 아직 없다"
 
@@ -40,6 +41,18 @@ class PostgresVectorIndex:
         self, document_id: UUID, index_version_id: UUID, chunks: Sequence[Chunk]
     ) -> None:
         raise NotImplementedError(_NOT_YET)
+
+    async def update_chunk_copies(self, document: Document) -> None:
+        await self._connection.execute(
+            sa.update(tables.chunks)
+            .where(tables.chunks.c.document_id == document.id)
+            .values(
+                group_id=document.group_id,
+                updated_at=document.updated_at,
+                effective_date=document.effective_date,
+                access_groups=list(document.access_groups),
+            )
+        )
 
     async def delete_chunks(self, document_id: UUID, index_version_id: UUID | None) -> None:
         raise NotImplementedError(_NOT_YET)

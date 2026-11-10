@@ -166,9 +166,16 @@ class DocumentStore(Protocol):
         """문서 행을 `FOR NO KEY UPDATE`로 잠그고 잠근 뒤의 행을 낸다."""
         ...
 
-    async def add(self, document: Document) -> None: ...
+    async def add(self, document: Document) -> None:
+        """같은 (원천, 키)의 문서가 있으면 `DocumentAlreadyExistsError`를 올린다. 있던 문서를
+        커밋한 트랜잭션이 끝나기를 기다린 뒤 판정하므로 같은 키를 동시에 넣은 두 요청이
+        직렬화된다."""
+        ...
 
-    async def update(self, document: Document) -> None: ...
+    async def update(self, document: Document) -> None:
+        """문서 행의 고칠 수 있는 칸을 모두 새 값으로 덮는다(원천 참조, 키, 식별자, 만든 시각은
+        그대로다). 부르기 전에 `lock`으로 잠근다."""
+        ...
 
     async def get_content(self, document_id: UUID) -> DocumentContent | None: ...
 
@@ -187,6 +194,12 @@ class VectorIndex(Protocol):
         self, document_id: UUID, index_version_id: UUID, chunks: Sequence[Chunk]
     ) -> None:
         """그 (문서, 판)의 옛 조각을 지우고 새 조각을 넣는다."""
+        ...
+
+    async def update_chunk_copies(self, document: Document) -> None:
+        """그 문서의 모든 판의 조각(물러난 판의 것도)에서 복사 칸(그룹, 갱신일, 시행일, 접근 그룹)을
+        문서 행의 지금 값으로 고친다. 보관 표는 되살림이 문서 행의 값으로 다시 쓰므로 건드리지
+        않는다."""
         ...
 
     async def delete_chunks(self, document_id: UUID, index_version_id: UUID | None) -> None:

@@ -4,8 +4,6 @@
 트랜잭션을 공유한다. 이 시험은 `migrate` 를 거치지 않은 빈 데이터베이스에 스키마만 올려 쓴다.
 """
 
-import asyncio
-from collections.abc import AsyncIterator
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import LiteralString
@@ -13,72 +11,25 @@ from typing import LiteralString
 import psycopg
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
+from tests.records import (
+    NOW,
+    insert_chunk,
+    make_document,
+    make_index_version,
+    make_knowledge_base,
+    seed_source_and_group,
+)
 
-from rag_engine.adapters.index_elements import compute_index_elements
-from rag_engine.adapters.postgres.engine import create_engine
-from rag_engine.adapters.postgres.migrate import upgrade_to_head
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.postgres.vector_index import version_index_name
 from rag_engine.domain.entities import (
-    ChunkingConfig,
     Group,
-    IndexVersion,
     IndexVersionStatus,
-    KnowledgeBase,
     Source,
     SourceKind,
 )
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.ports import LockMode
-
-NOW = datetime(2026, 11, 11, 9, 0, tzinfo=UTC)
-CHUNKING = ChunkingConfig(strategy="structure_first", max_tokens=512, overlap_tokens=64)
-
-
-@pytest.fixture
-async def engine(empty_database_url: str) -> AsyncIterator[AsyncEngine]:
-    await asyncio.to_thread(upgrade_to_head, empty_database_url)
-    created = create_engine(empty_database_url)
-    try:
-        yield created
-    finally:
-        await created.dispose()
-
-
-def _knowledge_base(name: str = "kb", *, is_default: bool = False) -> KnowledgeBase:
-    return KnowledgeBase(
-        id=new_id(),
-        name=name,
-        description="",
-        embedding_endpoint="http://tei:80",
-        embedding_model="BAAI/bge-m3",
-        embedding_dimensions=1024,
-        reranker_endpoint=None,
-        reranker_model=None,
-        chunking=CHUNKING,
-        current_index_version_id=None,
-        is_default=is_default,
-    )
-
-
-def _version(knowledge_base: KnowledgeBase, status: IndexVersionStatus) -> IndexVersion:
-    elements = compute_index_elements(
-        knowledge_base.embedding_model, knowledge_base.embedding_dimensions, CHUNKING
-    )
-    return IndexVersion(
-        id=new_id(),
-        knowledge_base_id=knowledge_base.id,
-        schema_version=elements.schema_version,
-        embedding_endpoint=knowledge_base.embedding_endpoint,
-        embedding_model=elements.embedding_model,
-        embedding_dimensions=elements.embedding_dimensions,
-        chunking=CHUNKING,
-        chunking_hash=elements.chunking_hash,
-        tokenizer_version=elements.tokenizer_version,
-        status=status,
-        created_at=NOW,
-        retired_at=None,
-    )
 
 
 def _names(database_url: str, query: LiteralString) -> set[str]:
@@ -116,8 +67,8 @@ async def test_카탈로그와_색인_쓰기는_한_트랜잭션이라_함께_�
     engine: AsyncEngine, empty_database_url: str
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
-    knowledge_base = _knowledge_base()
-    version = _version(knowledge_base, IndexVersionStatus.BUILDING)
+    knowledge_base = make_knowledge_base()
+    version = make_index_version(knowledge_base, IndexVersionStatus.BUILDING)
 
     with pytest.raises(_Abort):
         async with unit_of_work.begin() as transaction:
@@ -133,12 +84,111 @@ async def test_카탈로그와_색인_쓰기는_한_트랜잭션이라_함께_�
     )
 
 
+async def test_카탈로그와_문서와_색인과_작업_쓰기는_한_트랜잭션이라_함께_롤백된다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    unit_of_work = PostgresUnitOfWork(engine)
+    source, group = await seed_source_and_group(unit_of_work)
+    document = make_document(source, group)
+    knowledge_base = make_knowledge_base()
+    version = make_index_version(knowledge_base, IndexVersionStatus.BUILDING)
+
+    with pytest.raises(_Abort):
+        async with unit_of_work.begin() as transaction:
+            await transaction.catalog.add_group(Group(new_id(), "롤백될 그룹", ""))
+            await transaction.catalog.add_knowledge_base(knowledge_base)
+            await transaction.catalog.add_index_version(version)
+            await transaction.index.create_version_index(version)
+            await transaction.documents.add(document)
+            await transaction.jobs.enqueue(document.id, new_id(), NOW)
+            raise _Abort
+
+    assert _names(empty_database_url, "SELECT name FROM groups") == {group.name}
+    assert _names(empty_database_url, "SELECT name FROM knowledge_bases") == set()
+    assert version_index_name(version.id) not in _names(
+        empty_database_url, "SELECT indexname FROM pg_indexes"
+    )
+    assert _names(empty_database_url, "SELECT key FROM documents") == set()
+    assert _names(empty_database_url, "SELECT status FROM jobs") == set()
+
+
+async def test_네_속성의_쓰기는_한_번에_커밋되고_작업이_그_문서를_가리킨다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    unit_of_work = PostgresUnitOfWork(engine)
+    source, group = await seed_source_and_group(unit_of_work)
+    document = make_document(source, group)
+    knowledge_base = make_knowledge_base()
+    version = make_index_version(knowledge_base, IndexVersionStatus.BUILDING)
+
+    async with unit_of_work.begin() as transaction:
+        await transaction.catalog.add_knowledge_base(knowledge_base)
+        await transaction.catalog.add_index_version(version)
+        await transaction.index.create_version_index(version)
+        await transaction.documents.add(document)
+        await transaction.jobs.enqueue(document.id, new_id(), NOW)
+
+    assert _names(empty_database_url, "SELECT name FROM knowledge_bases") == {knowledge_base.name}
+    assert version_index_name(version.id) in _names(
+        empty_database_url, "SELECT indexname FROM pg_indexes"
+    )
+    assert _names(empty_database_url, "SELECT key FROM documents") == {document.key}
+    assert _names(empty_database_url, "SELECT document_id::text FROM jobs") == {str(document.id)}
+    async with unit_of_work.begin() as transaction:
+        assert await transaction.documents.get(document.id) == document
+
+
+async def test_조각의_복사_칸은_문서_행의_지금_값으로_모든_판에서_고쳐진다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    unit_of_work = PostgresUnitOfWork(engine)
+    source, group = await seed_source_and_group(unit_of_work)
+    other_group = Group(new_id(), "다른 그룹", "")
+    knowledge_base = make_knowledge_base()
+    versions = [
+        make_index_version(knowledge_base, IndexVersionStatus.RETIRED),
+        make_index_version(knowledge_base, IndexVersionStatus.BUILDING),
+    ]
+    document = make_document(source, group)
+    async with unit_of_work.begin() as transaction:
+        await transaction.catalog.add_group(other_group)
+        await transaction.catalog.add_knowledge_base(knowledge_base)
+        for version in versions:
+            await transaction.catalog.add_index_version(version)
+        await transaction.documents.add(document)
+    for version in versions:
+        insert_chunk(empty_database_url, document.id, version.id, group.id)
+    changed = replace(
+        document,
+        group_id=other_group.id,
+        updated_at=datetime(2026, 12, 1, tzinfo=UTC),
+        effective_date=datetime(2026, 12, 25, tzinfo=UTC).date(),
+        access_groups=("가", "나"),
+    )
+
+    async with unit_of_work.begin() as transaction:
+        await transaction.index.update_chunk_copies(changed)
+
+    with psycopg.connect(empty_database_url, autocommit=True) as connection:
+        rows = connection.execute(
+            "SELECT group_id, updated_at, effective_date, access_groups FROM chunks"
+        ).fetchall()
+    assert len(rows) == 2
+    for row in rows:
+        assert row == (
+            other_group.id,
+            changed.updated_at,
+            changed.effective_date,
+            ["가", "나"],
+        )
+
+
 async def test_판의_HNSW_부분_색인은_판마다_코사인_거리로_만들어져_카탈로그에_있다(
     engine: AsyncEngine, empty_database_url: str
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
-    knowledge_base = _knowledge_base()
-    version = _version(knowledge_base, IndexVersionStatus.BUILDING)
+    knowledge_base = make_knowledge_base()
+    version = make_index_version(knowledge_base, IndexVersionStatus.BUILDING)
 
     async with unit_of_work.begin() as transaction:
         await transaction.catalog.add_knowledge_base(knowledge_base)
@@ -160,7 +210,7 @@ async def test_판의_HNSW_부분_색인은_판마다_코사인_거리로_만들
 
 async def test_카탈로그는_원천과_그룹과_지식베이스를_이름으로_찾는다(engine: AsyncEngine) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
-    knowledge_base = _knowledge_base("default", is_default=True)
+    knowledge_base = make_knowledge_base("default", is_default=True)
     group = Group(new_id(), "default", "")
 
     async with unit_of_work.begin() as transaction:
@@ -196,7 +246,7 @@ async def test_같은_이름을_다시_더해도_먼저_있던_행이_남는다(
 
 async def test_지식베이스_행을_잠그면_잠근_뒤의_행을_ID_순으로_낸다(engine: AsyncEngine) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
-    first, second = _knowledge_base("a"), _knowledge_base("b")
+    first, second = make_knowledge_base("a"), make_knowledge_base("b")
     async with unit_of_work.begin() as transaction:
         await transaction.catalog.add_knowledge_base(second)
         await transaction.catalog.add_knowledge_base(first)
@@ -215,8 +265,8 @@ async def test_지식베이스_행을_잠그면_잠근_뒤의_행을_ID_순으�
 
 async def test_첫_판으로_바꾸면_현재_판_참조와_상태가_함께_바뀐다(engine: AsyncEngine) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
-    knowledge_base = _knowledge_base()
-    version = _version(knowledge_base, IndexVersionStatus.BUILDING)
+    knowledge_base = make_knowledge_base()
+    version = make_index_version(knowledge_base, IndexVersionStatus.BUILDING)
 
     async with unit_of_work.begin() as transaction:
         catalog = transaction.catalog

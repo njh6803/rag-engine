@@ -113,6 +113,12 @@ class ConfigurationError(Exception):
     아니라서 오류 코드를 드는 `RagEngineError` 밖에 둔다."""
 
 
+class DocumentAlreadyExistsError(Exception):
+    """같은 (원천, 키)의 문서가 이미 있다. `DocumentStore.add`가 유일 제약의 위반을 이 예외로
+    바꿔 올린다. 같은 키를 동시에 넣은 수집이 진 쪽에서 받고, 이긴 문서로 갱신을 다시 한다. 응답으로
+    나가는 오류가 아니라서 오류 코드를 드는 `RagEngineError` 밖에 둔다."""
+
+
 class RagEngineError(Exception):
     """이 저장소가 올리는 예외의 뿌리. 오류 코드를 든다."""
 

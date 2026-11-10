@@ -6,6 +6,8 @@
 
 **Status:** ready-for-agent
 
+**05가 넘긴 것:** `DocumentStore.get_by_key`는 지운 문서와 묘비 행도 걸러내지 않고 돌려준다. 그래서 같은 키의 수집은 둘 다 `src/rag_engine/app/ingest.py`의 `_amend`로 들어와 `existing.deleted_at is not None`에서 `NotImplementedError("지운 문서를 되살리는 수집은 티켓 11이 처리한다")`로 멈춘다. 되살림(`restored`)과 묘비 행의 `created` 갈래는 그 자리에서 `purged_at`으로 가른다. `IngestAction.RESTORED`는 이미 있고, 내용 해시가 같은 되살림이 새 원본을 남기지 않게 하려면 `_Recorded.stale_blob_key`에 방금 쓴 `upload.blob_key`를 담는다.
+
 - [ ] `DELETE /api/v1/ingest/documents?key=<키>`(URL 인코딩한 쿼리 매개변수): 204, 이미 지운 문서도 204, 없는 키는 404 `document_not_found`. `admin` 토큰이 필요하다.
 - [ ] 삭제의 작업 단위(명세 "삭제, 되살림, 묘비" 절): 문서 행과 그 그룹이 든 지식베이스 행(`FOR UPDATE`)을 잠그고 세대를 올리며 `deleted_at`을 쓰고, 모든 색인 판의 조각을 `archived_chunks`로 옮기고, 그 문서의 색인 상태 행을 모두 지우고, 대기 작업을 지운다. `building` 판이 있을 때의 전환 검사는 부르는 자리를 두고 14가 채운다.
 - [ ] 실행 중인 작업은 첫째 단계에서 지워진 문서를 보면 성공으로 끝나고, 그 뒤에 지워졌으면 셋째 단계의 세대 대조가 잡는다.
