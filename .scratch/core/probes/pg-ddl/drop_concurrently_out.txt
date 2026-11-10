@@ -1,0 +1,4 @@
+psycopg 3.3.8
+G1: new SELECT behind DROP INDEX CONCURRENTLY -> ran in 0.02s
+G1: DROP INDEX CONCURRENTLY finished after ['1.53s']
+G2: inside tx -> ActiveSqlTransaction 25001
