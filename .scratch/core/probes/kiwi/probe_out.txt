@@ -1,0 +1,23 @@
+kiwipiepy 0.24.1
+kiwipiepy_model 0.24.0
+Kiwi() init 1.08s
+=== 설치형 문서 검색 서버는 PostgreSQL 18과 pgvector 0.8.7을 씁니다.
+  tokens: 설치/NNG 형/XSN 문서/NNG 검색/NNG 서버/NNG 는/JX PostgreSQL/SL 18/SN 과/JC pgvector/SL 0.8.7/W_SERIAL 을/JKO 쓰/VV ᆸ니다/EF ./SF
+  spans: 0+2 2+1 4+2 7+2 10+2 12+1 14+10 25+2 27+1 29+8 38+5 43+1 45+1 45+3 48+1
+  sentences: ['설치형 문서 검색 서버는 PostgreSQL 18과 pgvector 0.8.7을 씁니다.']
+=== 지식베이스마다 임베딩 모델을 고를 수 있고, 리랭커는 bge-reranker-v2-m3입니다. 다음 문장
+  tokens: 지식/NNG 베이스/NNG 마다/JX 임베딩/NNG 모델/NNG 을/JKO 고르/VV ᆯ/ETM 수/NNB 있/VA 고/EC ,/SP 리랭커/NNG 는/JX bge/SL -/SO reranker/SL -/SO v/SL 2/SN -/SO m/SL 3/SN 이/VCP ᆸ니다/EF ./SF 다음/NNG 문장/NNG
+  spans: 0+2 2+3 5+2 8+3 12+2 14+1 16+2 17+1 19+1 21+1 22+1 23+1 25+3 28+1 30+3 33+1 34+8 42+1 43+1 44+1 45+1 46+1 47+1 48+1 48+3 51+1 53+2 56+2
+  sentences: ['지식베이스마다 임베딩 모델을 고를 수 있고, 리랭커는 bge-reranker-v2-m3입니다.', '다음 문장']
+=== 제3조(정의) 이 규정에서 사용하는 용어의 뜻은 다음과 같다. 1. “문서”란 기록물을 말한다.
+  tokens: 제/XPN 3/SN 조/NNG (/SSO 정의/NNG )/SSC 이/MM 규정/NNG 에서/JKB 사용/NNG 하/XSV 는/ETM 용어/NNG 의/JKG 뜻/NNG 은/JX 다음/NNG 과/JKB 같/VA 다/EF ./SF 1./SB “/SSO 문서/NNG ”/SSC 이/VCP 란/ETM 기록물/NNG 을/JKO 말/NNG 하/XSV ᆫ다/EF ./SF
+  spans: 0+1 1+1 2+1 3+1 4+2 6+1 8+1 10+2 12+2 15+2 17+1 18+1 20+2 22+1 24+1 25+1 27+2 29+1 31+1 32+1 33+1 35+2 38+1 39+2 41+1 42+0 42+1 44+3 47+1 49+1 50+1 50+2 52+1
+  sentences: ['제3조(정의) 이 규정에서 사용하는 용어의 뜻은 다음과 같다.', '1. “문서”란 기록물을 말한다.']
+=== Hybrid search combines BM25-style keyword matching with HNSW vector search.
+  tokens: Hybrid/SL search/SL combines/SL BM/SL 25/SN -/SO style/SL keyword/SL matching/SL with/SL HNSW/SL vector/SL s/SL earch./SL
+  spans: 0+6 7+6 14+8 23+2 25+2 27+1 28+5 34+7 42+8 51+4 56+4 61+6 68+1 69+6
+  sentences: ['Hybrid search combines BM25-style keyword matching with HNSW vector search.']
+=== Hybrid search combines BM25-style keyword matching with HNSW vector search .
+  tokens: Hybrid/SL search/SL combines/SL BM/SL 25/SN -/SO style/SL keyword/SL matching/SL with/SL HNSW/SL vector/SL search/SL ./SF
+  spans: 0+6 7+6 14+8 23+2 25+2 27+1 28+5 34+7 42+8 51+4 56+4 61+6 68+6 75+1
+  sentences: ['Hybrid search combines BM25-style keyword matching with HNSW vector search .']

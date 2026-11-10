@@ -1,0 +1,129 @@
+pdfplumber requires pdfminer.six == 20260107
+== pdfplumber 0.11.10 wheel=pdfplumber-0.11.10-py3-none-any.whl bytes=60047
+  python files: 20
+  --- xmlparser /XMLParser\(/ hits=0
+  --- xml_options /huge_tree|resolve_entities|no_network|load_dtd/ hits=0
+  --- xml_default /etree\.(fromstring|parse|XML)\(/ hits=0
+  --- zip_open /ZipFile\(/ hits=0
+  --- zip_limits /compression_ratio|max_entries|max_total|max_entry|MAX_[A-Z_]*SIZE|MAX_[A-Z_]*COUNT/ hits=0
+  --- zip_limit_values /^MAX_ZIP_[A-Z_]+\s*=/ hits=0
+  --- recursion /setrecursionlimit|RecursionError/ hits=1
+    pdfplumber/utils/pdfinternals.py:79: except RecursionError as e:
+  --- pages_timeout /maxpages|timeout/ hits=0
+== python-docx 1.2.0 wheel=python_docx-1.2.0-py3-none-any.whl bytes=252987
+  python files: 95
+  --- xmlparser /XMLParser\(/ hits=2
+    docx/opc/oxml.py:21: oxml_parser = etree.XMLParser(remove_blank_text=True, resolve_entities=False)
+    docx/oxml/parser.py:19: oxml_parser = etree.XMLParser(remove_blank_text=True, resolve_entities=False)
+  --- xml_options /huge_tree|resolve_entities|no_network|load_dtd/ hits=2
+    docx/opc/oxml.py:21: oxml_parser = etree.XMLParser(remove_blank_text=True, resolve_entities=False)
+    docx/oxml/parser.py:19: oxml_parser = etree.XMLParser(remove_blank_text=True, resolve_entities=False)
+  --- xml_default /etree\.(fromstring|parse|XML)\(/ hits=3
+    docx/opc/oxml.py:37: """`etree.fromstring()` replacement that uses oxml parser."""
+    docx/opc/oxml.py:38: return etree.fromstring(text, oxml_parser)
+    docx/oxml/parser.py:29: return cast("BaseOxmlElement", etree.fromstring(xml, oxml_parser))
+  --- zip_open /ZipFile\(/ hits=2
+    docx/opc/phys_pkg.py:76: self._zipf = ZipFile(pkg_file, "r")
+    docx/opc/phys_pkg.py:109: self._zipf = ZipFile(pkg_file, "w", compression=ZIP_DEFLATED)
+  --- zip_limits /compression_ratio|max_entries|max_total|max_entry|MAX_[A-Z_]*SIZE|MAX_[A-Z_]*COUNT/ hits=0
+  --- zip_limit_values /^MAX_ZIP_[A-Z_]+\s*=/ hits=0
+  --- recursion /setrecursionlimit|RecursionError/ hits=0
+  --- pages_timeout /maxpages|timeout/ hits=0
+== python-hwpx 6.11.0 wheel=python_hwpx-6.11.0-py3-none-any.whl bytes=1203487
+  python files: 184
+  --- xmlparser /XMLParser\(/ hits=5
+    hwpx/opc/xml_utils.py:97: parser = etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)
+    hwpx/oxml/schema.py:42: parser = etree.XMLParser()
+    hwpx/tools/package_validator.py:263: parser = LET.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)
+    hwpx/tools/repair.py:337: _SAFE_PARSER = etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)
+    hwpx/tools/validator.py:286: root = etree.fromstring(payload, etree.XMLParser(huge_tree=True))
+  --- xml_options /huge_tree|resolve_entities|no_network|load_dtd/ hits=7
+    hwpx/opc/xml_utils.py:97: parser = etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)
+    hwpx/opc/xml_utils.py:123: resolve_entities=False,
+    hwpx/opc/xml_utils.py:124: no_network=True,
+    hwpx/opc/xml_utils.py:125: huge_tree=False,
+    hwpx/tools/package_validator.py:263: parser = LET.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)
+    hwpx/tools/repair.py:337: _SAFE_PARSER = etree.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)
+    hwpx/tools/validator.py:286: root = etree.fromstring(payload, etree.XMLParser(huge_tree=True))
+  --- xml_default /etree\.(fromstring|parse|XML)\(/ hits=25
+    hwpx/_document/shapes.py:671: root = _etree.fromstring(data)
+    hwpx/hwp5/writer.py:48: root = etree.fromstring(files["Contents/content.hpf"])
+    hwpx/hwp5/writer.py:76: root = etree.fromstring(files["Contents/content.hpf"])
+    hwpx/hwp5/writer.py:86: parsed[item_id] = etree.fromstring(files[path]) if path is not None and path in files else None
+    hwpx/hwp5/writer.py:128: caret = etree.fromstring(data).find(f"{{{_HA}}}CaretPosition")
+    hwpx/hwp5/writer.py:142: for group in etree.fromstring(data):
+    hwpx/hwp5/writer.py:170: metadata = etree.fromstring(files["Contents/content.hpf"]).find(f"{{{_OPF}}}metadata")
+    hwpx/hwp5/writer.py:194: for item in etree.fromstring(files["Contents/content.hpf"]).iter(f"{{{_OPF}}}item"):
+    hwpx/hwp5/writer.py:236: head = etree.fromstring(files[header_path])
+    hwpx/hwp5/writer.py:244: roots = [etree.fromstring(files[path]) for path in section_paths]
+    hwpx/layout/pages.py:2329: run.insert(0, etree.fromstring(_DEFAULT_SECTION))
+    hwpx/opc/xml_utils.py:98: root = etree.fromstring(normalize_hwpml_namespaces(data), parser=parser)
+    hwpx/oxml/schema.py:44: document = etree.parse(str(schema_path), parser)
+    hwpx/oxml/table_structure.py:132: new = etree.fromstring(_restructure_table(xml, op, used_ids=used, context=context))
+    hwpx/oxml/utils.py:125: tree = etree.parse(str(path))
+  --- zip_open /ZipFile\(/ hits=45
+    hwpx/body_patch.py:462: with zipfile.ZipFile(io.BytesIO(source_bytes)) as z:
+    hwpx/body_patch.py:534: with zipfile.ZipFile(io.BytesIO(source_bytes)) as z:
+    hwpx/body_patch.py:613: with zipfile.ZipFile(io.BytesIO(source_bytes)) as z:
+    hwpx/mutation_report.py:61: with zipfile.ZipFile(BytesIO(data)) as archive:
+    hwpx/mutation_report.py:73: with zipfile.ZipFile(BytesIO(data)) as archive:
+    hwpx/patch.py:205: with ZipFile(io.BytesIO(source_bytes), "r") as archive:
+    hwpx/patch.py:219: with ZipFile(io.BytesIO(source_bytes), "r") as archive:
+    hwpx/patch.py:505: with ZipFile(io.BytesIO(source), "r") as src:
+    hwpx/patch.py:509: with ZipFile(buffer, "w") as dst:
+    hwpx/patch.py:725: with ZipFile(io.BytesIO(source_bytes), "r") as archive:
+    hwpx/table_patch.py:732: with zipfile.ZipFile(io.BytesIO(source_bytes), "r") as archive:
+    hwpx/table_patch.py:809: with zipfile.ZipFile(io.BytesIO(source_bytes), "r") as zf:
+    hwpx/table_patch.py:2316: with zipfile.ZipFile(io.BytesIO(source_bytes), "r") as zf:
+    hwpx/table_patch.py:2601: with zipfile.ZipFile(io.BytesIO(data)) as z:
+    hwpx/table_patch.py:2978: with zipfile.ZipFile(io.BytesIO(source_bytes), "r") as archive:
+  --- zip_limits /compression_ratio|max_entries|max_total|max_entry|MAX_[A-Z_]*SIZE|MAX_[A-Z_]*COUNT/ hits=49
+    hwpx/opc/security.py:42: max_entries: int = MAX_ZIP_ENTRIES
+    hwpx/opc/security.py:44: max_total_uncompressed_bytes: int = MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES
+    hwpx/opc/security.py:45: max_compression_ratio: float = MAX_ZIP_COMPRESSION_RATIO
+    hwpx/opc/security.py:72: if len(infos) > active_limits.max_entries:
+    hwpx/opc/security.py:75: f"{len(infos)} > {active_limits.max_entries}"
+    hwpx/opc/security.py:98: if total > active_limits.max_total_uncompressed_bytes:
+    hwpx/opc/security.py:101: f"{total} > {active_limits.max_total_uncompressed_bytes}"
+    hwpx/opc/security.py:120: if ratio > active_limits.max_compression_ratio:
+    hwpx/opc/security.py:123: f"{info.filename}={ratio:.1f} > {active_limits.max_compression_ratio:.1f}"
+    hwpx/opc/security.py:181: if total > active_limits.max_total_uncompressed_bytes:
+    hwpx/opc/security.py:184: f"{total} > {active_limits.max_total_uncompressed_bytes}"
+    hwpx/tools/recover.py:25: def _decompress_deflate(payload: bytes, *, max_entry_size: int) -> bytes:
+    hwpx/tools/recover.py:27: output = decompressor.decompress(payload, max_entry_size + 1)
+    hwpx/tools/recover.py:28: if len(output) > max_entry_size:
+    hwpx/tools/recover.py:29: raise RecoverError(f"recovered entry exceeds max_entry_size={max_entry_size}")
+  --- zip_limit_values /^MAX_ZIP_[A-Z_]+\s*=/ hits=7
+    hwpx/opc/security.py:16: MAX_ZIP_ENTRIES = 4096
+    hwpx/opc/security.py:17: MAX_ZIP_MEMBER_BYTES = 128 * 1024 * 1024
+    hwpx/opc/security.py:18: MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES = 512 * 1024 * 1024
+    hwpx/opc/security.py:19: MAX_ZIP_COMPRESSION_RATIO = 1000.0
+    hwpx/opc/security.py:20: MAX_ZIP_READ_CHUNK = 64 * 1024
+    hwpx/opc/security.py:23: MAX_ZIP_MIMETYPE_BYTES = 4 * 1024
+    hwpx/opc/security.py:26: MAX_ZIP_SMALL_PART_BYTES = 4 * 1024 * 1024
+  --- recursion /setrecursionlimit|RecursionError/ hits=1
+    hwpx/equation/measure.py:512: except RecursionError:
+  --- pages_timeout /maxpages|timeout/ hits=0
+== pdfminer.six 20260107 wheel=pdfminer_six-20260107-py3-none-any.whl bytes=6592252
+  python files: 34
+  --- xmlparser /XMLParser\(/ hits=0
+  --- xml_options /huge_tree|resolve_entities|no_network|load_dtd/ hits=0
+  --- xml_default /etree\.(fromstring|parse|XML)\(/ hits=0
+  --- zip_open /ZipFile\(/ hits=0
+  --- zip_limits /compression_ratio|max_entries|max_total|max_entry|MAX_[A-Z_]*SIZE|MAX_[A-Z_]*COUNT/ hits=0
+  --- zip_limit_values /^MAX_ZIP_[A-Z_]+\s*=/ hits=0
+  --- recursion /setrecursionlimit|RecursionError/ hits=0
+  --- pages_timeout /maxpages|timeout/ hits=13
+    pdfminer/high_level.py:31: maxpages: int = 0,
+    pdfminer/high_level.py:57: :param maxpages: How many pages to stop parsing after
+    pdfminer/high_level.py:137: maxpages=maxpages,
+    pdfminer/high_level.py:151: maxpages: int = 0,
+    pdfminer/high_level.py:162: :param maxpages: The maximum number of pages to parse
+    pdfminer/high_level.py:181: maxpages=maxpages,
+    pdfminer/high_level.py:194: maxpages: int = 0,
+    pdfminer/high_level.py:204: :param maxpages: The maximum number of pages to parse
+    pdfminer/high_level.py:221: maxpages=maxpages,
+    pdfminer/pdfpage.py:157: maxpages: int = 0,
+    pdfminer/pdfpage.py:186: if maxpages and maxpages <= pageno + 1:
+    pdfminer_six-20260107.data/scripts/pdf2txt.py:38: maxpages: int = 0,
+    pdfminer_six-20260107.data/scripts/pdf2txt.py:123: "--maxpages",

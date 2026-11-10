@@ -23,7 +23,7 @@
 - PR 직전: CodeRabbit CLI로 한 번 더 본다(`.claude/agents/coderabbit-review.md`). CLI가 못 돌면 `.claude/agents/bug-perf-review.md`가 같은 축을 본다.
 - PR: 공개 저장소이므로 CodeRabbit PR 리뷰와 Claude Code Review 워크플로가 함께 돈다.
 - 초록 착시: 봇이 코멘트 없이 초록이면 리뷰가 돈 것으로 보지 않고 실행 로그를 읽는다.
-- 실측 항목(첫 PR의 번호, CodeRabbit 좌석, 별 수에 따른 자동 리뷰 여부)은 첫 PR 뒤에 이 절에 채운다.
+- 실측(PR #1~#3, 2026-11-09~10). 첫 PR은 #1이다. CodeRabbit 좌석은 없다(CLI가 `Seat: not assigned`를 찍고도 `review_completed`로 끝났다). 별 10개 미만의 공개 저장소라 PR을 열면 CodeRabbit이 요약 코멘트만 바로 달고 리뷰는 자동으로 돌지 않으며(`This repository does not receive automatic reviews because it has fewer than 10 stars`), `@coderabbitai review` 코멘트로 불러야 돈다. 포함 한도는 시간당 리뷰 1회이고(`1 included review per hour`) 같은 시간 안의 둘째 호출은 `Review rate limited`다. 불러서 리뷰가 달리기까지 12~15분 걸렸다(#2, #3). Claude Code Review 워크플로는 푸시마다 코멘트 하나를 단다(#1, #2 각 둘).
 
 ## 이슈
 - 이슈 트래커는 로컬 마크다운(`.scratch/`)이고 규약은 `docs/agents/issue-tracker.md`다. 전체 계획 `.scratch/plan.md`는 생성 파일이다.

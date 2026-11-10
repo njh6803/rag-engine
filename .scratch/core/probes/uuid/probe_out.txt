@@ -1,0 +1,11 @@
+python 3.12.10
+uuid6 2025.0.1 pure_python
+uuid-utils 1.2.0 binary
+uuid6.uuid7 -> uuid6 UUID version 7
+  uuid.UUID in mro: True
+  stdlib consumer: 01a1c0f6-c5c2-731c-89e0-f46585e642d0
+uuid_utils.uuid7 -> uuid_utils UUID version 7
+  uuid.UUID in mro: False
+  uuid_utils.compat present: True
+uuid6: 100k monotonic=True elapsed=0.232s
+uuid_utils: 100k monotonic=True elapsed=0.046s
