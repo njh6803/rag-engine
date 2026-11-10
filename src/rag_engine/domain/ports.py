@@ -25,6 +25,7 @@ from rag_engine.domain.entities import (
     Document,
     DocumentContent,
     Group,
+    IndexElements,
     IndexState,
     IndexVersion,
     Job,
@@ -38,6 +39,11 @@ from rag_engine.domain.errors import ErrorCode
 # 글 여럿의 토큰 수를 센다. 청킹은 상한 안인지 가리는 데만 쓴다. 시험에서는 글자 수로 세는 가짜를
 # 끼운다.
 type TokenCounter = Callable[[Sequence[str]], Awaitable[list[int]]]
+
+
+# 지식베이스의 임베딩 모델, 차원, 청킹 설정에서 색인 판의 요소 넷을 계산한다. 청킹 해시와 토크나이저
+# 판이 문장 분리기와 키워드 토크나이저의 판을 읽으므로 구현은 `adapters`에 있다.
+type ComputeIndexElements = Callable[[str, int, ChunkingConfig], IndexElements]
 
 
 class LockMode(StrEnum):
@@ -89,9 +95,30 @@ class BlobStore(Protocol):
 class Catalog(Protocol):
     """원천, 그룹, 지식베이스(그룹과의 다대다 포함), 색인 판 레코드. 작업 단위 안에서 얻는다."""
 
+    async def add_source(self, source: Source) -> None:
+        """같은 이름의 원천이 이미 있으면 아무것도 하지 않는다(`migrate`가 겹쳐 돌아도 멱등이다)."""
+        ...
+
     async def get_source(self, name: str) -> Source | None: ...
 
+    async def add_group(self, group: Group) -> None:
+        """같은 이름의 그룹이 이미 있으면 아무것도 하지 않는다."""
+        ...
+
     async def get_group(self, name: str) -> Group | None: ...
+
+    async def add_knowledge_base(self, knowledge_base: KnowledgeBase) -> None:
+        """같은 이름의 지식베이스가 이미 있으면 아무것도 하지 않는다."""
+        ...
+
+    async def update_knowledge_base(self, knowledge_base: KnowledgeBase) -> None:
+        """이름과 현재 판 참조를 뺀 설정을 고친다. 현재 판 참조는 `switch_current_version`의
+        몫이다."""
+        ...
+
+    async def add_group_to_knowledge_base(self, knowledge_base_id: UUID, group_id: UUID) -> None:
+        """이미 들어 있으면 아무것도 하지 않는다."""
+        ...
 
     async def get_knowledge_base(self, name: str) -> KnowledgeBase | None: ...
 
@@ -110,6 +137,10 @@ class Catalog(Protocol):
         ...
 
     async def add_index_version(self, version: IndexVersion) -> None: ...
+
+    async def update_index_version_endpoint(self, version_id: UUID, endpoint: str) -> None:
+        """판에 적어 둔 임베딩 끝점만 고친다. 끝점은 판의 요소가 아니라 주소다."""
+        ...
 
     async def switch_current_version(self, knowledge_base_id: UUID, new_version_id: UUID) -> None:
         """현재 판 참조를 새 판으로 바꾸고 새 판을 `current`, 옛 판을 `retired`로 쓴다."""

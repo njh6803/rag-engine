@@ -8,11 +8,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum
+from typing import Final
 from uuid import UUID
 
 from rag_engine.domain.errors import ErrorCode
 
 type JsonValue = None | bool | int | float | str | Sequence[JsonValue] | Mapping[str, JsonValue]
+
+# `vector` 열의 HNSW 색인이 받는 차원의 상한이다(명세 "데이터 모델과 스키마").
+MAX_EMBEDDING_DIMENSIONS: Final = 2000
 
 
 class SourceKind(StrEnum):
@@ -103,6 +107,18 @@ class KnowledgeBase:
 
 
 @dataclass(frozen=True, slots=True)
+class IndexElements:
+    """색인 판의 요소 넷. 지식베이스의 현재 설정에서 계산한 넷이 현재 판의 넷과 다르면 "재색인
+    필요"다(ADR 0008). 임베딩 끝점은 요소가 아니다."""
+
+    schema_version: int
+    embedding_model: str
+    embedding_dimensions: int
+    chunking_hash: str
+    tokenizer_version: str
+
+
+@dataclass(frozen=True, slots=True)
 class IndexVersion:
     """색인 판. 요소 넷은 스키마 판, 임베딩 모델과 차원, 청킹 설정 해시, 토크나이저 판이다."""
 
@@ -118,6 +134,16 @@ class IndexVersion:
     status: IndexVersionStatus
     created_at: datetime
     retired_at: datetime | None
+
+    @property
+    def elements(self) -> IndexElements:
+        return IndexElements(
+            schema_version=self.schema_version,
+            embedding_model=self.embedding_model,
+            embedding_dimensions=self.embedding_dimensions,
+            chunking_hash=self.chunking_hash,
+            tokenizer_version=self.tokenizer_version,
+        )
 
 
 @dataclass(frozen=True, slots=True)

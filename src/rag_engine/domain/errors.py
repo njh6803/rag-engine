@@ -107,6 +107,12 @@ PROBLEM_ERROR_CODES = frozenset(
 )
 
 
+class ConfigurationError(Exception):
+    """운영자가 고칠 설정의 오류. 관리 명령이 메시지를 찍고 종료 코드 1로 끝난다. 설정 값은 메시지에
+    싣지 않는다(비밀번호가 들 수 있다. 원칙 V). 작업 오류 코드나 HTTP 응답으로 나가는 오류가
+    아니라서 오류 코드를 드는 `RagEngineError` 밖에 둔다."""
+
+
 class RagEngineError(Exception):
     """이 저장소가 올리는 예외의 뿌리. 오류 코드를 든다."""
 
