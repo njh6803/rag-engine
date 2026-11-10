@@ -21,6 +21,12 @@ _ZIP_HEAD: Final = b"PK\x03\x04"
 _DOCX_ENTRY: Final = "word/document.xml"
 _HWPX_ENTRY: Final = "Contents/header.xml"
 
+_ZIP_END_HEAD: Final = b"PK\x05\x06"
+_ZIP_END_SIZE: Final = 22
+_ZIP_END_SEARCH_WINDOW: Final = (1 << 16) + _ZIP_END_SIZE
+_ZIP_END_DIRECTORY_SIZE_OFFSET: Final = 12
+_MAX_CENTRAL_DIRECTORY_BYTES: Final = 1 << 20
+
 
 def detect_media_type(filename: str | None, data: bytes) -> str | None:
     """형식의 MIME을 낸다. 셋 밖이면 `None`이다."""
@@ -39,7 +45,24 @@ def _sniff(data: bytes) -> str | None:
     return None
 
 
+def _central_directory_fits(data: bytes) -> bool:
+    """끝 레코드가 적은 중앙 디렉터리의 크기가 상한 안인지 본다.
+
+    `ZipFile`은 열 때 중앙 디렉터리를 통째로 읽어 항목마다 객체를 만든다. 업로드 상한 안에서도
+    항목이 수십만이면 메모리와 시간이 크게 든다. 읽는 양은 항목 수 필드가 아니라 이 크기가
+    정하므로 크기를 본다. 끝 레코드는 `ZipFile`과 같은 구간(뒤에서 64KiB와 레코드 길이)에서 마지막
+    표지를 찾는다. ZIP64는 크기 칸이 가득 차 상한을 넘는 것으로 보인다.
+    """
+    start = data.rfind(_ZIP_END_HEAD, max(0, len(data) - _ZIP_END_SEARCH_WINDOW))
+    if start < 0 or start + _ZIP_END_SIZE > len(data):
+        return False
+    size = int.from_bytes(data[start + _ZIP_END_DIRECTORY_SIZE_OFFSET :][:4], "little")
+    return size <= _MAX_CENTRAL_DIRECTORY_BYTES
+
+
 def _sniff_zip(data: bytes) -> str | None:
+    if not _central_directory_fits(data):
+        return None
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             names = set(archive.namelist())

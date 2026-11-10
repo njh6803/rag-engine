@@ -240,3 +240,14 @@ old = '''        except BaseException:
 new = '''        except BaseException:
             await _remove_quietly(blob_store, upload.blob_key)
             raise'''
+
+[[mutation]]
+name = "ZIP 중앙 디렉터리의 크기 상한을 두지 않는다"
+tests = ["tests/domain/test_media_types.py"]
+expect = "red"
+expect_output = ["wordprocessingml.document' is None"]
+
+[[mutation.edit]]
+file = "src/rag_engine/domain/media_types.py"
+old = '''    return size <= _MAX_CENTRAL_DIRECTORY_BYTES'''
+new = '''    return size >= 0'''

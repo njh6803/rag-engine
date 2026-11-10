@@ -38,6 +38,27 @@ def _invalid_utf8_name_zip() -> bytes:
     return bytes(data)
 
 
+_END_HEAD = b"PK\x05\x06"
+_END_ENTRY_COUNT_OFFSET = 10
+_ENTRY_COUNT_FIELD_SIZE = 2
+
+
+def _many_entries_zip() -> bytes:
+    """중앙 디렉터리가 1MiB를 넘는 ZIP이다. DOCX 항목이 있어도 상한이 먼저 걸려야 한다."""
+    return _zip(*(f"filler/{index:06d}.xml" for index in range(30_000)), "word/document.xml")
+
+
+def _lying_entry_count_zip() -> bytes:
+    """끝 레코드의 항목 수를 1로 속인 ZIP이다. `ZipFile`은 수가 아니라 크기로 읽는다."""
+    data = bytearray(_many_entries_zip())
+    end = data.rindex(_END_HEAD)
+    for offset in (end + 8, end + _END_ENTRY_COUNT_OFFSET):
+        data[offset : offset + _ENTRY_COUNT_FIELD_SIZE] = (1).to_bytes(
+            _ENTRY_COUNT_FIELD_SIZE, "little"
+        )
+    return bytes(data)
+
+
 @pytest.mark.parametrize(
     ("filename", "mime"),
     [
@@ -91,4 +112,13 @@ def test_확장자가_없을_때_ZIP_안의_내용_종류로_DOCX와_HWPX를_가
 )
 def test_어느_형식도_아니면_판정하지_못한다(data: bytes) -> None:
     assert detect_media_type("규정.txt", data) is None
+    assert detect_media_type(None, data) is None
+
+
+@pytest.mark.parametrize(
+    "data",
+    [_many_entries_zip(), _lying_entry_count_zip()],
+    ids=["항목이 많은 ZIP", "항목 수를 속인 ZIP"],
+)
+def test_중앙_디렉터리가_상한을_넘는_ZIP은_열지_않고_판정하지_못한다(data: bytes) -> None:
     assert detect_media_type(None, data) is None
