@@ -25,10 +25,15 @@ dependencies = [
     # 임베딩·리랭커 서버(TEI) 어댑터의 HTTP 클라이언트다(ADR 0010). mcp 가 끌어오는 전이 의존이지만
     # adapters 가 직접 import 하므로 선언한다. dev 그룹의 httpx 는 테스트 클라이언트로 따로 선언한다.
     "httpx>=0.28",
+    "python-docx>=1.2,<2",
 ]
 
 [project.scripts]
 rag-engine = "rag_engine.main:main"
+
+# 내장 파서도 플러그인과 같은 길로 등록한다(ADR 0012). 이름이 파싱 결과 행의 파서 이름이다.
+[project.entry-points."rag_engine.parsers"]
+docx = "rag_engine.adapters.parsers.docx_parser:DocxParser"
 
 [dependency-groups]
 # httpx 는 HTTP 표면을 미는 테스트 클라이언트다. 다른 의존성 뒤에서 이미 락파일에 있어도 선언한다. 전이

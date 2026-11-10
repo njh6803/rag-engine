@@ -1,0 +1,150 @@
+# core 07(첫 왕복)이 더한 시험의 변이. 구현과 함께 쓴 시험이라 빨강을 본 적이 없어 변이로 본다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/first_round_trip_mutations.toml
+
+[[mutation]]
+name = "임베딩 사이에 오른 세대를 대조하지 않는다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 뒤부터 발생한다.'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        if document is None or document.generation != claim.generation:
+            return
+'''
+new = '''        if document is None:
+            return
+'''
+
+[[mutation]]
+name = "지워진 문서를 거르지 않는다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["At index 0 diff: 2 != 1"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        if document is None or document.deleted_at is not None or document.purged_at is not None:'''
+new = '''        if document is None:'''
+
+[[mutation]]
+name = "내용이 바뀌어도 파싱 결과를 다시 쓴다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["At index 0 diff: 1 != 2"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        and saved.parsed_content_hash == content_hash
+'''
+new = ''
+
+[[mutation]]
+name = "파서의 판이 바뀌어도 파싱 결과를 다시 쓴다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["At index 1 diff: 0 != 1"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        and (saved.parser_name, saved.parser_interface_version, saved.parser_library_version)
+        == (current.parser_name, current.interface_version, current.library_version)
+'''
+new = ''
+
+[[mutation]]
+name = "작업 행 조건을 보지 않는다"
+tests = ["tests/app/test_index_document.py", "tests/app/test_process_job.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE AttemptLostError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''    if not await transaction.jobs.hold_attempt(job):'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "살아 있는 판 하나에만 쓴다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["Right contains one more item: '연차휴가는 입사 일 년 뒤부터 발생한다.'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        versions.extend(await transaction.catalog.list_live_index_versions(knowledge_base.id))'''
+new = '''        versions.extend((await transaction.catalog.list_live_index_versions(knowledge_base.id))[:1])'''
+
+[[mutation]]
+name = "조각의 갱신일을 문서에서 복사하지 않는다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["At index 2 diff: datetime.datetime(2026, 11, 11, 9, 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''                    updated_at=document.updated_at,'''
+new = '''                    updated_at=deps.now(),'''
+
+[[mutation]]
+name = "토큰 범위 밖 지식베이스를 거르지 않는다"
+tests = ["tests/contract/test_search_tool.py"]
+expect = "red"
+expect_output = ["도구 오류가 아니라 결과를 냈다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    if found is None or (scope and found.id not in scope):'''
+new = '''    if found is None:'''
+
+[[mutation]]
+name = "개수를 자르지 않는다"
+tests = ["tests/contract/test_first_round_trip.py"]
+expect = "red"
+expect_output = ["Left contains one more item: 2"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''                found.hits[: request.top_k],'''
+new = '''                found.hits,'''
+
+[[mutation]]
+name = "판이 바뀐 검색을 다시 하지 않고 그대로 낸다"
+tests = ["tests/app/test_search_documents.py"]
+expect = "red"
+expect_output = ["At index 0 diff: 1 != 2"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''        if found.is_current:'''
+new = '''        if True:'''
+
+[[mutation]]
+name = "임대를 잃은 시도를 실패로 끝낸다"
+tests = ["tests/app/test_process_job.py"]
+expect = "red"
+expect_output = ["('failed', 'internal_error') != ('lost', None)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''    except AttemptLostError:
+        return None, _NO_TIMINGS
+'''
+new = '''    except AttemptLostError:
+        return JobOutcome(JobStatus.FAILED, ErrorCode.INTERNAL_ERROR), _NO_TIMINGS
+'''
+
+[[mutation]]
+name = "작업 시작 로그에 요청 ID를 싣지 않는다"
+tests = ["tests/contract/test_first_round_trip.py"]
+expect = "red"
+expect_output = ["At index 0 diff: None != "]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''        "job_started",
+        request_id=job.request_id,
+'''
+new = '''        "job_started",
+        request_id=None,
+'''

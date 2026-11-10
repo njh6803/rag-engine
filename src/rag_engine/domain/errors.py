@@ -119,6 +119,12 @@ class DocumentAlreadyExistsError(Exception):
     나가는 오류가 아니라서 오류 코드를 드는 `RagEngineError` 밖에 둔다."""
 
 
+class AttemptLostError(Exception):
+    """임대가 끝나 다른 작업자가 가져간 작업의 시도. 작업 행 조건(`JobQueue.hold_attempt`)이 알린다.
+    그 시도는 문서에도 작업 행에도 쓰지 않고 버린다. 오류 코드를 드는 `RagEngineError` 밖에 둔다.
+    응답이나 작업 결과로 나가는 오류가 아니라 시도를 멈추는 신호다."""
+
+
 class RagEngineError(Exception):
     """이 저장소가 올리는 예외의 뿌리. 오류 코드를 든다."""
 

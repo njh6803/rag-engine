@@ -40,6 +40,38 @@ class TooManyPagesError(PermanentFailure):
         super().__init__(ErrorCode.TOO_MANY_PAGES, message)
 
 
+@dataclass(frozen=True, slots=True)
+class ParsedDocument:
+    """파싱 실행기가 낸 결과. 파서의 이름과 두 판(인터페이스, 라이브러리)은 파싱 결과 행에
+    적힌다."""
+
+    parser_name: str
+    interface_version: str
+    library_version: str
+    blocks: tuple[Block, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ParserVersion:
+    """파서의 이름과 두 판. 저장된 파싱 결과의 판과 지금 파서의 판이 다르면 다시 파싱한다."""
+
+    parser_name: str
+    interface_version: str
+    library_version: str
+
+
+class ParseRunner(Protocol):
+    """원본 바이트를 파서에 맡겨 파싱 결과를 얻는다. 작업자 프로세스가 아니라 따로 띄운 자식
+    프로세스에서 돌고(명세 "파싱의 격리와 자원 한도"), 모든 실패는 영구 실패(`PermanentFailure`)로
+    올린다."""
+
+    def current_version(self, mime: str) -> ParserVersion | None:
+        """그 MIME을 받는 파서의 지금 판. 받는 파서가 없으면 `None`이다."""
+        ...
+
+    async def parse(self, data: bytes, mime: str) -> ParsedDocument: ...
+
+
 class Parser(Protocol):
     """원본 바이트에서 글과 구조(제목, 문단, 표, 위치)를 뽑는 플러그인.
 

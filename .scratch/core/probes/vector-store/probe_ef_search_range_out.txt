@@ -1,0 +1,13 @@
+pgvector ('0.8.7',)
+[확장을 쓰기 전]
+  0: 받음
+  1: 받음
+  40: 받음
+  1000: 받음
+  1001: 받음
+[벡터 연산을 쓴 뒤]
+  0: 거부: 0 is outside the valid range for parameter "hnsw.ef_search" (1 .. 1000)
+  1: 받음
+  40: 받음
+  1000: 받음
+  1001: 거부: 1001 is outside the valid range for parameter "hnsw.ef_search" (1 .. 1000)

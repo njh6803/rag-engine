@@ -203,3 +203,17 @@ def test_기본_지식베이스의_설정을_묶어_낸다(
     assert (default.reranker_url, default.reranker_model) == (None, None)
     assert (default.chunking.strategy, default.chunking.max_tokens) == ("structure_first", 512)
     assert default.chunking.overlap_tokens == 64
+
+
+def test_후보_수는_pgvector가_받는_ef_search_상한까지만_받는다(
+    required_environment: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RAG_SEARCH_CANDIDATES", "1000")
+    accepted = Settings(_env_file=None).search_candidates
+    monkeypatch.setenv("RAG_SEARCH_CANDIDATES", "1001")
+
+    with pytest.raises(ValidationError) as caught:
+        Settings(_env_file=None)
+
+    assert accepted == 1000
+    assert [error["loc"] for error in caught.value.errors()] == [("search_candidates",)]

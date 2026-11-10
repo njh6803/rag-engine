@@ -4,10 +4,10 @@
 UPDATE` 한 문장으로 있는 행을 다시 쓴다. 있는지 보는 일과 넣는 일이 한 문장이어야 같은 문서에 동시에
 넣어도 대기 작업이 둘이 되지 않는다. 알림(`NOTIFY rag_jobs`)은 PostgreSQL이 커밋 때 보낸다.
 
-꺼내기, 끝내기, 다시 예약하기, 임대 연장은 이 어댑터에 아직 없다.
+다시 예약하기(12)와 임대 연장(13)은 이 어댑터에 아직 없다.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Final
 from uuid import UUID
 
@@ -51,6 +51,17 @@ def _job(row: sa.RowMapping) -> Job:
     )
 
 
+def _attempt_of(job: Job) -> list[sa.ColumnElement[bool]]:
+    """이 시도가 쓴 작업 행만 고르는 조건. 임대가 끝나 다른 작업자가 가져간 작업(작업자 ID나 시도
+    횟수가 다르다)은 고르지 않는다. 지식베이스 행을 잠금 순서에 맞게 작업 행 앞에서 잠그는 일은 14가
+    한다."""
+    return [
+        tables.jobs.c.id == job.id,
+        tables.jobs.c.worker_id == job.worker_id,
+        tables.jobs.c.attempts == job.attempts,
+    ]
+
+
 class PostgresJobQueue:
     def __init__(self, connection: AsyncConnection) -> None:
         self._connection = connection
@@ -75,13 +86,70 @@ class PostgresJobQueue:
         return _job(row)
 
     async def get(self, job_id: UUID) -> Job | None:
-        raise NotImplementedError(_NOT_YET)
+        row = (
+            (
+                await self._connection.execute(
+                    sa.select(tables.jobs).where(tables.jobs.c.id == job_id)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        return None if row is None else _job(row)
 
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:
-        raise NotImplementedError(_NOT_YET)
+        jobs = tables.jobs
+        picked = (
+            sa.select(jobs.c.id)
+            .where(
+                sa.or_(
+                    sa.and_(jobs.c.status == JobStatus.QUEUED.value, jobs.c.run_after <= now),
+                    sa.and_(jobs.c.status == JobStatus.RUNNING.value, jobs.c.leased_until <= now),
+                )
+            )
+            .order_by(jobs.c.run_after, jobs.c.id)
+            .limit(1)
+            .with_for_update(skip_locked=True)
+            .cte("picked")
+        )
+        statement = (
+            sa.update(jobs)
+            .where(jobs.c.id == picked.c.id)
+            .values(
+                status=JobStatus.RUNNING.value,
+                attempts=jobs.c.attempts + 1,
+                raised_generation=None,
+                worker_id=worker_id,
+                leased_until=now + timedelta(seconds=lease_seconds),
+                started_at=sa.func.coalesce(jobs.c.started_at, now),
+            )
+            .returning(jobs)
+        )
+        row = (await self._connection.execute(statement)).mappings().one_or_none()
+        return None if row is None else _job(row)
+
+    async def hold_attempt(self, job: Job) -> bool:
+        held = await self._connection.execute(
+            sa.select(tables.jobs.c.id).where(*_attempt_of(job)).with_for_update()
+        )
+        return held.first() is not None
+
+    async def record_raised_generation(self, job: Job, generation: int) -> None:
+        await self._connection.execute(
+            sa.update(tables.jobs).where(*_attempt_of(job)).values(raised_generation=generation)
+        )
 
     async def finish(self, job: Job, outcome: JobOutcome, now: datetime) -> None:
-        raise NotImplementedError(_NOT_YET)
+        await self._connection.execute(
+            sa.update(tables.jobs)
+            .where(*_attempt_of(job))
+            .values(
+                status=outcome.status.value,
+                last_error_code=None if outcome.error_code is None else outcome.error_code.value,
+                finished_at=now,
+                leased_until=None,
+            )
+        )
 
     async def reschedule(self, job: Job, run_after: datetime, error_code: ErrorCode) -> None:
         raise NotImplementedError(_NOT_YET)

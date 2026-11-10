@@ -7,6 +7,7 @@ kiwipiepy의 판이다(`index_elements`가 청킹 해시에 넣는다).
 """
 
 import re
+import threading
 from functools import cache
 from typing import Final
 
@@ -26,6 +27,12 @@ _FOREIGN_TAG: Final = "SL"
 _ATTACHED_PUNCTUATION: Final = re.compile(r"(?<=[0-9A-Za-z])[.,;:!?]+(?![0-9A-Za-z/])")
 
 
+# kiwipiepy의 스레드 안전성을 확인하지 못했다. 서버의 예열 스레드와 검색 질의의 토큰화처럼 스레드가
+# 겹쳐도 같은 인스턴스를 동시에 쓰지 않도록 호출을 한 번에 하나로 직렬화한다. `_kiwi()`의 지연
+# 적재가 두 번 일어나는 일도 막는다.
+_LOCK: Final = threading.Lock()
+
+
 @cache
 def _kiwi() -> Kiwi:
     # 모델을 읽는 데 1초쯤 걸려 프로세스마다 한 번만 만든다(프로브 `kiwi/probe_out.txt`).
@@ -35,7 +42,8 @@ def _kiwi() -> Kiwi:
 def tokenize_keywords(text: str) -> list[str]:
     """글에서 키워드 토큰을 글 순서대로 뽑는다. 외국어 토큰은 소문자로 바꾼다."""
     prepared = _ATTACHED_PUNCTUATION.sub(" ", text)
-    tokens = _kiwi().tokenize(prepared, normalize_coda=True)
+    with _LOCK:
+        tokens = _kiwi().tokenize(prepared, normalize_coda=True)
     return [
         token.form.lower() if token.tag == _FOREIGN_TAG else token.form
         for token in tokens
@@ -45,4 +53,6 @@ def tokenize_keywords(text: str) -> list[str]:
 
 def split_sentences(text: str) -> list[str]:
     """글을 문장으로 나눈다. 문장 글은 원문의 구간 그대로다."""
-    return [text[sentence.start : sentence.end] for sentence in _kiwi().split_into_sents(text)]
+    with _LOCK:
+        sentences = _kiwi().split_into_sents(text)
+    return [text[sentence.start : sentence.end] for sentence in sentences]
