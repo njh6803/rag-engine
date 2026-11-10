@@ -1,0 +1,3 @@
+stateless=True json=False -> {'request_type': 'Request', 'scope_key': 'tok-123', 'state_key': 'state-tok-456', 'protocol': '2026-07-28'}
+stateless=True json=True -> {'request_type': 'Request', 'scope_key': 'tok-123', 'state_key': 'state-tok-456', 'protocol': '2026-07-28'}
+stateless=False json=False -> {'request_type': 'Request', 'scope_key': 'tok-123', 'state_key': 'state-tok-456', 'protocol': '2026-07-28'}

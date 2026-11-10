@@ -1,0 +1,5 @@
+H: isinstance uuid.UUID: True
+H: pydantic json: {"id":"01a1c4f7-0dcb-7153-8a07-338c116c5ef3"} kept: uuid6.UUID
+H: pydantic kept the same object: True uuid6 type: uuid6.UUID
+H: sqlalchemy round trip equal: True read type: uuid.UUID
+H: versions sqlalchemy 2.1.8 psycopg 3.3.8 pydantic 2.14.3 uuid6 2025.0.1

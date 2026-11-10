@@ -1,0 +1,16 @@
+psycopg 3.3.8
+setup: inserted 200000 rows in 30.6s
+setup: heap=313 MB total=1372 MB
+pgvector: ('0.8.7',)
+server: ('18.6 (Debian 18.6-1.pgdg13+2)',)
+A: CREATE INDEX (0 matching rows of 200000) took 0.19s
+A: CREATE INDEX (0 matching rows of 200000) took 0.16s
+B: INSERT while CREATE INDEX tx open -> blocked (canceled after 1.50s)
+B: SELECT while CREATE INDEX tx open -> ran in 0.00s
+C: SELECT while DROP INDEX tx open -> blocked (canceled after 1.50s)
+D: new SELECT behind queued DROP INDEX -> blocked (canceled after 1.50s)
+D: DROP INDEX finished after ['2.12s']
+E: text NUL -> ['DataError', 'DatabaseError', 'Error', 'Exception'] sqlstate=None
+E: jsonb NUL -> ['UntranslatableCharacter', 'DataError', 'DatabaseError', 'Error'] sqlstate=22P05
+F: running -> queued with another queued -> UniqueViolation 23505
+F: second queued insert -> UniqueViolation 23505

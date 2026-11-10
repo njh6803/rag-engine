@@ -10,7 +10,7 @@ core 다음은 release-image와 search-eval이다. 판을 고정한 이미지가
 
 이정표는 `docs/PRD.md`의 성공의 정의가 원천이다. 공개 시연(2027-01 초)은 core, search-eval, release-image, 0.1(2027-03 초 무렵)은 슬라이스 2까지, 1.0(2027년 상반기, 어림)은 슬라이스 3까지다.
 
-core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌고 없으면 실패하므로(`docs/constitution/tech.md` 테스트 칸), 검사 러너가 테스트 DB를 띄우는 변경은 하네스 티켓이고 core의 첫 구현 티켓은 그 티켓에 Blocked by를 건다. 러너가 pytest를 always_run으로 돌리므로 그 변경 뒤에는 문서 PR과 하네스 chore를 포함한 모든 커밋에 Docker가 필요하고, Docker가 없는 클라우드 세션은 커밋할 수 없다. 이 분기는 next-session 결정표에 없으므로 지시문의 '어디서' 본문에 적고, 결정표에 더하는 일은 그 하네스 티켓이 함께 한다.
+core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌고 없으면 실패하므로(`docs/constitution/tech.md` 테스트 칸), 검사 러너가 테스트 DB를 띄우는 변경은 core의 첫 티켓(core 01)이고 나머지 core 티켓은 그 티켓 뒤에 선다(설계 일지는 하네스 티켓으로 적었지만 2026-11-10 티켓 세션에서 사용자가 core 01로 골랐다. core 명세 Further Notes). 러너가 pytest를 always_run으로 돌리므로 그 변경 뒤에는 문서 PR과 하네스 chore를 포함한 모든 커밋에 Docker가 필요하고, Docker가 없는 클라우드 세션은 커밋할 수 없다. 이 분기는 next-session 결정표에 없으므로 지시문의 '어디서' 본문에 적고, 결정표에 더하는 일은 core 01이 함께 한다.
 
 ## 목표 배치
 
@@ -25,7 +25,7 @@ src/rag_engine/
   app/                     슬라이스 1. 유스케이스(수집, 동기화, 검색, 재색인, 삭제, 토큰). 포트만 부른다
   domain/                  슬라이스 1. 엔티티와 포트 Protocol(ADR 0007·0008·0012). 층의 경계는 import-linter 계약
 tests/contract/            MCP 계약 시험. core 가 검색 도구의 형식(format_version, ADR 0015)과 쓰기 도구 없음을 더한다(원칙 VII, ADR 0001)
-compose.test.yml           슬라이스 1. 테스트 PostgreSQL(pgvector/pgvector:0.8.7-pg18-trixie, 운영과 같은 판). 검사 러너가 없으면 띄운다(하네스 티켓)
+compose.test.yml           슬라이스 1. 테스트 PostgreSQL(pgvector/pgvector:0.8.7-pg18-trixie, 운영과 같은 판). 검사 러너가 없으면 띄운다(core 01)
 Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 슬라이스 2의 release-image 가 판 태그, 단독 compose(서버, 작업자, PostgreSQL, 임베딩 TEI, 리랭커 TEI), SBOM과 CVE 스캔을 더한다
 (관리자 페이지)            슬라이스 2. admin 설계 인터뷰가 화면 스택을 정한다. 웹 워크스페이스면 web/ 에 두고 파이썬과 루트를 나눈다(tech.md)
 ```
