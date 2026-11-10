@@ -119,6 +119,10 @@ async def test_침해된_자식이_pickle을_보내도_부모는_코드를_실�
     [
         b'{"error": "not_a_code", "blocks": []}',
         b'{"error": null, "blocks": [["not_a_kind", "text", null, null, 0]]}',
+        # 스키마는 통과하지만 파서가 보낼 수 없는 값이다.
+        b'{"error": "search_unavailable", "blocks": []}',
+        b'{"error": null, "blocks": [["heading", "text", null, null, 0]]}',
+        b'{"error": null, "blocks": [["paragraph", "text", null, null, -1]]}',
     ],
 )
 def test_자식이_모르는_오류_코드나_블록_종류를_보내면_parse_failed다(payload: bytes) -> None:

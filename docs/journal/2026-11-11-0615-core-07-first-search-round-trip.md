@@ -100,6 +100,11 @@
   - 받는 바이트 수에 상한이 없다. 앞서 남긴 08의 몫과 같은 갈래다. 08 티켓에 `recv_bytes(maxlength=)`로 적었다.
   - `receiver.poll(타임아웃)`이 첫 바이트까지만 기다려, 보내다 멈춘 자식이 `recv_bytes()`를 무기한 막는다. 이 갈래는 새로 알았다. 시간 제한이 수신 전체를 덮게 하는 일(감시 타이머와 절반만 보내는 파서 시험)은 08의 실행기 한도 작업이라 08 티켓에 적었다. 07은 자식이 신뢰할 수 없는 문서를 읽는 길을 처음 열지만 PDF·HWPX 파서가 없어 DOCX 파서를 침해해야만 닿는다.
 
+**PR 봇 회차**(PR 11)
+
+- CodeRabbit 첫 회차(Minor 하나): 스키마를 통과한 자식 메시지가 `ValueError`로 새는 길 둘(자식이 보낼 수 없는 오류 코드 `search_unavailable` 등이 `PermanentFailure`에서, `Block` 불변식을 어긴 블록이 `Block.__post_init__`에서)이 `parse_failed`가 아니라 `internal_error`로 끝난다. 앞 커밋이 쓴 독스트링("모르는 값은 `parse_failed`")이 이 두 길에서 거짓이라 **고쳤다.** 시험 사례 셋을 더해 빨강을 보고(`SEARCH_UNAVAILABLE`이 그대로 나오고 `ValueError: 제목 수준은…`) 고쳤다. 변이 19·20을 표에 더했다. 독스트링도 넓혔다.
+- claude-review 첫 회차(Minor 둘, Nit 하나)와 둘째 회차(헤드 `54966eb`, Minor 하나, Nit 셋): Critical·Major는 없었다. 지적은 `_MS_PER_SECOND` 중복, `_fail` Middle Man, `_Timer` 출력 인자, 일지 "남긴 것"이 이미 적은 냄새들과, 새로 나온 `docx_parser.parse`의 `block` 덮어쓰기(`if/elif`로 나누기) 한 건이다. 둘째 회차라 Critical·Major만 고친다는 규칙대로 고치지 않았고, 이유를 PR 코멘트에 남겼다. 이 일들은 뒤의 작업으로 넘기는 것이 아니라 판단 항목을 보류한 것이라 "다음"에 따로 적지 않는다.
+
 **남긴 것과 이유**
 
 - 압축 폭탄 한도(`parse_max_unzipped_mb` 등) 설정이 아직 파서에서 쓰이지 않는다. 08이 파서 격리와 함께 채운다.

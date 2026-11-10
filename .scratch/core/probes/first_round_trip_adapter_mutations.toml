@@ -210,3 +210,27 @@ old = '''    error: ErrorCode | None
     blocks: list[_BlockTuple]'''
 new = '''    error: str | None
     blocks: list[_BlockTuple]'''
+
+[[mutation]]
+name = "자식이 보낼 수 없는 오류 코드를 그대로 받는다"
+tests = ["tests/adapters/test_parse_runner.py"]
+expect = "red"
+expect_output = ['''assert <ErrorCode.SEARCH_UNAVAILABLE''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/runner.py"
+old = '''        code = message.error if message.error in _CHILD_ERROR_CODES else ErrorCode.PARSE_FAILED'''
+new = '''        code = message.error'''
+
+[[mutation]]
+name = "블록의 불변식 위반을 parse_failed로 거르지 않는다"
+tests = ["tests/adapters/test_parse_runner.py"]
+expect = "red"
+expect_output = ['''ValueError: 제목 수준은 제목 블록에만 있고''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/runner.py"
+old = '''    except ValueError:
+        # 스키마는 `Block`의 불변식(제목 수준, 쪽 번호, 순번)을 보지 않는다.'''
+new = '''    except ZeroDivisionError:
+        # 스키마는 `Block`의 불변식(제목 수준, 쪽 번호, 순번)을 보지 않는다.'''

@@ -40,6 +40,16 @@ logger = logging.getLogger(__name__)
 _BYTES_PER_MB: Final = 1024 * 1024
 _REAP_SECONDS: Final = 5
 
+# `_parse_to_message`가 자식에서 실제로 내는 오류 코드.
+_CHILD_ERROR_CODES: Final = frozenset(
+    {
+        ErrorCode.ENCRYPTED_DOCUMENT,
+        ErrorCode.TOO_MANY_PAGES,
+        ErrorCode.PARSE_MEMORY_EXCEEDED,
+        ErrorCode.PARSE_FAILED,
+    }
+)
+
 type _BlockTuple = tuple[BlockKind, str, int | None, int | None, int]
 
 
@@ -192,16 +202,23 @@ class SubprocessParseRunner:
 
 
 def decode_child_message(payload: bytes) -> _ChildResult:
-    """자식이 보낸 바이트를 스키마로 검증해 읽는다. 모양이 틀리거나 모르는 오류 코드·블록 종류가
-    들어 있으면 `parse_failed`다."""
+    """자식이 보낸 바이트를 스키마로 검증해 읽는다. 모양이 틀리거나, 모르는 오류 코드·블록 종류가
+    들어 있거나, 자식이 보낼 수 없는 오류 코드이거나, `Block`의 불변식을 어기면 `parse_failed`다."""
     try:
         message = ChildMessage.model_validate_json(payload)
     except ValidationError:
         return _ChildResult(ErrorCode.PARSE_FAILED, ())
     if message.error is not None:
-        return _ChildResult(message.error, ())
-    blocks = tuple(
-        Block(kind, text, level, page, ordinal)
-        for kind, text, level, page, ordinal in message.blocks
-    )
+        # 스키마는 모든 오류 코드를 받는다. 자식이 보낼 수 있는 코드 밖은 영구 실패의 코드가 아니라
+        # 부모에서 `ValueError`가 되므로 거른다.
+        code = message.error if message.error in _CHILD_ERROR_CODES else ErrorCode.PARSE_FAILED
+        return _ChildResult(code, ())
+    try:
+        blocks = tuple(
+            Block(kind, text, level, page, ordinal)
+            for kind, text, level, page, ordinal in message.blocks
+        )
+    except ValueError:
+        # 스키마는 `Block`의 불변식(제목 수준, 쪽 번호, 순번)을 보지 않는다.
+        return _ChildResult(ErrorCode.PARSE_FAILED, ())
     return _ChildResult(None, blocks)
