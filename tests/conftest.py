@@ -36,7 +36,7 @@ import socket
 import sys
 import threading
 import time
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from pathlib import Path
 from uuid import uuid4
 
@@ -44,10 +44,13 @@ import psycopg
 import pytest
 import uvicorn
 from psycopg import sql
+from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.harness import LogCapture, RunningServer, replace_database
 from tools.run_checks import TEST_DATABASE_ENV, database_problem
 
 from rag_engine.adapters.postgres.bootstrap import issue_bootstrap_token, migrate_database
+from rag_engine.adapters.postgres.engine import create_engine
+from rag_engine.adapters.postgres.migrate import upgrade_to_head
 from rag_engine.adapters.settings import Settings
 from rag_engine.server import create_app
 from tools import run_hooks
@@ -159,6 +162,17 @@ def empty_database_url(database_url: str) -> Iterator[str]:
         yield replace_database(database_url, name)
     finally:
         _drop_database(database_url, name)
+
+
+@pytest.fixture
+async def engine(empty_database_url: str) -> AsyncIterator[AsyncEngine]:
+    """스키마만 올린 빈 데이터베이스에 붙은 엔진. `migrate`의 기본 레코드는 없다."""
+    await asyncio.to_thread(upgrade_to_head, empty_database_url)
+    created = create_engine(empty_database_url)
+    try:
+        yield created
+    finally:
+        await created.dispose()
 
 
 @pytest.fixture(scope="session")

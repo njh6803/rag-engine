@@ -6,6 +6,8 @@
 
 **Status:** ready-for-agent
 
+**05가 넘긴 것:** 수집 유스케이스는 `src/rag_engine/app/ingest.py`의 `_amend`이고, 그룹이 바뀐 수집은 거기서 `NotImplementedError("그룹을 바꾸는 수집은 티켓 10이 처리한다")`로 멈춘다. `requeued`는 그 함수에서 그룹 검사와 내용 해시 대조 사이에 들어갈 갈래이고 `IngestAction.REQUEUED`는 이미 있다. 커밋 뒤 정리는 `_Recorded.stale_blob_key`가 지울 원본을 담는 꼴이다. 갱신이 옛 원본(`existing.blob_path`)을, 건너뛴 수집이 방금 쓴 새 원본(`upload.blob_key`)을 담으므로, 원본 경로를 바꾸지 않는 `requeued`와 그룹만 바뀐 `updated`는 후자처럼 새 원본을 담으면 된다. 그룹 변경이 조각의 복사 칸을 고칠 때는 `PostgresVectorIndex.update_chunk_copies(document)`가 그 문서의 모든 조각 행(물러난 판 포함)을 한 번에 고친다. `_enqueue`는 지식베이스 행을 `FOR SHARE`로 잠그므로(문서 행, 지식베이스 행, 작업 행의 순서), 문서가 빠지는 지식베이스는 `FOR UPDATE`로 같은 순서 안에서 따로 잠근다.
+
 - [ ] 그룹 변경(명세 "수집 API" 절): 같은 작업 단위에서 그 문서의 모든 조각(물러난 판의 것도)의 복사 칸을 새 그룹으로 고치고, 문서가 빠지는 지식베이스 행을 `FOR UPDATE`로 잠가 그 살아 있는 판에서 그 문서의 조각과 색인 상태를 지우며, 작업을 넣는다(파싱은 해시가 같아 건너뛴다). 그 지식베이스에 `building` 판이 있을 때의 전환 검사는 부르는 자리를 두고 14가 채운다. `action`은 `updated`다.
 - [ ] `requeued`: 내용과 그룹이 같지만 문서 상태가 `failed`이거나 살아 있는 판의 색인 상태에 `failed`가 있으면 202와 작업 ID. 세대를 올린다.
 - [ ] 이 티켓이 더하는 원본 경로를 바꾸지 않는 수집(`requeued`, 그룹만 바뀐 `updated`)도 05가 둔 커밋 뒤 정리로 새 원본을 지운다(명세 "수집 파이프라인과 작업" 절. `unchanged`는 05, 내용 해시가 같은 되살림은 11).

@@ -14,6 +14,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
+from rag_engine.adapters.blob_store import LocalBlobStore
 from rag_engine.adapters.log_format import configure_logging
 from rag_engine.adapters.postgres.engine import create_engine
 from rag_engine.adapters.postgres.token_store import PostgresTokenStore
@@ -21,6 +22,7 @@ from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.settings import Settings
 from rag_engine.domain.errors import ErrorCode, InvalidInput, RequestError
 from rag_engine.server.auth import AuthMiddleware
+from rag_engine.server.ingest_api import build_ingest_router
 from rag_engine.server.problem_response import problem_response, validation_response
 from rag_engine.server.problems import ValidationIssue
 from rag_engine.server.request_context import RequestContextMiddleware, request_id_of
@@ -28,6 +30,7 @@ from rag_engine.server.token_api import build_token_router
 
 # 설정에 적지 않아도 늘 받는 호스트(ADR 0014).
 _ALWAYS_ALLOWED_HOSTS = ("localhost", "127.0.0.1")
+_BYTES_PER_MB = 1024 * 1024
 
 
 def health() -> dict[str, str]:
@@ -102,11 +105,16 @@ def create_app(settings: Settings) -> ASGIApp:
     _install_error_handlers(app)
     app.add_api_route("/health", health, methods=["GET"])
     token_router = build_token_router(token_store, unit_of_work)
+    ingest_router = build_ingest_router(
+        unit_of_work, LocalBlobStore(settings.data_dir), settings.max_upload_mb * _BYTES_PER_MB
+    )
     app.include_router(token_router)
+    app.include_router(ingest_router)
     # 하위 앱은 자기 안에 `/mcp` 경로를 둔다. "/" 마운트는 모든 경로를 받으므로 REST 경로 뒤에 둔다.
     app.mount("/", mcp_app)
     # FastAPI는 포함한 라우터를 `app.routes`에 평평하게 펼치지 않는다. 경로 템플릿을 로그에 남기려면
     # 라우터가 가진 접두사 포함 경로를 따로 넘겨야 한다.
     return RequestContextMiddleware(
-        AuthMiddleware(app, token_store), [*app.routes, *token_router.routes]
+        AuthMiddleware(app, token_store),
+        [*app.routes, *token_router.routes, *ingest_router.routes],
     )

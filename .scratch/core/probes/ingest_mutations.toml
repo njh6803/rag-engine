@@ -1,0 +1,266 @@
+# core 05(수집 API의 첫 길)가 더한 시험의 변이. 구현과 함께 쓴 시험이라 빨강을 본 적이 없어 변이로 본다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/ingest_mutations.toml
+# 첫 실행에서 4번(키도 파일 이름도 없는 요청)과 7번(건너뛴 수집의 조각 복사 칸)이 초록으로 살아남았다.
+# HTTP 시험은 filename="" 을 422로 읽는 다른 길이 있어 4번을 못 잡았고, 7번은 조각 행을 두고 갱신일을
+# 바꿔 본 시험이 없었다. 그래서 `tests/app/test_ingest.py`에 시험 둘을 더하고 그 시험을 겨누게 고쳤다.
+
+[[mutation]]
+name = "상한과 같은 크기를 거부한다"
+tests = ["tests/server/test_ingest_api.py"]
+expect = "red"
+expect_output = ["413 Request Entity Too Large"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    if size_bytes > max_upload_bytes:'''
+new = '''    if size_bytes >= max_upload_bytes:'''
+
+[[mutation]]
+name = "형식을 가리지 않는다"
+tests = ["tests/server/test_ingest_api.py"]
+expect = "red"
+expect_output = ["500 Internal Server Error"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    if mime is None:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "없는 그룹을 거르지 않는다"
+tests = ["tests/server/test_ingest_api.py"]
+expect = "red"
+expect_output = ["500 Internal Server Error"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''        if group is None:'''
+new = '''        if False:'''
+
+[[mutation]]
+name = "키도 파일 이름도 없는 요청을 받는다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["where __fspath__ returns a str, not 'NoneType'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    if not key:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "같은 내용을 건너뛰지 않는다"
+tests = ["tests/server/test_ingest_api.py", "tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["202 Accepted"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    if existing.content_hash == upload.content_hash:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "갱신이 세대를 올리지 않는다"
+tests = ["tests/server/test_ingest_api.py", "tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["At index 0 diff: 1 != 2"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''        generation=existing.generation + 1,'''
+new = '''        generation=existing.generation,'''
+
+[[mutation]]
+name = "건너뛴 수집이 갱신일의 조각 복사 칸을 고치지 않는다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["AssertionError: assert '2026-11-11' == '2026-12-01'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    if refreshed.updated_at != existing.updated_at:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "경합에서 진 쪽이 다시 시도하지 않는다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["DocumentAlreadyExistsError: 같은 원천과 키의 문서가 이미 있다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''_MAX_ATTEMPTS: Final = 2'''
+new = '''_MAX_ATTEMPTS: Final = 1'''
+
+[[mutation]]
+name = "진 쪽이 원본을 이긴 문서 아래로 옮기지 않는다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["AssertionError: assert '01"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    moved = replace(upload, document_id=winner.id, blob_key=_blob_key(winner.id))'''
+new = '''    moved = replace(upload, document_id=winner.id, blob_key=_blob_key(upload.document_id))'''
+
+[[mutation]]
+name = "진 쪽이 처음 쓴 원본을 남긴다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["ValueError: too many values to unpack (expected 1)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    await _remove_quietly(blob_store, upload.blob_key)
+    return moved'''
+new = '''    return moved'''
+
+[[mutation]]
+name = "롤백된 수집이 새 원본을 남긴다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["Left contains one more item: WindowsPath("]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''        except BaseException:
+            await _discard_unless_recorded(unit_of_work, blob_store, upload)
+            raise
+    raise AssertionError'''
+new = '''        except BaseException:
+            raise
+    raise AssertionError'''
+
+[[mutation]]
+name = "커밋 뒤 옛 원본을 지우지 않는다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["ValueError: too many values to unpack (expected 1)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    await _remove_quietly(blob_store, recorded.stale_blob_key)'''
+new = '''    pass'''
+
+[[mutation]]
+name = "원본 지우기 실패를 삼키지 않는다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["rag_engine.domain.errors.TransientFailure: 원본을 지우지 못했다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    except TransientFailure as error:'''
+new = '''    except KeyError as error:'''
+
+[[mutation]]
+name = "대기 작업을 재사용하지 않고 요청 ID를 갱신하지 않는다"
+tests = ["tests/adapters/test_job_queue.py"]
+expect = "red"
+expect_output = ["At index 1 diff: UUID('"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''            set_={"run_after": insertion.excluded.run_after, "request_id": request_id},'''
+new = '''            set_={"run_after": insertion.excluded.run_after},'''
+
+[[mutation]]
+name = "작업을 넣어도 알리지 않는다"
+tests = ["tests/adapters/test_job_queue.py"]
+expect = "red"
+expect_output = ["Right contains one more item: 'rag_jobs'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''        await self._connection.execute(sa.select(sa.func.pg_notify(NOTIFY_CHANNEL, "")))'''
+new = '''        pass'''
+
+[[mutation]]
+name = "이긴 문서 아래로 옮기다 실패해도 처음 쓴 원본을 지우지 않는다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["ValueError: too many values to unpack (expected 1)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''        moved = await _write_under_winner(unit_of_work, blob_store, request, upload)
+    except BaseException:
+        await _remove_quietly(blob_store, upload.blob_key)
+        raise'''
+new = '''        moved = await _write_under_winner(unit_of_work, blob_store, request, upload)
+    except BaseException:
+        raise'''
+
+[[mutation]]
+name = "NUL이 든 파일 이름을 거르지 않는다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["PostgreSQL text fields cannot contain NUL"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    _ensure_filename_storable(request.filename)
+'''
+new = ''''''
+
+[[mutation]]
+name = "대기 작업 넣기의 색인 추론 술어를 바인드 파라미터로 보낸다"
+tests = ["tests/adapters/test_job_queue.py"]
+expect = "red"
+expect_output = ["InvalidColumnReference: there is no unique or exclusion constraint"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''            index_where=tables.jobs.c.status == _QUEUED,'''
+new = '''            index_where=tables.jobs.c.status == JobStatus.QUEUED.value,'''
+
+[[mutation]]
+name = "머리만 ZIP인 변조 입력의 예외를 BadZipFile로만 잡는다"
+tests = ["tests/domain/test_media_types.py"]
+expect = "red"
+expect_output = ["NotImplementedError: zip file version"]
+
+[[mutation.edit]]
+file = "src/rag_engine/domain/media_types.py"
+old = '''    except (zipfile.BadZipFile, NotImplementedError, UnicodeDecodeError):'''
+new = '''    except zipfile.BadZipFile:'''
+
+[[mutation]]
+name = "커밋이 됐는지 모르는 실패에도 새 원본을 지운다"
+tests = ["tests/app/test_ingest.py"]
+expect = "red"
+expect_output = ["ValueError: not enough values to unpack (expected 1, got 0)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''        except BaseException:
+            await _discard_unless_recorded(unit_of_work, blob_store, upload)
+            raise'''
+new = '''        except BaseException:
+            await _remove_quietly(blob_store, upload.blob_key)
+            raise'''
+
+[[mutation]]
+name = "ZIP 중앙 디렉터리의 크기 상한을 두지 않는다"
+tests = ["tests/domain/test_media_types.py"]
+expect = "red"
+expect_output = ["wordprocessingml.document' is None"]
+
+[[mutation.edit]]
+file = "src/rag_engine/domain/media_types.py"
+old = '''    return size <= _MAX_CENTRAL_DIRECTORY_BYTES'''
+new = '''    return size >= 0'''
+
+[[mutation]]
+name = "ZIP64 locator가 있어도 32비트 크기 칸만 본다"
+tests = ["tests/domain/test_media_types.py"]
+expect = "red"
+expect_output = ["wordprocessingml.document' is None"]
+
+[[mutation.edit]]
+file = "src/rag_engine/domain/media_types.py"
+old = '''    if data[max(0, start - _ZIP64_LOCATOR_SIZE) :][:4] == _ZIP64_LOCATOR_HEAD:
+        return False
+'''
+new = ''''''
