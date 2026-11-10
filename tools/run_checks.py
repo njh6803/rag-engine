@@ -39,6 +39,49 @@ pytest 작업 프로세스 여덟이 일을 받지 못한 채 약 11시간 남�
 이끌어 터미널의 Ctrl-C 를 받지 못하기 때문이다. 한 검사가 실패해도 지금은 나머지를 끝까지 기다린다.
 곧바로 멈출지는 아직 정하지 않았다(대기열 192).
 
+테스트 데이터베이스(core 01). core 부터 pytest 가 PostgreSQL(pgvector)을 쓴다. pytest 를 돌리는
+러너는 검사를 띄우기 전에 `RAG_TEST_DATABASE_URL`(없으면 `compose.test.yml` 의 기본 주소)의 서버가
+답하는지 본다. 안 보이고 그 주소가 compose 가 여는 곳(이 PC 의 55432 포트)이면
+`docker compose -f compose.test.yml up -d --wait` 로 띄우고 준비 신호를 기다린 뒤 그 주소를 자식에게
+넘긴다. 그 밖의 주소가 안 보이는 것은 compose 가 고치지 못하므로 띄우지 않고 그렇다고 알린다. 이
+준비의 결과는 `test-db` 줄로 찍고, 실패해도 나머지 검사는 돌려 한 번에 본다(이어서 pytest 는
+데이터베이스 시험에서 세션 픽스처의 같은 안내로 빨개진다). `SKIP=pytest` 면 보지 않는다.
+- 띄운 컨테이너는 내리지 않고 남긴다. 커밋마다 내리고 올리면 매번 시간이 든다(손으로 봤다: 내린 뒤
+  `prepare_test_database` 가 다시 올리는 데 5.6~6.8초, 세 번, 커밋하지 않은 스크래치 스크립트).
+  컨테이너 이름이 프로젝트 이름(`rag-engine-test`)으로 고정이라 워크트리와 세션이 서버 하나를 함께
+  쓴다. 데이터는 tmpfs 라 내리거나 Docker 를 다시 시작하면 사라진다. 내리려면
+  `docker compose -f compose.test.yml down`. 서버 하나를 여럿이 쓰므로 템플릿 데이터베이스 같은
+  이름이 있는 것은 세션마다 이름이 달라야 한다(core 03).
+- 서버가 답하는지는 TCP 연결이 아니라 PostgreSQL 의 SSL 요청(8바이트)에 한 글자로 답하는지로 본다.
+  Docker 의 포트 전달은 안쪽 서버가 준비되기 전에도 연결을 받는다.
+- 문서만 바뀐 커밋에서도 pytest 를 건너뛰지 않는다(core 01 결정). pytest 에 문서를 읽는 저장소 상태
+  시험이 있어(`tests/test_plan_status.py`, 문서 표·ADR 인용·티켓 검사의 시험) 문서만 고친 커밋이 그
+  시험을 깰 수 있고, 건너뛰는 판정이 부분 커밋의 색인(`GIT_INDEX_FILE`)과 파일 분류를 새로 따져야
+  한다. CI 는 어차피 전부 돌아 로컬에서 건너뛰면 빨강이 PR 로 늦게 올 뿐이다. 대가는 Docker 가 없고
+  닿는 PostgreSQL 도 없는 세션이 커밋을 못 한다는 것이고, next-session 결정표가 그 갈래를 적는다.
+  `SKIP=pytest` 우회는 막지 않는다. 판정은 CI 의 `verify` 가 하고, 이 우회로 난 사고를 일지와 대기열
+  항목에서 찾지 못했으며(`SKIP=pytest` 를 grep 했다) 막는 훅은 교정 루프(CLAUDE.md)의 문턱 전이다.
+- 테스트 데이터베이스 준비가 못 보는 것. (1) SSL 요청에 답한 서버가 `RAG_TEST_DATABASE_URL` 의
+  역할과 데이터베이스까지 맞는지는 모른다. 55432 포트를 다른 PostgreSQL 이 쓰고 있으면 compose 를
+  띄우지 않고, 이어서 시험이 인증 오류로 빨개질 것으로 어림한다. (2) 호스트 이름
+  풀이(`getaddrinfo`)는 소켓의 시간 제한이 막지 않는다는 것을 코드를 읽어 알 뿐 재지 않았다. 안
+  풀리는 이름은 러너를 오래 붙잡을 수 있다. (3) 기다리는 도중 Ctrl-C 가 띄우는 docker 를 끝내는지
+  는 POSIX 에서만 코드를 읽어 안다(자식이 제 세션을 이끌어 Ctrl-C 를 받지 않는다). Windows 에서는
+  재지 않았고, 같은 콘솔의 docker 가 Ctrl-C 를 받아 띄우기가 중단될 수 있다. (4) 러너 둘이 동시에
+  `up -d --wait` 를 치는 경우는 테스트로 고정하지 않았다. 리뷰 서브에이전트가 복사본 compose 로 한
+  번 본 것(둘 다 종료 0)이 전부다. (5) 서버가 답하는지만 보므로 `localhost` 와 `127.0.0.1` 은 같은
+  곳으로 본다. IPv6 만 듣는 서버는 이 판정에서 다르게 읽힐 수 있고 재지 않았다. (6) 주소의 쿼리
+  (`?host=`, `?port=`, `hostaddr`)가 접속처를 덮어쓰는 libpq 의 규칙, 쉼표로 이은 다중 호스트,
+  유닉스 소켓 주소는 읽지 않는다. `urlsplit` 을 돌려 본 결과(커밋하지 않은 스크래치 스크립트)
+  쿼리가 있어도 권한부의 호스트와 포트를 접속처로 읽고, `h1,h2:5432` 는 호스트 `h1,h2` 로 받아
+  답하지 않는 서버가 되며, 호스트마다 포트를 적은 `h1:1,h2:2` 는 포트 변환 오류라 "접속 주소 모양이
+  아니다"로 거절된다. 퍼센트 인코딩한 소켓 경로는 인코딩된 문자열 그대로 호스트가 되어 답하지 않는
+  서버가 되고, 권한부가 빈 `postgresql:///x?host=/경로` 는 호스트가 없어 거절된다. (7) 프로젝트
+  이름이 고정이라 `compose.test.yml` 을 바꾼 브랜치(이미지 판, command, 환경)가 `up -d --wait` 를
+  치면 compose 가 컨테이너를 다시 만들어, 다른 워크트리에서 돌던 시험의 연결과 tmpfs 의 데이터가
+  사라질 수 있다. 재지 않았다. (1)(2)(3)(4)(6)(7)은 테스트로 고정하지 않았다. 55432 를 차지하는 가짜
+  서버나 Docker 의 재생성을 시험에서 다루려면 이 PC 의 실제 서버와 부딪히거나 Docker 가 필요하다.
+
 못 보는 것: 제한 안에서 멈춘 검사는 제한까지 러너를 붙잡는다. 시간 제한과 Ctrl-C 의 테스트가
 윈도우의 `taskkill /T` 길은 이 PC 에서 재고, POSIX 의 프로세스 그룹 길은 CI 의 Linux 에서 잰다.
 그룹을 떠난 손자(제 세션을 새로 연 것)는 POSIX 에서 끝내지 못한다. CPU 가
@@ -56,15 +99,17 @@ import contextlib
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 _NAME_WIDTH = 40
@@ -72,6 +117,17 @@ _NAME_WIDTH = 40
 CHECK_TIMEOUT_SECONDS = 4200
 _KILL_SECONDS = 30  # 윈도우의 `taskkill` 을 기다리는 시간
 _DRAIN_SECONDS = 10  # 끝낸 뒤 남은 출력을 기다리는 시간
+
+TEST_DATABASE_ENV = "RAG_TEST_DATABASE_URL"
+# compose.test.yml 이 띄우는 서버의 주소. 파일과 맞는지는 tests/tools/test_run_checks_database.py 가
+# 본다
+TEST_DATABASE_URL = "postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test"
+COMPOSE_FILE = "compose.test.yml"
+# 첫 실행은 이미지를 받는다(설계 일지는 164MB 로 어림했다)
+_COMPOSE_UP_SECONDS = 600
+_PROBE_SECONDS = 2.0
+# PostgreSQL 의 SSLRequest: 길이 8, 요청 코드 80877103. 서버는 `S` 나 `N` 한 글자로 답한다
+_SSL_REQUEST = bytes.fromhex("0000000804d2162f")
 
 
 @dataclass(frozen=True)
@@ -299,8 +355,149 @@ def run(checks: Sequence[Check], environ: Mapping[str, str], cwd: Path, out: Bin
     return 1 if failed else 0
 
 
+class DatabaseNotReady(Exception):
+    """테스트 서버를 준비하지 못했다. 메시지는 사용자에게 그대로 보이는 한 줄이다."""
+
+
+def server_answers(host: str, port: int) -> bool:
+    """host:port 의 서버가 PostgreSQL 프로토콜로 답하는지. 연결만 되는 것은 답이 아니다(Docker 의
+    포트 전달은 안쪽 서버가 없어도 연결을 받고 끊는다)."""
+    try:
+        with socket.create_connection((host, port), timeout=_PROBE_SECONDS) as connection:
+            connection.sendall(_SSL_REQUEST)
+            return connection.recv(1) in (b"S", b"N")
+    except (OSError, UnicodeError):
+        # 빈 레이블이나 64자를 넘는 레이블이 든 호스트 이름은 IDNA 인코딩이 OSError 가 아닌
+        # UnicodeError 로 거절한다.
+        return False
+
+
+def _address(url: str) -> tuple[str, int] | None:
+    """접속 주소의 호스트와 포트. 모양이 맞지 않으면 None. 비밀번호가 들 수 있어 호출하는 쪽은 주소
+    원문을 메시지에 싣지 않는다(원칙 V)."""
+    try:
+        parts = urlsplit(url)
+        port = 5432 if parts.port is None else parts.port
+    except ValueError:
+        return None
+    if parts.scheme not in ("postgresql", "postgres") or not parts.hostname:
+        return None
+    return parts.hostname, port
+
+
+def _opens_compose_server(host: str, port: int) -> bool:
+    """compose 가 여는 서버(이 PC 의 55432 포트)를 가리키는 주소인지. 끝 슬래시, `localhost`,
+    데이터베이스 이름은 달라도 같은 서버다."""
+    compose = _address(TEST_DATABASE_URL)
+    return compose is not None and port == compose[1] and host in ("127.0.0.1", "localhost")
+
+
+def _how_to_start() -> str:
+    return (
+        "테스트 PostgreSQL 은 검사 러너(uv run python tools/run_checks.py)가 띄우거나"
+        f" `docker compose -f {COMPOSE_FILE} up -d --wait` 로 띄우고,"
+        f" {TEST_DATABASE_ENV} 는 {TEST_DATABASE_URL} 로 둔다"
+    )
+
+
+def _bad_url_message() -> str:
+    return (
+        f"{TEST_DATABASE_ENV} 가 postgresql:// 로 시작하고 호스트가 든 접속 주소가 아니다"
+        " (값에 비밀번호가 들 수 있어 적지 않는다)"
+    )
+
+
+def _not_answering(host: str, port: int) -> str:
+    return f"{TEST_DATABASE_ENV} 가 가리키는 {host}:{port} 가 답하지 않는다."
+
+
+def database_problem(environ: Mapping[str, str]) -> str | None:
+    """데이터베이스를 쓰는 시험이 시작해도 되는지. 안 되면 띄우는 길을 알리는 한 줄을 돌려준다.
+
+    세션 픽스처 `database_url`(tests/conftest.py)이 첫 데이터베이스 시험 전에 부른다. 시험이 skip 이
+    아니라 실패하게 하는 판정이다(원칙 I). 띄우지는 않는다. 손으로 친 pytest 에서 서버를 준비하는
+    것은 개발자의 몫이다.
+    """
+    url = environ.get(TEST_DATABASE_ENV)
+    if not url:
+        return f"{TEST_DATABASE_ENV} 가 없다. {_how_to_start()}"
+    address = _address(url)
+    if address is None:
+        return _bad_url_message()
+    if server_answers(*address):
+        return None
+    return f"{_not_answering(*address)} {_how_to_start()}"
+
+
+def compose_up(cwd: Path = ROOT) -> None:
+    """`compose.test.yml` 을 띄우고 준비 신호까지 기다린다. 못 하면 이유 한 줄로 `DatabaseNotReady`.
+
+    띄우는 명령은 검사와 같은 `run_one` 이 돌려, 시간 제한을 넘기면 프로세스 트리를 끝내고 출력
+    파이프를 붙잡고 기다리지 않는다(docker 는 compose 플러그인을 자식으로 띄운다).
+    """
+    if shutil.which("docker") is None:
+        raise DatabaseNotReady("docker 명령을 찾지 못했다. Docker 를 설치하고 켠 뒤 다시 친다")
+    command = ("docker", "compose", "-f", COMPOSE_FILE, "up", "-d", "--wait")
+    outcome = run_one(Check("test-db-up", command, timeout=_COMPOSE_UP_SECONDS), cwd)
+    if outcome.passed:
+        return
+    lines = [line.strip() for line in outcome.output.decode(errors="replace").splitlines()]
+    last = next((line for line in reversed(lines) if line), "(출력 없음)")
+    raise DatabaseNotReady(
+        f"`docker compose -f {COMPOSE_FILE} up -d --wait` 가 실패했다. Docker 가 켜져 있는지,"
+        f" 포트를 다른 것이 쓰지 않는지 본다: {last}"
+    )
+
+
+def prepare_test_database(
+    environ: Mapping[str, str],
+    start_server: Callable[[], None] = compose_up,
+    is_up: Callable[[str, int], bool] = server_answers,
+) -> str:
+    """pytest 를 돌리기 전에 테스트 서버가 답하게 하고, 시험이 쓸 접속 주소를 돌려준다. 못 하면 이유
+    한 줄로 `DatabaseNotReady`(core 01, 모듈 독스트링의 테스트 데이터베이스 절).
+
+    주소는 environ 의 값이고 없으면 compose 의 기본 주소다. 서버가 답하면 그대로 쓴다. 안 답하는데
+    compose 가 여는 곳이면 띄운다. 그 밖의 주소는 띄우지 않는다. 남의 서버를 compose 가 대신하지
+    못한다.
+    """
+    url = environ.get(TEST_DATABASE_ENV) or TEST_DATABASE_URL
+    address = _address(url)
+    if address is None:
+        raise DatabaseNotReady(_bad_url_message())
+    if is_up(*address):
+        return url
+    if not _opens_compose_server(*address):
+        raise DatabaseNotReady(
+            f"{_not_answering(*address)} 그 서버를 켜거나, 값을 지우면"
+            f" 러너가 {COMPOSE_FILE} 로 띄운다"
+        )
+    start_server()
+    if not is_up(*address):
+        raise DatabaseNotReady(
+            f"{COMPOSE_FILE} 를 띄웠는데도 {address[0]}:{address[1]} 가 답하지 않는다."
+            f" `docker compose -f {COMPOSE_FILE} logs` 를 본다"
+        )
+    return url
+
+
 def main() -> int:
-    return run(CHECKS, os.environ, ROOT, sys.stdout.buffer)
+    out = sys.stdout.buffer
+    prepared = True
+    if "pytest" not in skipped_ids(os.environ):
+        start = time.monotonic()
+        problem = ""
+        try:
+            os.environ[TEST_DATABASE_ENV] = prepare_test_database(os.environ)
+        except DatabaseNotReady as error:
+            prepared = False
+            problem = f"{error}\n"
+        status = "Passed" if prepared else "Failed"
+        out.write(status_line("test-db", f"{status} ({time.monotonic() - start:.1f}s)"))
+        out.write(problem.encode())
+        out.flush()
+    code = run(CHECKS, os.environ, ROOT, out)
+    return code if prepared else 1
 
 
 if __name__ == "__main__":

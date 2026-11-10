@@ -34,6 +34,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from tools.run_checks import TEST_DATABASE_ENV, database_problem
 
 from tools import run_hooks
 
@@ -69,6 +70,19 @@ def pytest_make_parametrize_id(config: pytest.Config, val: object, argname: str)
     return "".join(
         ch if ch.isprintable() else ch.encode("unicode_escape").decode("ascii") for ch in text
     )
+
+
+@pytest.fixture(scope="session")
+def database_url() -> str:
+    """테스트 PostgreSQL 의 접속 주소(`RAG_TEST_DATABASE_URL`). 데이터베이스를 쓰는 시험이 받는다.
+
+    값이 없거나 서버가 답하지 않으면 skip 이 아니라 실패하고, 메시지가 띄우는 길을 알린다(원칙 I).
+    세션에서 한 번 판정하고 그 시험들이 모두 같은 이유로 빨개진다.
+    """
+    problem = database_problem(os.environ)
+    if problem is not None:
+        pytest.fail(problem, pytrace=False)
+    return os.environ[TEST_DATABASE_ENV]
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:

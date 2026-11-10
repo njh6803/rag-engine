@@ -29,6 +29,23 @@ jobs:
     timeout-minutes: 15
     env:
       PYTHONUTF8: "1"
+      RAG_TEST_DATABASE_URL: postgresql://rag_test:rag_test@127.0.0.1:5432/rag_test
+    # 테스트 PostgreSQL. 로컬의 compose.test.yml 과 같은 이미지·역할이다(맞는지는 tests/tools/test_run_checks_database.py
+    # 가 글자로 본다). 준비 신호를 기다린 뒤에 단계가 시작한다.
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18-trixie
+        env:
+          POSTGRES_USER: rag_test
+          POSTGRES_PASSWORD: rag_test
+          POSTGRES_DB: rag_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U rag_test -d rag_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
     steps:
       - uses: actions/checkout@v4
         with:

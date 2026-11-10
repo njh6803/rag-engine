@@ -8,7 +8,7 @@
 | 패키지 관리 | uv, 단일 패키지, src 레이아웃(`src/rag_engine/`) |
 | 린트·포맷 | ruff |
 | 타입 | pyright strict. 우회의 판정은 원칙 II |
-| 테스트 | pytest. HTTP 표면은 `httpx`로 민다. 검색 도구의 형식은 공식 MCP SDK의 클라이언트로 HTTP 접속하는 계약 시험이 본다(원칙 VII). 테스트용 PostgreSQL은 Docker로 통일한다. CI는 `pgvector/pgvector:0.8.7-pg18-trixie` service container(운영과 같은 판, ADR 0006), 로컬은 `compose.test.yml`의 같은 이미지이고, 테스트는 `RAG_TEST_DATABASE_URL`이 가리키는 데이터베이스를 쓰며 없으면 skip이 아니라 실패한다(원칙 I). 검사 러너(`tools/run_checks.py`)가 데이터베이스가 안 보이면 compose를 띄우는 변경은 하네스 티켓이 core의 첫 구현 티켓 전에 한다 |
+| 테스트 | pytest. HTTP 표면은 `httpx`로 민다. 검색 도구의 형식은 공식 MCP SDK의 클라이언트로 HTTP 접속하는 계약 시험이 본다(원칙 VII). 테스트용 PostgreSQL은 Docker로 통일한다. CI는 `pgvector/pgvector:0.8.7-pg18-trixie` service container(운영과 같은 판, ADR 0006), 로컬은 `compose.test.yml`의 같은 이미지이고, 테스트는 `RAG_TEST_DATABASE_URL`이 가리키는 데이터베이스를 쓰며 없으면 skip이 아니라 실패한다(원칙 I). 검사 러너(`tools/run_checks.py`)는 pytest를 돌리기 전에 서버가 안 보이면 `compose.test.yml`을 띄우고 준비를 기다리며, 띄운 컨테이너는 내리지 않고 남긴다. 손으로 치는 `uv run pytest`는 띄우지 않는다 |
 | HTTP와 MCP | FastAPI와 uvicorn. REST(관리 API, 수집 API)와 MCP를 한 프로세스의 한 앱이 연다. MCP는 공식 SDK `mcp`(major 2로 묶는다)의 Streamable HTTP 앱을 `/mcp`에 붙인다. ADR 0005. 전송은 설정 `RAG_MCP_STATELESS`(기본 true)와 `RAG_MCP_JSON_RESPONSE`(기본 false)로 고르고 기본은 세션 없음 + SSE 응답이다. 허용 호스트 설정은 필수다(ADR 0014). 파일 업로드는 `python-multipart` |
 | 데이터베이스 | PostgreSQL 18. compose가 동봉한 것 하나만 지원하고(ADR 0002 이력 2026-11-09) 연결 문자열 하나만 받는다. 접근은 SQLAlchemy 2.1 Core 비동기(psycopg 3, greenlet), 마이그레이션은 alembic이고 `rag-engine migrate`가 돌린다. ADR 0011 |
 | 벡터 저장소 | pgvector 0.8.x(자기 PostgreSQL)와 PostgreSQL 전문 검색. 한국어 형태소 분석은 앱의 kiwipiepy(Apache-2.0, 우리 스텁)가 하고 `to_tsvector('simple', …)`에 넣는다. 벡터와 키워드는 한 SQL에서 RRF로 합친다. ADR 0006 |

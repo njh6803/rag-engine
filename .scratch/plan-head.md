@@ -10,7 +10,7 @@ core 다음은 release-image와 search-eval이다. 판을 고정한 이미지가
 
 이정표는 `docs/PRD.md`의 성공의 정의가 원천이다. 공개 시연(2027-01 초)은 core, search-eval, release-image, 0.1(2027-03 초 무렵)은 슬라이스 2까지, 1.0(2027년 상반기, 어림)은 슬라이스 3까지다.
 
-core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌고 없으면 실패하므로(`docs/constitution/tech.md` 테스트 칸), 검사 러너가 테스트 DB를 띄우는 변경은 core의 첫 티켓(core 01)이고 나머지 core 티켓은 그 티켓 뒤에 선다(설계 일지는 하네스 티켓으로 적었지만 2026-11-10 티켓 세션에서 사용자가 core 01로 골랐다. core 명세 Further Notes). 러너가 pytest를 always_run으로 돌리므로 그 변경 뒤에는 문서 PR과 하네스 chore를 포함한 모든 커밋에 Docker가 필요하고, Docker가 없는 클라우드 세션은 커밋할 수 없다. 이 분기는 next-session 결정표에 없으므로 지시문의 '어디서' 본문에 적고, 결정표에 더하는 일은 core 01이 함께 한다.
+core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌고 없으면 실패하므로(`docs/constitution/tech.md` 테스트 칸), 검사 러너가 테스트 DB를 띄우는 변경은 core의 첫 티켓(core 01)이고 나머지 core 티켓은 그 티켓 뒤에 선다(설계 일지는 하네스 티켓으로 적었지만 2026-11-10 티켓 세션에서 사용자가 core 01로 골랐다. core 명세 Further Notes). 러너가 pytest를 always_run으로 돌리므로 그 변경 뒤에는 문서 PR과 하네스 chore를 포함한 모든 커밋에 테스트 PostgreSQL이 필요하다. 러너가 Docker로 띄우거나 `RAG_TEST_DATABASE_URL`이 이미 닿는 서버를 가리켜야 하므로, 둘 다 없는 클라우드 세션은 커밋할 수 없다. 이 분기는 core 01이 next-session 결정표 아래의 Docker 갈래로 더했다.
 
 ## 목표 배치
 

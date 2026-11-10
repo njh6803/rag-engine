@@ -16,7 +16,21 @@ uv run pre-commit install
 uv run rag-engine serve          # http://127.0.0.1:8000/health, MCP 는 http://127.0.0.1:8000/mcp
 ```
 
-검증 명령은 `CLAUDE.md`의 검증 명령 칸이 원천이다.
+검증 명령은 `CLAUDE.md`의 검증 명령 칸이 원천이다. 테스트는 Docker로 띄운 PostgreSQL(`compose.test.yml`)이 필요하다. 커밋 훅의 검사 러너(`uv run python tools/run_checks.py`)가 없으면 띄우고, 손으로 `uv run pytest`를 칠 때는 먼저 띄운다.
+
+```bash
+docker compose -f compose.test.yml up -d --wait
+```
+
+```bash
+RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test uv run pytest
+```
+
+PowerShell에서는 이렇게 친다.
+
+```powershell
+$env:RAG_TEST_DATABASE_URL = "postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test"; uv run pytest
+```
 
 컨테이너 이미지:
 
@@ -34,6 +48,7 @@ src/rag_engine/
 tests/
   contract/    MCP 계약 시험. 공식 SDK 클라이언트로 HTTP 접속해 도구 목록을 본다
   tools/       하네스 도구의 시험
+compose.test.yml  테스트용 PostgreSQL(pgvector, 운영과 같은 이미지 판). 검사 러너가 없으면 띄운다
 tools/         훅, 검사, 검사 러너. 규약은 .claude/rules/tools.md
 docs/          헌법, ADR, PRD, 에이전트 문서, 일지
 .scratch/      로컬 마크다운 이슈 트래커(기능 계획, 티켓, 회고 대기열)
