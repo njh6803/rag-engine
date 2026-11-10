@@ -6,6 +6,8 @@
 
 **Status:** ready-for-agent
 
+**06이 넘긴 것:** 키워드는 조각 글이 아니라 `index_text`(절 경로 줄, 빈 줄, 조각 글)로 만든다. 저장하는 `chunks`에는 조각 글과 온전한 `location.section`만 있고, `index_text`에 든 절 경로는 상한의 4분의 1 안으로 줄인 것이라 `compose_index_text(location.section, text)`로는 같은 글이 나오지 않을 수 있다. 토크나이저 판만 다른 `building` 판이 복사한 조각의 키워드를 다시 만들려면 색인 때의 글이 같아야 하므로, 07이 `index_text`를 어떻게 남기는지(칸으로 저장하거나 줄이는 규칙을 한 함수로 되풀이하는 길)를 이 티켓이 07의 결정과 맞춘다.
+
 - [ ] 관리 API `GET /api/v1/admin/knowledge-bases`(이름, 설명, 문서 수, 현재 색인 판 요약, `reindex_needed`, 건설 중인 판의 진행), `GET /api/v1/admin/knowledge-bases/{name}`(위에 색인 판 목록과 설정). `reindex_needed`는 03의 판 요소 함수로 현재 판과 견주고, 진행은 색인 상태 표로 센다.
 - [ ] 재색인 시작 `POST /api/v1/admin/knowledge-bases/{name}/reindex`(명세 "수집 파이프라인과 작업" 절): 먼저 트랜잭션 밖에서 물러난 판의 남은 정리를 하고, 작업 단위에서 지식베이스 행을 `FOR UPDATE`로 잠근 뒤, `building` 판이 있으면 409 `reindex_in_progress`, 없으면 현재 설정을 적은 새 판을 `building`으로 만들고 문서마다 `pending`과 작업을 넣은 뒤(잠근 대기 작업이 있으면 건너뛴다) 그 판의 HNSW 부분 색인을 만든다. 문서가 없으면 색인을 만든 뒤 같은 작업 단위에서 전환한다. 응답은 202에 새 판 ID와 넣은 작업 수다.
 - [ ] 전환 검사와 판 전환: 07·08·10·11·12가 둔 자리를 채운다. 지식베이스 행을 `FOR UPDATE`로 잠근 채 그 판의 색인 상태가 모두 `indexed`나 `failed`면 같은 작업 단위에서 현재 판 참조를 바꾸고 새 판 `current`, 옛 판 `retired`.

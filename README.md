@@ -52,15 +52,17 @@ src/rag_engine/
                MCP 출력 모델(tool_models.py), 수집 API 모델(ingest_models.py), Problem Details(problems.py, problem_response.py),
                요청 문맥 미들웨어(request_context.py: 요청 ID, 로그), 인증 미들웨어(auth.py), 토큰 관리 API(token_api.py)
   worker/      작업자 조립(슬라이스 1이 채운다)
-  adapters/    포트의 구현. settings.py(설정 객체), log_format.py(JSON Lines·text 로그 포매터), index_elements.py(색인 판 요소), postgres/ 에 표 정의(tables.py), alembic 첫 판(migrations/), 작업 단위와 Catalog·VectorIndex·TokenStore 어댑터, migrate 와 bootstrap-token 의 조립(bootstrap.py)
+  adapters/    포트의 구현. settings.py(설정 객체), log_format.py(JSON Lines·text 로그 포매터), index_elements.py(색인 판 요소), tei.py(임베딩 서버 어댑터), kiwi.py(키워드 토큰과 문장 분리), chunking.py(구조 우선 청킹), utf8_offsets.py(바이트 오프셋 변환), postgres/ 에 표 정의(tables.py), alembic 첫 판(migrations/), 작업 단위와 Catalog·VectorIndex·TokenStore 어댑터, migrate 와 bootstrap-token 의 조립(bootstrap.py)
   app/         유스케이스. default_records.py(migrate 의 기본 레코드 보장), tokens.py(토큰 발급·인증·폐기)
-  domain/      엔티티, 포트 Protocol, 예외와 오류 코드, 파서 인터페이스. 서드파티는 uuid6만 쓴다(금지 목록은 pyproject.toml의 import-linter 계약)
+  domain/      엔티티, 포트 Protocol, 예외와 오류 코드, 파서 인터페이스, 색인에 넣는 글을 짓는 함수(index_text.py). 서드파티는 uuid6만 쓴다(금지 목록은 pyproject.toml의 import-linter 계약)
+typings/       서드파티 타입 스텁. kiwipiepy에 py.typed가 없어 쓰는 면만 적었다(ADR 0006)
 tests/
   contract/    MCP 계약 시험. 공식 SDK 클라이언트로 HTTP 접속해 도구 목록을 본다
   domain/      도메인 값 객체, 오류 코드, 파서 인터페이스의 시험
   server/      출력 모델, Problem Details, 인증, 토큰 관리 API, 요청 ID와 로그, MCP 전송 설정의 시험. 실제 uvicorn 서버에 HTTP로 접속한다
-  adapters/    설정, 색인 판 요소, 작업 단위와 Catalog·VectorIndex 어댑터, alembic 첫 판이 만드는 색인 형식의 시험. 테스트 PostgreSQL이 필요하다
+  adapters/    설정, 색인 판 요소, 작업 단위와 Catalog·VectorIndex 어댑터, alembic 첫 판이 만드는 색인 형식, TEI 어댑터, Kiwi 키워드, 구조 우선 청킹, 오프셋 변환의 시험. 일부는 테스트 PostgreSQL이 필요하다
   app/         유스케이스(토큰 발급·인증·폐기)의 시험. 테스트 PostgreSQL이 필요하다
+  support/     시험이 끼우는 부품. TEI 스텁 서버(tei_stub.py)와 글자 수로 세는 가짜 토큰 세기(token_meters.py)
   conftest.py  테스트 PostgreSQL의 템플릿 데이터베이스(기본 레코드가 든 복제본 `seeded_database_url`), 설정 객체 공장 `make_settings`,
                실제 uvicorn 서버를 띄우는 `run_server`와 `server`, 서버 로그를 읽는 `log_capture`
   harness.py   시험이 함께 쓰는 값 객체(`RunningServer`, `LogCapture`)와 보조 함수. 시험은 `conftest`를 직접 import하지 않고 여기서 가져온다

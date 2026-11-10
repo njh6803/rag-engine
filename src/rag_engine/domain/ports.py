@@ -9,7 +9,7 @@
 `Transform`의 Protocol은 처음 쓰는 source-sync가 만든다(명세 Further Notes).
 """
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Callable, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
@@ -36,14 +36,13 @@ from rag_engine.domain.entities import (
 )
 from rag_engine.domain.errors import ErrorCode
 
-# 글 여럿의 토큰 수를 센다. 청킹은 상한 안인지 가리는 데만 쓴다. 시험에서는 글자 수로 세는 가짜를
-# 끼운다.
-type TokenCounter = Callable[[Sequence[str]], Awaitable[list[int]]]
-
-
 # 지식베이스의 임베딩 모델, 차원, 청킹 설정에서 색인 판의 요소 넷을 계산한다. 청킹 해시와 토크나이저
 # 판이 문장 분리기와 키워드 토크나이저의 판을 읽으므로 구현은 `adapters`에 있다.
 type ComputeIndexElements = Callable[[str, int, ChunkingConfig], IndexElements]
+
+# 글에서 키워드 토큰을 뽑는다(명세 "키워드 토큰"). 조각과 질의가 같은 함수를 지나야 같은 토큰을
+# 낸다. 형태소 분석기는 `adapters`에 있어 `app`은 이 모양으로만 부른다.
+type KeywordTokenizer = Callable[[str], list[str]]
 
 
 class LockMode(StrEnum):
@@ -54,26 +53,35 @@ class LockMode(StrEnum):
     UPDATE = "update"
 
 
-class Chunker(Protocol):
-    """청킹 전략. 교체 경계가 아니라 층을 위한 포트다. 결정적이라 시험은 실제 전략으로 한다."""
+class TokenMeter(Protocol):
+    """모델이 글을 읽는 토큰을 세는 자. 청킹은 상한 안인지 가리는 데만 쓴다. `Embedder`가 이 모양을
+    채우고, 청킹 시험에서는 글자 수로 세는 가짜를 끼운다."""
 
-    async def chunk(
-        self, blocks: Sequence[Block], config: ChunkingConfig, count_tokens: TokenCounter
-    ) -> list[ChunkDraft]: ...
+    async def count_tokens(self, texts: Sequence[str]) -> list[int]:
+        """글마다 토큰 수를 입력 순서대로 낸다(특수 토큰은 뺀다)."""
+        ...
 
-
-class Embedder(Protocol):
-    """임베딩 서버의 경계. 끝점 하나, 모델 하나다. 토큰 세기는 이 포트에 맡긴다."""
-
-    async def embed(self, texts: Sequence[str]) -> list[tuple[float, ...]]: ...
-
-    async def count_tokens(self, texts: Sequence[str]) -> list[int]: ...
-
-    async def special_token_count(self) -> int: ...
+    async def special_token_count(self) -> int:
+        """글 하나를 임베딩할 때 모델이 앞뒤에 붙이는 특수 토큰의 수."""
+        ...
 
     async def token_spans(self, text: str) -> list[tuple[int, int]]:
         """글의 토큰마다 글자 인덱스의 [처음, 끝) 구간을 낸다(특수 토큰은 뺀다)."""
         ...
+
+
+class Chunker(Protocol):
+    """청킹 전략. 교체 경계가 아니라 층을 위한 포트다. 결정적이라 시험은 실제 전략으로 한다."""
+
+    async def chunk(
+        self, blocks: Sequence[Block], config: ChunkingConfig, tokens: TokenMeter
+    ) -> list[ChunkDraft]: ...
+
+
+class Embedder(TokenMeter, Protocol):
+    """임베딩 서버의 경계. 끝점 하나, 모델 하나다. 토큰 세기는 이 포트에 맡긴다."""
+
+    async def embed(self, texts: Sequence[str]) -> list[tuple[float, ...]]: ...
 
 
 class Reranker(Protocol):
