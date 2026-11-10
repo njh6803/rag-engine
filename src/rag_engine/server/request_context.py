@@ -80,7 +80,8 @@ class RequestContextMiddleware:
                 duration_ms=(time.perf_counter() - started) * 1000,
                 method=scope["method"],
                 path=self._path_template(scope),
-                status=outcome.status,
+                # 응답을 시작하기 전에 취소되면(클라이언트가 끊음) 상태가 없어 null이다.
+                status=outcome.status or None,
             )
             request_id_var.reset(reset)
 
@@ -100,14 +101,16 @@ class RequestContextMiddleware:
         except Exception as error:
             # 서드파티 예외의 메시지에는 입력 값이 실릴 수 있어 로그 포매터가 타입과 프레임만
             # 싣는다.
-            outcome.status = 500
+            # 응답을 이미 시작했으면(스트리밍 도중) 클라이언트가 본 상태를 그대로 둔다.
+            if not outcome.response_started:
+                outcome.status = 500
             log_event(
                 logger,
                 "request_failed",
                 level=logging.ERROR,
                 request_id=request_id,
                 exception=error,
-                status=500,
+                status=outcome.status,
             )
             if not outcome.response_started:
                 response = problem_response(ErrorCode.INTERNAL_ERROR, request_id)

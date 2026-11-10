@@ -138,3 +138,17 @@ old = '''            await receive()
 '''
 new = '''            await self.app(scope, receive, send)
 '''
+
+[[mutation]]
+name = "응답을 시작한 뒤의 실패가 상태를 500으로 덮는다"
+tests = ["tests/server/test_request_context.py", "-k", "시작한_뒤"]
+expect = "red"
+expect_output = ["500 == 200"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/request_context.py"
+old = '''            if not outcome.response_started:
+                outcome.status = 500
+'''
+new = '''            outcome.status = 500
+'''
