@@ -21,6 +21,7 @@ from pydantic import (
 )
 
 _METADATA: Final = TypeAdapter(dict[str, JsonValue])
+_NUL: Final = "\x00"
 
 
 def _is_finite(value: JsonValue) -> bool:
@@ -32,6 +33,17 @@ def _is_finite(value: JsonValue) -> bool:
     if isinstance(value, dict):
         return all(_is_finite(item) for item in value.values())
     return True
+
+
+def _has_nul(value: JsonValue) -> bool:
+    """PostgreSQL의 글 칸과 jsonb는 NUL 문자를 받지 않는다. 값과 객체의 키를 모두 본다."""
+    if isinstance(value, str):
+        return _NUL in value
+    if isinstance(value, list):
+        return any(_has_nul(item) for item in value)
+    if isinstance(value, dict):
+        return any(_NUL in key or _has_nul(item) for key, item in value.items())
+    return False
 
 
 class IngestAction(StrEnum):
@@ -64,12 +76,25 @@ class IngestFields(BaseModel):
         if not isinstance(value, str):
             return value
         try:
-            parsed = _METADATA.validate_json(value)
+            return _METADATA.validate_json(value)
         except ValidationError as error:
             raise ValueError("metadata는 JSON 객체 문자열이어야 한다") from error
-        if not _is_finite(parsed):
+
+    @field_validator("metadata")
+    @classmethod
+    def _metadata_is_storable(cls, value: dict[str, JsonValue]) -> dict[str, JsonValue]:
+        if not _is_finite(value):
             raise ValueError("metadata는 NaN이나 무한대를 담을 수 없다")
-        return parsed
+        if _has_nul(value):
+            raise ValueError("metadata는 NUL 문자(\\u0000)를 담을 수 없다")
+        return value
+
+    @field_validator("key", "group")
+    @classmethod
+    def _text_has_no_nul(cls, value: str | None) -> str | None:
+        if value is not None and _NUL in value:
+            raise ValueError("NUL 문자(\\u0000)를 담을 수 없다")
+        return value
 
 
 class IngestResponse(BaseModel):

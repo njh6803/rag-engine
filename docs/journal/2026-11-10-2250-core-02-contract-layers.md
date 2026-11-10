@@ -75,4 +75,41 @@ ADR 0007 Consequences의 두 문장("`CLAUDE.md`는 … core의 첫 티켓이 �
 - **ADR 0007 본문 8행** "계약을 … 고치는 일은 core의 첫 구현 티켓이 패키지를 만들 때 하고, 그때까지 계약은 킥오프의 둘 그대로다"에는 포인터를 달지 않았다. 사용자가 승인한 것은 Consequences 두 문장이고, 이 문장은 core 02로 이루어진 계획이라 글자 그대로 거짓이 되지는 않는다(확신 낮음). 사용자가 달라고 하면 이력 제목 그대로 단다.
 - 냄새 판단 항목: `ErrorCode` 가드 여섯 곳의 되풀이(`ClassVar`로 모을 수 있다), `KnowledgeBase`·`IndexVersion`의 임베딩 세 칸과 `Document`·`Chunk`의 복사 칸. 이 크기에서는 값이 작고, 03 이후 쓰임이 드러난 뒤에 묶는 편이 낫다. `server/app.py`와 층 이름 `rag_engine.app`의 겹침은 층 이름이 명세·ADR이 정한 것이라 두었다.
 
-다시 돌린 명령: `ruff format`, `ruff check .`, `pyright src tests`(0 오류), `lint-imports`(2 kept), `pytest tests/server tests/domain tests/adapters tests/contract`(96건 통과). 전체 `run_checks`는 커밋 훅이 다시 돈다.
+다시 돌린 명령: `ruff format`, `ruff check .`, `pyright src tests`(0 오류), `lint-imports`(2 kept), `pytest tests/server tests/domain tests/adapters tests/contract`(96건 통과). 첫 커밋(c09a053)의 훅이 `run_checks` 전부를 다시 돌려 초록이었다.
+
+## PR 직전 리뷰
+
+CodeRabbit CLI(`coderabbit-review`)가 이번에는 끝까지 돌았다(0.7.5, `--base origin/main`, 41개 파일, 종료 코드 0, `Seat: not assigned` 무료판이어도 완주). 그래서 `bug-perf-review`와 `/security-review`로 대신하지 않았다. 지적은 Minor 하나였고 Critical·Major는 없다.
+
+- 고친 것: `IngestFields`가 `metadata`의 문자열 값과 객체 키, `key`, `group`의 NUL(`\u0000`)을 받아 PostgreSQL 단계에서 500이 될 수 있었다(서브에이전트가 직접 재현). 값과 키를 재귀로 거절하고 `key`·`group`에도 검증을 걸었다. 같은 리뷰가 보류로 낸 "NaN 거절이 문자열 입력에만 돈다"도 같은 자리라 `before` 검증(JSON 풀이)과 사후 검증(NaN, NUL)으로 나눠 객체 입력도 거절한다. 변이 셋(NaN, NUL, key·group)이 빨개졌다. 변이 표는 열넷이다.
+- 남긴 것: `format_version`의 값 검증(빈 문자열이나 semver가 아닌 값)은 두지 않았다. 값이 `FORMAT_VERSION`인지는 도구를 구현하는 티켓의 계약 시험이 보고 모듈 독스트링에 적었다.
+
+## 검증
+
+- 첫 커밋(c09a053): 커밋 훅이 `run_checks`의 모든 검사(test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright, pyright-linux, run-hooks, pytest)를 돌려 초록이었다.
+- 리뷰 반영 뒤 `ruff format`, `ruff check .`, `pyright src tests`(0 오류), `pytest tests/server`(51건 통과)를 다시 돌렸다. 둘째 커밋의 훅 결과는 커밋 뒤 PR 본문에 적는다. CI의 결과는 PR의 검사 목록이 원천이다.
+
+## 남긴 것
+
+- 포트 열셋 가운데 Connector와 Transform은 source-sync가 만든다(위 코드 리뷰).
+- ADR 0007 본문 8행의 "그때까지 계약은 킥오프의 둘 그대로다"에 포인터를 달지는 사용자가 판단한다.
+- `ErrorCode` 가드 여섯 곳의 되풀이, `KnowledgeBase`·`IndexVersion`의 임베딩 세 칸 묶기는 03 이후 쓰임이 드러난 뒤에 한다.
+- `compare_metadata`가 타입·서버 기본값·CHECK를 보지 않는다(`compare_type=False`). 마이그레이션을 고치는 티켓이 `tables.py`도 손으로 맞춘다.
+
+## 회고
+
+후보 다섯을 냈다. 승인 하나(회차 더하기, 이 세션에서 반영하는 것은 없다), 기각 넷, 넘김 없음이다. 사용자에게 묻는 것은 없다. 만료할 항목은 없었다(`queue_open_rows.py`, 열린 항목 19개). 회차 5 이상은 `spec-review-transition-crossing`(8회차)과 `gate-pipe-read-status`(5회차)이고 둘 다 이 세션의 일이 아니다.
+
+승인:
+- **옛 표현 잔존을 grep한 범위가 이 변경이 닿는 곳보다 좁았다.** 사건: `server.py`가 `server/`가 되었는데 잔존 grep을 `docs/`, `.claude/`, `tools/`에만 해 `.github/PULL_REQUEST_TEMPLATE.md:33`이 남았고 명세 축 리뷰가 잡았다. `CLAUDE.md` 작업 규약 4를 어긴 사건이라 회차로 센다. 간 자리: 대기열 `decision-word-residue`에 2회차를 더했다(앞 사건은 grep의 대상 말이 모자랐고 이번은 대상 폴더가 모자랐다). 더하는 것이라 문턱(다섯 번째)을 지나지 않아 반영하지 않는다.
+
+기각:
+- 변이 표지(`expect_output`)가 시험 원문에 글자 그대로 있다는 `mutate.py`의 거부, 훅이 heredoc 44줄과 `.env`에 닿는 Grep glob을 막은 것: 도구와 훅이 그 자리에서 막았고 고쳐 다시 했다.
+- 편집 도중의 pyright new-diagnostics(`Unknown`, `is not defined`)가 낡은 상태로 반복해 떴다: 결과를 CLI(`uv run pyright src tests`)로 판정해 오류가 나지 않았고 실수도 없었다.
+- 닫힌 주장("서드파티는 uuid6 하나", "수집은 SHARE", "시험이 어긋나지 않는지 본다")과 실패 이유 미단언, 무시험 분기: 리뷰가 제 몫을 한 것이다(`code-review`의 주장 검증 목록과 `CODING_STANDARDS.md`가 판정한다). 회차에서 뺀다.
+- 명세 L81(포트 열셋)과 L272(Connector·Transform은 source-sync가 만든다)가 어긋난 것: 명세 내용의 결함이고 이 환경의 실수가 아니다. 위 "코드 리뷰"의 남긴 것에 적었다.
+
+## 다음
+
+- core의 프론티어는 03(기본 레코드와 `migrate`, PostgreSQL 작업 단위)이다. 03 티켓 머리의 "01이 넘긴 것"(템플릿 데이터베이스 이름, xdist 작업자, 스킴)과 이 티켓이 둔 `adapters/postgres/tables.py`, `migrate.py`, `migrations/env.py`를 읽는다. 엔진은 `hide_parameters=True`이고 Windows에서는 Selector 루프다(`env.py`가 쓰는 방식).
+- 01 일지의 "다음"에 열린 헌법 patch(1.1.3, 테스트 칸에 Compose 자동 시작 주소 한정을 넣기)는 아직 사용자가 정하지 않았다.

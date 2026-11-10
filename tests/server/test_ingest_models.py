@@ -63,6 +63,26 @@ def test_metadata에_NaN이나_무한대가_있으면_거부한다(raw: str) -> 
         IngestFields.model_validate({"metadata": raw})
 
 
+def test_metadata가_객체로_들어와도_NaN을_거부한다() -> None:
+    with pytest.raises(ValidationError, match="NaN이나 무한대를 담을 수 없다"):
+        IngestFields.model_validate({"metadata": {"a": float("nan")}})
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [r'{"a": "x\u0000y"}', r'{"k\u0000": 1}', r'{"a": [{"b": "\u0000"}]}'],
+)
+def test_metadata의_값과_키에_NUL이_있으면_거부한다(raw: str) -> None:
+    with pytest.raises(ValidationError, match="NUL 문자"):
+        IngestFields.model_validate({"metadata": raw})
+
+
+@pytest.mark.parametrize("name", ["key", "group"])
+def test_key와_group에_NUL이_있으면_거부한다(name: str) -> None:
+    with pytest.raises(ValidationError, match="NUL 문자"):
+        IngestFields.model_validate({name: "a\x00b"})
+
+
 def test_updated_at은_오프셋이_있는_ISO_8601을_받는다() -> None:
     fields = IngestFields.model_validate({"updated_at": "2026-11-10T09:30:00+09:00"})
 

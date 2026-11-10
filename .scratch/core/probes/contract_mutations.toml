@@ -127,7 +127,7 @@ expect_output = ["DID NOT RAISE"]
 
 [[mutation.edit]]
 file = "src/rag_engine/server/ingest_models.py"
-old = '''if not _is_finite(parsed):'''
+old = '''if not _is_finite(value):'''
 new = '''if False:'''
 
 [[mutation]]
@@ -140,3 +140,25 @@ expect_output = ["+09:00"]
 file = "src/rag_engine/server/tool_models.py"
 old = '''    return value.astimezone(UTC)'''
 new = '''    return value'''
+
+[[mutation]]
+name = "metadata의 NUL 검사를 끈다"
+tests = ["tests/server/test_ingest_models.py", "-k", "NUL"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/ingest_models.py"
+old = '''if _has_nul(value):'''
+new = '''if False:'''
+
+[[mutation]]
+name = "key와 group의 NUL 검사를 끈다"
+tests = ["tests/server/test_ingest_models.py", "-k", "key와_group"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/ingest_models.py"
+old = '''if value is not None and _NUL in value:'''
+new = '''if False:'''
