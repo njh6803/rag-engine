@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from rag_engine.domain.errors import PROBLEM_ERROR_CODES, TOOL_ERROR_CODES, ErrorCode
 from rag_engine.server.problems import (
     ERROR_STATUS,
+    ERROR_TITLE,
     PROBLEM_MEDIA_TYPE,
     ProblemDetails,
     ToolError,
@@ -24,6 +25,10 @@ def test_미디어_타입은_application_problem_json이다() -> None:
 
 def test_모든_HTTP_코드와_도구_코드에_상태가_있다() -> None:
     assert set(ERROR_STATUS) == PROBLEM_ERROR_CODES | TOOL_ERROR_CODES
+
+
+def test_모든_HTTP_코드와_도구_코드에_제목이_있다() -> None:
+    assert set(ERROR_TITLE) == set(ERROR_STATUS)
 
 
 def test_Problem_Details는_type_title_status_code_request_id를_담고_detail은_선택이다() -> None:

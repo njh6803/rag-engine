@@ -1,28 +1,112 @@
-"""HTTP 표면을 짓는다. REST 와 MCP 를 한 FastAPI 앱이 연다(ADR 0005)."""
+"""HTTP 표면을 짓는다. REST 와 MCP 를 한 FastAPI 앱이 연다(ADR 0005).
 
-from collections.abc import AsyncGenerator
+`create_app`이 설정 객체를 받아 엔진, 작업 단위, 어댑터를 만들고 REST 경로와 MCP 하위 앱을 붙인다.
+앱 바깥에 순수 ASGI 미들웨어 둘(요청 문맥, 인증)을 씌운다(명세 "층, 패키지, 조립", ADR 0014).
+"""
+
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from mcp.server import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp
+
+from rag_engine.adapters.log_format import configure_logging
+from rag_engine.adapters.postgres.engine import create_engine
+from rag_engine.adapters.postgres.token_store import PostgresTokenStore
+from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
+from rag_engine.adapters.settings import Settings
+from rag_engine.domain.errors import ErrorCode, InvalidInput, RequestError
+from rag_engine.server.auth import AuthMiddleware
+from rag_engine.server.problem_response import problem_response, validation_response
+from rag_engine.server.problems import ValidationIssue
+from rag_engine.server.request_context import RequestContextMiddleware, request_id_of
+from rag_engine.server.token_api import build_token_router
+
+# 설정에 적지 않아도 늘 받는 호스트(ADR 0014).
+_ALWAYS_ALLOWED_HOSTS = ("localhost", "127.0.0.1")
 
 
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def create_app() -> FastAPI:
+def allowed_host_patterns(hosts: Sequence[str]) -> list[str]:
+    """허용 호스트를 그대로와 `값:*`의 두 꼴로 펼친다. SDK의 `host:*`는 포트가 붙은 Host만 받아서
+    기본 포트로 오는 포트 없는 `Host: host`가 421이 되기 때문이다(ADR 0014)."""
+    patterns: list[str] = []
+    for host in dict.fromkeys([*_ALWAYS_ALLOWED_HOSTS, *hosts]):
+        patterns += [host, f"{host}:*"]
+    return patterns
+
+
+def _install_error_handlers(app: FastAPI) -> None:
+    async def on_validation_error(request: Request, error: Exception) -> JSONResponse:
+        assert isinstance(error, RequestValidationError)
+        # 입력 값(`input`)과 `ctx`는 싣지 않는다(ADR 0015).
+        issues = [
+            ValidationIssue(loc=list(issue["loc"]), type=issue["type"], msg=issue["msg"])
+            for issue in error.errors()
+        ]
+        return validation_response(request_id_of(request.scope), issues)
+
+    async def on_invalid_input(request: Request, error: Exception) -> JSONResponse:
+        assert isinstance(error, InvalidInput)
+        # 유스케이스는 입력 칸의 이름만 알고, 이 API에서 입력은 모두 요청 본문이다.
+        issue = ValidationIssue(loc=["body", *error.loc], type=error.kind, msg=str(error))
+        return validation_response(request_id_of(request.scope), [issue])
+
+    async def on_request_error(request: Request, error: Exception) -> JSONResponse:
+        assert isinstance(error, RequestError)
+        return problem_response(error.code, request_id_of(request.scope), detail=str(error))
+
+    async def on_unhandled(request: Request, _error: Exception) -> JSONResponse:
+        # 원인 예외는 요청 문맥 미들웨어가 타입과 프레임만 로그에 남긴다. 응답에는 싣지 않는다.
+        return problem_response(ErrorCode.INTERNAL_ERROR, request_id_of(request.scope))
+
+    app.add_exception_handler(RequestValidationError, on_validation_error)
+    app.add_exception_handler(InvalidInput, on_invalid_input)
+    app.add_exception_handler(RequestError, on_request_error)
+    app.add_exception_handler(Exception, on_unhandled)
+
+
+def create_app(settings: Settings) -> ASGIApp:
+    # MCPServer를 만들기 전에 부른다. 로거를 되찾는 일이라 나중에 만든 핸들러가 앞서지 못하게 한다.
+    configure_logging(settings.log_format)
+    engine = create_engine(settings.database_url)
+    unit_of_work = PostgresUnitOfWork(engine)
+    token_store = PostgresTokenStore(engine)
+
     mcp = MCPServer(name="rag-engine")
-    mcp_app = mcp.streamable_http_app()
+    mcp_app = mcp.streamable_http_app(
+        stateless_http=settings.mcp_stateless,
+        json_response=settings.mcp_json_response,
+        transport_security=TransportSecuritySettings(
+            allowed_hosts=allowed_host_patterns(settings.allowed_hosts)
+        ),
+    )
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         # 마운트한 하위 앱의 lifespan 은 돌지 않아 여기서 세션 관리자를 돌린다(ADR 0005).
-        async with mcp.session_manager.run():
-            yield
+        try:
+            async with mcp.session_manager.run():
+                yield
+        finally:
+            await engine.dispose()
 
     app = FastAPI(title="rag-engine", lifespan=lifespan)
+    _install_error_handlers(app)
     app.add_api_route("/health", health, methods=["GET"])
+    token_router = build_token_router(token_store, unit_of_work)
+    app.include_router(token_router)
     # 하위 앱은 자기 안에 `/mcp` 경로를 둔다. "/" 마운트는 모든 경로를 받으므로 REST 경로 뒤에 둔다.
     app.mount("/", mcp_app)
-    return app
+    # FastAPI는 포함한 라우터를 `app.routes`에 평평하게 펼치지 않는다. 경로 템플릿을 로그에 남기려면
+    # 라우터가 가진 접두사 포함 경로를 따로 넘겨야 한다.
+    return RequestContextMiddleware(
+        AuthMiddleware(app, token_store), [*app.routes, *token_router.routes]
+    )

@@ -4,14 +4,15 @@
 지식베이스의 설정만 값 객체(`default_knowledge_base`)로 넘겨받는다.
 
 필수는 `RAG_DATABASE_URL`, `RAG_DATA_DIR`, `RAG_ALLOWED_HOSTS` 셋이고 없으면 시작하지 않는다.
-검증 오류의 메시지는 입력 값을 싣는다(연결 문자열의 비밀번호가 들 수 있다). 오류를 사람에게 보이는
-쪽은 값이 아니라 칸 이름만 찍는다(`rag_engine.main`).
+검증 오류의 메시지는 입력 값을 싣는다(연결 문자열의 비밀번호가 들 수 있다). 그래서 `load_settings`가
+오류를 `ConfigurationError`로 바꿔 값이 아니라 칸 이름과 오류 종류만 싣고, `rag_engine.main`은 그
+메시지만 찍는다.
 """
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Final, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from rag_engine.app.default_records import DefaultKnowledgeBaseSettings
@@ -114,3 +115,17 @@ class Settings(BaseSettings):
                 overlap_tokens=self.default_chunk_overlap_tokens,
             ),
         )
+
+
+def load_settings() -> Settings:
+    """환경에서 설정을 읽는다. 검증 오류의 메시지는 입력 값(연결 문자열의 비밀번호)을 싣고 원인
+    사슬에도 남으므로, 칸 이름과 오류 유형만 담은 `ConfigurationError`로 바꾸고 사슬을 끊는다."""
+    try:
+        return Settings()
+    except ValidationError as error:
+        prefix = Settings.model_config.get("env_prefix", "")
+        problems = (
+            f"{prefix}{'.'.join(str(part) for part in problem['loc']).upper()}: {problem['type']}"
+            for problem in error.errors()
+        )
+        raise ConfigurationError("; ".join(problems)) from None

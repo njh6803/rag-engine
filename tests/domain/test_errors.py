@@ -10,6 +10,7 @@ from rag_engine.domain.errors import (
     TOOL_ERROR_CODES,
     TRANSIENT_FAILURE_CODES,
     ErrorCode,
+    InvalidInput,
     PermanentFailure,
     RequestError,
     TransientFailure,
@@ -122,3 +123,15 @@ def test_요청_오류는_HTTP_코드와_도구_코드를_받는다() -> None:
 def test_요청_오류에_작업_전용_코드를_주면_거부한다() -> None:
     with pytest.raises(ValueError, match="요청 오류의 코드가 아니다"):
         RequestError(ErrorCode.PARSE_FAILED, "메시지")
+
+
+def test_입력_오류는_validation_error_코드와_입력_칸을_싣는다() -> None:
+    error = InvalidInput(("name",), "string_too_short", "이름이 비어 있다")
+
+    assert isinstance(error, RequestError)
+    assert error.code is ErrorCode.VALIDATION_ERROR
+    assert (error.loc, error.kind, str(error)) == (
+        ("name",),
+        "string_too_short",
+        "이름이 비어 있다",
+    )

@@ -146,3 +146,13 @@ class RequestError(RagEngineError):
         if code not in PROBLEM_ERROR_CODES | TOOL_ERROR_CODES:
             raise ValueError(f"요청 오류의 코드가 아니다: {code}")
         super().__init__(code, message)
+
+
+class InvalidInput(RequestError):
+    """입력 값 하나가 규칙에 어긋난다. 응답은 422 `validation_error`이고 `loc`이 어느 입력인지
+    가리킨다(`loc`은 입력 칸의 이름이고 요청의 어느 자리인지는 바깥 층이 붙인다)."""
+
+    def __init__(self, loc: tuple[str | int, ...], kind: str, message: str) -> None:
+        super().__init__(ErrorCode.VALIDATION_ERROR, message)
+        self.loc = loc
+        self.kind = kind

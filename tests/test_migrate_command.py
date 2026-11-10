@@ -5,15 +5,12 @@
 """
 
 import asyncio
-import os
 from collections.abc import Callable
 from dataclasses import replace
-from pathlib import Path
 
 import psycopg
 import pytest
 from psycopg import sql
-from tools.run_checks import TEST_DATABASE_ENV
 
 from rag_engine.adapters.index_elements import compute_index_elements
 from rag_engine.adapters.postgres.bootstrap import migrate_database
@@ -197,22 +194,6 @@ async def test_2000차원은_받는다(empty_database_url: str, make_settings: S
 
     knowledge_base, _ = await _read(settings)
     assert knowledge_base.embedding_dimensions == 2000
-
-
-@pytest.fixture
-def command_environment(
-    empty_database_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """명령은 환경 변수와 작업 폴더의 `.env`를 읽는다. 개발자 셸의 `RAG_*`와 `.env`가 시험을 바꾸지
-    못하게 지우고 빈 작업 폴더에서 돈다(시험이 쓰는 `RAG_TEST_DATABASE_URL`은 남긴다)."""
-    for name in [name for name in os.environ if name.startswith("RAG_")]:
-        if name != TEST_DATABASE_ENV:
-            monkeypatch.delenv(name)
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("RAG_DATABASE_URL", empty_database_url)
-    monkeypatch.setenv("RAG_DATA_DIR", "/data")
-    monkeypatch.setenv("RAG_ALLOWED_HOSTS", "localhost")
-    monkeypatch.setenv("RAG_DEFAULT_EMBEDDING_URL", "http://tei:80")
 
 
 def test_migrate_명령은_성공하면_기본_지식베이스를_만들고_정상_종료한다(
