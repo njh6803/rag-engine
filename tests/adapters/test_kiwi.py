@@ -1,8 +1,13 @@
 """Kiwi 키워드 토크나이저와 문장 분리(명세 "키워드 토큰", "청킹과 토큰 세기")."""
 
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 from kiwipiepy import Kiwi
 
+from rag_engine.adapters import kiwi as kiwi_module
 from rag_engine.adapters.index_elements import KEYWORD_RULES_VERSION
 from rag_engine.adapters.kiwi import split_sentences, tokenize_keywords
 
@@ -104,3 +109,36 @@ def test_타입_스텁이_적은_모양을_실제_kiwi가_낸다() -> None:
     )
     assert [text[s.start : s.end] for s in sentences] == [s.text for s in sentences]
     assert len(sentences) == 2
+
+
+def test_여러_스레드가_불러도_Kiwi는_한_번에_하나만_쓴다(monkeypatch: pytest.MonkeyPatch) -> None:
+    # kiwipiepy의 스레드 안전성을 확인하지 못했다. 서버의 예열 스레드와 첫 검색이 겹쳐도 같은
+    # 인스턴스를 동시에 쓰지 않아야 한다.
+    guard = threading.Lock()
+    inside = [0, 0]  # 지금 안에 든 호출 수, 가장 많았던 호출 수
+
+    class _SlowKiwi:
+        def _enter(self) -> list[object]:
+            with guard:
+                inside[0] += 1
+                inside[1] = max(inside)
+            time.sleep(0.05)
+            with guard:
+                inside[0] -= 1
+            return []
+
+        def tokenize(self, _text: str, *, normalize_coda: bool) -> list[object]:
+            return self._enter()
+
+        def split_into_sents(self, _text: str) -> list[object]:
+            return self._enter()
+
+    slow = _SlowKiwi()
+    monkeypatch.setattr(kiwi_module, "_kiwi", lambda: slow)
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [pool.submit(tokenize_keywords, "글"), pool.submit(split_sentences, "글")] * 2
+        for future in futures:
+            future.result()
+
+    assert inside[1] == 1

@@ -75,7 +75,8 @@ class Settings(BaseSettings):
     parse_max_compression_ratio: int = Field(default=100, gt=0)
     parse_max_text_mb: int = Field(default=64, gt=0)
 
-    search_candidates: int = Field(default=50, gt=0)
+    # pgvector의 `hnsw.ef_search`는 1부터 1000까지만 받고, 검색이 이 값을 그대로 그 설정에 넣는다.
+    search_candidates: int = Field(default=50, gt=0, le=1000)
     search_default_top_k: int = Field(default=10, gt=0)
     search_max_top_k: int = Field(default=50, gt=0)
     search_timeout_seconds: int = Field(default=20, gt=0)

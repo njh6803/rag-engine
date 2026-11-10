@@ -11,7 +11,7 @@
 
 import asyncio
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -19,7 +19,7 @@ import httpx
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from rag_engine.adapters.utf8_offsets import Utf8Offsets
-from rag_engine.domain.entities import JsonValue
+from rag_engine.domain.entities import IndexVersion, JsonValue
 from rag_engine.domain.errors import ErrorCode, PermanentFailure, TransientFailure
 
 logger = logging.getLogger(__name__)
@@ -232,6 +232,47 @@ class TeiEmbedder:
             ErrorCode.EMBEDDING_UNAVAILABLE,
             f"임베딩 서버가 요청을 처리하지 못했다(HTTP {response.status_code})",
         )
+
+
+class TeiEmbedderPool:
+    """색인 판에 적힌 끝점·모델·차원으로 `TeiEmbedder`를 하나씩 만들어 돌려쓴다. 어댑터가 첫
+    호출에서 `/info`를 확인하므로 판마다 새로 만들면 글 묶음마다 확인을 되풀이한다. 키가 판의 ID가
+    아니라 그 네 값인 까닭은 `migrate`가 판에 적힌 끝점만 고칠 수 있어서다. 끝점 하나가 클라이언트
+    하나(연결 풀)를 쓴다."""
+
+    def __init__(self, client_for: Callable[[str], httpx.AsyncClient], *, batch_size: int) -> None:
+        self._client_for = client_for
+        self._batch_size = batch_size
+        self._clients: dict[str, httpx.AsyncClient] = {}
+        self._embedders: dict[tuple[str, str, int, int], TeiEmbedder] = {}
+
+    def __call__(self, version: IndexVersion) -> TeiEmbedder:
+        key = (
+            version.embedding_endpoint,
+            version.embedding_model,
+            version.embedding_dimensions,
+            version.chunking.max_tokens,
+        )
+        embedder = self._embedders.get(key)
+        if embedder is None:
+            endpoint = version.embedding_endpoint
+            client = self._clients.get(endpoint)
+            if client is None:
+                client = self._client_for(endpoint)
+                self._clients[endpoint] = client
+            embedder = TeiEmbedder(
+                client,
+                model=version.embedding_model,
+                dimensions=version.embedding_dimensions,
+                max_chunk_tokens=version.chunking.max_tokens,
+                batch_size=self._batch_size,
+            )
+            self._embedders[key] = embedder
+        return embedder
+
+    async def aclose(self) -> None:
+        for client in self._clients.values():
+            await client.aclose()
 
 
 def _batches(texts: Sequence[str], *, size: int, max_bytes: int) -> list[list[str]]:

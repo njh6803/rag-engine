@@ -317,3 +317,44 @@ class Token:
     expires_at: datetime | None
     revoked_at: datetime | None
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class SearchQuery:
+    """후보를 모으는 질의 하나. 벡터는 현재 판에 적힌 모델로 임베딩한 것이고, 키워드는 조각과 같은
+    토크나이저가 뽑은 토큰이다(비면 키워드 검색을 건너뛴다)."""
+
+    knowledge_base_id: UUID
+    index_version_id: UUID
+    dimensions: int
+    vector: tuple[float, ...]
+    keywords: tuple[str, ...]
+    candidates: int
+
+
+@dataclass(frozen=True, slots=True)
+class SearchHit:
+    """후보 하나. 조각의 칸에 문서와 원천에서 읽은 칸을 더한 것이고 `rrf_score`는 벡터와 키워드
+    순위를 합친 점수다."""
+
+    chunk_id: UUID
+    document_id: UUID
+    source: str
+    key: str
+    title: str
+    text: str
+    location: ChunkLocation
+    updated_at: datetime
+    effective_date: date | None
+    access_groups: tuple[str, ...]
+    metadata: Mapping[str, JsonValue]
+    rrf_score: float
+
+
+@dataclass(frozen=True, slots=True)
+class SearchCandidates:
+    """후보 모으기의 결과. `is_current`는 같은 문장에서 읽은 "질의한 판이 아직 현재 판인가"이다.
+    아니면 그사이 판이 전환된 것이라 호출한 쪽이 결과를 버린다."""
+
+    is_current: bool
+    hits: tuple[SearchHit, ...]

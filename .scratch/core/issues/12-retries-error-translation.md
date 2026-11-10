@@ -6,6 +6,8 @@
 
 **Status:** ready-for-agent
 
+**07이 넘긴 것:** 07의 `worker/processing.py`(`process_job`)는 영구·일시를 가르지 않는다. `RagEngineError`가 올라오면 작업을 그 오류 코드로 `failed`로 끝내고(재시도와 백오프 없음), 그 밖의 예외는 `job_crashed`를 로그에 남기고 `internal_error`로 끝낸다. 임대를 잃은 시도(`AttemptLostError`)는 작업 행을 끝내지 않고 로그의 `result`를 `lost`로 남긴다. 이 티켓이 일시 실패를 다시 예약하는 갈래와 재시도 소진 처리, 어댑터의 오류 번역을 더하며 `_run`의 `except` 순서에 끼워 넣는다. 임베딩 서버의 영구 실패(`embedding_rejected`, `embedding_dimension_mismatch`)와 일시 실패(`embedding_unavailable`)의 구분은 `TeiEmbedder`가 이미 예외 종류(`PermanentFailure`, `TransientFailure`)로 가르므로 `_run`이 그 종류로 갈라 받으면 된다. 검색 쪽은 둘 다 `search_unavailable`로 번역한다(`app/search.py`).
+
 - [ ] 오류 번역(명세 "수집 파이프라인과 작업" 절의 오류 번역 항목): 데이터베이스의 연결 실패(SQLSTATE `08` 갈래와 연결 끊김), `40001`, `40P01`, `57P01`~`57P03`은 `database_unavailable`(일시)이고, `DataError`·`IntegrityError` 같은 나머지는 일시가 아니다. 파일 저장소의 입출력 오류는 `blob_store_error`(일시)다. 서드파티 예외의 메시지는 옮기지 않는다(원칙 V).
 - [ ] 백오프: `run_after`를 `RAG_JOB_BACKOFF_BASE_SECONDS × 4^(시도 횟수 − 1)` 뒤로(한 시간 상한) 두어 다시 예약한다. 다시 예약하는 작업 단위는 문서 행, 그 그룹이 든 지식베이스 행(`FOR SHARE`), 작업 행 순으로 잠그고, 같은 문서에 다른 대기 작업이 있으면 다시 예약하지 않고 이번 오류 코드로 작업을 `failed`로 끝낸다(문서 쪽은 쓰지 않는다. 부분 유일 색인이 둘째 대기 작업을 막는다).
 - [ ] 재시도 소진: `RAG_JOB_MAX_ATTEMPTS`를 다 쓰면 작업 `failed`. 문서 행과 지식베이스 행(`FOR UPDATE`)을 잠근 뒤, 문서를 처음부터 맡을 다른 작업(대기 작업, 올린 세대가 빈 실행 중 작업)이 없고 세대가 마지막 시도가 올린 값 그대로이며(그 값이 없으면 다른 작업만 본다) 문서가 지워지지 않았을 때만, 지금 내용으로 색인되지 않은 살아 있는 판에서 그 문서의 조각을 지우고 색인 상태를 마지막 오류 코드로 `failed`로 쓴다. 문서 상태는 바꾸지 않는다. 전환 검사는 부르는 자리를 두고 14가 채운다.

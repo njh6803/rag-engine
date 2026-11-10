@@ -4,9 +4,12 @@
 앱 바깥에 순수 ASGI 미들웨어 둘(요청 문맥, 인증)을 씌운다(명세 "층, 패키지, 조립", ADR 0014).
 """
 
+import asyncio
+import logging
 from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from mcp.server import MCPServer
@@ -15,18 +18,24 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
 from rag_engine.adapters.blob_store import LocalBlobStore
-from rag_engine.adapters.log_format import configure_logging
+from rag_engine.adapters.kiwi import tokenize_keywords
+from rag_engine.adapters.log_format import configure_logging, log_event
 from rag_engine.adapters.postgres.engine import create_engine
 from rag_engine.adapters.postgres.token_store import PostgresTokenStore
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.settings import Settings
+from rag_engine.adapters.tei import TeiEmbedderPool
+from rag_engine.app.search import SearchDeps
 from rag_engine.domain.errors import ErrorCode, InvalidInput, RequestError
 from rag_engine.server.auth import AuthMiddleware
 from rag_engine.server.ingest_api import build_ingest_router
 from rag_engine.server.problem_response import problem_response, validation_response
 from rag_engine.server.problems import ValidationIssue
 from rag_engine.server.request_context import RequestContextMiddleware, request_id_of
+from rag_engine.server.search_tool import register_search_tool
 from rag_engine.server.token_api import build_token_router
+
+logger = logging.getLogger(__name__)
 
 # 설정에 적지 않아도 늘 받는 호스트(ADR 0014).
 _ALWAYS_ALLOWED_HOSTS = ("localhost", "127.0.0.1")
@@ -76,6 +85,15 @@ def _install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(Exception, on_unhandled)
 
 
+async def _warm_up_kiwi() -> None:
+    """Kiwi 모델을 스레드에서 미리 적재한다. 실패해도 서버가 뜨도록 기록만 남긴다. 적재가 실패하면
+    결과를 캐시하지 않으므로 첫 검색이 적재를 다시 시도한다."""
+    try:
+        await asyncio.to_thread(tokenize_keywords, "준비")
+    except Exception as error:
+        log_event(logger, "kiwi_warmup_failed", level=logging.ERROR, exception=error)
+
+
 def create_app(settings: Settings) -> ASGIApp:
     # MCPServer를 만들기 전에 부른다. 로거를 되찾는 일이라 나중에 만든 핸들러가 앞서지 못하게 한다.
     configure_logging(settings.log_format)
@@ -83,7 +101,21 @@ def create_app(settings: Settings) -> ASGIApp:
     unit_of_work = PostgresUnitOfWork(engine)
     token_store = PostgresTokenStore(engine)
 
+    embedders = TeiEmbedderPool(
+        lambda endpoint: httpx.AsyncClient(base_url=endpoint, timeout=settings.tei_timeout_seconds),
+        batch_size=settings.tei_batch_size,
+    )
     mcp = MCPServer(name="rag-engine")
+    register_search_tool(
+        mcp,
+        SearchDeps(
+            unit_of_work=unit_of_work,
+            embedder_for=embedders,
+            tokenize_keywords=tokenize_keywords,
+            candidates=settings.search_candidates,
+        ),
+        default_top_k=settings.search_default_top_k,
+    )
     mcp_app = mcp.streamable_http_app(
         stateless_http=settings.mcp_stateless,
         json_response=settings.mcp_json_response,
@@ -94,12 +126,19 @@ def create_app(settings: Settings) -> ASGIApp:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
-        # 마운트한 하위 앱의 lifespan 은 돌지 않아 여기서 세션 관리자를 돌린다(ADR 0005).
+        # 마운트한 하위 앱의 lifespan 은 돌지 않아 여기서 세션 관리자를 돌린다(ADR 0005). Kiwi 모델
+        # 적재(약 1초)는 기동을 막지 않게 스레드에서 미리 한다. 첫 검색이 그 값을 쓴다.
+        warmup = asyncio.create_task(_warm_up_kiwi())
         try:
             async with mcp.session_manager.run():
                 yield
         finally:
-            await engine.dispose()
+            # 종료가 취소로 오면 `await warmup`이 끊기므로 정리는 안쪽 `finally`에 둔다.
+            try:
+                await warmup
+            finally:
+                await embedders.aclose()
+                await engine.dispose()
 
     app = FastAPI(title="rag-engine", lifespan=lifespan)
     _install_error_handlers(app)

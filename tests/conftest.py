@@ -46,6 +46,9 @@ import uvicorn
 from psycopg import sql
 from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.harness import LogCapture, RunningServer, replace_database
+from tests.support.pipeline import Pipeline, build_pipeline
+from tests.support.round_trip import RoundTrip, new_stub, point_default_version_at
+from tests.support.tei_server import serve_stub
 from tools.run_checks import TEST_DATABASE_ENV, database_problem
 
 from rag_engine.adapters.postgres.bootstrap import issue_bootstrap_token, migrate_database
@@ -173,6 +176,26 @@ async def engine(empty_database_url: str) -> AsyncIterator[AsyncEngine]:
         yield created
     finally:
         await created.dispose()
+
+
+@pytest.fixture
+def round_trip(server: RunningServer) -> Iterator[RoundTrip]:
+    """수집 → 작업자 한 번 → `search`의 왕복 도우미. 임베딩 스텁을 실제 포트에 띄우고 서버의
+    기본 판이 그 주소를 쓰게 한다(`tests/support/round_trip.py`)."""
+    stub = new_stub()
+    with serve_stub(stub) as endpoint:
+        point_default_version_at(server, endpoint)
+        yield RoundTrip(server, stub)
+
+
+@pytest.fixture
+async def pipeline(engine: AsyncEngine, tmp_path: Path) -> AsyncIterator[Pipeline]:
+    """수집에서 색인까지 이어 보는 세계(`tests/support/pipeline.py`). 임베딩 서버만 스텁이다."""
+    built = await build_pipeline(engine, tmp_path)
+    try:
+        yield built
+    finally:
+        await built.pool.aclose()
 
 
 @pytest.fixture(scope="session")

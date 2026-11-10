@@ -31,6 +31,8 @@ from rag_engine.domain.entities import (
     Job,
     JobStatus,
     KnowledgeBase,
+    SearchCandidates,
+    SearchQuery,
     Source,
     Token,
 )
@@ -43,6 +45,13 @@ type ComputeIndexElements = Callable[[str, int, ChunkingConfig], IndexElements]
 # 글에서 키워드 토큰을 뽑는다(명세 "키워드 토큰"). 조각과 질의가 같은 함수를 지나야 같은 토큰을
 # 낸다. 형태소 분석기는 `adapters`에 있어 `app`은 이 모양으로만 부른다.
 type KeywordTokenizer = Callable[[str], list[str]]
+
+# 색인 판에 적힌 끝점·모델·차원으로 임베딩하는 자를 낸다(명세 "수집 파이프라인과 작업" 셋째 단계).
+# 같은 판은 같은 자를 돌려써 끝점 확인(`/info`)을 한 번만 한다. 구현은 `adapters`에 있다.
+type EmbedderFor = Callable[[IndexVersion], Embedder]
+
+# 청킹 전략의 이름으로 청커를 고른다.
+type ChunkerFor = Callable[[str], Chunker]
 
 
 class LockMode(StrEnum):
@@ -212,7 +221,14 @@ class VectorIndex(Protocol):
 
     async def get_state(self, document_id: UUID, index_version_id: UUID) -> IndexState | None: ...
 
-    async def save_state(self, state: IndexState) -> None: ...
+    async def save_state(self, state: IndexState) -> None:
+        """(문서, 판)의 색인 상태를 쓴다. 이미 있으면 덮는다."""
+        ...
+
+    async def search_candidates(self, query: SearchQuery) -> SearchCandidates:
+        """벡터와 키워드 후보를 SQL 하나로 모아 RRF로 합친다. 같은 문장에서 질의한 판이 아직
+        현재 판인지도 읽는다. 벡터 질의는 판의 HNSW 부분 색인을 탄다."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -236,6 +252,16 @@ class JobQueue(Protocol):
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:
         """`SKIP LOCKED`로 꺼낼 수 있는 작업 하나를 `running`으로 바꿔 낸다. 꺼내는 일과 바꾸는 일을
         나누면 두 작업자가 같은 작업을 잡으므로 한 번에 하고 `Job`을 돌려준다."""
+        ...
+
+    async def hold_attempt(self, job: Job) -> bool:
+        """작업 행을 잠그고 작업자 ID와 시도 횟수가 이 시도가 꺼낼 때 쓴 값 그대로인지 본다(작업 행
+        조건). 아니면 임대가 끝나 다른 작업자가 가져간 것이라 `False`이고, 부른 쪽은 아무것도
+        쓰지 않고 작업 단위를 롤백한다. 문서 행과 지식베이스 행을 잠근 뒤 마지막에 부른다."""
+        ...
+
+    async def record_raised_generation(self, job: Job, generation: int) -> None:
+        """이번 시도가 첫째 단계에서 올린 문서의 세대를 작업 행에 적는다."""
         ...
 
     async def finish(self, job: Job, outcome: JobOutcome, now: datetime) -> None: ...

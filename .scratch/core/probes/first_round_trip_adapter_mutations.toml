@@ -1,0 +1,199 @@
+# core 07(첫 왕복)이 더한 어댑터 시험의 변이: 작업 꺼내기, DOCX 파서, 파싱 실행기, 조각 쓰기와 검색 SQL.
+# 구현과 함께 쓴 시험이라 빨강을 본 적이 없어 변이로 본다. 앱 층과 서버 층은 `first_round_trip_mutations.toml`.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/first_round_trip_adapter_mutations.toml
+
+[[mutation]]
+name = "임대가 끝난 실행 중 작업을 꺼내지 않는다"
+tests = ["tests/adapters/test_job_queue_claim.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: None != (''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''                    sa.and_(jobs.c.status == JobStatus.RUNNING.value, jobs.c.leased_until <= now),'''
+new = '''                    sa.and_(jobs.c.status == JobStatus.RUNNING.value, sa.false()),'''
+
+[[mutation]]
+name = "꺼낼 때 시도 횟수를 올리지 않는다"
+tests = ["tests/adapters/test_job_queue_claim.py"]
+expect = "red"
+expect_output = ['''At index 1 diff: 0 != 1''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''                attempts=jobs.c.attempts + 1,'''
+new = '''                attempts=jobs.c.attempts,'''
+
+[[mutation]]
+name = "꺼낼 때 올린 세대를 비우지 않는다"
+tests = ["tests/adapters/test_job_queue_claim.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: 7 != None''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''                raised_generation=None,'''
+new = '''                raised_generation=jobs.c.raised_generation,'''
+
+[[mutation]]
+name = "실행 시각이 오지 않은 대기 작업도 꺼낸다"
+tests = ["tests/adapters/test_job_queue_claim.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: Job(''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''                    sa.and_(jobs.c.status == JobStatus.QUEUED.value, jobs.c.run_after <= now),'''
+new = '''                    sa.and_(jobs.c.status == JobStatus.QUEUED.value),'''
+
+[[mutation]]
+name = "작업 행 조건이 작업자와 시도 횟수를 보지 않는다"
+tests = ["tests/adapters/test_job_queue_claim.py"]
+expect = "red"
+expect_output = ['''At index 1 diff: True != False''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''            sa.select(tables.jobs.c.id).where(*_attempt_of(job)).with_for_update()'''
+new = '''            sa.select(tables.jobs.c.id).where(tables.jobs.c.id == job.id).with_for_update()'''
+
+[[mutation]]
+name = "제목 수준을 늘 1로 둔다"
+tests = ["tests/adapters/test_docx_parser.py"]
+expect = "red"
+expect_output = ['''At index 2 diff: (<BlockKind.HEADING: 'heading'>, 1, '제2조 정의')''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/docx_parser.py"
+old = '''level=max(int(heading[1]), 1)'''
+new = '''level=1'''
+
+[[mutation]]
+name = "합쳐진 칸을 되풀이해 적는다"
+tests = ["tests/adapters/test_docx_parser.py"]
+expect = "red"
+expect_output = ['''+ 합친 제목 | 합친 제목''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/docx_parser.py"
+old = '''            if cell != previous:'''
+new = '''            if True:'''
+
+[[mutation]]
+name = "빈 문단을 건너뛰지 않는다"
+tests = ["tests/adapters/test_docx_parser.py"]
+expect = "red"
+expect_output = ['''At index 3 diff: (<BlockKind.PARAGRAPH: 'paragraph'>, None, '') != ''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/docx_parser.py"
+old = '''    if not text:
+        return None'''
+new = '''    if False:
+        return None'''
+
+[[mutation]]
+name = "글의 NUL 문자를 지우지 않는다"
+tests = ["tests/adapters/test_parse_runner.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: '가\x00나' != '가나'''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/runner.py"
+old = '''replace(block, text=block.text.replace("\x00", ""))'''
+new = '''replace(block, text=block.text)'''
+
+[[mutation]]
+name = "글 크기 한도를 보지 않는다"
+tests = ["tests/adapters/test_parse_runner.py"]
+expect = "red"
+expect_output = ['''DID NOT RAISE PermanentFailure''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/runner.py"
+old = '''        if sum(len(block.text.encode()) for block in blocks) > self._max_text_bytes:'''
+new = '''        if False:'''
+
+[[mutation]]
+name = "시간 초과를 기다리지 않는다"
+tests = ["tests/adapters/test_parse_runner.py"]
+expect = "red"
+timeout = 180
+expect_output = ['''DID NOT RAISE PermanentFailure''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/runner.py"
+old = '''            if not receiver.poll(self._timeout_seconds):'''
+new = '''            if False:'''
+
+[[mutation]]
+name = "조각을 바꿀 때 옛 조각을 지우지 않는다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ['''DETAIL:  Key (index_version_id, document_id, ordinal)=''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''        await self.delete_chunks(document_id, index_version_id)
+        if not chunks:'''
+new = '''        if not chunks:'''
+
+[[mutation]]
+name = "판을 정해도 문서의 모든 판 조각을 지운다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: 0 != 1''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''        if index_version_id is not None:'''
+new = '''        if False:'''
+
+[[mutation]]
+name = "키워드 쪽에만 든 후보를 점수에 합치지 않는다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ['''Obtained: 0.01639344262295082''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''            f" + COALESCE(1.0 / ({_RRF_RANK_CONSTANT} + kw.rank), 0)"'''
+new = '''            " + 0"'''
+
+[[mutation]]
+name = "후보 수만큼 ef_search를 올리지 않는다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: (True, False) != (True, True)''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''str(query.candidates), sa.true()'''
+new = '''"40", sa.true()'''
+
+[[mutation]]
+name = "조각을 묶음으로 나누지 않는다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ['''number of parameters must be between 0 and 65535''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''_INSERT_BATCH_CHUNKS: Final = 1000'''
+new = '''_INSERT_BATCH_CHUNKS: Final = 1_000_000'''
+
+[[mutation]]
+name = "자식 메시지가 스키마에 맞지 않아도 parse_failed로 보지 않는다"
+tests = ["tests/adapters/test_parse_runner.py"]
+expect = "red"
+expect_output = ['''Invalid JSON: expected value at line 1 column 1''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/runner.py"
+old = '''    except ValidationError:
+        return _ChildResult(ErrorCode.PARSE_FAILED, ())
+    if message.error is not None:'''
+new = '''    except ZeroDivisionError:
+        return _ChildResult(ErrorCode.PARSE_FAILED, ())
+    if message.error is not None:'''

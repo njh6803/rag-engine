@@ -5,7 +5,7 @@
 같은 (원천, 키)를 동시에 넣으면 두 번째 `INSERT`가 먼저 넣은 쪽의 커밋을 기다린 뒤 유일 제약
 위반을 내고, 그것을 `DocumentAlreadyExistsError`로 바꿔 올린다.
 
-파싱 결과(`get_content`, `save_content`)의 메서드는 이 어댑터에 아직 없다.
+파싱 결과(문서마다 한 행)는 `save_content`가 덮어쓰고 `get_content`가 읽는다.
 """
 
 from typing import Final
@@ -13,14 +13,46 @@ from uuid import UUID
 
 import psycopg.errors
 import sqlalchemy as sa
+from pydantic import BaseModel, TypeAdapter
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from rag_engine.adapters.postgres import tables
-from rag_engine.domain.entities import Document, DocumentContent, DocumentStatus
+from rag_engine.domain.entities import (
+    Block,
+    BlockKind,
+    Document,
+    DocumentContent,
+    DocumentStatus,
+)
 from rag_engine.domain.errors import DocumentAlreadyExistsError, ErrorCode
 
-_NOT_YET: Final = "이 어댑터에 아직 없다"
+
+class _BlockJson(BaseModel):
+    """`document_contents.blocks`(jsonb)의 블록 하나. 읽고 쓰는 길이 이 모델 하나다."""
+
+    kind: BlockKind
+    text: str
+    level: int | None
+    page: int | None
+    ordinal: int
+
+    @staticmethod
+    def of(block: Block) -> "_BlockJson":
+        return _BlockJson(
+            kind=block.kind,
+            text=block.text,
+            level=block.level,
+            page=block.page,
+            ordinal=block.ordinal,
+        )
+
+    def to_block(self) -> Block:
+        return Block(self.kind, self.text, self.level, self.page, self.ordinal)
+
+
+_BLOCK_LIST: Final = TypeAdapter(list[_BlockJson])
 
 
 def _document(row: sa.RowMapping) -> Document:
@@ -109,10 +141,46 @@ class PostgresDocumentStore:
         )
 
     async def get_content(self, document_id: UUID) -> DocumentContent | None:
-        raise NotImplementedError(_NOT_YET)
+        contents = tables.document_contents
+        row = (
+            (
+                await self._connection.execute(
+                    sa.select(contents).where(contents.c.document_id == document_id)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        blocks = tuple(_BLOCK_LIST.validate_python(row["blocks"]))
+        return DocumentContent(
+            document_id=row["document_id"],
+            parser_name=row["parser_name"],
+            parser_interface_version=row["parser_interface_version"],
+            parser_library_version=row["parser_library_version"],
+            blocks=tuple(block.to_block() for block in blocks),
+            parsed_content_hash=row["parsed_content_hash"],
+            text_hash=row["text_hash"],
+            parsed_at=row["parsed_at"],
+        )
 
     async def save_content(self, content: DocumentContent) -> None:
-        raise NotImplementedError(_NOT_YET)
+        values = {
+            "parser_name": content.parser_name,
+            "parser_interface_version": content.parser_interface_version,
+            "parser_library_version": content.parser_library_version,
+            "blocks": [_BlockJson.of(block).model_dump(mode="json") for block in content.blocks],
+            "parsed_content_hash": content.parsed_content_hash,
+            "text_hash": content.text_hash,
+            "parsed_at": content.parsed_at,
+        }
+        insertion = insert(tables.document_contents).values(
+            document_id=content.document_id, **values
+        )
+        await self._connection.execute(
+            insertion.on_conflict_do_update(index_elements=["document_id"], set_=values)
+        )
 
     async def _select_one(
         self, *conditions: sa.ColumnElement[bool], lock: bool = False
