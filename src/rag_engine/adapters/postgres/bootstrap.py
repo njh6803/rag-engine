@@ -1,4 +1,5 @@
-"""`migrate`의 조립. 스키마를 올리고 기본 레코드를 보장한다(명세 "관리 명령").
+"""`migrate`와 `bootstrap-token`의 조립(명세 "관리 명령"). `migrate`는 스키마를 올리고 기본 레코드를
+보장한다.
 
 관리 명령과 시험의 세션 픽스처가 같은 길을 쓴다. 이벤트 루프를 스스로 열므로 실행 중인 루프 안에서는
 부를 수 없다(`migrate.upgrade_to_head`처럼 스레드로 넘겨 부른다).
@@ -9,9 +10,11 @@ from datetime import UTC, datetime
 from rag_engine.adapters.index_elements import compute_index_elements
 from rag_engine.adapters.postgres.engine import create_engine, run_in_selector_loop
 from rag_engine.adapters.postgres.migrate import upgrade_to_head
+from rag_engine.adapters.postgres.token_store import PostgresTokenStore
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.settings import Settings
 from rag_engine.app.default_records import DefaultKnowledgeBaseSettings, ensure_default_records
+from rag_engine.app.tokens import IssuedToken, bootstrap_admin_token
 
 
 async def _run_default_records_use_case(
@@ -27,6 +30,20 @@ async def _run_default_records_use_case(
         )
     finally:
         await engine.dispose()
+
+
+async def _bootstrap_admin_token(database_url: str, name: str) -> IssuedToken | None:
+    engine = create_engine(database_url)
+    try:
+        return await bootstrap_admin_token(PostgresTokenStore(engine), name, datetime.now(UTC))
+    finally:
+        await engine.dispose()
+
+
+def issue_bootstrap_token(settings: Settings, name: str) -> IssuedToken | None:
+    """`bootstrap-token`의 조립. 살아 있는 `admin` 토큰이 있으면 `None`이다. `migrate_database`처럼
+    이벤트 루프를 스스로 연다."""
+    return run_in_selector_loop(_bootstrap_admin_token(settings.database_url, name))
 
 
 def migrate_database(settings: Settings) -> None:

@@ -1,0 +1,154 @@
+# core 04(앱 조립, 토큰 인증, 요청 ID와 로그)가 더한 시험의 변이. 구현과 함께 쓴 시험이라 빨강을 본 적이 없어 변이로 본다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/auth_logging_mutations.toml
+
+[[mutation]]
+name = "health 면제를 지운다"
+tests = ["tests/server/test_authentication.py", "-k", "health"]
+expect = "red"
+expect_output = ["401 == 200"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/auth.py"
+old = '''        if scope["path"] == HEALTH_PATH:'''
+new = '''        if False:'''
+
+[[mutation]]
+name = "회수된 토큰을 받는다"
+tests = ["tests/server/test_authentication.py", "-k", "회수된"]
+expect = "red"
+expect_output = ["KeyError: 'code'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/tokens.py"
+old = '''    if token is None or token.revoked_at is not None:'''
+new = '''    if token is None:'''
+
+[[mutation]]
+name = "만료된 토큰을 받는다"
+tests = ["tests/server/test_authentication.py", "-k", "만료된"]
+expect = "red"
+expect_output = ["KeyError: 'code'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/tokens.py"
+old = '''    if token.expires_at is not None and token.expires_at <= now:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "reader에게 REST를 연다"
+tests = ["tests/server/test_authentication.py", "-k", "reader"]
+expect = "red"
+expect_output = ["KeyError: 'code'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/auth.py"
+old = '''    if token.role is TokenRole.READER and not is_mcp_path(scope["path"]):'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "없는 토큰의 회수가 404 없이 지나간다"
+tests = ["tests/server/test_token_admin_api.py", "-k", "없는_토큰을_회수"]
+expect = "red"
+expect_output = ["204 == 404"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/tokens.py"
+old = '''    if await store.get(token_id) is None:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "살아 있는 admin이 있어도 부트스트랩이 발급한다"
+tests = ["tests/test_bootstrap_token_command.py", "-k", "살아_있는"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/tokens.py"
+old = '''    if await store.has_live_admin(now):'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "응답을 시작하지 않았어도 시작했다고 센다"
+tests = ["tests/server/test_request_logging.py", "-k", "처리하지"]
+expect = "red"
+expect_output = ["text/plain; charset=utf-8"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/request_context.py"
+old = '''        self.response_started = False'''
+new = '''        self.response_started = True'''
+
+[[mutation]]
+name = "로그에 실제 경로를 남긴다"
+tests = ["tests/server/test_request_logging.py", "-k", "템플릿"]
+expect = "red"
+expect_output = ["tokens/01960000"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/request_context.py"
+old = '''path=self._path_template(scope),'''
+new = '''path=scope["path"],'''
+
+[[mutation]]
+name = "서드파티 예외의 메시지도 로그에 싣는다"
+tests = ["tests/adapters/test_log_format.py", "-k", "서드파티"]
+expect = "red"
+expect_output = ["is contained here"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/log_format.py"
+old = '''    if exc_type.__module__.split(".")[0] == _OWN_PACKAGE:'''
+new = '''    if True:'''
+
+[[mutation]]
+name = "허용 호스트에서 포트 없는 꼴을 뺀다"
+tests = ["tests/server/test_authentication.py", "-k", "허용_호스트는_그대로"]
+expect = "red"
+expect_output = ["[421, 200, 421, 200]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/app.py"
+old = '''        patterns += [host, f"{host}:*"]'''
+new = '''        patterns += [f"{host}:*"]'''
+
+[[mutation]]
+name = "판정한 토큰을 scope에 놓지 않는다"
+tests = ["tests/server/test_auth_scope.py", "-k", "scope에_판정한"]
+expect = "red"
+expect_output = ["인증을 지나지 않은 scope다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/auth.py"
+old = '''        scope_state(scope)[_TOKEN_KEY] = token
+'''
+new = '''        pass
+'''
+
+[[mutation]]
+name = "웹소켓을 닫지 않고 안쪽 앱으로 보낸다"
+tests = ["tests/server/test_auth_scope.py", "-k", "HTTP가_아닌"]
+expect = "red"
+expect_output = ["['websocket'] == []"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/auth.py"
+old = '''            await receive()
+            await send({"type": "websocket.close", "code": _POLICY_VIOLATION})
+'''
+new = '''            await self.app(scope, receive, send)
+'''
+
+[[mutation]]
+name = "응답을 시작한 뒤의 실패가 상태를 500으로 덮는다"
+tests = ["tests/server/test_request_context.py", "-k", "시작한_뒤"]
+expect = "red"
+expect_output = ["500 == 200"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/request_context.py"
+old = '''            if not outcome.response_started:
+                outcome.status = 500
+'''
+new = '''            outcome.status = 500
+'''
