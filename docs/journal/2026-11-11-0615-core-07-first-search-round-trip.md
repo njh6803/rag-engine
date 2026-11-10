@@ -102,7 +102,7 @@
 
 **다시 돌린 명령**
 
-- 새 시험 둘(pickle 가로채기, 5000조각 묶음)은 구현 전에 빨강이었다. 변이 표(`first_round_trip_adapter_mutations.toml`)에 둘을 더해(묶음을 나누지 않는다: `number of parameters must be between 0 and 65535`, 스키마 검증 실패를 `parse_failed`로 보지 않는다: `Invalid JSON: expected value`) 기대한 이유로 빨강임을 보았다. 시간 초과 뒤 `kill()` 갈래는 SIGTERM을 무시하는 자식을 만드는 시험이 없어 변이로 재지 못했다. 구현 뒤 `ruff format`, `ruff check .`, `pyright`, `lint-imports`, `check_type_escapes.py`가 통과이고, 고친 시험 파일 네 개의 33개가 초록이다. 전체 `pytest`는 3275개 통과(10분 14초)다. 같은 검사를 커밋이 부르는 pre-commit이 한 번 더 돌리고 결과는 커밋 뒤에 적는다.
+- 새 시험 둘(pickle 가로채기, 5000조각 묶음)은 구현 전에 빨강이었다. 변이 표(`first_round_trip_adapter_mutations.toml`)에 둘을 더해(묶음을 나누지 않는다: `number of parameters must be between 0 and 65535`, 스키마 검증 실패를 `parse_failed`로 보지 않는다: `Invalid JSON: expected value`) 기대한 이유로 빨강임을 보았다. 시간 초과 뒤 `kill()` 갈래는 SIGTERM을 무시하는 자식을 만드는 시험이 없어 변이로 재지 못했다. 구현 뒤 `ruff format`, `ruff check .`, `pyright`, `lint-imports`, `check_type_escapes.py`가 통과이고, 고친 시험 파일 네 개의 33개가 초록이다. 전체 `pytest`는 3275개 통과(10분 14초)다. 같은 검사를 커밋이 부르는 pre-commit이 한 번 더 돌렸고(커밋 `ae024ab`) 통과했다. 인용 대조는 이 일지가 고친 거짓 주장의 옛 원문을 따옴표로 옮긴 두 줄(50행)에 경고를 냈고, 막는 검사가 아니라 그대로 두었다.
 
 ## 회고
 
