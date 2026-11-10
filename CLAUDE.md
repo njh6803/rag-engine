@@ -5,9 +5,13 @@ MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 �
 @docs/constitution/principles.md
 
 ## 레이어
-위가 아래를 import한다. 경계는 `pyproject.toml`의 import-linter 계약이 판정한다. 층은 core 설계 인터뷰가 더 정한다.
+위가 아래를 import한다. 경계는 `pyproject.toml`의 import-linter 계약이 판정한다. `server`와 `worker`는 서로 독립인 형제다.
 - `rag_engine.main`: 관리 명령(argparse). `serve`가 서버를 띄운다.
-- `rag_engine.server`: FastAPI 앱 조립. REST 경로와 MCP 하위 앱(`/mcp`)을 한 앱이 연다(ADR 0005).
+- `rag_engine.server`: FastAPI 앱 조립. REST 경로와 MCP 하위 앱(`/mcp`)을 한 앱이 연다(ADR 0005). MCP 출력 모델, 수집 API 모델, Problem Details도 여기 둔다.
+- `rag_engine.worker`: 작업자 조립. 작업 대기열에서 작업을 꺼내 돈다(ADR 0009).
+- `rag_engine.adapters`: 포트의 구현(PostgreSQL, TEI, 파서, 파일 저장소). 서드파티는 여기서부터 import한다.
+- `rag_engine.app`: 유스케이스. 포트만 부르고 `pyproject.toml`의 forbidden 계약이 적은 서드파티 열여섯을 import하지 않는다.
+- `rag_engine.domain`: 엔티티, 포트 Protocol, 예외와 오류 코드. app과 같은 열여섯을 import하지 않고, 서드파티는 `uuid6`만 쓴다.
 
 ## 지도
 | 문서 | 읽는 때 | 쓰는 때 |

@@ -55,9 +55,9 @@ reviews:
         경로가 없는지(원칙 V), SQL을 문자열 이어 붙이기로 짓는지, 커넥터·변환·파서 플러그인을 검증
         없이 import하거나 실행하는지, async 함수 안의 블로킹 호출(동기 파일 I/O, time.sleep, 동기
         DB·HTTP 호출)을 본다.
-    - path: "src/rag_engine/server.py"
+    - path: "src/rag_engine/server/**"
       instructions: |
-        REST와 MCP를 여는 FastAPI 앱이다(ADR 0005). MCP에 등록되는 도구가 읽기뿐인지,
+        REST와 MCP를 여는 FastAPI 앱과 그 출력 모델이다(ADR 0005). MCP에 등록되는 도구가 읽기뿐인지,
         인증과 인가가 REST 라우트와 /mcp 양쪽에 걸리는지, 오류 응답에 스택·경로·환경·연결 정보가
         새는지, transport_security의 허용 호스트가 설정 밖에서 넓어지는지 본다.
     - path: "src/rag_engine/main.py"

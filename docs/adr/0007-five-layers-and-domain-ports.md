@@ -18,8 +18,8 @@ date: 2026-11-09
 ## Consequences
 
 - 테스트는 포트에 가짜를 끼워 app을 데이터베이스 없이 시험하고, adapters는 테스트 PostgreSQL과 TEI 스텁으로 시험한다(바뀜: 이력 2026-11-10 "포트 열에 작업 단위 포트 `UnitOfWork`를 더하고, 포트마다 교체 경계인지 테스트 가짜 자리인지를 밝힌다").
-- `CLAUDE.md`의 레이어 절과 `.scratch/plan-head.md`의 목표 배치가 다섯 층으로 바뀐다. `CLAUDE.md`는 면제 파일이 아니라 core의 첫 티켓이 고친다.
-- 포트가 열이라 첫 티켓이 커진다(바뀜: 이력 2026-11-10 "포트 열에 작업 단위 포트 `UnitOfWork`를 더하고, 포트마다 교체 경계인지 테스트 가짜 자리인지를 밝힌다")(바뀜: 이력 2026-11-10 "포트 열에 `Catalog`와 `TokenStore`를 더한다"). 계약(포트와 인터페이스 판)을 바꾸는 티켓은 기능의 첫 티켓이고 다른 티켓을 막는다(`docs/agents/issue-tracker.md`).
+- `CLAUDE.md`의 레이어 절과 `.scratch/plan-head.md`의 목표 배치가 다섯 층으로 바뀐다. `CLAUDE.md`는 면제 파일이 아니라 core의 첫 티켓이 고친다(바뀜: 이력 2026-11-10 "계약 티켓은 core 02이고 core 01(테스트 DB 러너)이 그 앞에 선다").
+- 포트가 열이라 첫 티켓이 커진다(바뀜: 이력 2026-11-10 "포트 열에 작업 단위 포트 `UnitOfWork`를 더하고, 포트마다 교체 경계인지 테스트 가짜 자리인지를 밝힌다")(바뀜: 이력 2026-11-10 "포트 열에 `Catalog`와 `TokenStore`를 더한다"). 계약(포트와 인터페이스 판)을 바꾸는 티켓은 기능의 첫 티켓이고 다른 티켓을 막는다(`docs/agents/issue-tracker.md`)(바뀜: 이력 2026-11-10 "계약 티켓은 core 02이고 core 01(테스트 DB 러너)이 그 앞에 선다").
 
 ## 이력
 
@@ -30,3 +30,7 @@ date: 2026-11-09
 ### 2026-11-10 포트 열에 `Catalog`와 `TokenStore`를 더한다
 
 명세(`.scratch/core/spec.md`)가 정했다. PR #3 봇 5회차의 claude-review가 원천·그룹·지식베이스·색인 판 표와 토큰 표를 맡는 포트가 본문의 열에도 명세에도 없다고 짚었다. 판 전환과 재색인 시작, `migrate`의 기본 레코드, 토큰 발급·회수와 인증이 그 표를 읽고 쓴다. 본문의 포트 열 목록에 열두째 `Catalog`와 열셋째 `TokenStore`가 든다. `Catalog`는 원천, 그룹, 지식베이스(지식베이스와 그룹의 다대다를 포함), 색인 판 레코드를 맡고 작업 단위 안에서 얻는다. 지식베이스 행의 잠금과 판 전환이 문서 상태·색인 상태와 한 트랜잭션에 들어야 하기 때문이다. 그래서 한 트랜잭션을 공유하는 포트는 Catalog, DocumentStore, VectorIndex, JobQueue 넷이다. 판마다의 HNSW 부분 색인과 조각은 VectorIndex의 몫으로 남는다. `TokenStore`는 토큰을 맡고 작업 단위 밖에서 부른다(다른 표와 한 트랜잭션에 들 일이 없다). 둘 다 PostgreSQL 어댑터 하나다. 기존 포트(DocumentStore, VectorIndex)의 몫을 넓히는 안은 이름이 맡는 일보다 좁게 읽히고, Catalog 하나가 토큰까지 맡는 안은 인증 표가 문서 설정과 섞여 고르지 않았다. 사용자가 2026-11-10 명세 세션(PR #3 봇 5회차)에서 골랐다.
+
+### 2026-11-10 계약 티켓은 core 02이고 core 01(테스트 DB 러너)이 그 앞에 선다
+
+core 티켓을 쪼개면서 검사 러너가 테스트 PostgreSQL을 띄우는 변경이 core 01이 되었다(`.scratch/core/issues/01-test-db-runner.md`, `.scratch/plan-head.md`). 그래서 Consequences의 "core의 첫 티켓"은 계약 티켓인 core 02(`.scratch/core/issues/02-contract-layers-ports-schema.md`)를 가리키고, "기능의 첫 티켓"은 "계약 티켓"으로 읽는다. 계약 티켓이 다른 모든 core 티켓을 막는 것은 그대로이고, 하네스 변경인 core 01만 그 앞에 선다. 결정(다섯 층과 포트)은 바뀌지 않는다.

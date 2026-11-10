@@ -1,0 +1,235 @@
+"""포트. `typing.Protocol`이고 `app`의 유스케이스는 이 모양만 부른다(ADR 0007, 명세 "포트 열셋과 그
+값").
+
+작업 단위 안에서 얻는 포트는 `Catalog`, `DocumentStore`, `VectorIndex`, `JobQueue` 넷뿐이고 한
+연결의 한 트랜잭션을 공유한다. 나머지는 트랜잭션 밖에서 부른다. 서드파티 예외는 어댑터가 `domain`의
+영구·일시 실패 예외(`rag_engine.domain.errors`)로 바꿔 올리고 메시지는 옮기지 않는다.
+
+`Parser`는 플러그인 자리라 인터페이스 판과 함께 `rag_engine.domain.parsing`에 있다. `Connector`와
+`Transform`의 Protocol은 처음 쓰는 source-sync가 만든다(명세 Further Notes).
+"""
+
+from collections.abc import Awaitable, Callable, Sequence
+from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass
+from datetime import datetime
+from enum import StrEnum
+from typing import Protocol
+from uuid import UUID
+
+from rag_engine.domain.entities import (
+    Block,
+    Chunk,
+    ChunkDraft,
+    ChunkingConfig,
+    Document,
+    DocumentContent,
+    Group,
+    IndexState,
+    IndexVersion,
+    Job,
+    JobStatus,
+    KnowledgeBase,
+    Source,
+    Token,
+)
+from rag_engine.domain.errors import ErrorCode
+
+# 글 여럿의 토큰 수를 센다. 청킹은 상한 안인지 가리는 데만 쓴다. 시험에서는 글자 수로 세는 가짜를
+# 끼운다.
+type TokenCounter = Callable[[Sequence[str]], Awaitable[list[int]]]
+
+
+class LockMode(StrEnum):
+    """지식베이스 행의 잠금(명세 잠금 규칙). 재색인 시작·삭제·판 전환은 `UPDATE`이고, 수집은 문서가
+    드는 지식베이스를 `SHARE`로, 그룹이 바뀌어 문서가 빠지는 지식베이스를 `UPDATE`로 잠근다."""
+
+    SHARE = "share"
+    UPDATE = "update"
+
+
+class Chunker(Protocol):
+    """청킹 전략. 교체 경계가 아니라 층을 위한 포트다. 결정적이라 시험은 실제 전략으로 한다."""
+
+    async def chunk(
+        self, blocks: Sequence[Block], config: ChunkingConfig, count_tokens: TokenCounter
+    ) -> list[ChunkDraft]: ...
+
+
+class Embedder(Protocol):
+    """임베딩 서버의 경계. 끝점 하나, 모델 하나다. 토큰 세기는 이 포트에 맡긴다."""
+
+    async def embed(self, texts: Sequence[str]) -> list[tuple[float, ...]]: ...
+
+    async def count_tokens(self, texts: Sequence[str]) -> list[int]: ...
+
+    async def special_token_count(self) -> int: ...
+
+    async def token_spans(self, text: str) -> list[tuple[int, int]]:
+        """글의 토큰마다 글자 인덱스의 [처음, 끝) 구간을 낸다(특수 토큰은 뺀다)."""
+        ...
+
+
+class Reranker(Protocol):
+    """리랭커의 경계. 글마다 점수를 입력 순서대로 낸다."""
+
+    async def rerank(self, query: str, texts: Sequence[str]) -> list[float]: ...
+
+
+class BlobStore(Protocol):
+    """원본의 파일 저장소. 키는 `blobs/<문서 UUID>/<원본 UUID>`다. 입출력 오류는 일시 실패다."""
+
+    async def write(self, key: str, data: bytes) -> None: ...
+
+    async def read(self, key: str) -> bytes: ...
+
+    async def delete(self, key: str) -> None: ...
+
+
+class Catalog(Protocol):
+    """원천, 그룹, 지식베이스(그룹과의 다대다 포함), 색인 판 레코드. 작업 단위 안에서 얻는다."""
+
+    async def get_source(self, name: str) -> Source | None: ...
+
+    async def get_group(self, name: str) -> Group | None: ...
+
+    async def get_knowledge_base(self, name: str) -> KnowledgeBase | None: ...
+
+    async def list_knowledge_bases(self) -> list[KnowledgeBase]: ...
+
+    async def list_knowledge_bases_of_group(self, group_id: UUID) -> list[KnowledgeBase]: ...
+
+    async def lock_knowledge_bases(
+        self, knowledge_base_ids: Sequence[UUID], mode: LockMode
+    ) -> list[KnowledgeBase]:
+        """ID 순으로 잠그고 잠근 뒤의 행을 낸다(잠금 순서는 문서 행, 지식베이스 행, 작업 행이다)."""
+        ...
+
+    async def list_live_index_versions(self, knowledge_base_id: UUID) -> list[IndexVersion]:
+        """현재 판과 건설 중인 판을 낸다."""
+        ...
+
+    async def add_index_version(self, version: IndexVersion) -> None: ...
+
+    async def switch_current_version(self, knowledge_base_id: UUID, new_version_id: UUID) -> None:
+        """현재 판 참조를 새 판으로 바꾸고 새 판을 `current`, 옛 판을 `retired`로 쓴다."""
+        ...
+
+
+class DocumentStore(Protocol):
+    """문서와 최신 파싱 결과. 작업 단위 안에서 얻는다."""
+
+    async def get(self, document_id: UUID) -> Document | None: ...
+
+    async def get_by_key(self, source_id: UUID, key: str) -> Document | None: ...
+
+    async def lock(self, document_id: UUID) -> Document | None:
+        """문서 행을 `FOR NO KEY UPDATE`로 잠그고 잠근 뒤의 행을 낸다."""
+        ...
+
+    async def add(self, document: Document) -> None: ...
+
+    async def update(self, document: Document) -> None: ...
+
+    async def get_content(self, document_id: UUID) -> DocumentContent | None: ...
+
+    async def save_content(self, content: DocumentContent) -> None: ...
+
+
+class VectorIndex(Protocol):
+    """조각, 보관 조각, 색인 상태. 색인 판마다의 HNSW 부분 색인을 맡는다. 작업 단위 안에서
+    얻는다."""
+
+    async def create_version_index(self, version: IndexVersion) -> None:
+        """판의 HNSW 부분 색인을 만든다(판 행을 만드는 작업 단위의 커밋 직전)."""
+        ...
+
+    async def replace_chunks(
+        self, document_id: UUID, index_version_id: UUID, chunks: Sequence[Chunk]
+    ) -> None:
+        """그 (문서, 판)의 옛 조각을 지우고 새 조각을 넣는다."""
+        ...
+
+    async def delete_chunks(self, document_id: UUID, index_version_id: UUID | None) -> None:
+        """그 문서의 조각을 지운다. 판을 주지 않으면 모든 판의 것이다."""
+        ...
+
+    async def archive_chunks(self, document_id: UUID) -> None:
+        """그 문서의 모든 판의 조각을 보관 표로 옮긴다."""
+        ...
+
+    async def get_state(self, document_id: UUID, index_version_id: UUID) -> IndexState | None: ...
+
+    async def save_state(self, state: IndexState) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class JobOutcome:
+    """작업이 끝난 모양. 작업의 상태는 그 작업이 끝난 모양이지 문서의 색인 결과가 아니다."""
+
+    status: JobStatus
+    error_code: ErrorCode | None
+
+
+class JobQueue(Protocol):
+    """작업 표의 대기열. 작업 단위 안에서 얻고, 알림(`NOTIFY`)은 PostgreSQL이 커밋 때 보낸다."""
+
+    async def enqueue(self, document_id: UUID, request_id: UUID, now: datetime) -> Job:
+        """같은 문서의 대기 작업이 있으면 새 행 없이 그것을 다시 써서 낸다. 있는지 보는 일과 넣는
+        일이 한 번에 이뤄져야 해서 조회와 변경을 나누지 않고 `Job`을 돌려준다."""
+        ...
+
+    async def get(self, job_id: UUID) -> Job | None: ...
+
+    async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:
+        """`SKIP LOCKED`로 꺼낼 수 있는 작업 하나를 `running`으로 바꿔 낸다. 꺼내는 일과 바꾸는 일을
+        나누면 두 작업자가 같은 작업을 잡으므로 한 번에 하고 `Job`을 돌려준다."""
+        ...
+
+    async def finish(self, job: Job, outcome: JobOutcome, now: datetime) -> None: ...
+
+    async def reschedule(self, job: Job, run_after: datetime, error_code: ErrorCode) -> None: ...
+
+    async def extend_lease(self, job: Job, leased_until: datetime) -> None: ...
+
+
+class TokenStore(Protocol):
+    """인증 토큰. 다른 표와 한 트랜잭션에 들 일이 없어 작업 단위 밖에서 부른다."""
+
+    async def add(self, token: Token) -> None: ...
+
+    async def get_by_hash(self, token_hash: str) -> Token | None: ...
+
+    async def list_tokens(self) -> list[Token]: ...
+
+    async def revoke(self, token_id: UUID, revoked_at: datetime) -> None: ...
+
+    async def has_live_admin(self, now: datetime) -> bool:
+        """회수·만료되지 않은 `admin` 토큰이 있는지 본다."""
+        ...
+
+
+class Transaction(Protocol):
+    """작업 단위 안에서 얻는 네 포트. 한 연결의 한 트랜잭션을 공유한다."""
+
+    @property
+    def catalog(self) -> Catalog: ...
+
+    @property
+    def documents(self) -> DocumentStore: ...
+
+    @property
+    def index(self) -> VectorIndex: ...
+
+    @property
+    def jobs(self) -> JobQueue: ...
+
+
+class UnitOfWork(Protocol):
+    """트랜잭션의 경계. 블록을 예외 없이 나가면 커밋이고 예외로 나가면 롤백이다.
+
+    명시적 `commit()`은 두지 않는다. 두 길이 있으면 한쪽을 잊는다. 산문에서는 "작업 단위"라 쓰고
+    대기열의 "작업"과 가른다(GLOSSARY.md 작업 항목).
+    """
+
+    def begin(self) -> AbstractAsyncContextManager[Transaction]: ...
