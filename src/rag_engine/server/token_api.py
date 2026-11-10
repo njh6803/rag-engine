@@ -45,17 +45,16 @@ def _utc(moment: datetime | None) -> datetime | None:
     return None if moment is None else moment.astimezone(UTC)
 
 
-def _summary(view: TokenView) -> dict[str, object]:
+def _summary(view: TokenView) -> TokenSummary:
     token = view.token
-    created_at = _utc(token.created_at)
-    return {
-        "id": token.id,
-        "name": token.name,
-        "role": token.role,
-        "knowledge_bases": list(view.knowledge_base_names),
-        "expires_at": _utc(token.expires_at),
-        "created_at": created_at,
-    }
+    return TokenSummary(
+        id=token.id,
+        name=token.name,
+        role=token.role,
+        knowledge_bases=list(view.knowledge_base_names),
+        expires_at=_utc(token.expires_at),
+        created_at=token.created_at.astimezone(UTC),
+    )
 
 
 def build_token_router(token_store: TokenStore, unit_of_work: UnitOfWork) -> APIRouter:
@@ -73,12 +72,12 @@ def build_token_router(token_store: TokenStore, unit_of_work: UnitOfWork) -> API
             now=datetime.now(UTC),
         )
         view = TokenView(issued.token, tuple(dict.fromkeys(body.knowledge_bases)))
-        return IssuedTokenResponse.model_validate({**_summary(view), "token": issued.raw})
+        return IssuedTokenResponse(**_summary(view).model_dump(), token=issued.raw)
 
     @router.get("/tokens")
     async def list_all() -> TokenListResponse:
         views = await list_tokens(token_store, unit_of_work)
-        return TokenListResponse.model_validate({"tokens": [_summary(view) for view in views]})
+        return TokenListResponse(tokens=[_summary(view) for view in views])
 
     @router.delete("/tokens/{token_id}", status_code=204)
     async def revoke(token_id: UUID) -> None:

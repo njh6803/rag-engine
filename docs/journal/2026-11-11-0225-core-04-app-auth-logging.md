@@ -1,6 +1,6 @@
 # core 04 앱 조립, 토큰 인증, 요청 ID와 로그 일지 · 2026-11-11
 
-티켓 `.scratch/core/issues/04-app-auth-logging.md`를 구현한 기록이다. next-session 지시문이 연 새 세션(Sonnet 5.5 / high)이고 브랜치는 `feature/04-app-auth-logging`, 작업은 워크트리 `app-auth-logging`에서 했다. 지시문의 이번 요청 범위는 PR과 병합까지다. 준비, 정한 것, 손으로 본 것, 코드 리뷰, PR 직전 리뷰, 회고, 다음을 차례로 둔다. PR 봇 리뷰 절은 봇 회차가 끝난 뒤에 더한다.
+티켓 `.scratch/core/issues/04-app-auth-logging.md`를 구현한 기록이다. next-session 지시문이 연 새 세션(Sonnet 5.5 / high)이고 브랜치는 `feature/04-app-auth-logging`, 작업은 워크트리 `app-auth-logging`에서 했다. 지시문의 이번 요청 범위는 PR과 병합까지다. 준비, 정한 것, 손으로 본 것, 코드 리뷰, PR 직전 리뷰, PR 봇 리뷰, 회고, 다음을 차례로 둔다.
 
 이 세션은 리뷰 보고를 받은 턴에 일지로 옮기지 않았고(아래 회고의 `review-report-journal-lag`), 컨텍스트가 한 번 압축된 뒤에 일지를 처음 썼다. 그래서 아래 리뷰 절은 PR 본문과 압축 요약, 커밋 메시지, 변이 표에서 다시 모은 것이다. 지적별 원문은 없고 건수와 판정만 있다.
 
@@ -55,6 +55,23 @@ CodeRabbit CLI(`coderabbit-review` 에이전트) 0.7.5가 `Seat: not assigned`�
 - 고친 것(Minor, 둘째 커밋 `36b2557`): 스트리밍 도중 예외가 나면 `http_request` 줄이 이미 보낸 200 대신 500을 남겼고, 응답을 시작하기 전에 클라이언트가 끊으면 `status`가 0으로 남았다. 응답을 시작했으면 상태를 덮지 않고, 시작 전 취소는 `null`로 남긴다. ASGI 수준 시험 둘과 열세 번째 변이를 더했다.
 - 남긴 것: 쓰레기 베어러 문자열이 요청마다 DB 연결 하나를 쓰고 풀에 `pool_pre_ping`이 없다는 지적은 추측이었고 재현하지 않았다. 어댑터 판단이라 이 티켓에서 건드리지 않았다. 외래 로거(MCP SDK)가 `mcp_stateless=false`에서 세션 ID를 INFO로 남기는 한계는 독스트링에 적었다. 라우트 안에서 나는 500을 밟는 시험이 없다는 것은 인증을 지나 실패하는 라우트가 아직 없어서다.
 
+## PR 봇 리뷰
+
+PR #9에서 CodeRabbit은 두 번 모두 한도에 걸려(`Review limit reached`, PR을 연 때와 `@coderabbitai review`로 다시 요청한 때) 리뷰가 없었다. 마지막으로 리뷰를 받은 커밋은 없고, 첫 코멘트가 다음 무료 리뷰를 42분 뒤라 알렸다. 그래서 회차로 세지 않는다. claude-review는 두 번 돌았고(검사는 모두 초록, `verify` 포함) Critical·Major는 둘 다 없다.
+
+첫 회차(첫 두 커밋을 본 리뷰). 지적마다 판단했다.
+- 고친 것(Minor): `token_api.py`의 `_summary`가 `dict[str, object]`를 만들어 `model_validate`로 모델에 다시 넣었다. `_utc`가 `datetime | None`을 돌려줘서 `created_at`을 모델 생성자에 바로 못 넣은 탓이었다. `token.created_at.astimezone(UTC)`로 `TokenSummary`를 직접 만든다. `Any`는 쓰지 않았다.
+- 고친 것(Nit): `request_context.py`의 `_Outcome`을 사용처 위로 올려 문자열 전방 참조를 걷었고, 두 줄로 끊긴 주석을 한 문장으로 이었다.
+- 보류(Minor): `request_failed`가 명세 "로그 이벤트" 목록에 없다. 명세 개정은 사용자 판단이라 아래 "다음"에 이미 있다.
+- 보류(Minor): `bootstrap_admin_token`이 질의와 명령을 한 함수에서 잇는다(CQS). 포트에 조건부 삽입(`add_admin_if_none`)을 두면 동시 실행 위험과 함께 풀린다는 제안이다. 포트 판이 바뀌는 일이라 이 티켓에서 하지 않았고 "다음"에 이 제안과 함께 적었다.
+- 보류(Nit): `except Exception` 블록의 `if not outcome.response_started`가 두 번 나온다. 로그를 응답 전송보다 먼저 내려면 도우미가 하나 더 필요하고, 변이 열세 번째가 겨누는 원문이 깨진다. 얻는 것이 작아 두었다.
+
+둘째 회차(일지 커밋을 본 리뷰). Critical·Major만 고치는 회차다. 첫 회차의 지적이 되풀이되었고 새 Minor가 둘 있다.
+- 보류(Minor): `issue` 핸들러가 `TokenView`를 만들며 지식베이스 이름 중복 제거를 다시 한다(`app/tokens.py`의 `_resolve_knowledge_base_ids`에도 같은 규칙). 셀프 리뷰가 "token_api 안의 중복"으로 남긴 것과 같은 뿌리이고, `IssuedToken`이 `TokenView`를 돌려주게 바꾸는 방법이 있다. "다음"에 적었다.
+- 보류(Minor): 토큰 목록에 회수 여부 칸이 없다. 위 "남긴 것"에 있고 사용자 판단이다.
+
+고친 뒤 다시 돌린 명령: `ruff check .`, `ruff format --check .`, `pyright`(0 오류), `tools/mutate.py --check`(변이 13 원문 확인). 시험은 테스트 PostgreSQL이 필요해 커밋의 pre-commit 러너가 돈다(결과는 커밋 뒤 PR 코멘트에 적는다).
+
 ## 회고
 
 후보 일곱을 냈다. 승인 1, 기각 6, 넘김 0이다. 사용자에게 묻는 것은 없다. 대기열(`uv run python tools/queue_open_rows.py`)은 이 일지로 항목 하나(`review-report-journal-lag`)를 더해 열린 항목 20개가 된다. 만료할 항목은 없었다. 회차 5 이상은 `spec-review-transition-crossing`(8회차)과 `gate-pipe-read-status`(5회차)이고 둘 다 이 세션의 일이 아니다.
@@ -80,7 +97,10 @@ CodeRabbit CLI(`coderabbit-review` 에이전트) 0.7.5가 `Seat: not assigned`�
   - `GET /api/v1/admin/tokens`에 회수 여부 칸을 둘지(수집 API 계약이 아니라 관리 API의 칸이라 계약 판 문제는 아니나 명세가 칸을 정하지 않았다).
   - ADR 0007 본문 8행 포인터와 헌법 patch 1.1.3은 02 일지의 "다음"에서 그대로 열려 있다.
 - 열린 일(받을 티켓은 정하지 않았다):
-  - `bootstrap-token`이 닿지 않는 DB에서 안내 없이 트레이스백으로 끝나는 것과, 동시에 두 프로세스가 돌면 둘 다 발급하는 것. 설치 방식이 정해질 때 같이 본다.
+  - `bootstrap-token`이 닿지 않는 DB에서 안내 없이 트레이스백으로 끝나는 것과, 동시에 두 프로세스가 돌면 둘 다 발급하는 것. 후자는 포트에 조건부 삽입(`add_admin_if_none`)을 두면 질의와 명령을 잇는 `bootstrap_admin_token`의 CQS 지적과 함께 풀린다(claude-review 첫 회차). 포트 판이 바뀌는 일이라 설치 방식이 정해질 때 같이 본다.
+  - 토큰 발급 핸들러가 지식베이스 이름의 중복 제거를 다시 하는 것(`server/token_api.py`와 `app/tokens.py`의 `_resolve_knowledge_base_ids`에 같은 규칙). `IssuedToken`이 이름을 담은 `TokenView`를 돌려주면 서버가 규칙을 알 필요가 없다(claude-review 둘째 회차). 05가 라우터를 더하며 토큰 API를 만질 때 같이 본다.
+  - `request_context.py`의 `except Exception` 블록에서 `if not outcome.response_started`가 두 번 나온다. 로그와 응답 전송 순서를 지키려면 도우미가 필요해 보류했다(claude-review 첫 회차 Nit). 변이 13의 원문도 함께 고친다.
+  - CodeRabbit이 이 PR에서 한도에 걸려 한 번도 리뷰하지 못했다. 이 PR은 CodeRabbit PR 리뷰 없이 병합된다(PR 직전 로컬 CLI 리뷰는 위에서 돌았다).
   - `migrate.upgrade_to_head`의 동시 첫 설치 락(core 03 일지에서 넘어온 것)은 여전히 열려 있다.
   - 쓰레기 베어러 문자열이 요청마다 DB 연결을 쓰는 것과 풀의 `pool_pre_ping`은 어댑터 판단이다. 05가 라우트를 더해 부하가 생기면 재현해 본다.
   - 라우트 안에서 나는 500(`on_unhandled`)을 밟는 시험은 인증을 지나 실패하는 라우트가 생기는 05에서 더한다.

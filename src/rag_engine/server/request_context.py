@@ -55,6 +55,15 @@ def is_mcp_path(path: str) -> bool:
     return path == MCP_PATH or path.startswith(MCP_PATH + "/")
 
 
+class _Outcome:
+    """응답의 상태. 응답 헤더를 보낸 시점에 채워진다. 안쪽에서 예외가 나면 응답이 시작되지 않았어도
+    기록할 상태(500)는 정해지므로 시작 여부를 상태와 따로 둔다."""
+
+    def __init__(self) -> None:
+        self.status = 0
+        self.response_started = False
+
+
 class RequestContextMiddleware:
     def __init__(self, app: ASGIApp, routes: Sequence[BaseRoute]) -> None:
         self.app = app
@@ -86,7 +95,7 @@ class RequestContextMiddleware:
             request_id_var.reset(reset)
 
     async def _run(
-        self, scope: Scope, receive: Receive, send: Send, request_id: UUID, outcome: "_Outcome"
+        self, scope: Scope, receive: Receive, send: Send, request_id: UUID, outcome: _Outcome
     ) -> None:
         async def send_with_request_id(message: Message) -> None:
             if message["type"] == "http.response.start":
@@ -100,8 +109,7 @@ class RequestContextMiddleware:
             await self.app(scope, receive, send_with_request_id)
         except Exception as error:
             # 서드파티 예외의 메시지에는 입력 값이 실릴 수 있어 로그 포매터가 타입과 프레임만
-            # 싣는다.
-            # 응답을 이미 시작했으면(스트리밍 도중) 클라이언트가 본 상태를 그대로 둔다.
+            # 싣는다. 응답을 이미 시작했으면(스트리밍 도중) 클라이언트가 본 상태를 그대로 둔다.
             if not outcome.response_started:
                 outcome.status = 500
             log_event(
@@ -121,12 +129,3 @@ class RequestContextMiddleware:
             if route.matches(scope)[0] is not Match.NONE:
                 return route.path
         return MCP_PATH if is_mcp_path(scope["path"]) else _UNMATCHED
-
-
-class _Outcome:
-    """응답의 상태. 응답 헤더를 보낸 시점에 채워진다. 안쪽에서 예외가 나면 응답이 시작되지 않았어도
-    기록할 상태(500)는 정해지므로 시작 여부를 상태와 따로 둔다."""
-
-    def __init__(self) -> None:
-        self.status = 0
-        self.response_started = False
