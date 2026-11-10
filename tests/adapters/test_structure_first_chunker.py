@@ -207,6 +207,25 @@ async def test_머리_행과_한_행이_상한을_넘는_표의_행은_토큰_�
     assert all(draft.location.block_kind is BlockKind.TABLE for draft in drafts)
 
 
+async def test_모든_행이_머리_행과_함께_상한에_들지_못해도_머리_행은_조각으로_남는다() -> None:
+    # 행마다 머리 행(2)과 함께면 상한 20을 넘어 머리 행 없이 나뉜다. 머리 행이 색인에서 사라지면
+    # 열 이름으로 찾는 질의가 그 표를 찾지 못하므로 머리 행만 담은 조각을 맨 앞에 둔다.
+    table = f"머리\n{'가' * 30}\n{'나' * 30}"
+
+    drafts = await chunk(blocks_of(("t", table)), 20)
+
+    assert [draft.text for draft in drafts] == ["머리", "가" * 15, "가" * 15, "나" * 15, "나" * 15]
+    assert all(draft.location.block_kind is BlockKind.TABLE for draft in drafts)
+
+
+async def test_머리_행_하나가_상한을_넘으면_머리_행_조각도_토큰_경계에서_나눈다() -> None:
+    table = f"{'머' * 30}\n{'가' * 30}"
+
+    drafts = await chunk(blocks_of(("t", table)), 20)
+
+    assert [draft.text for draft in drafts] == ["머" * 15, "머" * 15, "가" * 15, "가" * 15]
+
+
 # 규칙 다섯: 겹침은 같은 절 안에서만 두고 앞 조각의 끝 문장들을 겹침 토큰 수 안에서 통째로 가져온다.
 
 

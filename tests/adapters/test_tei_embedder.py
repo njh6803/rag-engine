@@ -327,6 +327,54 @@ async def test_빈_글의_토큰_구간은_없다(make_embedder: EmbedderFactory
     assert stub.requests == []
 
 
+async def test_글자_수_상한을_넘는_글은_잘라_세고_서버에는_상한_안의_글만_보낸다(
+    make_embedder: EmbedderFactory,
+) -> None:
+    # 최대 입력 길이가 20이면 TEI는 글 하나가 5000자를 넘는 요청을 거부한다.
+    stub = TeiStub(max_input_length=20)
+    text = "가 " * 6000
+
+    counts = await make_embedder(stub, max_chunk_tokens=10).count_tokens([text])
+
+    assert counts == [6000]
+    longest = max(len(piece) for body in stub.bodies("/tokenize") for piece in _inputs_of(body))
+    assert longest <= 5000
+
+
+async def test_잘라_센_긴_글의_토큰_구간은_글_전체의_글자_인덱스를_잇는다(
+    make_embedder: EmbedderFactory,
+) -> None:
+    # 최대 입력 길이 24는 글 하나 6000자이고, 낱말마다 여섯 글자라 9000자는 6000자와 3000자로
+    # 갈린다. 낱말이 서로 달라야 조각 뒤쪽의 오프셋이 밀리면 다른 글자가 잡힌다.
+    stub = TeiStub(max_input_length=24)
+    words = [f"가{number:04d}" for number in range(1500)]
+    text = "".join(f"{word} " for word in words)
+
+    spans = await make_embedder(stub, max_chunk_tokens=10).token_spans(text)
+
+    assert [text[start:end] for start, end in spans] == words
+
+
+async def test_요청_본문이_바이트_상한을_넘지_않도록_묶음을_나눈다(
+    make_embedder: EmbedderFactory,
+) -> None:
+    # 글 여섯이 한 요청이면 1.2MB라 서버의 본문 상한(1.1MB)을 넘는다.
+    stub = TeiStub(payload_limit=1_100_000)
+    texts = ["a" * 200_000 for _ in range(6)]
+
+    counts = await make_embedder(stub).count_tokens(texts)
+
+    assert counts == [1] * 6
+    assert [_inputs_size(body) for body in stub.bodies("/tokenize")] == [5, 1]
+
+
+def _inputs_of(body: Mapping[str, JsonValue]) -> list[str]:
+    inputs = body["inputs"]
+    assert isinstance(inputs, Sequence)
+    assert not isinstance(inputs, str)
+    return [item for item in inputs if isinstance(item, str)]
+
+
 def _input_size(body: Mapping[str, JsonValue]) -> int:
     return _list_size(body["input"])
 

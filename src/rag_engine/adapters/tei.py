@@ -2,7 +2,9 @@
 
 컨테이너 하나가 모델 하나를 들고, 어댑터 하나가 끝점 하나를 맡는다. 끝점마다 첫 호출 전에 `/info`를
 읽어 모델 이름과 최대 입력 길이를 확인하고(다르면 "설정 불일치"라 운영자가 고칠 때까지 일시 실패다),
-`/v1/embeddings`와 `/tokenize`를 `RAG_TEI_BATCH_SIZE`개씩 묶어 부른다. 서드파티 예외와 서버의 오류
+`/v1/embeddings`와 `/tokenize`를 `RAG_TEI_BATCH_SIZE`개씩, 본문이 바이트 상한을 넘지 않게 묶어
+부른다. `/tokenize`는 글 하나가 `max_input_length`의 250배 글자를 넘으면 잘라 주지 않고 거부하므로,
+넘는 글은 어댑터가 글자 수로 잘라 따로 보내 센 뒤 이어 붙여 돌려준다. 서드파티 예외와 서버의 오류
 메시지는 옮기지 않고 이 저장소가 쓴 글로 `domain`의 영구·일시 실패 예외를 올린다(원칙 V).
 시간 초과는 `httpx.AsyncClient`의 `timeout`이 맡고 조립 쪽이 `RAG_TEI_TIMEOUT_SECONDS`로 정한다.
 """
@@ -10,6 +12,7 @@
 import asyncio
 import logging
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Final
 
 import httpx
@@ -27,6 +30,19 @@ _REJECTED_STATUSES: Final = frozenset({400, 413, 422})
 
 # 특수 토큰 수를 재는 짧은 글. 빈 글은 TEI가 거부한다.
 _PROBE_TEXT: Final = "가"
+
+# TEI는 `/tokenize`의 글 하나가 `max_input_length` × 250자를 넘으면 잘라 주지 않고 검증 오류로
+# 거부한다(상류 v1.9.4 `core/src/tokenization.rs`의 `MAX_CHAR_MULTIPLIER`와 `tokenize_input`을
+# 웹 요약으로 읽었다. 프로브 `tei_tokenization_facts.py`는 그 상수의 값을 뽑지 않았다).
+_CHARS_PER_INPUT_TOKEN: Final = 250
+
+# 요청 본문 하나의 UTF-8 바이트 상한. TEI의 `--payload-limit` 기본값 2,000,000바이트(상류 v1.9.4
+# `router/src/main.rs`, 웹 요약)의 절반이다. JSON 이스케이프와 다른 칸이 쓰는 몫을 남긴다.
+_MAX_BODY_BYTES: Final = 1_000_000
+
+# 글을 자를 때 조각 하나의 글자 수 상한. 글자 하나가 UTF-8로 최대 4바이트라 이 수만큼이면 본문
+# 상한 안에 든다.
+_MAX_SLICE_CHARS: Final = _MAX_BODY_BYTES // 4
 
 
 class _Info(BaseModel):
@@ -54,6 +70,14 @@ class _Token(BaseModel):
 _TOKENIZE_RESPONSE: Final = TypeAdapter(list[list[_Token]])
 
 
+@dataclass(frozen=True, slots=True)
+class _Limits:
+    """`/info`가 알린 값에서 끌어낸, 요청을 짜는 한도."""
+
+    batch_size: int
+    slice_chars: int
+
+
 class TeiEmbedder:
     """`Embedder` 포트(`TokenMeter` 포함)의 TEI 어댑터. 끝점 하나, 모델 하나다."""
 
@@ -71,16 +95,16 @@ class TeiEmbedder:
         self._dimensions = dimensions
         self._max_chunk_tokens = max_chunk_tokens
         self._configured_batch_size = batch_size
-        self._batch_size: int | None = None
+        self._limits: _Limits | None = None
         self._special_token_count: int | None = None
         self._check_lock = asyncio.Lock()
 
     async def embed(self, texts: Sequence[str]) -> list[tuple[float, ...]]:
         if not texts:
             return []
-        batch_size = await self._checked_batch_size()
+        limits = await self._endpoint_limits()
         vectors: list[tuple[float, ...]] = []
-        for batch in _batches(texts, batch_size):
+        for batch in _batches(texts, size=limits.batch_size, max_bytes=_MAX_BODY_BYTES):
             content = await self._send(
                 "POST", "/v1/embeddings", {"input": batch, "model": self._model}
             )
@@ -125,13 +149,17 @@ class TeiEmbedder:
     async def _tokenize(
         self, texts: Sequence[str], *, add_special_tokens: bool
     ) -> list[list[_Token]]:
-        """글마다 토큰을 낸다. 빈 글은 TEI가 거부하므로 서버에 보내지 않고 토큰 없음으로 둔다."""
+        """글마다 토큰을 낸다. 빈 글은 TEI가 거부하므로 서버에 보내지 않고 토큰 없음으로 둔다.
+        글자 수 상한을 넘는 글은 잘라 보내 센 토큰을 이어 붙인다. 자른 자리에 걸친 낱말은 둘로
+        센다."""
         non_empty = [text for text in texts if text]
         if not non_empty:
             return [[] for _ in texts]
-        batch_size = await self._checked_batch_size()
+        limits = await self._endpoint_limits()
+        pieces_of = [_slices(text, limits.slice_chars) for text in non_empty]
+        pieces = [piece for text_pieces in pieces_of for piece in text_pieces]
         tokenized: list[list[_Token]] = []
-        for batch in _batches(non_empty, batch_size):
+        for batch in _batches(pieces, size=limits.batch_size, max_bytes=_MAX_BODY_BYTES):
             payload: Mapping[str, JsonValue] = {
                 "inputs": batch,
                 "add_special_tokens": add_special_tokens,
@@ -142,13 +170,17 @@ class TeiEmbedder:
                 raise _malformed_response()
             tokenized.extend(batch_tokens)
         remaining = iter(tokenized)
-        return [next(remaining) if text else [] for text in texts]
+        joined = iter(
+            _joined(text_pieces, [next(remaining) for _ in text_pieces])
+            for text_pieces in pieces_of
+        )
+        return [next(joined) if text else [] for text in texts]
 
-    async def _checked_batch_size(self) -> int:
-        """끝점마다 첫 호출 전에 `/info`를 확인한다. 실패하면 기억하지 않아 다음 호출이 다시
-        본다."""
+    async def _endpoint_limits(self) -> _Limits:
+        """끝점마다 첫 호출 전에 `/info`를 확인하고 요청을 짜는 한도를 돌려준다. 실패하면 기억하지
+        않아 다음 호출이 다시 본다."""
         async with self._check_lock:
-            if self._batch_size is None:
+            if self._limits is None:
                 content = await self._send("GET", "/info", None)
                 info = _parse(_Info, content)
                 self._verify(info)
@@ -160,10 +192,13 @@ class TeiEmbedder:
                     info.max_client_batch_size,
                     info.auto_truncate,
                 )
-                self._batch_size = max(
-                    1, min(self._configured_batch_size, info.max_client_batch_size)
+                self._limits = _Limits(
+                    batch_size=max(1, min(self._configured_batch_size, info.max_client_batch_size)),
+                    slice_chars=min(
+                        info.max_input_length * _CHARS_PER_INPUT_TOKEN, _MAX_SLICE_CHARS
+                    ),
                 )
-            return self._batch_size
+            return self._limits
 
     def _verify(self, info: _Info) -> None:
         if self._model not in (info.model_id, info.served_model_name):
@@ -199,8 +234,45 @@ class TeiEmbedder:
         )
 
 
-def _batches(texts: Sequence[str], size: int) -> list[list[str]]:
-    return [list(texts[start : start + size]) for start in range(0, len(texts), size)]
+def _batches(texts: Sequence[str], *, size: int, max_bytes: int) -> list[list[str]]:
+    """순서를 지켜 글을 `size`개 이하이고 UTF-8 바이트 합이 `max_bytes` 이하인 묶음으로 가른다.
+    글 하나가 `max_bytes`를 넘으면 그 글 혼자 한 묶음이다."""
+    batches: list[list[str]] = []
+    current: list[str] = []
+    current_bytes = 0
+    for text in texts:
+        text_bytes = len(text.encode("utf-8"))
+        if current and (len(current) >= size or current_bytes + text_bytes > max_bytes):
+            batches.append(current)
+            current, current_bytes = [], 0
+        current.append(text)
+        current_bytes += text_bytes
+    if current:
+        batches.append(current)
+    return batches
+
+
+def _slices(text: str, size: int) -> list[str]:
+    return [text[start : start + size] for start in range(0, len(text), size)]
+
+
+def _joined(pieces: Sequence[str], tokens_of: Sequence[list[_Token]]) -> list[_Token]:
+    """조각마다 센 토큰을 글 전체의 것으로 잇는다. 토큰의 바이트 오프셋은 조각 안의 값이라 앞
+    조각들의 UTF-8 바이트 길이만큼 밀어야 글 전체의 값이 된다."""
+    if len(pieces) == 1:
+        return tokens_of[0]
+    joined: list[_Token] = []
+    shift = 0
+    for piece, tokens in zip(pieces, tokens_of, strict=True):
+        joined.extend(
+            _Token(
+                start=None if token.start is None else token.start + shift,
+                stop=None if token.stop is None else token.stop + shift,
+            )
+            for token in tokens
+        )
+        shift += len(piece.encode("utf-8"))
+    return joined
 
 
 def _parse[T](model: type[T] | TypeAdapter[T], content: bytes) -> T:

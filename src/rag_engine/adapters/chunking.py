@@ -264,7 +264,8 @@ class _ChunkingRun:
     async def _split_table(self, item: _Item, joiner: str, budget: int) -> list[_Unit]:
         """표를 행 단위로 나누고 조각마다 머리 행을 되풀이한다. 머리 행과 함께 상한에 들지 않는
         행은 토큰 경계에서 나누고, 그 조각은 머리 행 없이 행 글만 담는다(머리 행을 붙일 자리가
-        없다). 표를 나눈 조각은 다른 단위와 합치지 않는다."""
+        없다). 어느 조각에도 머리 행이 들지 못했으면 머리 행만 담은 조각을 맨 앞에 둔다(열 이름이
+        색인에서 사라지지 않게 한다). 표를 나눈 조각은 다른 단위와 합치지 않는다."""
         lines = [line for line in item.text.split("\n") if line.strip()]
         header, rows = lines[0], lines[1:]
         header_tokens, *row_tokens = await self._tokens.count_tokens([header, *rows])
@@ -272,12 +273,14 @@ class _ChunkingRun:
         units: list[_Unit] = []
         group: list[str] = []
         group_tokens = header_tokens
+        header_placed = False
 
         def flush() -> None:
-            nonlocal group, group_tokens
+            nonlocal group, group_tokens, header_placed
             if group:
                 text = "\n".join([header, *group])
                 units.append(self._table_unit(item, text, group_tokens, joiner))
+                header_placed = True
             group, group_tokens = [], header_tokens
 
         for row, tokens in zip(rows, row_tokens, strict=True):
@@ -295,6 +298,8 @@ class _ChunkingRun:
             group.append(row)
             group_tokens += newline + tokens
         flush()
+        if not header_placed:
+            units.insert(0, self._table_unit(item, header, header_tokens, joiner))
         return units
 
     def _table_unit(self, item: _Item, text: str, tokens: int, joiner: str) -> _Unit:

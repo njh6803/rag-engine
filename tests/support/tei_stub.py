@@ -9,6 +9,9 @@ Decisions).
 - 토큰 세기: 같은 낱말 단위에 입력의 UTF-8 바이트 오프셋을 붙인다. `add_special_tokens`가 참이면
   앞뒤에 오프셋이 null인 특수 토큰을 더한다. 빈 글은 TEI처럼 거부한다.
 - 리랭크: 질의 낱말 가운데 글에 든 비율을 점수로 내고 점수가 큰 순서로 돌려준다.
+- 입력 상한: `/tokenize`는 글 하나가 `max_input_length`의 250배 글자를 넘으면 422로, 요청 본문이
+  `payload_limit` 바이트를 넘으면 413으로 거부한다(상류 v1.9.4의 `MAX_CHAR_MULTIPLIER`와
+  `--payload-limit`을 웹 요약으로 읽었다).
 
 요청 횟수와 본문은 `requests`에 남아 시험이 배치 크기나 `truncate` 같은 칸을 단언한다. `fail`로
 끝점이 주는 응답을 상태 코드로 바꿀 수 있다. 서버 메시지는 시험이 어댑터가 옮기지 않음을 보려고
@@ -16,6 +19,7 @@ Decisions).
 """
 
 import hashlib
+import json
 import math
 import re
 from collections.abc import Mapping, Sequence
@@ -28,6 +32,7 @@ from fastapi.responses import JSONResponse, Response
 from rag_engine.domain.entities import JsonValue
 
 SECRET_MESSAGE: Final = "SERVER-SIDE-DETAIL-MUST-NOT-LEAK"
+MAX_CHAR_MULTIPLIER: Final = 250
 
 _WORD: Final = re.compile(r"\w+|[^\w\s]")
 
@@ -47,6 +52,7 @@ class TeiStub:
     max_input_length: int = 8192
     auto_truncate: bool = True
     max_client_batch_size: int = 32
+    payload_limit: int = 2_000_000
     dimensions: int = 16
     special_tokens: int = 2
     requests: list[RecordedRequest] = field(default_factory=lambda: [])
@@ -76,8 +82,12 @@ class TeiStub:
             return None
         return _error(status, SECRET_MESSAGE)
 
-    async def _record(self, request: Request) -> Mapping[str, JsonValue]:
-        body: dict[str, JsonValue] = await request.json()
+    async def _record(self, request: Request) -> Mapping[str, JsonValue] | None:
+        """본문을 남기고 돌려준다. 본문이 `payload_limit`을 넘으면 남기지 않고 `None`이다."""
+        raw = await request.body()
+        if len(raw) > self.payload_limit:
+            return None
+        body: dict[str, JsonValue] = json.loads(raw)
         self.requests.append(RecordedRequest(request.url.path, body))
         return body
 
@@ -103,6 +113,8 @@ class TeiStub:
 
     async def _embeddings(self, request: Request) -> Response:
         body = await self._record(request)
+        if body is None:
+            return _error(413, "payload too large")
         if (forced := self._forced("/v1/embeddings")) is not None:
             return forced
         texts = _texts(body.get("input"))
@@ -126,16 +138,23 @@ class TeiStub:
 
     async def _tokenize(self, request: Request) -> Response:
         body = await self._record(request)
+        if body is None:
+            return _error(413, "payload too large")
         if (forced := self._forced("/tokenize")) is not None:
             return forced
         inputs = _texts(body.get("inputs"))
         if any(text == "" for text in inputs):
             return _error(422, "`inputs` cannot be empty")
+        char_limit = self.max_input_length * MAX_CHAR_MULTIPLIER
+        if any(len(text) > char_limit for text in inputs):
+            return _error(422, f"`inputs` must have less than {char_limit} characters")
         with_special = body.get("add_special_tokens", True) is True
         return JSONResponse([self._tokens(text, with_special=with_special) for text in inputs])
 
     async def _rerank(self, request: Request) -> Response:
         body = await self._record(request)
+        if body is None:
+            return _error(413, "payload too large")
         if (forced := self._forced("/rerank")) is not None:
             return forced
         query = body.get("query")

@@ -1,8 +1,10 @@
 # core 06(TEI, Kiwi, 구조 우선 청킹 티켓)가 더한 시험의 변이. 구현과 함께 쓴 시험이라 변이로 본다.
 # 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/core/probes/chunker_mutations.toml
 # 청킹 변이는 tests/adapters/test_structure_first_chunker.py, 키워드는 test_kiwi.py, 글 짓기는
-# tests/domain/test_index_text.py, 오프셋 변환은 test_utf8_offsets.py 만 돈다. TEI 어댑터
-# (test_tei_embedder.py)와 스텁(test_tei_stub.py)은 변이를 재지 않았다.
+# tests/domain/test_index_text.py, 오프셋 변환은 test_utf8_offsets.py 만 돈다. TEI 어댑터는
+# 요청을 짜는 곳(글자 수 상한, 본문 바이트 상한, 오프셋 잇기, PR #8 봇 회차가 짚은 둘)만
+# test_tei_embedder.py 로 재고, 나머지(`/info` 확인, 오류 번역, 응답 검증)와 스텁(test_tei_stub.py)은
+# 변이를 재지 않았다.
 # 표지(expect_output)는 변이를 손으로 넣어 본 실패 출력에서 고른, 그 변이가 만든 받은 값의 문구다.
 # 시험 이름은 시험 원문에 글자 그대로 있어 표지가 되지 못한다(대기열 417).
 
@@ -87,6 +89,17 @@ new = '''if unit.kind is BlockKind.HEADING:
                 break'''
 
 [[mutation]]
+name = "행이 모두 넘치는 표의 머리 행 조각을 두지 않는다"
+tests = ["tests/adapters/test_structure_first_chunker.py"]
+expect = "red"
+expect_output = ["!= '머리'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/chunking.py"
+old = '''if not header_placed:'''
+new = '''if False:'''
+
+[[mutation]]
 name = "블록 글의 앞뒤 공백을 떼지 않는다"
 tests = ["tests/adapters/test_structure_first_chunker.py"]
 expect = "red"
@@ -140,3 +153,38 @@ expect_output = ["음수 오프셋이 낸 글자 위치 -1"]
 file = "src/rag_engine/adapters/utf8_offsets.py"
 old = '''return max(0, min(index, len(self._starts) - 1))'''
 new = '''return min(index, len(self._starts) - 1)'''
+
+# TEI 어댑터의 요청 짜기(글자 수 상한과 본문 바이트 상한, PR #8 봇 회차가 짚은 둘)다. 아래 셋은 스텁이
+# TEI처럼 422·413으로 거부해 시험이 빨개진다.
+[[mutation]]
+name = "글자 수 상한을 넘는 글을 자르지 않는다"
+tests = ["tests/adapters/test_tei_embedder.py"]
+expect = "red"
+expect_output = ["임베딩 서버가 요청을 거부했다(HTTP 422)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/tei.py"
+old = '''info.max_input_length * _CHARS_PER_INPUT_TOKEN, _MAX_SLICE_CHARS'''
+new = '''10**9, 10**9'''
+
+[[mutation]]
+name = "묶음을 본문 바이트로 나누지 않는다"
+tests = ["tests/adapters/test_tei_embedder.py"]
+expect = "red"
+expect_output = ["임베딩 서버가 요청을 거부했다(HTTP 413)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/tei.py"
+old = '''or current_bytes + text_bytes > max_bytes'''
+new = '''or False'''
+
+[[mutation]]
+name = "자른 조각의 토큰 오프셋을 앞 조각의 바이트만큼 밀지 않는다"
+tests = ["tests/adapters/test_tei_embedder.py"]
+expect = "red"
+expect_output = ["At index 1000 diff: '가0000' != '가1000'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/tei.py"
+old = '''shift += len(piece.encode("utf-8"))'''
+new = '''shift += 0'''
