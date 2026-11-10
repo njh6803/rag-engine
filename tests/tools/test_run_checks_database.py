@@ -121,6 +121,12 @@ def test_PostgreSQL_이_아닌_글자로_답하는_서버는_답하는_서버가
         assert not server_answers("127.0.0.1", port)
 
 
+@pytest.mark.parametrize("host", ["a..b", "x" * 70 + ".example"])
+def test_이름_풀이가_거절하는_호스트는_예외가_아니라_답하지_않는_서버다(host: str) -> None:
+    """IDNA 인코딩이 빈 레이블이나 64자 넘는 레이블을 `UnicodeError` 로 거절한다."""
+    assert not server_answers(host, 5432)
+
+
 def test_기본_주소는_compose_와_같은_판의_이미지_역할_포트를_가리킨다() -> None:
     """compose 파일과 기본 주소가 따로 늙지 않게 한다. 둘 다 사람이 쓰므로 글자로 맞댄다."""
     compose = _글(COMPOSE_FILE)
@@ -463,6 +469,29 @@ def test_CLI_는_pytest_를_건너뛰면_데이터베이스를_보지_않는다(
 
     assert process.returncode == 0, process.stdout + process.stderr
     assert "test-db" not in process.stdout
+
+
+def test_main_은_준비한_주소를_검사들이_물려받을_환경에_넣는다(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """자식 pytest 는 이 프로세스의 환경을 물려받는다. 주소가 없어 기본 서버를 쓴 커밋에서도 세션
+    픽스처가 같은 주소를 보려면 준비한 값이 환경에 있어야 한다."""
+    monkeypatch.delenv("SKIP", raising=False)
+    monkeypatch.setenv(TEST_DATABASE_ENV, "postgresql://before/x")
+    seen: list[str | None] = []
+
+    def 환경을_기록하고_통과한다(*_: object) -> int:
+        seen.append(os.environ.get(TEST_DATABASE_ENV))
+        return 0
+
+    def 준비된_주소(*_: object) -> str:
+        return "postgresql://ready/x"
+
+    monkeypatch.setattr(run_checks, "prepare_test_database", 준비된_주소)
+    monkeypatch.setattr(run_checks, "run", 환경을_기록하고_통과한다)
+
+    assert run_checks.main() == 0
+    assert seen == ["postgresql://ready/x"]
 
 
 def _중첩_pytest(extra: dict[str, str]) -> subprocess.CompletedProcess[str]:
