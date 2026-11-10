@@ -67,6 +67,17 @@ PR #5의 첫 푸시에 CodeRabbit(Minor 둘, 인라인)과 claude-review(Minor �
   - `docs/constitution/tech.md` 테스트 칸에 "자동 시작은 `127.0.0.1`·`localhost`의 55432 한정"을 넣자는 CodeRabbit 지적: 그 문장은 사용자가 승인한 문구라 넓히려면 재승인이 필요하다. 조건의 원천은 러너 독스트링이고 헌법 문구는 요지만 가리킨다. 사용자가 원하면 다음에 헌법 patch로 제안한다(아래 "다음").
   - `prepare_test_database`의 CQS 이름(claude-review Minor), `_opens_compose_server`의 상수 포트, `main`의 `prepared`·`problem` 하나로 줄이기, 시험이 파일 글자를 문자열로 맞대는 것(이상 Nit): 이미 한 번 리뷰를 거친 모양이고, 이름을 바꾸는 일은 시험 이름까지 번져 이 PR의 범위를 넓힌다. 글자 맞댐은 YAML을 파싱하는 시험으로 바꿀 수 있지만 의존성(YAML 파서)을 더하는 일이라 따로 정한다.
 
+### 둘째 회차
+
+둘째 푸시(860cfb4)에서 CodeRabbit은 시간당 한도로 리뷰하지 않았고(`Review rate limited`, 첫 회차가 이미 한도를 썼다) claude-review는 Major 하나와 Minor 셋을 냈다. 둘째 회차부터는 Critical·Major만 고친다.
+
+- Major(고침): 헌법 `tech.md`를 ADR 없이 고쳤다는 지적. 거버넌스가 "개정은 ADR을 남긴다"고 하고 `docs/constitution/README.md`는 판을 올린 까닭을 "ADR 이력이나 일지"에 적게 하므로 일지만으로도 충족한다고 보았으나, 어느 쪽인지는 사용자의 권한이라 선택 화면으로 물었다.
+
+  > 사용자: "ADR 0006 이력에 한 줄 (Recommended)" — 설명: "ADR 0006의 '이력' 절에 '2026-11-10, core 01: tech.md 테스트 칸 마지막 문장을 러너가 compose를 띄우고 컨테이너는 남기는 것으로 맞췄다(헌법 1.1.2, 결정은 그대로)' 한 줄을 더하고 같은 PR에서 병합합니다. 결정은 바뀌지 않고 기록만 쌓입니다."
+
+  ADR 0006에 이력 `2026-11-10 헌법 1.1.2가 테스트 칸의 문장을 검사 러너가 서버를 띄우는 것으로 맞춘다`를 더했다. 본문 문장이 거짓이 되지 않아 포인터는 달지 않았다. 처음 쓴 문장은 "테스트도 같은 이미지로 돈다는 본문"이라 적었으나 본문에는 그 문장이 없어, 본문이 고른 컨테이너를 테스트 서버도 쓴다는 것과 설계 일지 191행의 컨테이너 유지 결정으로 고쳐 썼다.
+- 보류(Minor): `prepare_test_database`의 명령·질의 분리, `database_problem`과 `prepare_test_database`의 같은 판정 두 곳, 시험이 구현 글자를 복제하는 것. 둘째 회차라 고치지 않았고 PR 코멘트에 이유를 남긴다.
+
 ## 검증
 
 - 러너 `uv run python tools/run_checks.py`를 세 번 돌렸다. 첫 번째는 healthcheck 버그를 만나 `test-db`가 빨갰고, 두 번째는 모든 검사 초록(pytest 226초)이었다. 리뷰 반영 뒤의 판은 커밋 때 훅으로 다시 본다(리뷰 반영 뒤 `ruff check`·`ruff format --check`·`pyright`는 초록이었고, 손댄 시험 57건은 통과했으며 데이터베이스 시험 하나는 주소 없이 돌려 오류 1건이 났다. 러너 밖에서 주소 없이 돌리면 나야 하는 오류다).

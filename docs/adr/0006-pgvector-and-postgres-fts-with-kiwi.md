@@ -32,3 +32,7 @@ ADR 0002는 벡터 저장소를 core 설계 인터뷰에 맡겼고, 기준은 �
 ### 2026-11-10 부분 HNSW 색인은 색인 판 단위이고 벡터 열은 차원 없는 `vector`에 캐스트 표현식으로 색인한다
 
 명세(`.scratch/core/spec.md`)가 정했다. 본문의 "지식베이스마다 부분 HNSW 색인(`WHERE kb_id = …`)"은 색인 판(ADR 0008) 단위가 된다. 재색인 동안 지식베이스 하나에 옛 판과 새 판의 조각이 나란히 있고 모델이 다르면 차원도 다를 수 있어, 조각 표의 벡터 열은 차원을 적지 않은 `vector`로 두고 색인 판마다 `CREATE INDEX … USING hnsw ((embedding::vector(D)) vector_cosine_ops) WHERE index_version_id = …`로 건다. 질의도 같은 캐스트로 쓴다. pgvector v0.8.7 README가 차원이 다른 벡터를 한 열에 두는 방법으로 적은 문장(842행, 차원 없는 열에 `(embedding::vector(3))` 표현식과 `WHERE (model_id = 123)`을 함께 건 예)을 프로브 `facts/pgvector_readme_facts.py`로 대 봤다. 검색은 현재 판만 보므로 부분 색인의 조건과 질의의 `WHERE`가 같다. 반복 스캔은 필터가 있을 때 `SET LOCAL hnsw.iterative_scan = relaxed_order`로 켜고, `hnsw.ef_search`는 후보 수(기본 50)로 올린다(기본 40이면 결과가 40개로 잘린다. 같은 README 935행). 정확 스캔 분기는 첫 판에 두지 않고, 그 필요는 search-eval의 적중률 보고서가 재고 나서 정한다.
+
+### 2026-11-10 헌법 1.1.2가 테스트 칸의 문장을 검사 러너가 서버를 띄우는 것으로 맞춘다
+
+결정은 바뀌지 않는다. 본문이 고른 컨테이너 `pgvector/pgvector:0.8.7-pg18-trixie`를 테스트 서버도 쓰고, 그 서버를 Docker로 띄우되 컨테이너는 커밋 뒤에도 내리지 않고 남긴다는 설계 인터뷰의 결정(`docs/journal/2026-11-09-2125-core-design.md`)을 core 01(`.scratch/core/issues/01-test-db-runner.md`)이 구현했다. 그러면서 `docs/constitution/tech.md` 테스트 칸의 마지막 문장(검사 러너가 compose를 띄우는 변경은 하네스 티켓이 한다)이 거짓이 되어 지금 하는 일로 고쳤고 헌법 판을 1.1.1에서 1.1.2(patch)로 올렸다. 사용자가 고칠 문구와 판을 선택 화면으로 승인했다. 판을 올린 까닭은 `docs/journal/2026-11-10-2047-core-01-test-db-runner.md`의 "승인받은 것"에도 있다.
