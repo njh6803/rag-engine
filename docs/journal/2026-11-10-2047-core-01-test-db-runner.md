@@ -49,7 +49,7 @@
 
 ## PR 직전 리뷰
 
-- CodeRabbit CLI(`coderabbit-review`)는 돌지 못했다. 자동 모드 분류기가 코드를 밖으로 보내는 호출이라며 거부해서, 우회하지 않고 재시도하지 않았다. 그 서브에이전트가 diff와 코드를 직접 읽어 낸 수동 검토(Minor 여섯)만 남았다. 운영 규약대로 `bug-perf-review`로 대신했다. 보안 축의 내장 `/security-review`는 `git diff origin/HEAD...`에서 `origin/HEAD`가 없어 시작하지 못했다. 그 대신 보안 축은 두 서브에이전트가 본 것(테스트용 비밀번호는 공개 값이고 포트는 `127.0.0.1`에만 열리며, 메시지에 사용자 주소의 비밀번호가 실리지 않는 것을 단언한다)에 기대고, `subprocess` 호출이 셸 없이 고정 인자 목록인 것을 내가 코드로 확인했다. 내장 보안 리뷰를 돌린 것은 아니다.
+- CodeRabbit CLI(`coderabbit-review`)는 돌지 못했다. 자동 모드 분류기가 코드를 밖으로 보내는 호출이라며 거부해서, 우회하지 않고 재시도하지 않았다. 그 서브에이전트가 diff와 코드를 직접 읽어 낸 수동 검토(Minor 여섯)만 남았다. 운영 규약대로 `bug-perf-review`로 대신했다. 보안 축의 내장 `/security-review`는 처음에 `git diff origin/HEAD...`에서 로컬 `origin/HEAD` 참조가 없어 시작하지 못했다. `git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main`으로 그 참조를 만든 뒤(로컬 참조만 바꿨고 원격에는 닿지 않았다. 지우려면 `git symbolic-ref --delete refs/remotes/origin/HEAD`) 다시 돌려 식별 서브에이전트 하나가 확신 8 이상의 취약점 없음으로 돌려보냈다(셸 없는 고정 인자 `subprocess`, 사용자 주소가 메시지에 실리지 않는 것, `127.0.0.1`에만 여는 포트, `${{ }}` 보간이 없는 CI 변경을 살폈다). 보고된 취약점이 없어 거짓 양성 거르기 서브태스크는 돌리지 않았다.
 - Critical, Major는 없었다. 고친 것:
   - `server_answers`가 IDNA 인코딩에 걸리는 호스트 이름(`a..b`, 64자 넘는 레이블)에서 `UnicodeError`를 흘려 러너가 트레이스백으로 끝나고 나머지 검사가 하나도 돌지 않던 것(`bug-perf-review`가 `uv run python -c`로 재현). `(OSError, UnicodeError)`로 잡고 시험 둘을 더했다.
   - 준비한 주소를 `os.environ`에 넣는 한 줄을 어느 시험도 단언하지 않던 것. `main`을 직접 불러 검사들이 물려받을 환경을 보는 시험을 더했다. 두 고침은 되돌린 변이로 빨강을 확인하고 복원했다(세 시험 빨강).
@@ -59,7 +59,7 @@
 ## 검증
 
 - 러너 `uv run python tools/run_checks.py`를 세 번 돌렸다. 첫 번째는 healthcheck 버그를 만나 `test-db`가 빨갰고, 두 번째는 모든 검사 초록(pytest 226초)이었다. 리뷰 반영 뒤의 판은 커밋 때 훅으로 다시 본다(리뷰 반영 뒤 `ruff check`·`ruff format --check`·`pyright`는 초록이었고, 손댄 시험 57건은 통과했으며 데이터베이스 시험 하나는 주소 없이 돌려 오류 1건이 났다. 러너 밖에서 주소 없이 돌리면 나야 하는 오류다).
-- 실제 커밋 훅 실행: 첫 커밋(15d35c2)에서 `test-db`와 pytest(248.8초)를 포함한 모든 검사가 초록이었다. 리뷰 반영 뒤 커밋의 훅 결과와 CI의 `python` 잡 초록은 PR 단계에서 보고 아래에 더한다.
+- 실제 커밋 훅 실행: 첫 커밋(15d35c2)에서 `test-db`와 pytest(248.8초)를 포함한 모든 검사가 초록이었다. 리뷰 반영 뒤 커밋(476b1c6)도 `test-db`와 pytest(154.9초)를 포함해 모두 초록이었다. CI의 `python` 잡 결과는 PR의 검사 목록이 원천이라 이 일지에 옮기지 않는다.
 
 ## 회고
 
