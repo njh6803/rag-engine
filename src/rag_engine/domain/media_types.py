@@ -25,6 +25,8 @@ _ZIP_END_HEAD: Final = b"PK\x05\x06"
 _ZIP_END_SIZE: Final = 22
 _ZIP_END_SEARCH_WINDOW: Final = (1 << 16) + _ZIP_END_SIZE
 _ZIP_END_DIRECTORY_SIZE_OFFSET: Final = 12
+_ZIP64_LOCATOR_HEAD: Final = b"PK\x06\x07"
+_ZIP64_LOCATOR_SIZE: Final = 20
 _MAX_CENTRAL_DIRECTORY_BYTES: Final = 1 << 20
 
 
@@ -51,10 +53,13 @@ def _central_directory_fits(data: bytes) -> bool:
     `ZipFile`은 열 때 중앙 디렉터리를 통째로 읽어 항목마다 객체를 만든다. 업로드 상한 안에서도
     항목이 수십만이면 메모리와 시간이 크게 든다. 읽는 양은 항목 수 필드가 아니라 이 크기가
     정하므로 크기를 본다. 끝 레코드는 `ZipFile`과 같은 구간(뒤에서 64KiB와 레코드 길이)에서 마지막
-    표지를 찾는다. ZIP64는 크기 칸이 가득 차 상한을 넘는 것으로 보인다.
+    표지를 찾는다. ZIP64 locator가 앞에 있으면 `ZipFile`이 32비트 칸을 버리고 ZIP64 레코드의 크기를
+    쓰므로 이 칸의 상한이 뜻이 없다. 상한 안의 문서는 ZIP64가 필요 없으니 그런 ZIP은 거부한다.
     """
     start = data.rfind(_ZIP_END_HEAD, max(0, len(data) - _ZIP_END_SEARCH_WINDOW))
     if start < 0 or start + _ZIP_END_SIZE > len(data):
+        return False
+    if data[max(0, start - _ZIP64_LOCATOR_SIZE) :][:4] == _ZIP64_LOCATOR_HEAD:
         return False
     size = int.from_bytes(data[start + _ZIP_END_DIRECTORY_SIZE_OFFSET :][:4], "little")
     return size <= _MAX_CENTRAL_DIRECTORY_BYTES

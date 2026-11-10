@@ -2,6 +2,7 @@
 머리로 가린다."""
 
 import io
+import struct
 import zipfile
 
 import pytest
@@ -57,6 +58,24 @@ def _lying_entry_count_zip() -> bytes:
             _ENTRY_COUNT_FIELD_SIZE, "little"
         )
     return bytes(data)
+
+
+def _zip64_declared_zip() -> bytes:
+    """32비트 크기 칸은 0이고 큰 중앙 디렉터리를 ZIP64 레코드가 선언하는 ZIP이다.
+
+    `ZipFile`은 locator가 맞으면 32비트 칸을 무시하고 ZIP64 레코드의 크기로 읽는다.
+    """
+    data = _many_entries_zip()
+    end = data.rindex(_END_HEAD)
+    size, offset = struct.unpack_from("<II", data, end + 12)
+    count = struct.unpack_from("<H", data, end + 10)[0]
+    record = struct.pack(
+        "<4sQHHIIQQQQ", b"PK\x06\x06", 44, 45, 45, 0, 0, count, count, size, offset
+    )
+    locator = struct.pack("<4sIQI", b"PK\x06\x07", 0, end, 1)
+    tail = bytearray(data[end:])
+    tail[12:16] = bytes(4)
+    return data[:end] + record + locator + bytes(tail)
 
 
 @pytest.mark.parametrize(
@@ -117,8 +136,8 @@ def test_어느_형식도_아니면_판정하지_못한다(data: bytes) -> None:
 
 @pytest.mark.parametrize(
     "data",
-    [_many_entries_zip(), _lying_entry_count_zip()],
-    ids=["항목이 많은 ZIP", "항목 수를 속인 ZIP"],
+    [_many_entries_zip(), _lying_entry_count_zip(), _zip64_declared_zip()],
+    ids=["항목이 많은 ZIP", "항목 수를 속인 ZIP", "ZIP64 레코드가 크기를 선언한 ZIP"],
 )
 def test_중앙_디렉터리가_상한을_넘는_ZIP은_열지_않고_판정하지_못한다(data: bytes) -> None:
     assert detect_media_type(None, data) is None

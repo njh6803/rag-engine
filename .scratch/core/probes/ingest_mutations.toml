@@ -251,3 +251,16 @@ expect_output = ["wordprocessingml.document' is None"]
 file = "src/rag_engine/domain/media_types.py"
 old = '''    return size <= _MAX_CENTRAL_DIRECTORY_BYTES'''
 new = '''    return size >= 0'''
+
+[[mutation]]
+name = "ZIP64 locator가 있어도 32비트 크기 칸만 본다"
+tests = ["tests/domain/test_media_types.py"]
+expect = "red"
+expect_output = ["wordprocessingml.document' is None"]
+
+[[mutation.edit]]
+file = "src/rag_engine/domain/media_types.py"
+old = '''    if data[max(0, start - _ZIP64_LOCATOR_SIZE) :][:4] == _ZIP64_LOCATOR_HEAD:
+        return False
+'''
+new = ''''''
