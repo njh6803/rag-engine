@@ -35,6 +35,26 @@ ERROR_STATUS: Final[Mapping[ErrorCode, int]] = {
 }
 
 
+# 코드마다 사람이 읽는 짧은 제목. REST 오류 응답과 도구 오류가 같은 표를 쓴다.
+ERROR_TITLE: Final[Mapping[ErrorCode, str]] = {
+    ErrorCode.UNAUTHENTICATED: "인증이 필요하다",
+    ErrorCode.TOKEN_EXPIRED: "토큰이 만료되었다",
+    ErrorCode.FORBIDDEN: "권한이 없다",
+    ErrorCode.VALIDATION_ERROR: "입력이 올바르지 않다",
+    ErrorCode.INVALID_ARGUMENT: "입력이 올바르지 않다",
+    ErrorCode.DOCUMENT_NOT_FOUND: "문서를 찾을 수 없다",
+    ErrorCode.KNOWLEDGE_BASE_NOT_FOUND: "지식베이스를 찾을 수 없다",
+    ErrorCode.GROUP_NOT_FOUND: "그룹을 찾을 수 없다",
+    ErrorCode.JOB_NOT_FOUND: "작업을 찾을 수 없다",
+    ErrorCode.TOKEN_NOT_FOUND: "토큰을 찾을 수 없다",
+    ErrorCode.UPLOAD_TOO_LARGE: "업로드가 너무 크다",
+    ErrorCode.UNSUPPORTED_MEDIA_TYPE: "지원하지 않는 형식이다",
+    ErrorCode.REINDEX_IN_PROGRESS: "재색인이 이미 진행 중이다",
+    ErrorCode.SEARCH_UNAVAILABLE: "검색을 쓸 수 없다",
+    ErrorCode.INTERNAL_ERROR: "서버 내부 오류",
+}
+
+
 class _ProblemBase(BaseModel):
     """세 오류 모델이 함께 쓰는 칸. 어느 코드를 받는지는 모델마다 다르다."""
 

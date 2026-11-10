@@ -77,7 +77,13 @@ jobs:
         with:
           persist-credentials: false
       - run: docker build -t rag-engine:ci .
-      - run: docker run -d --name rag-engine -p 8000:8000 rag-engine:ci
+      # serve는 설정을 읽고 시작한다. 이 잡은 /health만 보고 엔진은 첫 질의 때 연결하므로 가짜 연결 주소로 된다.
+      - run: >
+          docker run -d --name rag-engine -p 8000:8000
+          -e RAG_DATABASE_URL=postgresql://ci:ci@127.0.0.1:5432/ci
+          -e RAG_DATA_DIR=/data
+          -e RAG_ALLOWED_HOSTS=localhost
+          rag-engine:ci
       - run: |
           for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8000/health; then

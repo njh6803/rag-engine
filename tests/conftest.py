@@ -30,20 +30,26 @@ pre-commit 은 `SKIP` 에 든 훅을 건너뛰고, 그 값은 검사 러너와 p
 import asyncio
 import importlib.util
 import io
+import logging
 import os
+import socket
 import sys
+import threading
+import time
 from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
-from urllib.parse import urlsplit
 from uuid import uuid4
 
 import psycopg
 import pytest
+import uvicorn
 from psycopg import sql
+from tests.harness import LogCapture, RunningServer, replace_database
 from tools.run_checks import TEST_DATABASE_ENV, database_problem
 
-from rag_engine.adapters.postgres.bootstrap import migrate_database
+from rag_engine.adapters.postgres.bootstrap import issue_bootstrap_token, migrate_database
 from rag_engine.adapters.settings import Settings
+from rag_engine.server import create_app
 from tools import run_hooks
 
 CHECKOUT = Path(run_hooks.__file__).resolve().parents[1]
@@ -99,10 +105,6 @@ def database_url() -> str:
     if problem is not None:
         pytest.fail(problem, pytrace=False)
     return os.environ[TEST_DATABASE_ENV]
-
-
-def replace_database(url: str, name: str) -> str:
-    return urlsplit(url)._replace(path=f"/{name}").geturl()
 
 
 def _create_database(admin_url: str, name: str, template: str | None = None) -> None:
@@ -202,6 +204,130 @@ def make_seeded_database(
 def seeded_database_url(make_seeded_database: Callable[[], str]) -> str:
     """기본 레코드가 든 데이터베이스 하나. 시험마다 새로 복제하고 끝나면 지운다."""
     return make_seeded_database()
+
+
+@pytest.fixture(autouse=True)
+def _restore_logging() -> Iterator[None]:
+    """`create_app`과 `configure_logging`이 루트 로거와 uvicorn·MCP 로거를 바꾼다. 시험이 끝나면
+    되돌려 다른 시험에 핸들러가 남지 않게 한다."""
+    names = ("", "uvicorn", "uvicorn.error", "uvicorn.access", "mcp")
+    saved = [(logging.getLogger(name), list(logging.getLogger(name).handlers)) for name in names]
+    levels = [(logger, logger.level, logger.propagate) for logger, _ in saved]
+    yield
+    for logger, handlers in saved:
+        logger.handlers[:] = handlers
+    for logger, level, propagate in levels:
+        logger.setLevel(level)
+        logger.propagate = propagate
+
+
+STARTUP_TIMEOUT_SECONDS = 10
+
+
+@pytest.fixture
+def run_server(
+    seeded_database_url: str, make_settings: Callable[..., Settings]
+) -> Iterator[Callable[..., RunningServer]]:
+    """`run_server(칸=값, …)`이 기본 레코드가 든 데이터베이스에 붙은 서버를 127.0.0.1의 빈 포트에
+    띄운다. 서버는 스레드에서 돌고 시험이 끝나면 내린다. 세션 없는 SDK 클라이언트와 httpx가 실제
+    HTTP로 접속한다(`.claude/rules/tests.md`). 시험 하나에서 서버는 하나만 띄운다. 관리 토큰을
+    `bootstrap-token`과 같은 길로 발급하므로, 살아 있는 `admin`이 이미 있으면(`server`와 함께 받거나
+    두 번 부르면) 발급이 없어 `assert`로 실패한다."""
+    running: list[tuple[uvicorn.Server, threading.Thread]] = []
+
+    def start(**overrides: object) -> RunningServer:
+        # 서버가 붙을 데이터베이스는 덮어쓸 수 있다. 토큰은 언제나 시드 데이터베이스에서 낸다.
+        server_database_url = overrides.pop("database_url", seeded_database_url)
+        assert isinstance(server_database_url, str)
+        settings = make_settings(server_database_url, **overrides)
+        # 토큰은 언제나 기본 레코드가 든 데이터베이스에 발급한다. 서버가 다른 데이터베이스를
+        # 가리키게 한 시험도 쓸 토큰 원문을 얻는다.
+        issued = issue_bootstrap_token(make_settings(seeded_database_url), "시험")
+        assert issued is not None
+        sock = socket.socket()
+        sock.bind(("127.0.0.1", 0))
+        port: int = sock.getsockname()[1]
+        # uvicorn의 로그 설정은 로거를 자기 핸들러로 바꾸므로 끄고, `create_app`이 우리 포매터를
+        # 단다.
+        config = uvicorn.Config(
+            create_app(settings),
+            log_config=None,
+            access_log=False,
+            loop="asyncio:SelectorEventLoop",
+        )
+        server = uvicorn.Server(config)
+        thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
+        thread.start()
+        running.append((server, thread))
+        deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+        while not server.started:
+            if time.monotonic() > deadline:
+                pytest.fail(f"uvicorn 이 {STARTUP_TIMEOUT_SECONDS}초 안에 뜨지 않았다")
+            time.sleep(0.01)
+        return RunningServer(
+            base_url=f"http://127.0.0.1:{port}",
+            host="127.0.0.1",
+            port=port,
+            settings=settings,
+            admin_token=issued.raw,
+        )
+
+    yield start
+    for server, thread in running:
+        server.should_exit = True
+        thread.join(STARTUP_TIMEOUT_SECONDS)
+
+
+@pytest.fixture
+def server(run_server: Callable[..., RunningServer]) -> RunningServer:
+    """기본 설정의 서버 하나."""
+    return run_server()
+
+
+@pytest.fixture
+def log_capture(capsys: pytest.CaptureFixture[str]) -> Iterator[LogCapture]:
+    """서버가 stdout에 찍는 로그를 읽는다. 서버를 띄우는 픽스처보다 먼저 받으면 기동 로그부터
+    든다. 서버와 시험 클라이언트가 한 프로세스라 클라이언트 로거(`httpx`)가 요청 URL을 같은
+    stdout에 남기므로 서버 로그만 남도록 그 로거를 WARNING으로 올린다."""
+    client_loggers = [logging.getLogger(name) for name in ("httpx", "httpcore")]
+    levels = [logger.level for logger in client_loggers]
+    for logger in client_loggers:
+        logger.setLevel(logging.WARNING)
+    yield LogCapture(capsys)
+    for logger, level in zip(client_loggers, levels, strict=True):
+        logger.setLevel(level)
+
+
+def _apply_command_environment(
+    database_url: str, monkeypatch: pytest.MonkeyPatch, work_dir: Path
+) -> None:
+    """관리 명령은 환경 변수와 작업 폴더의 `.env`를 읽는다. 개발자 셸의 `RAG_*`와 `.env`가 시험을
+    바꾸지 못하게 지우고 빈 작업 폴더에서 돈다(시험이 쓰는 `RAG_TEST_DATABASE_URL`은 남긴다)."""
+    for name in [name for name in os.environ if name.startswith("RAG_")]:
+        if name != TEST_DATABASE_ENV:
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(work_dir)
+    monkeypatch.setenv("RAG_DATABASE_URL", database_url)
+    monkeypatch.setenv("RAG_DATA_DIR", "/data")
+    monkeypatch.setenv("RAG_ALLOWED_HOSTS", "localhost")
+    monkeypatch.setenv("RAG_DEFAULT_EMBEDDING_URL", "http://tei:80")
+
+
+@pytest.fixture
+def command_environment(
+    empty_database_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """빈 데이터베이스를 가리키는 관리 명령의 환경."""
+    _apply_command_environment(empty_database_url, monkeypatch, tmp_path)
+
+
+@pytest.fixture
+def seeded_command_environment(
+    seeded_database_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> str:
+    """기본 레코드가 든 데이터베이스를 가리키는 관리 명령의 환경. 그 데이터베이스의 주소를 낸다."""
+    _apply_command_environment(seeded_database_url, monkeypatch, tmp_path)
+    return seeded_database_url
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:

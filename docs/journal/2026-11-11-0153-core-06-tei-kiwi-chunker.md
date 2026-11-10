@@ -102,4 +102,4 @@ claude-review(코멘트 1건, Critical·Major 없음):
 - 07이 `ChunkDraft.index_text`를 `chunks`에 어떻게 남길지(칸으로 저장하거나 줄이는 규칙을 한 함수로 되풀이하기)를 정하고 09·14에 적는다. 07 티켓의 "06이 넘긴 것"을 읽는다.
 - 07은 청커와 `tokenize_keywords`의 동기 Kiwi 호출(첫 호출에 모델 적재 약 1초)을 작업자의 이벤트 루프에서 어떻게 부를지(기동 때 미리 부르기, 또는 스레드로 넘기기)를 정한다. PR #8에서 보류한 지적이고 07 티켓의 "06이 넘긴 것"에 적었다.
 - `docs/constitution/tech.md`에 `httpx`가 TEI 어댑터의 런타임 HTTP 클라이언트라는 줄을 더해야 한다(PR #8 claude-review의 보류한 Minor). 스택을 바꾸는 줄이라 ADR 초안을 보여 주고 사용자 승인을 받은 뒤에 고친다(`CLAUDE.md` 지도 표). 이 PR은 `pyproject.toml`에 의존성 이유를 주석으로만 적었다.
-- 형제 워크트리 `app-auth-logging`(04)이 `pyproject.toml`, `uv.lock`, `src/rag_engine/domain/ports.py`를 함께 고치고 있어 나중에 병합하는 쪽에서 글자 충돌이 날 수 있다. `ports.py`는 이 브랜치가 `TokenCounter`를 `TokenMeter`로 바꾸고 `KeywordTokenizer`를 더했다.
+- 형제 PR #9(04)가 먼저 병합되어 이 브랜치에 main을 합쳤다. `pyproject.toml`, `uv.lock`, `src/rag_engine/domain/ports.py`는 자동으로 합쳐졌고 글자 충돌은 `README.md`의 트리 절(`adapters/`, `tests/` 줄) 하나였다. 양쪽이 각자 늘린 줄을 한 줄로 합쳐 풀었다.
