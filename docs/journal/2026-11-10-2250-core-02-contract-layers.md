@@ -84,10 +84,21 @@ CodeRabbit CLI(`coderabbit-review`)가 이번에는 끝까지 돌았다(0.7.5, `
 - 고친 것: `IngestFields`가 `metadata`의 문자열 값과 객체 키, `key`, `group`의 NUL(`\u0000`)을 받아 PostgreSQL 단계에서 500이 될 수 있었다(서브에이전트가 직접 재현). 값과 키를 재귀로 거절하고 `key`·`group`에도 검증을 걸었다. 같은 리뷰가 보류로 낸 "NaN 거절이 문자열 입력에만 돈다"도 같은 자리라 `before` 검증(JSON 풀이)과 사후 검증(NaN, NUL)으로 나눠 객체 입력도 거절한다. 변이 셋(NaN, NUL, key·group)이 빨개졌다. 변이 표는 열넷이다.
 - 남긴 것: `format_version`의 값 검증(빈 문자열이나 semver가 아닌 값)은 두지 않았다. 값이 `FORMAT_VERSION`인지는 도구를 구현하는 티켓의 계약 시험이 보고 모듈 독스트링에 적었다.
 
+## PR 봇 리뷰 (첫 회차)
+
+PR #6의 첫 푸시(bb1c2f2)에 CodeRabbit(Minor 둘, 인라인)과 claude-review(Minor 둘, Nit 하나)가 리뷰했다. 둘 다 이 PR의 첫 리뷰라 첫 회차이고 Critical·Major는 없다. 지적마다 판단했다.
+
+- 고친 것
+  - `SearchResult.score`가 `NaN`·`Infinity`를 받았다(CodeRabbit). 엄격한 JSON 파서는 그 값을 거절하므로 클라이언트가 결과 전체를 못 읽을 수 있다. `allow_inf_nan=False`를 걸고 시험과 변이(열다섯째)를 더했다.
+  - `ERROR_STATUS`의 `search_unavailable` 503, `internal_error` 500, `invalid_argument`·`validation_error` 422가 명세에 없었다(claude-review). 명세 "관리 API"의 Problem Details 코드 줄에 "코드마다 상태가 하나이고 원천은 `ERROR_STATUS`"와 위 상태를 적었다. 명세에 새로 쓴 문장은 코드의 표와 대 봤다.
+  - `JobQueue.enqueue`·`claim`이 상태를 바꾸며 값을 돌려주는 까닭(Nit): 독스트링에 한 줄씩 적었다.
+- 보류한 것과 이유
+  - ADR 0007 본문 8행("그때까지 계약은 킥오프의 둘 그대로다")에 포인터를 달자는 지적(CodeRabbit, claude-review 둘 다): ADR의 이력과 포인터는 사용자 승인 뒤에 고치고, 사용자가 승인한 것은 Consequences 두 문장의 문구다. 이 문장을 더하면 승인한 이력 본문(`core의 첫 티켓`만 가리킨다)도 고쳐야 해 승인 범위 밖이다. 아래 "다음"에 사용자가 정할 일로 적었다.
+
 ## 검증
 
 - 첫 커밋(c09a053): 커밋 훅이 `run_checks`의 모든 검사(test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright, pyright-linux, run-hooks, pytest)를 돌려 초록이었다.
-- 리뷰 반영 뒤 `ruff format`, `ruff check .`, `pyright src tests`(0 오류), `pytest tests/server`(51건 통과)를 다시 돌렸다. 둘째 커밋의 훅 결과는 커밋 뒤 PR 본문에 적는다. CI의 결과는 PR의 검사 목록이 원천이다.
+- 리뷰 반영 뒤 `ruff format`, `ruff check .`, `pyright src tests`(0 오류), `pytest tests/server`(51건 통과)를 다시 돌렸다. 둘째 커밋(bb1c2f2)의 훅도 모든 검사가 초록이었고, 봇 첫 회차 반영 커밋은 아래 PR 봇 절의 수정을 담아 훅을 다시 돈다. CI의 결과는 PR의 검사 목록이 원천이다(PR #6의 첫 푸시에서 `python`, `image`, `ticket`, `verify`, claude-review, CodeRabbit 모두 통과).
 
 ## 남긴 것
 
@@ -112,4 +123,5 @@ CodeRabbit CLI(`coderabbit-review`)가 이번에는 끝까지 돌았다(0.7.5, `
 ## 다음
 
 - core의 프론티어는 03(기본 레코드와 `migrate`, PostgreSQL 작업 단위)이다. 03 티켓 머리의 "01이 넘긴 것"(템플릿 데이터베이스 이름, xdist 작업자, 스킴)과 이 티켓이 둔 `adapters/postgres/tables.py`, `migrate.py`, `migrations/env.py`를 읽는다. 엔진은 `hide_parameters=True`이고 Windows에서는 Selector 루프다(`env.py`가 쓰는 방식).
+- 사용자가 정할 것(ADR): ADR 0007 본문 8행의 "계약을 … 고치는 일은 core의 첫 구현 티켓이 패키지를 만들 때 하고, 그때까지 계약은 킥오프의 둘 그대로다" 뒤에 이번 이력(`2026-11-10 계약 티켓은 core 02이고 core 01(테스트 DB 러너)이 그 앞에 선다`) 포인터를 달지, 달지 않는 근거를 이력에 적을지. 이력 본문에 이 문장도 넣어야 하므로 재승인이 필요하다(PR #6의 CodeRabbit과 claude-review 첫 회차 Minor).
 - 01 일지의 "다음"에 열린 헌법 patch(1.1.3, 테스트 칸에 Compose 자동 시작 주소 한정을 넣기)는 아직 사용자가 정하지 않았다.

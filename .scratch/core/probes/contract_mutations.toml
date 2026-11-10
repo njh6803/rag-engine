@@ -162,3 +162,14 @@ expect_output = ["DID NOT RAISE"]
 file = "src/rag_engine/server/ingest_models.py"
 old = '''if value is not None and _NUL in value:'''
 new = '''if False:'''
+
+[[mutation]]
+name = "검색 결과의 점수가 NaN을 받는다"
+tests = ["tests/server/test_tool_models.py", "-k", "점수"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/tool_models.py"
+old = '''        allow_inf_nan=False, description="리랭커가 있으면'''
+new = '''        allow_inf_nan=True, description="리랭커가 있으면'''

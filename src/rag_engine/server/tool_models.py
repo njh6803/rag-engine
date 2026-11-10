@@ -77,7 +77,9 @@ class SearchResult(BaseModel):
     effective_date: date | None = Field(description="시행일. 지금은 늘 null이다")
     access_groups: list[str] = Field(description="접근 그룹. 지금은 늘 빈 배열이다")
     metadata: dict[str, JsonValue] = Field(description="문서의 메타데이터")
-    score: float = Field(description="리랭커가 있으면 리랭크 점수, 없으면 RRF 점수")
+    score: float = Field(
+        allow_inf_nan=False, description="리랭커가 있으면 리랭크 점수, 없으면 RRF 점수"
+    )
     rank: int = Field(ge=1, description="순위. 1부터")
 
 

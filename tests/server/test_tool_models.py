@@ -95,6 +95,15 @@ def test_다른_오프셋의_시각도_UTC_Z로_나온다() -> None:
     assert dumped["updated_at"] == "2026-11-10T09:30:00Z"
 
 
+@pytest.mark.parametrize("score", [float("nan"), float("inf"), float("-inf")])
+def test_점수에_NaN이나_무한대가_있으면_거부한다(score: float) -> None:
+    result = _result().model_dump()
+    result["score"] = score
+
+    with pytest.raises(ValueError, match="finite"):
+        SearchResult.model_validate(result)
+
+
 def test_위치의_쪽_번호와_블록_범위는_모양이_맞아야_한다() -> None:
     with pytest.raises(ValueError, match="greater than or equal to 1"):
         SearchLocation(page=0, section=[], block_kind=BlockKind.PARAGRAPH, block_range=(0, 0))

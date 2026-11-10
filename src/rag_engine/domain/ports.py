@@ -175,13 +175,15 @@ class JobQueue(Protocol):
     """작업 표의 대기열. 작업 단위 안에서 얻고, 알림(`NOTIFY`)은 PostgreSQL이 커밋 때 보낸다."""
 
     async def enqueue(self, document_id: UUID, request_id: UUID, now: datetime) -> Job:
-        """같은 문서의 대기 작업이 있으면 새 행 없이 그것을 다시 써서 낸다."""
+        """같은 문서의 대기 작업이 있으면 새 행 없이 그것을 다시 써서 낸다. 있는지 보는 일과 넣는
+        일이 한 번에 이뤄져야 해서 조회와 변경을 나누지 않고 `Job`을 돌려준다."""
         ...
 
     async def get(self, job_id: UUID) -> Job | None: ...
 
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:
-        """`SKIP LOCKED`로 꺼낼 수 있는 작업 하나를 `running`으로 바꿔 낸다."""
+        """`SKIP LOCKED`로 꺼낼 수 있는 작업 하나를 `running`으로 바꿔 낸다. 꺼내는 일과 바꾸는 일을
+        나누면 두 작업자가 같은 작업을 잡으므로 한 번에 하고 `Job`을 돌려준다."""
         ...
 
     async def finish(self, job: Job, outcome: JobOutcome, now: datetime) -> None: ...
