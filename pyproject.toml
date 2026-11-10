@@ -22,6 +22,9 @@ dependencies = [
     # 03 은 kiwipiepy 를 import 하지 않고 설치된 판만 읽는다. 측정한 판은 프로브 kiwi/ 의 0.24.1 이다.
     "pydantic-settings>=2.14,<3",
     "kiwipiepy>=0.24.1,<0.25",
+    # 임베딩·리랭커 서버(TEI) 어댑터의 HTTP 클라이언트다(ADR 0010). mcp 가 끌어오는 전이 의존이지만
+    # adapters 가 직접 import 하므로 선언한다. dev 그룹의 httpx 는 테스트 클라이언트로 따로 선언한다.
+    "httpx>=0.28",
 ]
 
 [project.scripts]

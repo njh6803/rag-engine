@@ -6,6 +6,8 @@
 
 **Status:** ready-for-agent
 
+**06이 넘긴 것:** 리랭크의 `texts`는 후보 조각의 `compose_index_text(location.section, text)`다(`rag_engine.domain.index_text`). 검색 결과에는 조각 글과 `location.section`이 따로 있어 두 값에서 그대로 지을 수 있다. 다만 06의 청킹은 절 경로가 상한의 4분의 1을 넘으면 바깥 제목부터 뺀 경로로 `index_text`를 짓는데 `location.section`에는 전체 경로를 싣는다. 그래서 리랭크 글은 색인 때의 글과 제목 몇 개가 다를 수 있고, 같아야 하면 이 티켓이 그 어긋남을 닫는다. TEI 스텁(`tests/support/tei_stub.py`)에는 `/rerank`가 이미 있다.
+
 - [ ] TEI 리랭커 어댑터(`Reranker`): 끝점마다 `/info` 확인(지식베이스 설정의 리랭커 모델), 요청 칸(`query`, `texts`, `truncate: true`, `truncation_direction: "Right"`, `raw_scores: false`, `return_text: false`), `RAG_TEI_BATCH_SIZE`개씩 나눈 묶음(`max_client_batch_size`가 더 작으면 그 값)과 점수 합치기(명세 "임베딩 서버와 리랭커 어댑터" 절). `texts`는 06의 글 짓기 함수가 지은 글이다.
 - [ ] `search`의 다섯째 단계: 지식베이스에 리랭커가 있으면 후보 전부를 리랭크해 점수 순으로 바꾸고, 없으면 RRF 점수를 쓴다. 리랭커가 실패하거나 설정 불일치면 RRF로 대체하지 않고 `search_unavailable`이다.
 - [ ] 필터: `groups`(없는 그룹 이름은 오류가 아니고 아무 문서에도 맞지 않는다), `updated_after`(포함)·`updated_before`(제외), 오프셋이 없거나 읽을 수 없는 시각과 빈 `query`·범위 밖 `top_k`는 `invalid_argument`. 필터는 벡터·키워드 두 쪽의 `WHERE`에 같이 들고, 필터가 있으면 `SET LOCAL hnsw.iterative_scan = relaxed_order`를 더한다. 지식베이스 그룹 집합의 방어 조건은 필터로 세지 않는다(명세 "검색 흐름" 절).

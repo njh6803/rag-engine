@@ -226,10 +226,16 @@ class ChunkLocation:
 
 @dataclass(frozen=True, slots=True)
 class ChunkDraft:
-    """청킹이 낸 조각. 임베딩과 키워드는 아직 없다. `text`는 조각 글만이고 절 경로는 `location`에
-    있다."""
+    """청킹이 낸 조각. 임베딩과 키워드는 아직 없다.
+
+    `text`는 조각 글만이고 온전한 절 경로는 `location`에 있다. `index_text`는 임베딩과 키워드에 넣는
+    글 전체다(상한 안으로 줄인 절 경로 줄, 빈 줄, 조각 글. `compose_index_text`가 짓는다). 줄인 절
+    경로는 토큰 수로 정해져 `location`만으로 되짓지 못해 청킹이 글을 같이 낸다. `token_count`는
+    `index_text`의 토큰 수에 특수 토큰 수를 더한 값, 곧 상한과 견준 값이다.
+    """
 
     text: str
+    index_text: str
     token_count: int
     location: ChunkLocation
 
