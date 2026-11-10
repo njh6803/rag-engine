@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 _BYTES_PER_MB: Final = 1024 * 1024
 _REAP_SECONDS: Final = 5
 
-type _BlockTuple = tuple[str, str, int | None, int | None, int]
+type _BlockTuple = tuple[BlockKind, str, int | None, int | None, int]
 
 
 class ChildMessage(BaseModel, frozen=True):
@@ -48,7 +48,7 @@ class ChildMessage(BaseModel, frozen=True):
     JSON 바이트로 보내고 부모는 스키마로 검증해서 읽는다. `Connection.recv()`는 pickle을 풀어서,
     파서 라이브러리가 침해된 자식이 부모(작업자)에서 코드를 실행하는 통로가 된다."""
 
-    error: str | None
+    error: ErrorCode | None
     blocks: list[_BlockTuple]
 
 
@@ -81,18 +81,17 @@ def _parse_to_message(
         parser = load_parser(target)
         blocks = parser.parse(data, mime, ParserLimits(max_pages=max_pages))
     except EncryptedDocumentError:
-        return ChildMessage(error=ErrorCode.ENCRYPTED_DOCUMENT.value, blocks=[])
+        return ChildMessage(error=ErrorCode.ENCRYPTED_DOCUMENT, blocks=[])
     except TooManyPagesError:
-        return ChildMessage(error=ErrorCode.TOO_MANY_PAGES.value, blocks=[])
+        return ChildMessage(error=ErrorCode.TOO_MANY_PAGES, blocks=[])
     except MemoryError:
-        return ChildMessage(error=ErrorCode.PARSE_MEMORY_EXCEEDED.value, blocks=[])
+        return ChildMessage(error=ErrorCode.PARSE_MEMORY_EXCEEDED, blocks=[])
     except Exception:
-        return ChildMessage(error=ErrorCode.PARSE_FAILED.value, blocks=[])
+        return ChildMessage(error=ErrorCode.PARSE_FAILED, blocks=[])
     return ChildMessage(
         error=None,
         blocks=[
-            (block.kind.value, block.text, block.level, block.page, block.ordinal)
-            for block in blocks
+            (block.kind, block.text, block.level, block.page, block.ordinal) for block in blocks
         ],
     )
 
@@ -180,7 +179,7 @@ class SubprocessParseRunner:
                 killed = process.exitcode is not None and process.exitcode < 0
                 code = ErrorCode.PARSE_MEMORY_EXCEEDED if killed else ErrorCode.PARSE_FAILED
                 return _ChildResult(code, ())
-            return _decode(payload)
+            return decode_child_message(payload)
         finally:
             if process.is_alive():
                 process.terminate()
@@ -192,15 +191,17 @@ class SubprocessParseRunner:
             receiver.close()
 
 
-def _decode(payload: bytes) -> _ChildResult:
+def decode_child_message(payload: bytes) -> _ChildResult:
+    """자식이 보낸 바이트를 스키마로 검증해 읽는다. 모양이 틀리거나 모르는 오류 코드·블록 종류가
+    들어 있으면 `parse_failed`다."""
     try:
         message = ChildMessage.model_validate_json(payload)
     except ValidationError:
         return _ChildResult(ErrorCode.PARSE_FAILED, ())
     if message.error is not None:
-        return _ChildResult(ErrorCode(message.error), ())
+        return _ChildResult(message.error, ())
     blocks = tuple(
-        Block(BlockKind(kind), text, level, page, ordinal)
+        Block(kind, text, level, page, ordinal)
         for kind, text, level, page, ordinal in message.blocks
     )
     return _ChildResult(None, blocks)

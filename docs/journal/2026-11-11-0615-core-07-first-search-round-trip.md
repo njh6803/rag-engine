@@ -93,6 +93,13 @@
 - `adapters/postgres/vector_index.py`: 조각당 바인드 인자가 14개라 1000조각 묶음이 14000개이고 문장당 한도 65535 안이다.
 - `server/app.py`: 예열 실패는 로그만 남기고, 종료 때 `aclose`와 `dispose`는 예열이 취소되거나 실패해도 돈다. 적재가 실패하면 결과를 캐시하지 않아 첫 검색이 다시 시도한다.
 
+**푸시 뒤 보안 검토**(security-guidance 플러그인, 커밋 `62812c6` 푸시 뒤)
+
+- `adapters/parsers/runner.py` MEDIUM 하나, 세 갈래였다. 코드에서 모두 사실임을 확인했다.
+  - 알 수 없는 `error`·`kind` 값이 오면 `ErrorCode(...)`·`BlockKind(...)`가 `ValueError`를 올려 작업자까지 번진다. **고쳤다.** `ChildMessage`의 필드를 enum 타입으로 바꿔 스키마 검증이 `parse_failed`로 거르게 했고(`decode_child_message`를 공개해 시험이 직접 부른다), 시험(`test_자식이_모르는_오류_코드나_블록_종류를_보내면_parse_failed다`)은 구현 전에 `'not_a_code' is <ErrorCode.PARSE_FAILED>`로 빨강이었다. 변이 18을 표에 더했다.
+  - 받는 바이트 수에 상한이 없다. 앞서 남긴 08의 몫과 같은 갈래다. 08 티켓에 `recv_bytes(maxlength=)`로 적었다.
+  - `receiver.poll(타임아웃)`이 첫 바이트까지만 기다려, 보내다 멈춘 자식이 `recv_bytes()`를 무기한 막는다. 이 갈래는 새로 알았다. 시간 제한이 수신 전체를 덮게 하는 일(감시 타이머와 절반만 보내는 파서 시험)은 08의 실행기 한도 작업이라 08 티켓에 적었다. 07은 자식이 신뢰할 수 없는 문서를 읽는 길을 처음 열지만 PDF·HWPX 파서가 없어 DOCX 파서를 침해해야만 닿는다.
+
 **남긴 것과 이유**
 
 - 압축 폭탄 한도(`parse_max_unzipped_mb` 등) 설정이 아직 파서에서 쓰이지 않는다. 08이 파서 격리와 함께 채운다.

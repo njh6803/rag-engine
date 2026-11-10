@@ -197,3 +197,16 @@ old = '''    except ValidationError:
 new = '''    except ZeroDivisionError:
         return _ChildResult(ErrorCode.PARSE_FAILED, ())
     if message.error is not None:'''
+
+[[mutation]]
+name = "자식 메시지의 오류 코드를 검증하지 않고 글로 받는다"
+tests = ["tests/adapters/test_parse_runner.py"]
+expect = "red"
+expect_output = ['''AttributeError: 'str' object has no attribute 'value''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/runner.py"
+old = '''    error: ErrorCode | None
+    blocks: list[_BlockTuple]'''
+new = '''    error: str | None
+    blocks: list[_BlockTuple]'''

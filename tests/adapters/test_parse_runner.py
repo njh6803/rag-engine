@@ -15,7 +15,7 @@ from docx import Document
 from tests.support.fake_parsers import FAKE_MIME, MARKER_ENV
 
 from rag_engine.adapters.parsers.registry import ParserRegistry, ParserSpec, discover_parser_specs
-from rag_engine.adapters.parsers.runner import SubprocessParseRunner
+from rag_engine.adapters.parsers.runner import SubprocessParseRunner, decode_child_message
 from rag_engine.domain.entities import BlockKind
 from rag_engine.domain.errors import ErrorCode, PermanentFailure
 from rag_engine.domain.media_types import DOCX_MIME
@@ -112,6 +112,17 @@ async def test_침해된_자식이_pickle을_보내도_부모는_코드를_실�
     runner = _runner(_registry("HijackingParser"))
 
     assert [await _failure_code(runner), marker.exists()] == [ErrorCode.PARSE_FAILED, False]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b'{"error": "not_a_code", "blocks": []}',
+        b'{"error": null, "blocks": [["not_a_kind", "text", null, null, 0]]}',
+    ],
+)
+def test_자식이_모르는_오류_코드나_블록_종류를_보내면_parse_failed다(payload: bytes) -> None:
+    assert decode_child_message(payload).error is ErrorCode.PARSE_FAILED
 
 
 async def test_받는_파서가_없는_MIME은_parse_failed다() -> None:
