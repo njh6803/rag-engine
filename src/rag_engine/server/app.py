@@ -24,13 +24,14 @@ from rag_engine.adapters.postgres.engine import create_engine
 from rag_engine.adapters.postgres.token_store import PostgresTokenStore
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.settings import Settings
-from rag_engine.adapters.tei import TeiEmbedderPool
+from rag_engine.adapters.tei import TeiEmbedderPool, TeiRerankerPool
 from rag_engine.app.search import SearchDeps
 from rag_engine.domain.errors import ErrorCode, InvalidInput, RequestError
 from rag_engine.server.auth import AuthMiddleware
 from rag_engine.server.ingest_api import build_ingest_router
 from rag_engine.server.problem_response import problem_response, validation_response
 from rag_engine.server.problems import ValidationIssue
+from rag_engine.server.read_tools import register_read_tools
 from rag_engine.server.request_context import RequestContextMiddleware, request_id_of
 from rag_engine.server.search_tool import register_search_tool
 from rag_engine.server.token_api import build_token_router
@@ -101,21 +102,26 @@ def create_app(settings: Settings) -> ASGIApp:
     unit_of_work = PostgresUnitOfWork(engine)
     token_store = PostgresTokenStore(engine)
 
-    embedders = TeiEmbedderPool(
-        lambda endpoint: httpx.AsyncClient(base_url=endpoint, timeout=settings.tei_timeout_seconds),
-        batch_size=settings.tei_batch_size,
-    )
+    def tei_client(endpoint: str) -> httpx.AsyncClient:
+        return httpx.AsyncClient(base_url=endpoint, timeout=settings.tei_timeout_seconds)
+
+    embedders = TeiEmbedderPool(tei_client, batch_size=settings.tei_batch_size)
+    rerankers = TeiRerankerPool(tei_client, batch_size=settings.tei_batch_size)
     mcp = MCPServer(name="rag-engine")
     register_search_tool(
         mcp,
         SearchDeps(
             unit_of_work=unit_of_work,
             embedder_for=embedders,
+            reranker_for=rerankers,
             tokenize_keywords=tokenize_keywords,
             candidates=settings.search_candidates,
+            max_top_k=settings.search_max_top_k,
+            timeout_seconds=settings.search_timeout_seconds,
         ),
         default_top_k=settings.search_default_top_k,
     )
+    register_read_tools(mcp, unit_of_work, max_text_chars=settings.document_text_max_chars)
     mcp_app = mcp.streamable_http_app(
         stateless_http=settings.mcp_stateless,
         json_response=settings.mcp_json_response,
@@ -137,8 +143,13 @@ def create_app(settings: Settings) -> ASGIApp:
             try:
                 await warmup
             finally:
-                await embedders.aclose()
-                await engine.dispose()
+                try:
+                    await embedders.aclose()
+                finally:
+                    try:
+                        await rerankers.aclose()
+                    finally:
+                        await engine.dispose()
 
     app = FastAPI(title="rag-engine", lifespan=lifespan)
     _install_error_handlers(app)

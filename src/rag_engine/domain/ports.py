@@ -53,6 +53,10 @@ type EmbedderFor = Callable[[IndexVersion], Embedder]
 # 청킹 전략의 이름으로 청커를 고른다.
 type ChunkerFor = Callable[[str], Chunker]
 
+# 지식베이스 설정의 리랭커 끝점·모델로 리랭커를 낸다. 리랭커가 없는 지식베이스는 `None`이다. 같은
+# 설정은 같은 자를 돌려써 끝점 확인(`/info`)을 한 번만 한다. 구현은 `adapters`에 있다.
+type RerankerFor = Callable[[KnowledgeBase], Reranker | None]
+
 
 class LockMode(StrEnum):
     """지식베이스 행의 잠금(명세 잠금 규칙). 재색인 시작·삭제·판 전환은 `UPDATE`이고, 수집은 문서가
@@ -124,6 +128,10 @@ class Catalog(Protocol):
 
     async def get_group(self, name: str) -> Group | None: ...
 
+    async def get_source_by_id(self, source_id: UUID) -> Source | None: ...
+
+    async def get_group_by_id(self, group_id: UUID) -> Group | None: ...
+
     async def add_knowledge_base(self, knowledge_base: KnowledgeBase) -> None:
         """같은 이름의 지식베이스가 이미 있으면 아무것도 하지 않는다."""
         ...
@@ -190,6 +198,10 @@ class DocumentStore(Protocol):
 
     async def save_content(self, content: DocumentContent) -> None: ...
 
+    async def count_live_documents(self, knowledge_base_id: UUID) -> int:
+        """그 지식베이스의 그룹 집합에 드는 그룹의, 지워지지 않은 문서 수. 색인 상태와 상관없다."""
+        ...
+
 
 class VectorIndex(Protocol):
     """조각, 보관 조각, 색인 상태. 색인 판마다의 HNSW 부분 색인을 맡는다. 작업 단위 안에서
@@ -217,6 +229,10 @@ class VectorIndex(Protocol):
 
     async def archive_chunks(self, document_id: UUID) -> None:
         """그 문서의 모든 판의 조각을 보관 표로 옮긴다."""
+        ...
+
+    async def count_chunks(self, document_id: UUID, index_version_id: UUID) -> int:
+        """그 (문서, 판)의 조각 수."""
         ...
 
     async def get_state(self, document_id: UUID, index_version_id: UUID) -> IndexState | None: ...

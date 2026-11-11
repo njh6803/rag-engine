@@ -74,13 +74,18 @@ class Pipeline:
         )
 
     async def ingest(
-        self, data: bytes, key: str = "규정.docx", *, updated_at: datetime | None = None
+        self,
+        data: bytes,
+        key: str = "규정.docx",
+        *,
+        group: str | None = None,
+        updated_at: datetime | None = None,
     ) -> IngestResult:
         return await ingest_document(
             self.unit_of_work,
             self.blob_store,
             IngestRequest(
-                filename=key, data=data, key=None, group=None, metadata={}, updated_at=updated_at
+                filename=key, data=data, key=None, group=group, metadata={}, updated_at=updated_at
             ),
             request_id=new_id(),
             now=self.clock[0],

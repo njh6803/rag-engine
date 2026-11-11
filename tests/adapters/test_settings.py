@@ -49,6 +49,7 @@ OPTIONAL_SETTINGS = [
     ("RAG_SEARCH_DEFAULT_TOP_K", "5", "search_default_top_k", 5),
     ("RAG_SEARCH_MAX_TOP_K", "20", "search_max_top_k", 20),
     ("RAG_SEARCH_TIMEOUT_SECONDS", "10", "search_timeout_seconds", 10),
+    ("RAG_DOCUMENT_TEXT_MAX_CHARS", "5000", "document_text_max_chars", 5000),
 ]
 
 
@@ -98,6 +99,7 @@ def test_필수_셋만_주면_나머지는_명세의_기본값이다(required_en
     assert settings.search_default_top_k == 10
     assert settings.search_max_top_k == 50
     assert settings.search_timeout_seconds == 20
+    assert settings.document_text_max_chars == 20000
 
 
 @pytest.mark.parametrize(

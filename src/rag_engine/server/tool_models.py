@@ -61,6 +61,30 @@ class SearchLocation(BaseModel):
         return self
 
 
+class SearchFilterInput(BaseModel):
+    """`search`의 `filter` 입력. 시각은 글로 받아 도구가 읽는다. 오프셋이 없거나 읽을 수 없는 시각은
+    `invalid_argument`로 거절한다(SDK의 형식 검증이 입력 값을 오류에 싣지 않게 하려는 것이기도
+    하다)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    groups: list[str] | None = Field(
+        default=None,
+        description=(
+            "그룹 이름. 주면 이 그룹의 문서에서만 찾는다. "
+            "없는 그룹 이름은 오류가 아니고 아무 문서에도 맞지 않는다"
+        ),
+    )
+    updated_after: str | None = Field(
+        default=None,
+        description="문서의 갱신일이 이 시각 이후(포함)인 결과만. 오프셋이 붙은 ISO 8601 시각",
+    )
+    updated_before: str | None = Field(
+        default=None,
+        description="문서의 갱신일이 이 시각 이전(제외)인 결과만. 오프셋이 붙은 ISO 8601 시각",
+    )
+
+
 class SearchResult(BaseModel):
     """검색 결과 하나. 같은 문서의 조각 여럿이 나와도 합치지 않는다."""
 
@@ -107,11 +131,27 @@ class DocumentOutput(BaseModel):
     updated_at: UtcDatetime = Field(description="문서의 갱신일(UTC)")
     metadata: dict[str, JsonValue] = Field(description="문서의 메타데이터")
     chunk_counts: dict[str, int] = Field(description="토큰 범위 안의 지식베이스 이름마다 조각 수")
+    text_length: int | None = Field(
+        default=None,
+        description=(
+            "전문의 길이(유니코드 코드 포인트 수). `include_text`와 상관없이 낸다. 파싱 결과가 "
+            "없거나 문서의 지금 내용과 맞지 않으면 null이다"
+        ),
+    )
     text: str | None = Field(
         default=None,
         description=(
-            "`include_text`가 참일 때 파싱 결과의 블록 글을 빈 줄로 이은 글. 파싱 결과가 없거나 "
-            "문서의 지금 내용과 맞지 않으면 null이다"
+            "`include_text`가 참일 때 전문의 `offset`부터 시작하는 창. 전문은 파싱 결과의 블록 "
+            "글을 빈 줄로 이은 글이고 제목 블록은 수준만큼 `#`을 앞에 붙인 한 줄이다. 파싱 결과가 "
+            "없거나 문서의 지금 내용과 맞지 않으면 null이다"
+        ),
+    )
+    next_offset: int | None = Field(
+        default=None,
+        description=(
+            "다음 창의 `offset`. 전문이 `text`에서 끝나거나 `text`가 null이면 null이다. 받은 값을 "
+            "그대로 `offset`으로 넘기면 이어서 읽는다. 창 사이에 문서가 바뀌지 않았을 때만 창들이 "
+            "한 전문을 이룬다"
         ),
     )
 

@@ -17,6 +17,8 @@ from rag_engine.server.tool_models import FORMAT_VERSION
 async def test_수집한_DOCX가_작업자_한_번_뒤_근거_위치와_함께_검색된다(
     round_trip: RoundTrip,
 ) -> None:
+    # 리랭크 점수는 `test_search_complete.py`가 본다. 여기는 RRF 점수가 양수인 첫 왕복이다.
+    round_trip.drop_reranker()
     ingested = await round_trip.ingest(*휴가)
     assert ingested.status_code == 202
     assert await round_trip.work() == 1

@@ -7,6 +7,8 @@
 """
 
 import json
+from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Final
 
@@ -18,9 +20,10 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
 from tests.harness import RunningServer
 from tests.support.docx_files import docx_bytes
+from tests.support.tei_server import serve_stub
 from tests.support.tei_stub import TeiStub
 
-from rag_engine.server.tool_models import SearchOutput
+from rag_engine.server.tool_models import DocumentOutput, KnowledgeBasesOutput, SearchOutput
 from rag_engine.worker.assembly import run_once_with_settings
 
 INGEST_PATH: Final = "/api/v1/ingest/documents"
@@ -33,28 +36,53 @@ def new_stub() -> TeiStub:
     return TeiStub(dimensions=DEFAULT_DIMENSIONS)
 
 
+def new_reranker_stub() -> TeiStub:
+    """기본 지식베이스의 리랭커 설정(`RAG_DEFAULT_RERANKER_MODEL`의 기본값)이 가리키는 모델이다."""
+    return TeiStub(model_id="BAAI/bge-reranker-v2-m3")
+
+
 def point_default_version_at(server: RunningServer, endpoint: str) -> None:
     """기본 판에 적힌 임베딩 끝점을 스텁 주소로 고친다. 서버와 작업자는 판에 적힌 끝점을 쓴다."""
     with psycopg.connect(server.settings.database_url, autocommit=True) as connection:
         connection.execute("UPDATE index_versions SET embedding_endpoint = %s", [endpoint])
 
 
+def point_default_reranker_at(server: RunningServer, endpoint: str) -> None:
+    """기본 지식베이스에 적힌 리랭커 끝점을 스텁 주소로 고친다."""
+    with psycopg.connect(server.settings.database_url, autocommit=True) as connection:
+        connection.execute("UPDATE knowledge_bases SET reranker_endpoint = %s", [endpoint])
+
+
 @dataclass(frozen=True, slots=True)
 class RoundTrip:
     server: RunningServer
     stub: TeiStub
+    reranker_stub: TeiStub
 
     def auth(self, token: str | None = None) -> dict[str, str]:
         return {"Authorization": f"Bearer {token or self.server.admin_token}"}
 
     async def ingest(
-        self, title: str, *paragraphs: str, filename: str = "규정.docx"
+        self,
+        title: str,
+        *paragraphs: str,
+        filename: str = "규정.docx",
+        fields: dict[str, str] | None = None,
+    ) -> httpx.Response:
+        """`fields`는 수집 API의 폼 칸(`group`, `metadata`, `updated_at`)이다. DOCX 바이트에는
+        만든 시각이 들어 같은 글도 부를 때마다 달라진다. 같은 바이트를 다시 넣으려면
+        `ingest_bytes`를 쓴다."""
+        return await self.ingest_bytes(docx_bytes(title, *paragraphs), filename, fields)
+
+    async def ingest_bytes(
+        self, data: bytes, filename: str = "규정.docx", fields: dict[str, str] | None = None
     ) -> httpx.Response:
         async with httpx.AsyncClient() as http:
             return await http.post(
                 self.server.base_url + INGEST_PATH,
                 headers=self.auth(),
-                files={"file": (filename, docx_bytes(title, *paragraphs))},
+                files={"file": (filename, data)},
+                data=fields,
             )
 
     async def work(self) -> int:
@@ -72,6 +100,32 @@ class RoundTrip:
                 [name],
             )
 
+    def add_group(self, name: str, *knowledge_bases: str) -> None:
+        """그룹을 더하고 이름을 준 지식베이스의 그룹 집합에 넣는다."""
+        with psycopg.connect(self.server.settings.database_url, autocommit=True) as connection:
+            connection.execute(
+                "INSERT INTO groups (id, name) VALUES (gen_random_uuid(), %s)", [name]
+            )
+        self.link_group(name, *knowledge_bases)
+
+    def link_group(self, group: str, *knowledge_bases: str) -> None:
+        """있는 그룹을 이름을 준 지식베이스의 그룹 집합에 넣는다."""
+        with psycopg.connect(self.server.settings.database_url, autocommit=True) as connection:
+            for knowledge_base in knowledge_bases:
+                connection.execute(
+                    "INSERT INTO knowledge_base_groups (knowledge_base_id, group_id)"
+                    " SELECT knowledge_bases.id, groups.id FROM knowledge_bases, groups"
+                    " WHERE knowledge_bases.name = %s AND groups.name = %s",
+                    [knowledge_base, group],
+                )
+
+    def drop_reranker(self) -> None:
+        """기본 지식베이스에서 리랭커 설정을 지운다. 검색은 RRF 점수로 나간다."""
+        with psycopg.connect(self.server.settings.database_url, autocommit=True) as connection:
+            connection.execute(
+                "UPDATE knowledge_bases SET reranker_endpoint = NULL, reranker_model = NULL"
+            )
+
     async def issue_reader(self, *knowledge_bases: str) -> str:
         """지식베이스 범위를 단 `reader` 토큰의 원문."""
         async with httpx.AsyncClient() as http:
@@ -84,20 +138,57 @@ class RoundTrip:
         raw: str = response.json()["token"]
         return raw
 
-    async def search(
-        self, query: str, *, token: str | None = None, **arguments: object
+    async def call(
+        self, tool: str, arguments: dict[str, object], *, token: str | None = None
     ) -> CallToolResult:
         async with httpx2.AsyncClient(headers=self.auth(token)) as http:
             async with Client(
                 streamable_http_client(self.server.mcp_url, http_client=http)
             ) as client:
-                return await client.call_tool("search", {"query": query, **arguments})
+                return await client.call_tool(tool, arguments)
+
+    async def search(
+        self, query: str, *, token: str | None = None, **arguments: object
+    ) -> CallToolResult:
+        return await self.call("search", {"query": query, **arguments}, token=token)
+
+    async def get_document(
+        self, document_id: object, *, token: str | None = None, **arguments: object
+    ) -> CallToolResult:
+        return await self.call(
+            "get_document", {"document_id": str(document_id), **arguments}, token=token
+        )
+
+    async def list_knowledge_bases(self, *, token: str | None = None) -> CallToolResult:
+        return await self.call("list_knowledge_bases", {}, token=token)
+
+
+@contextmanager
+def wire_stubs(server: RunningServer) -> Generator[RoundTrip]:
+    """임베딩 스텁과 리랭커 스텁을 실제 포트에 띄우고 서버의 기본 판과 기본 지식베이스가 그 주소를
+    쓰게 한 왕복 도우미를 낸다. 블록을 나가면 스텁을 내린다."""
+    stub = new_stub()
+    reranker_stub = new_reranker_stub()
+    with serve_stub(stub) as endpoint, serve_stub(reranker_stub) as reranker_endpoint:
+        point_default_version_at(server, endpoint)
+        point_default_reranker_at(server, reranker_endpoint)
+        yield RoundTrip(server, stub, reranker_stub)
 
 
 def output(result: CallToolResult) -> SearchOutput:
     """성공한 도구 결과를 출력 모델로 읽는다. 모델에 맞지 않으면 검증 오류로 실패한다."""
     assert result.is_error is not True
     return SearchOutput.model_validate(result.structured_content)
+
+
+def document_output(result: CallToolResult) -> DocumentOutput:
+    assert result.is_error is not True
+    return DocumentOutput.model_validate(result.structured_content)
+
+
+def knowledge_bases_output(result: CallToolResult) -> KnowledgeBasesOutput:
+    assert result.is_error is not True
+    return KnowledgeBasesOutput.model_validate(result.structured_content)
 
 
 def error_body(result: CallToolResult) -> dict[str, object]:

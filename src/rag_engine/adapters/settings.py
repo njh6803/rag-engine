@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     search_default_top_k: int = Field(default=10, gt=0)
     search_max_top_k: int = Field(default=50, gt=0)
     search_timeout_seconds: int = Field(default=20, gt=0)
+    # `get_document`가 한 번에 내는 전문 창의 최대 글자 수(코드 포인트). 클라이언트마다 도구 출력의
+    # 상한이 있어, 전문 전체를 한 번에 내지 않고 이 크기로 나눠 낸다(명세 "MCP 도구").
+    document_text_max_chars: int = Field(default=20000, gt=0)
 
     @field_validator("allowed_hosts", mode="before")
     @classmethod

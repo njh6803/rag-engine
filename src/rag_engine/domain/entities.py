@@ -320,6 +320,26 @@ class Token:
 
 
 @dataclass(frozen=True, slots=True)
+class SearchFilter:
+    """검색 결과를 거르는 조건. 칸마다 `None`이면 그 조건은 없다.
+
+    `group_ids`는 조각에 복사한 그룹이 이 가운데 하나인 조각만 남긴다. 비어 있으면 어떤 조각도 맞지
+    않는다(없는 그룹 이름만 준 경우). `updated_after`는 그 시각을 포함하고 `updated_before`는
+    포함하지 않는다. 시각은 오프셋이 있는 값이다.
+    """
+
+    group_ids: tuple[UUID, ...] | None = None
+    updated_after: datetime | None = None
+    updated_before: datetime | None = None
+
+    @property
+    def is_active(self) -> bool:
+        return not (
+            self.group_ids is None and self.updated_after is None and self.updated_before is None
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class SearchQuery:
     """후보를 모으는 질의 하나. 벡터는 현재 판에 적힌 모델로 임베딩한 것이고, 키워드는 조각과 같은
     토크나이저가 뽑은 토큰이다(비면 키워드 검색을 건너뛴다)."""
@@ -330,12 +350,13 @@ class SearchQuery:
     vector: tuple[float, ...]
     keywords: tuple[str, ...]
     candidates: int
+    filter: SearchFilter = SearchFilter()
 
 
 @dataclass(frozen=True, slots=True)
 class SearchHit:
     """후보 하나. 조각의 칸에 문서와 원천에서 읽은 칸을 더한 것이고 `rrf_score`는 벡터와 키워드
-    순위를 합친 점수다."""
+    순위를 합친 점수다. `rerank_score`는 리랭커가 매긴 점수이고 리랭크하지 않았으면 `None`이다."""
 
     chunk_id: UUID
     document_id: UUID
@@ -349,6 +370,12 @@ class SearchHit:
     access_groups: tuple[str, ...]
     metadata: Mapping[str, JsonValue]
     rrf_score: float
+    rerank_score: float | None = None
+
+    @property
+    def score(self) -> float:
+        """결과에 싣는 점수. 리랭커가 있으면 리랭크 점수이고 없으면 RRF 점수다(명세 "검색 흐름")."""
+        return self.rrf_score if self.rerank_score is None else self.rerank_score
 
 
 @dataclass(frozen=True, slots=True)
