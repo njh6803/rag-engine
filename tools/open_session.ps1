@@ -286,7 +286,8 @@ function Send-Prompt {
     # 딥링크가 폴더를 싣지 않아(위 `folder` 주석) 새 세션은 앱의 마지막 폴더에서 열린다. 그 폴더가 다른 워크트리여서 인계
     # 열기가 그리로 간 일을 대기열 378 이 네 회차로 셌다(둘은 새 세션이 거기 열려 첫 턴에 멈췄고(첫 턴 훅이 막은 것으로 본다),
     # 둘은 위 신뢰 대화상자에서 멈췄다. 같은 폴더에서 첫 턴에 멈춘 인계 세션이 둘 더 있었다, 일지 2026-10-20-16). 그래서
-    # 화면이 보이는 폴더가 -Folder 가 아니면 모델을 고르기 전에 멈춘다. 화면은 지시문이 든 채 남아 사람이 폴더를 고르고 보낸다. 모델은 아직 고르지 않았으므로 모델 줄이 있으면 멈춤 문구가 그 값도 고르라고 한다. 폴더 글은 입력창보다 늦게
+    # 화면이 보이는 폴더가 -Folder 가 아니면 모델을 고르기 전에 환경 버튼으로 -Folder 를 고르고(Repair-ShownFolder) 다시 읽어 같을 때만
+    # 이어 간다. 고르지 못하면 보내지 않고 멈춘다. 화면은 지시문이 든 채 남아 사람이 폴더를 고르고 보낸다. 모델은 아직 고르지 않았으므로 모델 줄이 있으면 멈춤 문구가 그 값도 고르라고 한다. 폴더 글은 입력창보다 늦게
     # 그려질 수 있어 0.5초 간격으로 여섯 번까지 읽는다.
     $shown = @()
     for ($i = 0; $i -lt 6 -and $shown.Count -eq 0; $i++) {
@@ -294,6 +295,21 @@ function Send-Prompt {
         $shown = @(Read-ShownFolders $box)
     }
     $mismatch = Get-FolderMismatch $shown $Folder
+    # 화면에서 폴더를 읽었는데 -Folder 가 아니면 환경 버튼으로 -Folder 를 고르고 다시 읽는다. 폴더를 읽지 못했으면(앱이 화면의 모양을
+    # 바꿨다) 무엇이 선택돼 있는지 모르므로 고르지 않고 멈춘다. 고치지 못하면 그 까닭을 멈춤 문구에 덧붙인다.
+    # 읽은 경로 가운데 -Folder 와 같은 것이 이미 있으면(낯선 글이 함께 읽혔다) 환경을 골라도 견줌이 같아지지 않으므로 고르지 않고 멈춘다.
+    if ($mismatch -and $shown.Count -gt 0 -and @($shown | Where-Object { -not (Get-FolderMismatch @($_) $Folder) }).Count -eq 0) {
+        try {
+            $before = $shown -join ', '
+            $fixed = Repair-ShownFolder $win $box $needle $Folder
+            $box = $fixed.Box
+            $shown = @($fixed.Shown)
+            $mismatch = $null
+            "folder-fixed=$before -> $($shown -join ', ')"
+        } catch {
+            $mismatch += " 스크립트가 환경 버튼으로 폴더를 고치려다 멈췄다: $($_.Exception.Message)"
+        }
+    }
     if ($mismatch -and $pick) { $mismatch += " 모델은 아직 고르지 않았다. 보내기 전에 모델 버튼에서 지시문의 모델 줄대로 '$($pick.Model) / $($pick.Effort)' 도 고른다." }
     if ($mismatch) { throw $mismatch }
     "folder=$($shown -join ', ')"
@@ -479,7 +495,8 @@ function Get-EditValue($el) {
 # 새 세션 화면이 어느 폴더에서 열렸는지. 화면은 입력창 묶음(입력창에서 위로 올라가 `모델:` 버튼이 처음 보이는 조상) 안에 폴더의
 # 전체 경로를 Text 로, 폴더 이름을 `환경: <이름>` 버튼으로 보인다. 분할 보기의 다른 패널과 그 대화 속 경로는 묶음보다 위에서
 # 갈린다(.scratch/harness/probes/composer_folder.ps1, 앱 2.37337.1.0, 2026-10-20). 잰 회차는 마지막 폴더가 C:\project\agent 인
-# 하나뿐이라, 그 Text 가 마지막 폴더를 따라 바뀐다는 것은 어림이다(양성 대조가 없다). 틀려서 다른 폴더를 놓치면 open-session
+# 하나뿐이었다. 그 Text 가 마지막 폴더를 따라 바뀐다는 것은 2026-11-10 composer_env_menu.ps1 의 -Pick 이 양성으로 대 봤다(환경을
+# 고르자 이 Text 가 C:\project\rag-engine 으로 바뀌었다, 손으로 돌렸다). 틀려서 다른 폴더를 놓치면 open-session
 # 4단계의 `cwd` 확인이 보낸 뒤에 잡는다. 지시문의 문단도 묶음 안의 Text 라 입력창의
 # 줄과 같은 글은 뺀다. 여러 줄 문단의 Text 는 어느 한 줄과도 같지 않을 수 있고 입력창을 읽지 못하면 줄이 없어, 줄바꿈을 품은 글도
 # 폴더로 읽지 않는다(폴더 경로에는 줄바꿈이 없다). 드라이브 경로(`X:\`)로 시작하는 글만 고르고 같은 글은 한 번 든다. 순수하다.
@@ -511,10 +528,83 @@ function Get-FolderMismatch([string[]] $shown, [string] $folder) {
     $norm = { param($p) $p.Replace('/', '\').TrimEnd('\') }
     $want = & $norm $folder
     $paths = @($shown | Where-Object { $_ })
-    $tail = "보내지 않았다. 사람이 입력창 아래의 환경 버튼에서 '$want' 를 고른 뒤 보낸다."
+    $tail = "보내지 않았다. 사람이 입력창 아래의 환경 버튼에서 폴더가 '$want' 인 환경(이름은 보통 폴더의 마지막 토막)을 고른 뒤 보낸다."
     if ($paths.Count -eq 0) { return "새 세션 화면의 입력창 묶음에서 폴더 경로를 찾지 못했다. $tail" }
     if (@($paths | Where-Object { (& $norm $_) -ne $want }).Count -eq 0) { return $null }
     return "새 세션 화면의 폴더가 '$($paths -join ', ')' 이고 '$want' 가 아니다(딥링크는 앱의 마지막 폴더에서 연다). $tail"
+}
+
+# 화면의 폴더가 -Folder 가 아닐 때 사람에게 넘기지 않고 입력창 묶음의 `환경: <이름>` 버튼으로 고른다(harness 티켓
+# open-session-selects-repo-folder, 대기열 378의 "다르면 멈춘다"를 바꿨다). 환경 메뉴의 항목은 폴더 경로가 아니라 환경 이름의
+# 라디오 버튼이다(`agent , 환경 편집, 오른쪽 화살표`). 이 PC 에서는 환경 이름이 폴더의 마지막 토막과 같았고, 다르면 항목을 찾지
+# 못해 멈춘다. 고르는 값은 Test-RepoFolder 를 지난 -Folder 의 마지막 토막뿐이다. 고른 폴더는 앱의 마지막 폴더가 되므로(고른 직후
+# 연 표지 화면이 그 폴더로 열렸다) 같은 때 잠금을 모르는 열기는 그 폴더로 갈 수 있다. 근거는 .scratch/harness/probes/composer_env_menu.ps1
+# (2026-11-10, 손으로 돌렸다). 아래 둘은 순수하다. 폴더 경로에서 환경 이름(마지막 토막)을 뽑고, 메뉴 항목의 이름들에서 그 환경의
+# 항목을 가른다. 이름이 `<환경 이름> , ` 로 시작하는 것만 그 환경의 항목이다(`agent2` 는 `agent` 가 아니다). 대소문자는 가리지 않는다(윈도).
+function Get-FolderEnvName([string] $folder) {
+    $leaf = @($folder.Replace('/', '\').TrimEnd('\') -split '\\')[-1]
+    if (-not $leaf -or $leaf.Contains(':')) { return '' }   # 드라이브 문자만 남은 경로는 환경 이름이 없다
+    return $leaf
+}
+
+function Select-FolderEnvNames([string[]] $itemNames, [string] $envName) {
+    if (-not $envName) { return @() }
+    return @($itemNames | Where-Object { $_ -and $_.StartsWith("$envName , ", [StringComparison]::OrdinalIgnoreCase) })
+}
+
+function Find-FolderEnvRadios($win, [string] $envName) {
+    $radioCond = New-Object System.Windows.Automation.PropertyCondition($Auto::ControlTypeProperty, $Types::RadioButton)
+    return @($win.FindAll($Scope::Descendants, $radioCond) | Where-Object {
+        try { (Select-FolderEnvNames @($_.Current.Name) $envName).Count -eq 1 } catch { $false }
+    })
+}
+
+# 환경 메뉴를 펼쳐 -Folder 의 환경 항목 하나를 고른다. 항목이 없거나 둘 이상이거나 비활성이면 고르지 않고 던진다. 던지기 전에
+# 펼친 메뉴를 접는다. 고르면 메뉴가 스스로 닫혔다(composer_env_menu.ps1 의 -Pick). 고른 항목의 환경 이름을 준다.
+function Select-ComposerFolder($win, $box, [string] $folder) {
+    $name = Get-FolderEnvName $folder
+    if (-not $name) { throw "-Folder '$folder' 에서 환경 이름(마지막 토막)을 뽑지 못했다." }
+    $button = Find-ComposerButton $box '환경:'
+    if (-not $button) { throw "입력창 묶음에서 '환경:' 버튼을 찾지 못했다." }
+    $opened = Invoke-PatternTimed $button 'expand'
+    try {
+        if ($opened -ne 'ok') { throw "환경 메뉴를 펼치지 못했다($opened)." }
+        Wait-For { Find-FolderEnvRadios $win $name | Select-Object -First 1 } "환경 메뉴의 '$name' 항목" 5 | Out-Null
+        $items = @(Find-FolderEnvRadios $win $name)
+        if ($items.Count -ne 1) { throw "환경 메뉴에 '$name' 항목이 $($items.Count)개다. 하나일 때만 고른다." }
+        if (-not $items[0].Current.IsEnabled) { throw "환경 메뉴의 '$name' 항목이 비활성이다." }
+        $chosen = Invoke-PatternTimed $items[0] 'select'
+        if ($chosen -ne 'ok') { throw "환경 메뉴의 '$name' 항목을 고르지 못했다($chosen)." }
+    } catch {
+        if (Test-Expanded $button) { Invoke-PatternTimed $button 'collapse' | Out-Null }
+        throw
+    }
+    return $name
+}
+
+# 화면의 폴더를 -Folder 로 고친다. 환경을 고른 뒤 지시문이 든 입력창을 다시 찾고(요소가 같았지만 보내기 전의 확인은 이 요소를
+# 쓴다) 화면의 폴더를 다시 읽어, -Folder 와 같을 때만 입력창과 읽은 폴더를 준다. 6초 안에 같아지지 않으면 던진다. 그때 앱의
+# 마지막 폴더는 이미 바뀌었다.
+function Repair-ShownFolder($win, $box, [string] $needle, [string] $folder) {
+    $name = Select-ComposerFolder $win $box $folder
+    $shown = @()
+    $lastBox = $box
+    for ($i = 0; $i -lt 12; $i++) {
+        Start-Sleep -Milliseconds 500
+        $again = Find-PromptBox $win $needle
+        if (-not $again) { continue }
+        $lastBox = $again
+        $shown = @(Read-ShownFolders $again)
+        if ($shown.Count -gt 0 -and -not (Get-FolderMismatch $shown $folder)) {
+            return [pscustomobject]@{ Box = $again; Shown = $shown }
+        }
+    }
+    # 골랐는데 폴더가 바뀌지 않았다면 메뉴가 스스로 닫히지 않았을 수 있다. 열려 있으면 접는다(다시 찾지 못하면 그대로 던진다).
+    try {
+        $reopened = Find-ComposerButton $lastBox '환경:'
+        if ($reopened -and (Test-Expanded $reopened)) { Invoke-PatternTimed $reopened 'collapse' | Out-Null }
+    } catch { }
+    throw "환경 '$name' 을 골랐지만 6초 안에 화면의 폴더가 '$folder' 로 바뀌지 않았다(마지막으로 읽은 폴더: '$($shown -join ', ')'). 앱의 마지막 폴더는 이미 바뀌었다."
 }
 
 # 입력창 묶음의 모델 버튼이 지금 보이는 모델과 노력. 자식 Text 로 읽는다(Split-ComposerTexts 의 주석).
