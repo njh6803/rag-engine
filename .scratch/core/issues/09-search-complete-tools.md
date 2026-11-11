@@ -21,3 +21,7 @@
 - [ ] 시험: 스토리 4(메타데이터와 갱신일이 결과의 `metadata`·`updated_at`에 실리고, 메타데이터·갱신일만 바꾼 `unchanged` 수집 뒤의 검색이 새 값을 낸다), 17(필터와 `iterative_scan`), 20(리랭커가 순서를 바꾸고, 실패하면 `search_unavailable`), 21, 22, 26(도구 오류 코드마다 한 사례), 27(범위 밖 지식베이스가 `chunk_counts`와 목록에 없다), 37(수집·검색·작업의 로그에 질의 글, 문서 글·키·제목, 토큰 원문이 없다). 임베딩 끝점 `/info`의 모델 불일치가 검색의 `search_unavailable`을 낸다. 판이 전환되는 사이의 검색이 둘째 단계부터 한 번 다시 하고, 다시 해도 아니면 `search_unavailable`이다(가짜 포트). 지운 문서의 갈래(`get_document`의 `document_not_found`, `document_count`에서 빠짐)는 삭제가 생기는 11이 시험한다.
 - [ ] 위 가짜 포트 시험이 쓰는 메모리 안 가짜 포트는 `tests/` 쪽에 두고, 뒤 티켓(10~15)이 넓혀 쓴다. 가짜는 `app`의 동시성 교차와 실패 분류 시험에만 쓴다(명세 "포트 열셋과 그 값" 절, Testing Decisions).
 - [ ] 검사 넷이 초록이다.
+
+## Comments
+
+- 2026-11-11 명세 고침(브랜치 `docs/get-document-text-window`, 일지 `docs/journal/2026-11-11-0929-core-get-document-text-window.md`): `get_document`의 모양이 바뀌었다. 입력에 `offset`(기본 0)과 `max_chars`(기본·상한은 새 설정 `RAG_DOCUMENT_TEXT_MAX_CHARS`, 20000)가 들고, 출력에 `text_length`(`include_text`와 상관없이)와 `next_offset`(다음 창의 자리. 끝이면 null)이 든다. `text`는 `offset`부터 `max_chars` 안의 창이고 블록 경계(빈 줄)에서 자르며, 제목 블록은 `#`을 수준만큼 붙인 한 줄로 낸다. 규칙 전부와 시험 사례는 명세 "MCP 도구" 절의 `get_document` 항목과 그 다음 `[사용자 선택]` 항목, Testing Decisions의 HTTP 시험 목록이다. 위 `get_document` 체크박스는 이 모양으로 읽는다. 함께 고칠 자리: 설정 클래스와 그 시험에 `RAG_DOCUMENT_TEXT_MAX_CHARS`, 출력 모델 `DocumentOutput`의 `text` 설명과 새 칸 둘(`text_length`, `next_offset`), 입력 모델의 `offset`·`max_chars`와 `invalid_argument` 갈래. 판은 1.0.0 그대로다.
