@@ -32,8 +32,8 @@ expect = "red"
 expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 뒤부터 발생한다.'"]
 
 [[mutation.edit]]
-file = "src/rag_engine/app/index_document.py"
-old = '''            await transaction.index.delete_chunks(document.id, version.id)
+file = "src/rag_engine/app/index_failure.py"
+old = '''    await transaction.index.delete_chunks(document_id, version.id)
 '''
 new = ''
 
@@ -44,9 +44,9 @@ expect = "red"
 expect_output = ["Right contains one more item"]
 
 [[mutation.edit]]
-file = "src/rag_engine/app/index_document.py"
-old = '''            if version.status is IndexVersionStatus.BUILDING:
-                await check_version_switch(transaction, version)
+file = "src/rag_engine/app/index_failure.py"
+old = '''    if version.status is IndexVersionStatus.BUILDING:
+        await check_version_switch(transaction, version)
 '''
 new = ''
 

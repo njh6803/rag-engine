@@ -24,6 +24,7 @@ from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.settings import Settings
 from rag_engine.adapters.tei import TeiEmbedderPool
 from rag_engine.app.index_document import IndexDocumentDeps
+from rag_engine.app.retry_policy import RetryPolicy
 from rag_engine.worker.processing import run_once
 
 
@@ -58,6 +59,10 @@ async def run_once_with_settings(settings: Settings) -> int:
         chunker_for=chunker_for,
         tokenize_keywords=tokenize_keywords,
         now=lambda: datetime.now(UTC),
+        retry=RetryPolicy(
+            max_attempts=settings.job_max_attempts,
+            backoff_base_seconds=settings.job_backoff_base_seconds,
+        ),
     )
     try:
         return await run_once(

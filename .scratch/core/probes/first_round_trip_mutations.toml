@@ -10,13 +10,13 @@ expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 �
 
 [[mutation.edit]]
 file = "src/rag_engine/app/index_document.py"
-old = '''        if document is None or document.generation != claim.generation:
-            return
-        if document.status is not DocumentStatus.PARSED:
+old = '''            if document is None or document.generation != claim.generation:
+                return failure_code
+            if document.status is not DocumentStatus.PARSED:
 '''
-new = '''        if document is None:
-            return
-        if document.status is not DocumentStatus.PARSED:
+new = '''            if document is None:
+                return failure_code
+            if document.status is not DocumentStatus.PARSED:
 '''
 
 [[mutation]]
@@ -62,7 +62,7 @@ expect = "red"
 expect_output = ["DID NOT RAISE AttemptLostError"]
 
 [[mutation.edit]]
-file = "src/rag_engine/app/index_document.py"
+file = "src/rag_engine/app/job_attempt.py"
 old = '''    if not await transaction.jobs.hold_attempt(job):'''
 new = '''    if False:'''
 
@@ -130,10 +130,12 @@ expect_output = ["('failed', 'internal_error') != ('lost', None)"]
 [[mutation.edit]]
 file = "src/rag_engine/worker/processing.py"
 old = '''    except AttemptLostError:
-        return None, _NO_TIMINGS
+        return _Settled(None, timer.timings())
+    except TransientFailure as failure:
 '''
 new = '''    except AttemptLostError:
-        return JobOutcome(JobStatus.FAILED, ErrorCode.INTERNAL_ERROR), _NO_TIMINGS
+        return _Settled(JobOutcome(JobStatus.FAILED, ErrorCode.INTERNAL_ERROR), timer.timings())
+    except TransientFailure as failure:
 '''
 
 [[mutation]]

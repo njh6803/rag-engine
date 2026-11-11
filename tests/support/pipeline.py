@@ -27,8 +27,11 @@ from rag_engine.adapters.tei import TeiEmbedderPool
 from rag_engine.app.delete_document import delete_document
 from rag_engine.app.index_document import IndexDocumentDeps
 from rag_engine.app.ingest import IngestRequest, IngestResult, ingest_document
+from rag_engine.app.live_versions import live_index_versions
+from rag_engine.app.retry_policy import RetryPolicy
 from rag_engine.domain.entities import (
     Group,
+    IndexState,
     IndexVersion,
     IndexVersionStatus,
     Job,
@@ -37,11 +40,23 @@ from rag_engine.domain.entities import (
 )
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.parsing import ParseRunner
-from rag_engine.domain.ports import EmbedderFor
+from rag_engine.domain.ports import EmbedderFor, UnitOfWork
 
 DIMENSIONS = 16
 LEASE_SECONDS = 600.0
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+BACKOFF_BASE_SECONDS = 30.0
+DEFAULT_RETRY = RetryPolicy(max_attempts=6, backoff_base_seconds=BACKOFF_BASE_SECONDS)
+
+
+@dataclass(frozen=True, slots=True)
+class JobRow:
+    """작업 행에서 시험이 보는 칸."""
+
+    status: str
+    last_error_code: str | None
+    attempts: int
+    run_after: datetime
 
 
 @dataclass(slots=True)
@@ -63,9 +78,12 @@ class Pipeline:
         *,
         embedder_for: EmbedderFor | None = None,
         parse_runner: ParseRunner | None = None,
+        unit_of_work: UnitOfWork | None = None,
+        retry: RetryPolicy = DEFAULT_RETRY,
     ) -> IndexDocumentDeps:
         return IndexDocumentDeps(
-            unit_of_work=self.unit_of_work,
+            retry=retry,
+            unit_of_work=unit_of_work or self.unit_of_work,
             blob_store=self.blob_store,
             parse_runner=parse_runner or self.parse_runner,
             embedder_for=embedder_for or self.pool,
@@ -107,6 +125,28 @@ class Pipeline:
                 {"document": document_id},
             )
             return [row[0] for row in rows]
+
+    async def job_rows(self, document_id: UUID) -> list[JobRow]:
+        """그 문서의 작업 행을 만든 순서로 낸다."""
+        async with self.engine.connect() as connection:
+            rows = await connection.execute(
+                sa.text(
+                    "SELECT status, last_error_code, attempts, run_after FROM jobs"
+                    " WHERE document_id = :document ORDER BY id"
+                ),
+                {"document": document_id},
+            )
+            return [JobRow(row[0], row[1], row[2], row[3]) for row in rows]
+
+    async def states(self, document_id: UUID) -> dict[UUID, IndexState]:
+        """그 문서의 색인 상태를 판 ID로 묶어 낸다."""
+        found: dict[UUID, IndexState] = {}
+        async with self.unit_of_work.begin() as transaction:
+            for version in await live_index_versions(transaction, self.group.id):
+                state = await transaction.index.get_state(document_id, version.id)
+                if state is not None:
+                    found[version.id] = state
+        return found
 
     async def job_statuses(self, document_id: UUID) -> list[str]:
         async with self.engine.connect() as connection:

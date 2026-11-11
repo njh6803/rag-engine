@@ -16,7 +16,7 @@ from tests.support.interleaving import FailingRunner, InterruptingEmbedder
 from tests.support.pipeline import DIMENSIONS, LEASE_SECONDS, Pipeline
 
 from rag_engine.adapters.parsers.runner import SubprocessParseRunner
-from rag_engine.app import index_document as index_document_module
+from rag_engine.app import index_failure as index_failure_module
 from rag_engine.app.index_document import index_document
 from rag_engine.domain.entities import (
     DocumentStatus,
@@ -314,7 +314,7 @@ async def test_영구_실패는_살아_있는_판_모두에_색인_상태를_쓰
     async def record_check(_transaction: object, version: IndexVersion) -> None:
         checked.append(version)
 
-    monkeypatch.setattr(index_document_module, "check_version_switch", record_check)
+    monkeypatch.setattr(index_failure_module, "check_version_switch", record_check)
 
     await _fail_parsing(pipeline, FailingRunner(ErrorCode.PARSE_FAILED))
 

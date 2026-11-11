@@ -33,8 +33,10 @@ expect_output = ['''At index 0 diff: 7 != None''']
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/postgres/job_queue.py"
-old = '''                raised_generation=None,'''
-new = '''                raised_generation=jobs.c.raised_generation,'''
+old = '''                attempts=jobs.c.attempts + 1,
+                raised_generation=None,'''
+new = '''                attempts=jobs.c.attempts + 1,
+                raised_generation=jobs.c.raised_generation,'''
 
 [[mutation]]
 name = "실행 시각이 오지 않은 대기 작업도 꺼낸다"

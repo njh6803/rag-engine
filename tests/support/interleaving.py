@@ -5,14 +5,16 @@
 쪽, 원본을 쓴 직후와 지우기 직전에 끼어드는 것은 수집 쪽이다.
 """
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
+from contextlib import AbstractAsyncContextManager
 from pathlib import Path
+from uuid import UUID
 
 from rag_engine.adapters.blob_store import LocalBlobStore
 from rag_engine.domain.entities import IndexVersion
-from rag_engine.domain.errors import ErrorCode, PermanentFailure
+from rag_engine.domain.errors import ErrorCode, PermanentFailure, TransientFailure
 from rag_engine.domain.parsing import ParsedDocument, ParserVersion
-from rag_engine.domain.ports import Embedder, EmbedderFor
+from rag_engine.domain.ports import Embedder, EmbedderFor, Transaction, UnitOfWork
 
 type Interloper = Callable[[], Awaitable[None]]
 
@@ -46,6 +48,53 @@ def interrupting_embedder_for(embedder_for: EmbedderFor, interrupt: Interloper) 
 
     def make(version: IndexVersion) -> Embedder:
         return InterruptingEmbedder(embedder_for(version), interrupt)
+
+    return make
+
+
+class FlakyUnitOfWork:
+    """앞의 `failures`번의 `begin()`을 일시 실패로 터뜨리고 그 뒤는 실제 작업 단위에 맡긴다. 첫째
+    단계 전에 데이터베이스가 끊긴 시도를 흉내 낸다."""
+
+    def __init__(self, inner: UnitOfWork, failures: int = 1) -> None:
+        self._inner = inner
+        self._remaining = failures
+
+    def begin(self) -> AbstractAsyncContextManager[Transaction]:
+        if self._remaining > 0:
+            self._remaining -= 1
+            raise TransientFailure(ErrorCode.DATABASE_UNAVAILABLE, "시험용 일시 실패")
+        return self._inner.begin()
+
+
+class RejectingEmbedder:
+    """임베딩만 영구 실패로 거부하는 임베더. 토큰 세기는 실제 임베더에 맡긴다."""
+
+    def __init__(self, inner: Embedder, code: ErrorCode) -> None:
+        self._inner = inner
+        self._code = code
+
+    async def embed(self, texts: Sequence[str]) -> list[tuple[float, ...]]:
+        raise PermanentFailure(self._code, "시험용 영구 실패")
+
+    async def count_tokens(self, texts: Sequence[str]) -> list[int]:
+        return await self._inner.count_tokens(texts)
+
+    async def special_token_count(self) -> int:
+        return await self._inner.special_token_count()
+
+    async def token_spans(self, text: str) -> list[tuple[int, int]]:
+        return await self._inner.token_spans(text)
+
+
+def rejecting_embedder_for(
+    embedder_for: EmbedderFor, rejected: Collection[UUID], code: ErrorCode
+) -> EmbedderFor:
+    """`rejected`에 든 판의 임베딩만 영구 실패로 거부한다."""
+
+    def make(version: IndexVersion) -> Embedder:
+        inner = embedder_for(version)
+        return RejectingEmbedder(inner, code) if version.id in rejected else inner
 
     return make
 
