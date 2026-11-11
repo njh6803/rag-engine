@@ -186,12 +186,22 @@ async def _ensure_parsed(
     ):
         return saved
     started = time.perf_counter()
+    try:
+        return await _parse_and_save(deps, job, claim)
+    finally:
+        timer.parse_ms += _elapsed_ms(started)
+
+
+async def _parse_and_save(
+    deps: IndexDocumentDeps, job: Job, claim: _Claim
+) -> DocumentContent | None:
+    """원본을 읽어 파싱하고 결과를 쓴다. 어떻게 끝나든 호출한 쪽이 걸린 시간을 `parse_ms`에
+    더한다."""
     data = await deps.blob_store.read(claim.blob_path)
     try:
         parsed = await deps.parse_runner.parse(data, claim.mime)
     except PermanentFailure as failure:
         await _record_permanent_failure(deps, job, claim, failure)
-        timer.parse_ms += _elapsed_ms(started)
         raise
     content = DocumentContent(
         document_id=job.document_id,
@@ -207,7 +217,6 @@ async def _ensure_parsed(
         document = await transaction.documents.lock(job.document_id)
         await hold_attempt(transaction, job)
         if document is None or document.generation != claim.generation:
-            timer.parse_ms += _elapsed_ms(started)
             return None
         await transaction.documents.save_content(content)
         await transaction.documents.update(
@@ -218,7 +227,6 @@ async def _ensure_parsed(
                 modified_at=deps.now(),
             )
         )
-    timer.parse_ms += _elapsed_ms(started)
     return content
 
 

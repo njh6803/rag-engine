@@ -5,6 +5,7 @@
 쪽, 원본을 쓴 직후와 지우기 직전에 끼어드는 것은 수집 쪽이다.
 """
 
+import asyncio
 from collections.abc import Awaitable, Callable, Collection, Sequence
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
@@ -117,6 +118,17 @@ class FailingRunner:
         if self._before_failing is not None:
             await self._before_failing()
         raise PermanentFailure(self._code, "시험용 영구 실패")
+
+
+class TransientFailingRunner:
+    """파싱을 잠시 하다가 일시 실패하는 실행기. 파싱에 든 시간이 로그에 남는지 보려고 쓴다."""
+
+    def current_version(self, mime: str) -> ParserVersion | None:
+        return None
+
+    async def parse(self, data: bytes, mime: str) -> ParsedDocument:
+        await asyncio.sleep(0.01)
+        raise TransientFailure(ErrorCode.DATABASE_UNAVAILABLE, "시험용 일시 실패")
 
 
 class InterruptingBlobStore(LocalBlobStore):

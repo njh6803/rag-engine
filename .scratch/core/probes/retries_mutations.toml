@@ -322,3 +322,21 @@ new = '''    finally:
         pass
     timer.embedding_ms += _elapsed_ms(started)
 '''
+
+[[mutation]]
+name = "예외로 끝난 시도의 파싱 지연을 더하지 않는다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["assert 0.0 > 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''    try:
+        return await _parse_and_save(deps, job, claim)
+    finally:
+        timer.parse_ms += _elapsed_ms(started)
+'''
+new = '''    result = await _parse_and_save(deps, job, claim)
+    timer.parse_ms += _elapsed_ms(started)
+    return result
+'''

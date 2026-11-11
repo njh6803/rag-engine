@@ -17,6 +17,7 @@ from tests.support.docx_files import docx_bytes
 from tests.support.interleaving import (
     FailingRunner,
     FlakyUnitOfWork,
+    TransientFailingRunner,
     interrupting_embedder_for,
     rejecting_embedder_for,
 )
@@ -568,6 +569,30 @@ async def test_파싱이_영구_실패한_작업도_실제_파싱_지연을_싣�
     ]
     assert [(item["result"], item["error_code"]) for item in finished] == [
         ("failed", "encrypted_document")
+    ]
+    assert finished[0]["parse_ms"] > 0
+
+
+async def test_파싱이_일시_실패해_다시_예약된_시도도_실제_파싱_지연을_싣는다(
+    pipeline: Pipeline, caplog: pytest.LogCaptureFixture
+) -> None:
+    await pipeline.ingest(휴가)
+    job = await pipeline.claim()
+
+    with caplog.at_level(logging.INFO, logger="rag_engine.worker.processing"):
+        await process_job(
+            pipeline.deps(parse_runner=TransientFailingRunner(), retry=_policy(6)), job
+        )
+
+    finished = [
+        payload
+        for payload in (
+            json.loads(JsonLinesFormatter().format(record)) for record in caplog.records
+        )
+        if payload["event"] == "job_finished"
+    ]
+    assert [(item["result"], item["error_code"]) for item in finished] == [
+        ("queued", "database_unavailable")
     ]
     assert finished[0]["parse_ms"] > 0
 

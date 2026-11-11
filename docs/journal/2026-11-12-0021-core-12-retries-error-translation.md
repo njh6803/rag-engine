@@ -51,8 +51,8 @@
 - `app/job_attempt.py`: 지식베이스 행을 잠그는 작업 단위는 지금 `job_failure`의 다시 예약하기와 재시도 소진뿐이고, 색인 작업 자신의 작업 단위가 잠그는 일은 14가 한다.
 - `app/retry_policy.py`: 지수를 64로 막아도 한 시간 상한 때문에 값은 같고, 시도 횟수가 아무리 커도 넘치지 않는다.
 - `app/index_document.py` 머리글: 파싱과 임베딩의 영구 실패는 세대가 달라 문서와 색인에 쓰지 않을 때도 그 실패를 작업의 결과로 올려 작업이 `failed`로 끝난다.
-- 티켓 14의 07이 넘긴 것: 재시도 소진이 전환 검사를 부를 때는 문서 행과 지식베이스 행(`FOR UPDATE`)이 잠겨 있고 작업 행은 아직 잠기지 않았다. 파싱과 임베딩의 영구 실패가 부를 때는 `index_document`의 경우와 같다.
-- 티켓 13: `hold_attempt`는 `index_document`의 세 쓰기 단위와 `job_failure`의 두 작업 단위가 부른다.
+- 티켓 14의 07이 넘긴 것: 재시도 소진이 전환 검사를 부를 때는 문서 행, 지식베이스 행(`FOR UPDATE`), 작업 행(`hold_attempt`) 순으로 모두 잠겨 있다. 파싱과 임베딩의 영구 실패가 부를 때는 `index_document`의 경우와 같다.
+- 티켓 13: `hold_attempt`는 `index_document`의 네 쓰기 단위와 `job_failure`의 두 작업 단위가 부른다.
 
 **남긴 것과 이유**
 
@@ -69,6 +69,32 @@
 - 반영 뒤 `ruff check`, `ruff format --check`, `pyright`가 통과이고 변이 표 다섯(`retries`, `first_round_trip`, `first_round_trip_adapter`, `ingest_updates`, `delete_restore`)의 `--check`가 통과다.
 - 반영 뒤 변이 표 `retries_mutations.toml`의 스물네 변이를 전부 다시 돌려 모두 기대한 표지로 빨강이다(스물네째는 문법이 틀린 변이 정의를 고쳐 따로 돌렸다).
 - 반영 뒤 `uv run python tools/run_checks.py`가 `test-db`, `check-ticket`, `zizmor`, `lint-imports`, `check-instructions`, `check-type-escapes`, `pyright-linux`, `pyright`, `run-hooks`, `pytest`(282.5초) 모두 통과다. 앞선 실행에서 빨갛던 `test_parse_runner`의 기한 2초 시험과 `serve` 기동 시험도 이번에는 통과했다. 둘은 이 변경과 무관하게 부하에서 갈리는 시험이다.
+
+## PR 직전 리뷰
+
+내장 보안 리뷰와 `bug-perf-review`를 커밋 `175a6dd` 위에서 돌렸다. 보안 리뷰는 확신 7 이상의 취약점이 없다고 보고했다. `bug-perf-review`는 Critical과 Major 없이 Minor 넷을 냈고, 근거는 코드에서 다시 열어 확인했다.
+
+**고친 것**
+
+- 티켓 14의 07이 넘긴 것과 일지의 "다음"이 재시도 소진은 전환 검사를 부를 때 작업 행이 아직 잠기지 않았다고 적었으나 `exhaust`는 `hold_attempt`로 작업 행을 `mark_version_failed`보다 먼저 잠근다(`app/job_failure.py`). 문서 행, 지식베이스 행, 작업 행 순으로 모두 잠겨 있다고 고쳤다.
+- 티켓 13과 일지가 `hold_attempt`를 부르는 `index_document`의 쓰기 단위를 셋이라고 적었으나 `_raise_generation`, `_ensure_parsed`의 저장, `_record_permanent_failure`, `_replace_chunks`로 넷이다. 넷으로 고쳤다.
+- 파싱이 일시 실패하거나 파싱 뒤 쓰기 단위가 실패한 시도는 `parse_ms`를 싣지 못했다(`_ensure_parsed`가 정상 종료, 영구 실패, 세대 대조 탈락 갈래마다 따로 더해, 그 밖의 예외는 더하지 못했다). 시험(`test_파싱이_일시_실패해…`)을 먼저 써서 `assert 0.0 > 0` 빨강을 본 뒤, 파싱과 쓰기를 `_parse_and_save`로 나누고 `_ensure_parsed`가 `try`/`finally`로 시간을 더하게 고쳤다. 시험 도우미 `TransientFailingRunner`와 변이 표의 변이 하나(스물다섯째)를 더했다.
+
+**남긴 것과 이유**
+
+- `PostgresUnitOfWork.begin()`의 `raise transient from None`은 그대로 둔다. 로그 형식기(`adapters/log_format.py`)는 맨 위 예외의 종류와 프레임만 적고(메시지는 `rag_engine` 예외만) `__cause__`를 따라가지 않으므로 `from error`로 바꿔도 로그는 늘지 않는다. 오히려 다른 처리기가 체인을 찍으면 드라이버 메시지(접속 정보가 섞일 수 있다)가 새므로 원칙 V를 구조로 지키려고 끊어 둔다. SQLSTATE를 진단에 남기려면 상수 문자열인 SQLSTATE만 별도 필드로 싣는 일이 따로 필요하고, 이 티켓의 요구가 아니다.
+
+**다시 돌린 명령**
+
+- `ruff check .`, `ruff format --check .`, `pyright`가 통과이고(`ruff check`는 처음에 시험 파일의 임포트 정렬 하나로 빨갛다가 `--fix` 뒤 통과했다), 변이 표 열하나 모두의 `--check`가 통과다.
+- `tests/app`, `tests/contract/test_first_round_trip.py`, `tests/adapters/test_job_queue_reschedule.py`, `tests/adapters/test_postgres_error_translation.py`가 200개 통과다.
+- 변이 표 `retries_mutations.toml`의 스물다섯 변이를 전부 다시 돌려 모두 기대한 표지로 빨강이다. 돌린 뒤 `git status`가 의도한 파일만 바뀐 것으로 보여 변이가 원상태로 되돌려졌다.
+- 커밋이 부르는 pre-commit(검사 러너)의 결과는 커밋 뒤에 PR 본문에 적는다.
+
+**PR 직전 리뷰 뒤에 새로 쓴 사실 문장**(PR 봇 회차가 겨냥할 것)
+
+- `app/index_document.py`의 `_parse_and_save` 독스트링: 어떻게 끝나든 호출한 쪽(`_ensure_parsed`)이 걸린 시간을 `parse_ms`에 더한다.
+- 위 "남긴 것"의 형식기 서술: 맨 위 예외의 종류와 프레임만 적고 `__cause__`를 따라가지 않는다.
 
 ## 다음
 
