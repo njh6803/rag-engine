@@ -219,3 +219,17 @@ def test_후보_수는_pgvector가_받는_ef_search_상한까지만_받는다(
 
     assert accepted == 1000
     assert [error["loc"] for error in caught.value.errors()] == [("search_candidates",)]
+
+
+def test_기본_top_k가_최대_top_k를_넘으면_시작하지_않는다(
+    required_environment: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RAG_SEARCH_MAX_TOP_K", "50")
+    monkeypatch.setenv("RAG_SEARCH_DEFAULT_TOP_K", "50")
+    accepted = Settings(_env_file=None).search_default_top_k
+    monkeypatch.setenv("RAG_SEARCH_DEFAULT_TOP_K", "51")
+
+    with pytest.raises(ValidationError, match="RAG_SEARCH_DEFAULT_TOP_K"):
+        Settings(_env_file=None)
+
+    assert accepted == 50

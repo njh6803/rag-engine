@@ -53,7 +53,7 @@
   - `_instant`의 이름(`_parse_offset_datetime` 쪽이 더 낫다), `_chunk_counts`가 지식베이스마다 쿼리하는 점(지식베이스가 몇 개 안 된다), `get_document`가 검증·가시성·조립을 한 함수에서 하는 점.
 - HWPX 제목 `## `와 PDF 전문에 `#` 줄이 없음의 시험은 그 파서를 만드는 08의 몫이다(이 티켓에는 DOCX 파서뿐이다). 08 티켓이 그 시험을 수용 기준에 넣어야 한다.
 - 시간 제한의 시작점(조회부터)과 공백뿐인 질의의 `invalid_argument`는 명세와 글자가 다르게 구현한 판단이라 위 "정한 것"에 적었다.
-- 명세 `spec.md`는 PR 12가 병합되어야 전문 창과 `RAG_DOCUMENT_TEXT_MAX_CHARS`를 담는다. 이 PR은 PR 12 뒤에 병합하는 것이 맞다. 이 PR이 먼저 병합되면 그 사이 명세가 코드보다 낡는다.
+- 명세 `spec.md`는 PR 12가 병합되어야 전문 창과 `RAG_DOCUMENT_TEXT_MAX_CHARS`를 담는다. 이 세션이 끝나기 전에 PR 12가 병합되어(`a879fa4`) origin/main을 합쳤고, 합친 명세가 코드와 맞다.
 
 **PR 직전 리뷰에 밀 주장**(이번 반영이 새로 쓴 사실 문장)
 
@@ -69,6 +69,28 @@
 - 리뷰 반영 전 트리에서 전체 `pytest` 3386개 통과(7분 51초)다. 리뷰를 반영한 트리에서 3390개 통과(7분 31초)다. 그 뒤 회고가 로그 도우미를 고쳐 `tests/server` 122개와 `tests/contract` 50개를 다시 돌렸고 모두 초록이다.
 - 같은 트리에서 `ruff format --check .`, `ruff check .`, `pyright`(0 오류), `lint-imports`(계약 2 유지), `tools/check_type_escapes.py`가 통과다. 같은 검사를 커밋이 부르는 pre-commit이 한 번 더 돌렸고(테스트 3390 통과, 변이 표 검사 포함), 첫 시도는 변이 표의 표지 아홉 개가 pytest 단언 풀이 줄이라 막혀 `At index 0 diff`와 `-` 줄과 단언 위치 줄로 고친 뒤 변이 아홉을 다시 돌려 기대대로를 보았다. 둘째 시도는 커밋 메시지 제목이 72자를 넘어 막혀 줄였고, 셋째 시도가 통과했다(`ac14244`). 그 뒤 origin/main(PR 12의 명세, 하네스 chore 두 건)을 합쳐 티켓 둘의 충돌을 풀었다.
 - 변이 표 서른셋은 마지막 수정(리랭커 확인 변이 33과 표지 고침) 뒤에 12~14, 28, 30~33번을 다시 돌려 기대한 빨강임을 보았다. 나머지는 해당 소스가 바뀐 뒤 처음 돌린 결과가 그대로다.
+
+## PR 직전 리뷰
+
+`coderabbit-review` 서브에이전트가 CodeRabbit CLI(0.7.5)로 끝까지 돌았다(`review_completed`, 종료 코드 0, 파일 39개, CLI 지적 2건). 좌석은 `Seat: not assigned`(Plan: Free)였고 리뷰는 좌석 없이도 정상 완료됐다. 에이전트가 코드를 직접 읽어 Minor 다섯을 더했다. Critical·Major는 없고 보안 축 지적은 없다. 밀어 둔 주장 다섯(리랭커 `/info` 확인, `get_document`의 `document_not_found` 조건, `next_offset` 설명, 로그 시험의 주석, 원칙 IV·V)은 모두 코드와 맞았다. 지적마다 코드에서 다시 열어 판정했다.
+
+**고친 것**
+
+- `search_default_top_k`가 `search_max_top_k`를 넘는 설정이 기동 때 걸러지지 않아, `top_k`를 주지 않은 모든 검색이 요청 때마다 `invalid_argument`가 되었다. 시험을 먼저 쓰고(`DID NOT RAISE`로 빨강) `Settings`에 `model_validator`를 더했다(`adapters/settings.py`, `tests/adapters/test_settings.py`).
+- 시간 제한 시험의 리랭커 지연 3초, 단언 `elapsed < 3.0`이 병렬 부하에서 흔들릴 수 있었다. 지연 20초, 상한 10초로 바꿨다(`tests/contract/test_search_complete.py`). 시험이 실제로 기다리는 시간은 제한(1초)까지뿐이다.
+- `filter.groups`의 설명에 빈 배열은 그룹으로 거르지 않는다는 말을 더했다(`server/tool_models.py`). 코드의 동작은 그대로다.
+
+**남긴 것과 이유**(모두 Minor)
+
+- 리랭커가 NaN·inf 점수를 돌려주면 `SearchResult.score` 검증에서 `internal_error`가 된다. TEI가 그런 값을 낼 가능성이 낮아 손대지 않았다. 고친다면 `_scores`에서 유한하지 않은 값을 일시 실패(`search_unavailable`)로 올린다.
+- `filter.groups`는 이름마다 `get_group`을 순차로 부르고 이름 수의 상한이 없다. 20초 제한이 끝을 막는다. 그룹 이름이 많은 설치가 생기면 이름 목록으로 한 번에 조회하거나 상한을 둔다.
+- `get_document`는 창 하나마다 블록 전체를 읽고 전문을 새로 이어 붙인다(`text_length` 때문에 `include_text` 없이도 읽는다). 큰 문서를 창으로 끝까지 읽으면 호출 수만큼 되풀이해 읽는다. 병목으로 보이면 블록 경계를 누적 합으로 찾거나 `text_length`를 저장한다.
+- 리랭크 묶음마다 질의가 되풀이해 실리고 `search`에 질의 길이 상한이 없다. 매우 긴 질의는 요청 본문 상한을 넘을 수 있다. 상한을 어디에 둘지는 명세가 정할 일이다.
+- 리랭커·임베딩 실패와 시간 초과로 끝난 검색은 로그가 남지 않는다(명세와 티켓은 끝난 검색의 지연만 남기라고 했다). 운영 가시성의 빈칸이라, 실패한 검색에 질의 없이 코드와 지연만 남길지는 사용자 판단이다.
+
+**다시 돌린 명령**
+
+- `tests/adapters/test_settings.py`와 `tests/contract/test_search_complete.py`의 관련 시험 50개 통과, `pyright` 0 오류, `ruff check`·`ruff format --check` 통과. 이 반영은 커밋의 pre-commit이 전체를 한 번 더 돌린다.
 
 ## 회고
 
@@ -97,4 +119,6 @@
   - 리랭크 글과 색인 때 글의 절 경로 어긋남. 순위에 미치는 영향을 재고 필요하면 `index_text`를 저장하는 것은 14와 함께 판단한다.
   - 명세의 보강 한 줄(공백뿐인 질의, 시간 제한의 시작점)은 사용자 판단이다.
   - `get_document`의 내용 해시 출력 칸은 사용자가 아직 정하지 않았다.
+  - PR 직전 리뷰가 남긴 Minor 다섯(위 "PR 직전 리뷰"의 남긴 것). 실패한 검색의 로그(질의 없이 코드와 지연)와 질의 길이 상한은 명세에 닿아 사용자 판단이고, 나머지(NaN 점수, 그룹 이름 일괄 조회, 창 읽기의 반복 비용)는 쓰임이 늘 때 다시 본다.
+  - 병합 뒤 `parsers-isolation` 워크트리(08)가 `tests/support/pipeline.py`를 고치고 있어, 08이 origin/main을 합칠 때 이 PR의 같은 파일 변경과 글자 충돌이 날 수 있다.
   - 05에서 넘어온 것(확장자와 내용 불일치 판정, 키 길이 상한, `.env.example`, `request_failed` 이벤트, 토큰 목록의 회수 칸)은 여전히 사용자가 정할 것이다.

@@ -71,7 +71,7 @@ class SearchFilterInput(BaseModel):
     groups: list[str] | None = Field(
         default=None,
         description=(
-            "그룹 이름. 주면 이 그룹의 문서에서만 찾는다. "
+            "그룹 이름. 주면 이 그룹의 문서에서만 찾는다(빈 배열은 그룹으로 거르지 않는다). "
             "없는 그룹 이름은 오류가 아니고 아무 문서에도 맞지 않는다"
         ),
     )

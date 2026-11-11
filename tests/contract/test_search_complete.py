@@ -239,15 +239,16 @@ async def test_시간_제한을_넘기면_search_unavailable이다(one_second_li
             break
     else:
         pytest.fail(f"검색이 {_WARM_UP_TRIES}번 모두 1초 제한 안에 끝나지 않았다")
-    round_trip.reranker_stub.rerank_delay_seconds = 3.0
+    round_trip.reranker_stub.rerank_delay_seconds = 20.0
 
     started = time.monotonic()
     body = error_body(await round_trip.search("규정"))
     elapsed = time.monotonic() - started
 
     assert body["code"] == "search_unavailable"
-    # 리랭커의 답(3초)을 기다리지 않고 제한(1초)에서 끊는다.
-    assert elapsed < 3.0
+    # 리랭커의 답(20초)을 기다리지 않고 제한(1초)에서 끊는다. 상한은 병렬 부하에서 응답이 밀려도
+    # 흔들리지 않게 제한의 열 배로 두고, 20초를 기다리는 결함은 그래도 잡는다.
+    assert elapsed < 10.0
 
 
 async def test_search_로그_이벤트는_단계별_지연만_싣는다(
