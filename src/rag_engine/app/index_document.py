@@ -29,6 +29,8 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from uuid import UUID
 
+from rag_engine.app.live_versions import live_index_versions
+from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import (
     Block,
     Chunk,
@@ -233,7 +235,7 @@ async def _record_permanent_failure(
                 modified_at=deps.now(),
             )
         )
-        for version in await _live_versions(transaction, claim.group_id):
+        for version in await live_index_versions(transaction, claim.group_id):
             await transaction.index.delete_chunks(document.id, version.id)
             await transaction.index.save_state(
                 IndexState(
@@ -247,7 +249,7 @@ async def _record_permanent_failure(
                 )
             )
             if version.status is IndexVersionStatus.BUILDING:
-                await _check_version_switch(transaction, version)
+                await check_version_switch(transaction, version)
 
 
 def _is_reusable(saved: DocumentContent, content_hash: str, current: ParserVersion | None) -> bool:
@@ -269,7 +271,7 @@ async def _replace_chunks(
 ) -> None:
     """셋째 단계. 판마다 재료를 만든 뒤 작업 단위 하나에서 세대를 대조하고 모두 바꾼다."""
     async with deps.unit_of_work.begin() as transaction:
-        versions = await _live_versions(transaction, claim.group_id)
+        versions = await live_index_versions(transaction, claim.group_id)
     started = time.perf_counter()
     prepared = [await _prepare(deps, version, content.blocks) for version in versions]
     timer.embedding_ms += _elapsed_ms(started)
@@ -322,16 +324,8 @@ async def _replace_chunks(
                 )
             )
             if material.version.status is IndexVersionStatus.BUILDING:
-                await _check_version_switch(transaction, material.version)
+                await check_version_switch(transaction, material.version)
     timer.write_ms += _elapsed_ms(started)
-
-
-async def _live_versions(transaction: Transaction, group_id: UUID) -> list[IndexVersion]:
-    """그 그룹이 든 모든 지식베이스의 현재 판과 건설 중인 판."""
-    versions: list[IndexVersion] = []
-    for knowledge_base in await transaction.catalog.list_knowledge_bases_of_group(group_id):
-        versions.extend(await transaction.catalog.list_live_index_versions(knowledge_base.id))
-    return versions
 
 
 async def _prepare(
@@ -348,8 +342,3 @@ async def _prepare(
     embeddings = await embedder.embed(index_texts) if index_texts else []
     keyword_texts = [" ".join(deps.tokenize_keywords(text)) for text in index_texts]
     return _Prepared(version, drafts, embeddings, keyword_texts)
-
-
-async def _check_version_switch(transaction: Transaction, version: IndexVersion) -> None:
-    """색인 상태를 쓴 뒤 그 판이 건설 중이면 하는 전환 검사의 자리다. 지식베이스 행을 잠그고 그 판의
-    모든 색인 상태가 `indexed`나 `failed`면 판을 전환한다. 14가 채운다."""

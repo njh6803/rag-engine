@@ -4,7 +4,6 @@
 `TeiStub`이다. 끼어듦(임베딩 직전에 다른 요청이 세대를 올림)은 임베더를 바꿔 끼워 정한다.
 """
 
-from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import replace
 from datetime import timedelta
 from uuid import UUID
@@ -13,6 +12,7 @@ import pytest
 import sqlalchemy as sa
 from tests.records import NOW
 from tests.support.docx_files import docx_bytes
+from tests.support.interleaving import FailingRunner, InterruptingEmbedder
 from tests.support.pipeline import DIMENSIONS, LEASE_SECONDS, Pipeline
 
 from rag_engine.adapters.parsers.runner import SubprocessParseRunner
@@ -53,50 +53,6 @@ class _CountingRunner:
     async def parse(self, data: bytes, mime: str) -> ParsedDocument:
         self.parse_calls += 1
         return await self._inner.parse(data, mime)
-
-
-class _FailingRunner:
-    """파싱이 영구 실패하는 실행기. `before_failing`을 주면 실패하기 직전에 끼어들 일을 한다."""
-
-    def __init__(
-        self,
-        code: ErrorCode = ErrorCode.ENCRYPTED_DOCUMENT,
-        before_failing: Callable[[], Awaitable[None]] | None = None,
-    ) -> None:
-        self._code = code
-        self._before_failing = before_failing
-
-    def current_version(self, mime: str) -> ParserVersion | None:
-        return None
-
-    async def parse(self, data: bytes, mime: str) -> ParsedDocument:
-        if self._before_failing is not None:
-            await self._before_failing()
-        raise PermanentFailure(self._code, "시험용 영구 실패")
-
-
-class _InterruptingEmbedder:
-    """임베딩 직전에 끼어들 일을 한 번 한다. 나머지는 실제 임베더에 맡긴다."""
-
-    def __init__(self, inner: Embedder, interrupt: Callable[[], Awaitable[None]]) -> None:
-        self._inner = inner
-        self._interrupt = interrupt
-        self._interrupted = False
-
-    async def embed(self, texts: Sequence[str]) -> list[tuple[float, ...]]:
-        if not self._interrupted:
-            self._interrupted = True
-            await self._interrupt()
-        return await self._inner.embed(texts)
-
-    async def count_tokens(self, texts: Sequence[str]) -> list[int]:
-        return await self._inner.count_tokens(texts)
-
-    async def special_token_count(self) -> int:
-        return await self._inner.special_token_count()
-
-    async def token_spans(self, text: str) -> list[tuple[int, int]]:
-        return await self._inner.token_spans(text)
 
 
 async def _generation(pipeline: Pipeline, document_id: UUID) -> int:
@@ -213,7 +169,7 @@ async def test_임베딩하는_사이_세대가_올라가면_조각을_쓰지_�
             )
 
     def embedder_for(version: IndexVersion) -> Embedder:
-        return _InterruptingEmbedder(pipeline.pool(version), bump_generation)
+        return InterruptingEmbedder(pipeline.pool(version), bump_generation)
 
     result = await index_document(pipeline.deps(embedder_for=embedder_for), await pipeline.claim())
 
@@ -312,11 +268,11 @@ async def test_단계별_지연을_잰다(pipeline: Pipeline) -> None:
 
 
 async def _fail_parsing(
-    pipeline: Pipeline, runner: _FailingRunner | None = None
+    pipeline: Pipeline, runner: FailingRunner | None = None
 ) -> PermanentFailure:
     with pytest.raises(PermanentFailure) as raised:
         await index_document(
-            pipeline.deps(parse_runner=runner or _FailingRunner()), await pipeline.claim()
+            pipeline.deps(parse_runner=runner or FailingRunner()), await pipeline.claim()
         )
     return raised.value
 
@@ -358,9 +314,9 @@ async def test_영구_실패는_살아_있는_판_모두에_색인_상태를_쓰
     async def record_check(_transaction: object, version: IndexVersion) -> None:
         checked.append(version)
 
-    monkeypatch.setattr(index_document_module, "_check_version_switch", record_check)
+    monkeypatch.setattr(index_document_module, "check_version_switch", record_check)
 
-    await _fail_parsing(pipeline, _FailingRunner(ErrorCode.PARSE_FAILED))
+    await _fail_parsing(pipeline, FailingRunner(ErrorCode.PARSE_FAILED))
 
     async with pipeline.unit_of_work.begin() as transaction:
         states = [
@@ -388,7 +344,7 @@ async def test_파싱하는_사이_세대가_올라가면_문서도_조각도_�
                 replace(document, generation=document.generation + 5)
             )
 
-    failure = await _fail_parsing(pipeline, _FailingRunner(before_failing=bump_generation))
+    failure = await _fail_parsing(pipeline, FailingRunner(before_failing=bump_generation))
 
     assert failure.code is ErrorCode.ENCRYPTED_DOCUMENT
     async with pipeline.unit_of_work.begin() as transaction:

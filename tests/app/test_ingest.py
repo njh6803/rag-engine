@@ -4,6 +4,7 @@
 돌린다. 끼어듦은 한 번이다. 진 쪽은 원본을 이긴 문서의 UUID 아래로 옮기고 갱신으로 다시 처리한다.
 """
 
+import hashlib
 import json
 import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -22,6 +23,7 @@ from tests.records import (
     make_knowledge_base,
     seed_source_and_group,
 )
+from tests.support.interleaving import InterruptingBlobStore
 
 from rag_engine.adapters.blob_store import LocalBlobStore
 from rag_engine.adapters.log_format import JsonLinesFormatter
@@ -329,6 +331,57 @@ async def test_이긴_문서_아래로_옮기다_쓰기가_실패하면_처음_�
     (blob,) = _blobs(tmp_path)
     assert blob.parent.name == str(won.document_id)
     assert blob.read_bytes() == PDF
+
+
+async def test_같은_새_내용의_두_수집_중_한쪽이_롤백되어도_커밋된_쪽의_원본을_지우지_않는다(
+    engine: AsyncEngine, tmp_path: Path
+) -> None:
+    plain = PostgresUnitOfWork(engine)
+    await seed_source_and_group(plain)
+    first = await _ingest(plain, LocalBlobStore(tmp_path), PDF)
+
+    async def rolled_back_ingest() -> None:
+        with pytest.raises(RuntimeError, match="작업을 넣다가"):
+            await _ingest(_FailingJobUnitOfWork(engine), LocalBlobStore(tmp_path), OTHER_PDF)
+
+    committed = await _ingest(
+        plain, InterruptingBlobStore(tmp_path, after_write=rolled_back_ingest), OTHER_PDF
+    )
+
+    assert committed.action is IngestAction.UPDATED
+    (blob,) = _blobs(tmp_path)
+    assert blob.read_bytes() == OTHER_PDF
+    async with plain.begin() as transaction:
+        document = await transaction.documents.get(first.document_id)
+    assert document is not None
+    assert document.blob_path == f"blobs/{first.document_id}/{blob.name}"
+
+
+async def test_옛_원본을_지우는_동안_옛_내용으로_되돌리는_수집이_와도_커밋된_원본이_남는다(
+    engine: AsyncEngine, tmp_path: Path
+) -> None:
+    plain = PostgresUnitOfWork(engine)
+    await seed_source_and_group(plain)
+    first = await _ingest(plain, LocalBlobStore(tmp_path), PDF)
+    reverted: list[IngestResult] = []
+
+    async def revert_to_old_content() -> None:
+        reverted.append(await _ingest(plain, LocalBlobStore(tmp_path), PDF))
+
+    changed = await _ingest(
+        plain, InterruptingBlobStore(tmp_path, before_delete=revert_to_old_content), OTHER_PDF
+    )
+
+    assert changed.action is IngestAction.UPDATED
+    (back,) = reverted
+    assert back.action is IngestAction.UPDATED
+    (blob,) = _blobs(tmp_path)
+    assert blob.read_bytes() == PDF
+    async with plain.begin() as transaction:
+        document = await transaction.documents.get(first.document_id)
+    assert document is not None
+    assert document.blob_path == f"blobs/{first.document_id}/{blob.name}"
+    assert document.content_hash == hashlib.sha256(PDF).hexdigest()
 
 
 async def test_키도_파일_이름도_없으면_거부하고_원본도_작업도_남기지_않는다(

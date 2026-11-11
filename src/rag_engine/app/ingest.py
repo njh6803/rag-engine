@@ -3,18 +3,22 @@
 파일 하나를 받아 원본을 저장하고, 작업 단위 하나에서 문서 행을 만들거나 고치고 `index_document`
 작업을 넣는다. 순서는 이렇다. 먼저 크기와 형식과 그룹을 거른다(셋 다 작업을 만들지 않는다). 원본은
 작업 단위를 열기 전에 새 경로 `blobs/<문서 UUID>/<원본 UUID>`에 쓴다. 작업 단위가 롤백되면 그 요청이
-쓴 새 원본만 지우고, 커밋된 뒤에는 문서 행이 더는 가리키지 않는 원본(옛 원본, 또는 `unchanged`가 쓴
-새 원본)을 지운다. 지우기는 최선 노력이다. 지우지 못한 원본은 고아로 남긴다.
+쓴 새 원본만 지우고, 커밋된 뒤에는 문서 행이 더는 가리키지 않는 원본을 지운다. 내용이 바뀐 갱신은
+옛 원본을, 문서 행이 새 원본을 가리키지 않는 수집(`unchanged`, `requeued`, 그룹만 바뀐 `updated`)은
+방금 쓴 새 원본을 지운다. 지우기는 최선 노력이다. 지우지 못한 원본은 고아로 남긴다.
 
 같은 키를 동시에 넣은 두 요청은 (원천, 키) 유일 제약이 직렬화한다. 진 쪽은 원본을 이긴 문서의 UUID
 아래 새 원본 경로로 옮긴 뒤 갱신으로 다시 처리한다.
 
-그룹이 바뀐 수집(10)과 지운 문서를 되살리는 수집(11)은 이 모듈이 아직 처리하지 않는다.
+내용이 같은 수집은 셋으로 갈린다. 그룹이 바뀌었으면 `updated`이고, 앞선 색인이 실패했으면
+`requeued`이며, 아니면 `unchanged`다. 그룹이 바뀌면 같은 작업 단위에서 조각의 복사 칸을 새 그룹으로
+고치고 문서가 빠지는 지식베이스의 살아 있는 판에서 문서의 조각과 색인 상태를 지운다. 지운 문서를
+되살리는 수집(11)은 이 모듈이 아직 처리하지 않는다.
 """
 
 import hashlib
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import PurePath
@@ -22,11 +26,16 @@ from typing import Final
 from uuid import UUID
 
 from rag_engine.app.default_records import DEFAULT_NAME
+from rag_engine.app.live_versions import live_index_versions
+from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import (
     Document,
     DocumentStatus,
+    IndexStateStatus,
+    IndexVersionStatus,
     IngestAction,
     JsonValue,
+    KnowledgeBase,
 )
 from rag_engine.domain.errors import (
     DocumentAlreadyExistsError,
@@ -277,7 +286,7 @@ async def _create(
         modified_at=now,
     )
     await transaction.documents.add(document)
-    job_id = await _enqueue(transaction, document, request_id, now)
+    job_id = await _schedule(transaction, document, None, request_id, now)
     return _Recorded(IngestResult(IngestAction.CREATED, document.id, job_id), None)
 
 
@@ -290,13 +299,43 @@ async def _amend(
 ) -> _Recorded:
     if existing.deleted_at is not None:
         raise NotImplementedError("지운 문서를 되살리는 수집은 티켓 11이 처리한다")
-    if existing.group_id != upload.group_id:
-        raise NotImplementedError("그룹을 바꾸는 수집은 티켓 10이 처리한다")
-    if existing.content_hash == upload.content_hash:
-        await _refresh_unchanged(transaction, existing, upload, now)
-        return _Recorded(IngestResult(IngestAction.UNCHANGED, existing.id, None), upload.blob_key)
+    if existing.content_hash != upload.content_hash:
+        return await _update_content(transaction, existing, upload, request_id, now)
+    refreshed = _refresh_metadata(existing, upload)
+    if refreshed.group_id != existing.group_id:
+        return await _update_group(transaction, existing, refreshed, upload, request_id, now)
+    if await _index_failed(transaction, existing):
+        return await _requeue(transaction, existing, refreshed, upload, request_id, now)
+    if refreshed != existing:
+        await transaction.documents.update(replace(refreshed, modified_at=now))
+        if refreshed.updated_at != existing.updated_at:
+            await transaction.index.update_chunk_copies(refreshed)
+    return _Recorded(IngestResult(IngestAction.UNCHANGED, existing.id, None), upload.blob_key)
+
+
+def _refresh_metadata(existing: Document, upload: _Upload) -> Document:
+    """내용이 같은 수집이 문서 행에 반영하는 값이다. 제목, 메타데이터, 호출자가 준 갱신일, 요청의
+    그룹을 쓴다. 호출자가 갱신일을 주지 않으면 갱신일은 그대로 둔다."""
+    return replace(
+        existing,
+        group_id=upload.group_id,
+        title=upload.title,
+        metadata=upload.metadata,
+        updated_at=existing.updated_at if upload.updated_at is None else upload.updated_at,
+    )
+
+
+async def _update_content(
+    transaction: Transaction,
+    existing: Document,
+    upload: _Upload,
+    request_id: UUID,
+    now: datetime,
+) -> _Recorded:
+    """내용이 바뀐 갱신이다. 문서 행이 새 원본을 가리키고 옛 원본은 커밋 뒤에 지운다."""
     document = replace(
         existing,
+        group_id=upload.group_id,
         title=upload.title,
         mime=upload.mime,
         size_bytes=upload.size_bytes,
@@ -310,40 +349,111 @@ async def _amend(
         modified_at=now,
     )
     await transaction.documents.update(document)
-    job_id = await _enqueue(transaction, document, request_id, now)
+    job_id = await _schedule(transaction, document, existing, request_id, now)
     return _Recorded(IngestResult(IngestAction.UPDATED, document.id, job_id), existing.blob_path)
 
 
-async def _refresh_unchanged(
-    transaction: Transaction, existing: Document, upload: _Upload, now: datetime
-) -> None:
-    """내용이 같아 건너뛰는 수집이 메타데이터, 제목, 호출자가 준 갱신일만 문서 행에 반영한다.
-    갱신일이 바뀌면 조각의 복사 칸도 같은 트랜잭션에서 고친다. 호출자가 갱신일을 주지 않으면 그대로
-    둔다."""
-    refreshed = replace(
-        existing,
-        title=upload.title,
-        metadata=upload.metadata,
-        updated_at=existing.updated_at if upload.updated_at is None else upload.updated_at,
-    )
-    if refreshed == existing:
-        return
-    await transaction.documents.update(replace(refreshed, modified_at=now))
-    if refreshed.updated_at != existing.updated_at:
-        await transaction.index.update_chunk_copies(refreshed)
+async def _update_group(
+    transaction: Transaction,
+    existing: Document,
+    refreshed: Document,
+    upload: _Upload,
+    request_id: UUID,
+    now: datetime,
+) -> _Recorded:
+    """내용은 같고 그룹만 바뀐 갱신이다. 파싱은 해시가 같아 건너뛰지만 대상 지식베이스가 바뀌므로
+    작업을 넣는다. 문서 행은 새 원본을 가리키지 않아 새 원본은 커밋 뒤에 지운다."""
+    document = replace(refreshed, generation=existing.generation + 1, modified_at=now)
+    await transaction.documents.update(document)
+    job_id = await _schedule(transaction, document, existing, request_id, now)
+    return _Recorded(IngestResult(IngestAction.UPDATED, document.id, job_id), upload.blob_key)
 
 
-async def _enqueue(
-    transaction: Transaction, document: Document, request_id: UUID, now: datetime
+async def _requeue(
+    transaction: Transaction,
+    existing: Document,
+    refreshed: Document,
+    upload: _Upload,
+    request_id: UUID,
+    now: datetime,
+) -> _Recorded:
+    """내용과 그룹이 같지만 앞선 색인이 실패한 문서를 다시 색인한다. 세대를 올리고 작업을 넣는다.
+    문서 상태는 작업이 정한다. 문서 행은 새 원본을 가리키지 않아 새 원본은 커밋 뒤에 지운다."""
+    document = replace(refreshed, generation=existing.generation + 1, modified_at=now)
+    await transaction.documents.update(document)
+    job_id = await _schedule(transaction, document, existing, request_id, now)
+    return _Recorded(IngestResult(IngestAction.REQUEUED, document.id, job_id), upload.blob_key)
+
+
+async def _index_failed(transaction: Transaction, document: Document) -> bool:
+    """앞선 색인이 실패했는가. 문서 상태가 `failed`이거나, 문서가 드는 지식베이스의 살아 있는 판
+    가운데 색인 상태가 `failed`인 판이 있다. 문서 행을 잠근 채라 작업 단위가 문서 행을 잠그고
+    쓰는 색인 상태(작업의 결과)는 이 사이에 바뀌지 않는다."""
+    if document.status is DocumentStatus.FAILED:
+        return True
+    for version in await live_index_versions(transaction, document.group_id):
+        state = await transaction.index.get_state(document.id, version.id)
+        if state is not None and state.status is IndexStateStatus.FAILED:
+            return True
+    return False
+
+
+async def _schedule(
+    transaction: Transaction,
+    document: Document,
+    previous: Document | None,
+    request_id: UUID,
+    now: datetime,
 ) -> UUID:
-    """문서 행을 쓴 바로 뒤, 문서가 드는 지식베이스 행을 `FOR SHARE`로 잠그고 작업을 넣는다(잠금
-    순서는 문서 행, 지식베이스 행, 작업 행이다)."""
-    knowledge_bases = await transaction.catalog.list_knowledge_bases_of_group(document.group_id)
-    await transaction.catalog.lock_knowledge_bases(
-        [knowledge_base.id for knowledge_base in knowledge_bases], LockMode.SHARE
-    )
+    """문서 행을 쓴 바로 뒤에 한다. 지식베이스 행을 잠근 다음(잠금 순서는 문서 행, 지식베이스 행,
+    작업 행이다) 그룹이 바뀌어 문서가 빠지는 지식베이스에서 문서를 걷고, 그룹이나 갱신일이
+    바뀌었으면 조각의 복사 칸을 고치고, 작업을 넣는다. `previous`는 고치기 전의 문서이고 새 문서면
+    `None`이다."""
+    previous_group_id = document.group_id if previous is None else previous.group_id
+    departing = await _lock_knowledge_bases(transaction, previous_group_id, document.group_id)
+    await _leave_knowledge_bases(transaction, document, departing)
+    if previous is not None and (
+        previous.group_id != document.group_id or previous.updated_at != document.updated_at
+    ):
+        await transaction.index.update_chunk_copies(document)
     job = await transaction.jobs.enqueue(document.id, request_id, now)
     return job.id
+
+
+async def _lock_knowledge_bases(
+    transaction: Transaction, previous_group_id: UUID, group_id: UUID
+) -> list[KnowledgeBase]:
+    """문서가 드는 지식베이스는 `FOR SHARE`로, 그룹이 바뀌어 문서가 빠지는 지식베이스는 `FOR
+    UPDATE`로 잠그고 빠지는 지식베이스를 낸다. 둘을 합쳐 ID 순으로 하나씩 잠가 다른 수집과 교착하지
+    않는다. 잠금이 풀리길 기다리는 일은 있다."""
+    catalog = transaction.catalog
+    containing = await catalog.list_knowledge_bases_of_group(group_id)
+    departing: list[KnowledgeBase] = []
+    if previous_group_id != group_id:
+        staying = {knowledge_base.id for knowledge_base in containing}
+        departing = [
+            knowledge_base
+            for knowledge_base in await catalog.list_knowledge_bases_of_group(previous_group_id)
+            if knowledge_base.id not in staying
+        ]
+    modes = {knowledge_base.id: LockMode.SHARE for knowledge_base in containing}
+    modes.update({knowledge_base.id: LockMode.UPDATE for knowledge_base in departing})
+    for knowledge_base_id in sorted(modes):
+        await catalog.lock_knowledge_bases([knowledge_base_id], modes[knowledge_base_id])
+    return departing
+
+
+async def _leave_knowledge_bases(
+    transaction: Transaction, document: Document, departing: Sequence[KnowledgeBase]
+) -> None:
+    """빠지는 지식베이스의 살아 있는 판에서 문서의 조각과 색인 상태를 지운다. 건설 중인 판이면 그
+    색인 상태가 사라져 판이 전환될 수 있으므로 전환 검사를 부른다."""
+    for knowledge_base in departing:
+        for version in await transaction.catalog.list_live_index_versions(knowledge_base.id):
+            await transaction.index.delete_chunks(document.id, version.id)
+            await transaction.index.delete_state(document.id, version.id)
+            if version.status is IndexVersionStatus.BUILDING:
+                await check_version_switch(transaction, version)
 
 
 async def _remove_quietly(blob_store: BlobStore, key: str | None) -> None:

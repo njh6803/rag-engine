@@ -306,6 +306,14 @@ class PostgresVectorIndex:
             )
         )
 
+    async def delete_state(self, document_id: UUID, index_version_id: UUID) -> None:
+        states = tables.document_index_states
+        await self._connection.execute(
+            sa.delete(states).where(
+                states.c.document_id == document_id, states.c.index_version_id == index_version_id
+            )
+        )
+
     async def search_candidates(self, query: SearchQuery) -> SearchCandidates:
         # `hnsw.ef_search`의 기본 40은 후보 50개를 채우지 못한다(명세 "검색 흐름"). 트랜잭션
         # 안에서만 바꾼다.

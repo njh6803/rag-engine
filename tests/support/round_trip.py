@@ -9,7 +9,7 @@
 import json
 from collections.abc import Generator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final
 
 import httpx
@@ -19,10 +19,15 @@ from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, TextContent
 from tests.harness import RunningServer
+from tests.records import make_index_version, make_knowledge_base
 from tests.support.docx_files import docx_bytes
 from tests.support.tei_server import serve_stub
 from tests.support.tei_stub import TeiStub
 
+from rag_engine.adapters.postgres.engine import create_engine
+from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
+from rag_engine.domain.entities import Group, IndexVersionStatus
+from rag_engine.domain.identifiers import new_id
 from rag_engine.server.tool_models import DocumentOutput, KnowledgeBasesOutput, SearchOutput
 from rag_engine.worker.assembly import run_once_with_settings
 
@@ -58,6 +63,7 @@ class RoundTrip:
     server: RunningServer
     stub: TeiStub
     reranker_stub: TeiStub
+    embedding_endpoint: str
 
     def auth(self, token: str | None = None) -> dict[str, str]:
         return {"Authorization": f"Bearer {token or self.server.admin_token}"}
@@ -107,6 +113,27 @@ class RoundTrip:
                 "INSERT INTO groups (id, name) VALUES (gen_random_uuid(), %s)", [name]
             )
         self.link_group(name, *knowledge_bases)
+
+    async def add_group_with_knowledge_base(self, group: str, knowledge_base: str) -> None:
+        """그룹 하나와 그 그룹만 든 지식베이스(첫 현재 판 포함)를 `Catalog` 어댑터로 만든다. 임베딩
+        끝점은 기본 판과 같은 스텁이고 리랭커는 없다."""
+        engine = create_engine(self.server.settings.database_url)
+        try:
+            unit_of_work = PostgresUnitOfWork(engine)
+            new_group = Group(new_id(), group, "")
+            base = replace(
+                make_knowledge_base(knowledge_base), embedding_endpoint=self.embedding_endpoint
+            )
+            version = make_index_version(base, IndexVersionStatus.CURRENT)
+            async with unit_of_work.begin() as transaction:
+                await transaction.catalog.add_group(new_group)
+                await transaction.catalog.add_knowledge_base(base)
+                await transaction.catalog.add_group_to_knowledge_base(base.id, new_group.id)
+                await transaction.catalog.add_index_version(version)
+                await transaction.index.create_version_index(version)
+                await transaction.catalog.switch_current_version(base.id, version.id)
+        finally:
+            await engine.dispose()
 
     def link_group(self, group: str, *knowledge_bases: str) -> None:
         """있는 그룹을 이름을 준 지식베이스의 그룹 집합에 넣는다."""
@@ -172,7 +199,7 @@ def wire_stubs(server: RunningServer) -> Generator[RoundTrip]:
     with serve_stub(stub) as endpoint, serve_stub(reranker_stub) as reranker_endpoint:
         point_default_version_at(server, endpoint)
         point_default_reranker_at(server, reranker_endpoint)
-        yield RoundTrip(server, stub, reranker_stub)
+        yield RoundTrip(server, stub, reranker_stub, endpoint)
 
 
 def output(result: CallToolResult) -> SearchOutput:

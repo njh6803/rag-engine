@@ -111,6 +111,32 @@ class Pipeline:
             await transaction.index.create_version_index(version)
         return version
 
+    async def add_group(self, name: str) -> Group:
+        """그룹을 더한다. 어느 지식베이스에도 들지 않은 채다."""
+        group = Group(new_id(), name, "")
+        async with self.unit_of_work.begin() as transaction:
+            await transaction.catalog.add_group(group)
+        return group
+
+    async def add_knowledge_base(
+        self, name: str, *groups: Group
+    ) -> tuple[KnowledgeBase, IndexVersion]:
+        """첫 현재 판이 있는 지식베이스를 `Catalog`로 만들고 그룹을 넣는다. 끝점은 이 세계의
+        스텁이다."""
+        knowledge_base = replace(make_knowledge_base(name), embedding_dimensions=DIMENSIONS)
+        version = replace(
+            make_index_version(knowledge_base, IndexVersionStatus.CURRENT),
+            embedding_dimensions=DIMENSIONS,
+        )
+        async with self.unit_of_work.begin() as transaction:
+            await transaction.catalog.add_knowledge_base(knowledge_base)
+            for group in groups:
+                await transaction.catalog.add_group_to_knowledge_base(knowledge_base.id, group.id)
+            await transaction.catalog.add_index_version(version)
+            await transaction.index.create_version_index(version)
+            await transaction.catalog.switch_current_version(knowledge_base.id, version.id)
+        return knowledge_base, version
+
     async def chunk_texts(
         self, document_id: UUID, version: IndexVersion | None = None
     ) -> list[str]:
