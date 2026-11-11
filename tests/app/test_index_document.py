@@ -16,9 +16,16 @@ from tests.support.docx_files import docx_bytes
 from tests.support.pipeline import DIMENSIONS, LEASE_SECONDS, Pipeline
 
 from rag_engine.adapters.parsers.runner import SubprocessParseRunner
+from rag_engine.app import index_document as index_document_module
 from rag_engine.app.index_document import index_document
-from rag_engine.domain.entities import DocumentStatus, IndexStateStatus, IndexVersion, JobStatus
-from rag_engine.domain.errors import AttemptLostError
+from rag_engine.domain.entities import (
+    DocumentStatus,
+    IndexStateStatus,
+    IndexVersion,
+    IngestAction,
+    JobStatus,
+)
+from rag_engine.domain.errors import AttemptLostError, ErrorCode, PermanentFailure
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.parsing import ParsedDocument, ParserVersion
 from rag_engine.domain.ports import Embedder, JobOutcome
@@ -46,6 +53,26 @@ class _CountingRunner:
     async def parse(self, data: bytes, mime: str) -> ParsedDocument:
         self.parse_calls += 1
         return await self._inner.parse(data, mime)
+
+
+class _FailingRunner:
+    """파싱이 영구 실패하는 실행기. `before_failing`을 주면 실패하기 직전에 끼어들 일을 한다."""
+
+    def __init__(
+        self,
+        code: ErrorCode = ErrorCode.ENCRYPTED_DOCUMENT,
+        before_failing: Callable[[], Awaitable[None]] | None = None,
+    ) -> None:
+        self._code = code
+        self._before_failing = before_failing
+
+    def current_version(self, mime: str) -> ParserVersion | None:
+        return None
+
+    async def parse(self, data: bytes, mime: str) -> ParsedDocument:
+        if self._before_failing is not None:
+            await self._before_failing()
+        raise PermanentFailure(self._code, "시험용 영구 실패")
 
 
 class _InterruptingEmbedder:
@@ -282,3 +309,136 @@ async def test_단계별_지연을_잰다(pipeline: Pipeline) -> None:
     assert result.timings.parse_ms > 0
     assert result.timings.embedding_ms > 0
     assert result.timings.write_ms > 0
+
+
+async def _fail_parsing(
+    pipeline: Pipeline, runner: _FailingRunner | None = None
+) -> PermanentFailure:
+    with pytest.raises(PermanentFailure) as raised:
+        await index_document(
+            pipeline.deps(parse_runner=runner or _FailingRunner()), await pipeline.claim()
+        )
+    return raised.value
+
+
+async def test_파싱이_영구_실패하면_문서와_색인_상태를_failed로_쓰고_옛_조각을_지운다(
+    pipeline: Pipeline,
+) -> None:
+    ingested = await pipeline.ingest(휴가)
+    await index_document(pipeline.deps(), await pipeline.claim())
+    await pipeline.ingest(출장)
+
+    failure = await _fail_parsing(pipeline)
+
+    assert failure.code is ErrorCode.ENCRYPTED_DOCUMENT
+    async with pipeline.unit_of_work.begin() as transaction:
+        document = await transaction.documents.get(ingested.document_id)
+        state = await transaction.index.get_state(ingested.document_id, pipeline.version.id)
+    assert document is not None and state is not None
+    assert (document.status, document.error_code) == (
+        DocumentStatus.FAILED,
+        ErrorCode.ENCRYPTED_DOCUMENT,
+    )
+    assert await pipeline.chunk_texts(ingested.document_id) == []
+    assert (state.status, state.chunk_count, state.built_content_hash, state.error_code) == (
+        IndexStateStatus.FAILED,
+        0,
+        None,
+        ErrorCode.ENCRYPTED_DOCUMENT,
+    )
+
+
+async def test_영구_실패는_살아_있는_판_모두에_색인_상태를_쓰고_건설_중인_판은_전환_검사를_부른다(
+    pipeline: Pipeline, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    building = await pipeline.add_building_version()
+    ingested = await pipeline.ingest(휴가)
+    checked: list[IndexVersion] = []
+
+    async def record_check(_transaction: object, version: IndexVersion) -> None:
+        checked.append(version)
+
+    monkeypatch.setattr(index_document_module, "_check_version_switch", record_check)
+
+    await _fail_parsing(pipeline, _FailingRunner(ErrorCode.PARSE_FAILED))
+
+    async with pipeline.unit_of_work.begin() as transaction:
+        states = [
+            await transaction.index.get_state(ingested.document_id, version.id)
+            for version in (pipeline.version, building)
+        ]
+    assert [(state.status, state.error_code) for state in states if state is not None] == [
+        (IndexStateStatus.FAILED, ErrorCode.PARSE_FAILED)
+    ] * 2
+    assert [version.id for version in checked] == [building.id]
+
+
+async def test_파싱하는_사이_세대가_올라가면_문서도_조각도_건드리지_않고_실패만_올린다(
+    pipeline: Pipeline,
+) -> None:
+    ingested = await pipeline.ingest(휴가)
+    await index_document(pipeline.deps(), await pipeline.claim())
+    await pipeline.ingest(출장)
+
+    async def bump_generation() -> None:
+        async with pipeline.unit_of_work.begin() as transaction:
+            document = await transaction.documents.lock(ingested.document_id)
+            assert document is not None
+            await transaction.documents.update(
+                replace(document, generation=document.generation + 5)
+            )
+
+    failure = await _fail_parsing(pipeline, _FailingRunner(before_failing=bump_generation))
+
+    assert failure.code is ErrorCode.ENCRYPTED_DOCUMENT
+    async with pipeline.unit_of_work.begin() as transaction:
+        document = await transaction.documents.get(ingested.document_id)
+        state = await transaction.index.get_state(ingested.document_id, pipeline.version.id)
+    assert document is not None and state is not None
+    assert (document.status, document.error_code) == (DocumentStatus.RECEIVED, None)
+    assert state.status is IndexStateStatus.INDEXED
+    assert any("연차휴가" in text for text in await pipeline.chunk_texts(ingested.document_id))
+
+
+async def test_고친_파일을_넣으면_received를_거쳐_parsed가_되고_같은_내용은_unchanged다(
+    pipeline: Pipeline,
+) -> None:
+    ingested = await pipeline.ingest(휴가)
+    await _fail_parsing(pipeline)
+
+    fixed = await pipeline.ingest(출장)
+    async with pipeline.unit_of_work.begin() as transaction:
+        received = await transaction.documents.get(ingested.document_id)
+    await index_document(pipeline.deps(), await pipeline.claim())
+    again = await pipeline.ingest(출장)
+
+    assert fixed.action is IngestAction.UPDATED
+    assert received is not None
+    assert (received.status, received.error_code) == (DocumentStatus.RECEIVED, None)
+    async with pipeline.unit_of_work.begin() as transaction:
+        document = await transaction.documents.get(ingested.document_id)
+        state = await transaction.index.get_state(ingested.document_id, pipeline.version.id)
+    assert document is not None and state is not None
+    assert (document.status, document.error_code) == (DocumentStatus.PARSED, None)
+    assert state.status is IndexStateStatus.INDEXED
+    assert again.action is IngestAction.UNCHANGED and again.job_id is None
+
+
+async def test_내용을_바꿨다가_되돌리면_파싱을_건너뛰어도_parsed로_돌아온다(
+    pipeline: Pipeline,
+) -> None:
+    runner = _CountingRunner(pipeline.parse_runner)
+    ingested = await pipeline.ingest(휴가)
+    await index_document(pipeline.deps(parse_runner=runner), await pipeline.claim())
+    await pipeline.ingest(출장)
+    await _fail_parsing(pipeline)
+
+    await pipeline.ingest(휴가)
+    await index_document(pipeline.deps(parse_runner=runner), await pipeline.claim())
+
+    assert runner.parse_calls == 1
+    async with pipeline.unit_of_work.begin() as transaction:
+        document = await transaction.documents.get(ingested.document_id)
+    assert document is not None
+    assert (document.status, document.error_code) == (DocumentStatus.PARSED, None)
+    assert any("연차휴가" in text for text in await pipeline.chunk_texts(ingested.document_id))

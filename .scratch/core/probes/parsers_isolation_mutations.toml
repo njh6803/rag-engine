@@ -1,0 +1,108 @@
+# core 08(파서와 격리)이 더한 시험 가운데 구현 뒤에 쓰거나 처음부터 초록이던 것의 변이.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/parsers_isolation_mutations.toml
+
+[[mutation]]
+name = "파싱 영구 실패가 세대를 대조하지 않고 문서에 쓴다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["At index 0 diff: <DocumentStatus.FAILED: 'failed'> != <DocumentStatus.RECEIVED: 'received'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        if document is None or document.generation != claim.generation:
+            return
+        await transaction.documents.update(
+            replace(
+                document,
+                status=DocumentStatus.FAILED,
+'''
+new = '''        if document is None:
+            return
+        await transaction.documents.update(
+            replace(
+                document,
+                status=DocumentStatus.FAILED,
+'''
+
+[[mutation]]
+name = "파싱 영구 실패가 옛 조각을 지우지 않는다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 뒤부터 발생한다.'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''            await transaction.index.delete_chunks(document.id, version.id)
+'''
+new = ''
+
+[[mutation]]
+name = "파싱 영구 실패가 건설 중인 판의 전환 검사를 부르지 않는다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["Right contains one more item"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''            if version.status is IndexVersionStatus.BUILDING:
+                await _check_version_switch(transaction, version)
+'''
+new = ''
+
+[[mutation]]
+name = "파싱 영구 실패가 문서에 오류 코드를 쓰지 않는다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["At index 1 diff: None != <ErrorCode.ENCRYPTED_DOCUMENT: 'encrypted_document'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''                error_code=failure.code,
+                modified_at=deps.now(),
+'''
+new = '''                error_code=None,
+                modified_at=deps.now(),
+'''
+
+[[mutation]]
+name = "파싱을 건너뛴 문서의 상태를 parsed로 되돌리지 않는다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["At index 0 diff: <DocumentStatus.RECEIVED: 'received'> != <DocumentStatus.PARSED: 'parsed'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        if document.status is not DocumentStatus.PARSED:'''
+new = '''        if False:'''
+
+[[mutation]]
+name = "감시 타이머를 켜지 않는다"
+tests = ["tests/adapters/test_parse_runner.py::test_시간_안에_끝나지_않는_파싱은_자식을_죽이고_parse_timeout이다"]
+expect = "red"
+timeout = 300
+expect_output = ["Failed: DID NOT RAISE PermanentFailure"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/runner.py"
+old = '''        watchdog.start()
+'''
+new = ''
+
+# 자식의 종료 표지(sentinel)를 기다리지 않는 변이는 여기 두지 않는다. 그 변이는 수신이 영영 막혀
+# pytest가 스레드를 붙잡고 끝나지 못하므로 변이 도구가 끝낼 수 없다. 그 시험의 빨강은 `wait`를
+# 넣기 전 코드로 시험을 돌려 손으로 확인했다(30초 기한을 넘겨 TimeoutError. 프로브가 아니라 손으로
+# 본 것이고 08 일지에 적었다).
+
+[[mutation]]
+name = "ZIP 사전 검사를 부르지 않는다"
+tests = ["tests/adapters/test_parse_runner.py", "tests/app/test_parse_pipeline.py"]
+expect = "red"
+expect_output = ["<ErrorCode.PARSE_FAILED: 'parse_failed'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/parsers/runner.py"
+old = '''        if mime in _ZIP_MIMES:
+            check_zip_container('''
+new = '''        if False:
+            check_zip_container('''

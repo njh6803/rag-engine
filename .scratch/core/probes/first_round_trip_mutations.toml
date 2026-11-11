@@ -12,9 +12,11 @@ expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 �
 file = "src/rag_engine/app/index_document.py"
 old = '''        if document is None or document.generation != claim.generation:
             return
+        if document.status is not DocumentStatus.PARSED:
 '''
 new = '''        if document is None:
             return
+        if document.status is not DocumentStatus.PARSED:
 '''
 
 [[mutation]]

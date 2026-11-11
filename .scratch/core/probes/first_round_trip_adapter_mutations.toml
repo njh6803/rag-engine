@@ -117,15 +117,16 @@ new = '''        if False:'''
 
 [[mutation]]
 name = "시간 초과를 기다리지 않는다"
-tests = ["tests/adapters/test_parse_runner.py"]
+tests = ["tests/adapters/test_parse_runner.py::test_시간_안에_끝나지_않는_파싱은_자식을_죽이고_parse_timeout이다"]
 expect = "red"
-timeout = 180
+timeout = 300
 expect_output = ['''DID NOT RAISE PermanentFailure''']
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/parsers/runner.py"
-old = '''            if not receiver.poll(self._timeout_seconds):'''
-new = '''            if False:'''
+old = '''        watchdog.start()
+'''
+new = ''
 
 [[mutation]]
 name = "조각을 바꿀 때 옛 조각을 지우지 않는다"

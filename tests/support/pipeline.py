@@ -159,6 +159,8 @@ async def build_pipeline(engine: AsyncEngine, data_dir: Path) -> Pipeline:
             memory_mb=2048,
             max_pages=1000,
             max_text_mb=64,
+            max_unzipped_mb=512,
+            max_compression_ratio=100,
         ),
         source=source,
         group=group,

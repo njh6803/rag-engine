@@ -51,6 +51,8 @@ async def run_once_with_settings(settings: Settings) -> int:
             memory_mb=settings.parse_memory_mb,
             max_pages=settings.parse_max_pages,
             max_text_mb=settings.parse_max_text_mb,
+            max_unzipped_mb=settings.parse_max_unzipped_mb,
+            max_compression_ratio=settings.parse_max_compression_ratio,
         ),
         embedder_for=embedders,
         chunker_for=chunker_for,
