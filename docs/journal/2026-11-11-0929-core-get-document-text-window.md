@@ -80,7 +80,7 @@
 
 사용자가 agent-os 쪽 세션에 붙여 넣을 글이다. 이 세션의 마지막 답에도 같은 글을 적었다.
 
-> rag-engine이 판정했다(2026-11-11, `.scratch/core/spec.md` "MCP 도구" 절, 브랜치 `docs/get-document-text-window`).
+> rag-engine이 판정했다(2026-11-11, `.scratch/core/spec.md` "MCP 도구" 절, 브랜치 `docs/get-document-text-window`, PR #12).
 >
 > 1. 전문 크기: (가)와 (나)를 한 장치로 합쳤다. `get_document` 입력에 `offset`(정수, 0 이상, 기본 0)과 `max_chars`(정수, 1 이상, 기본·상한은 서버 설정 `RAG_DOCUMENT_TEXT_MAX_CHARS`, 기본 20,000자)가 들고, 출력에 `text_length`(전문 전체의 길이. 유니코드 코드 포인트 수. `include_text`와 상관없이 낸다), `text`(`offset`부터 시작하는 창), `next_offset`(다음 창의 `offset`. 전문이 이 창에서 끝났으면 null)이 든다. 따로 `truncated` 칸은 없고 `next_offset`이 null이 아닌 것이 잘림 표지다. 창의 끝은 `offset + max_chars` 이하에 있는 마지막 블록 경계(빈 줄)의 시작이고, 없으면(남은 블록 하나가 창보다 길다) `offset + max_chars`다. `next_offset`은 `offset`에 `text`의 길이를 더한 값이라 다음 창은 빈 줄로 시작할 수 있고, 창들을 이어 붙이면 전문과 글자 그대로 같다(창 사이에 문서가 바뀌지 않았을 때. 받는 쪽이 알 수 있는 신호는 창마다 실리는 `updated_at`이다). 범위 밖 `max_chars`, 음수 `offset`, 전문 길이보다 큰 `offset`은 `invalid_argument`이고, 길이와 같은 `offset`은 빈 `text`와 null `next_offset`이다. 파싱 결과가 없으면 셋 다 null이다(지금과 같다).
 > 2. 절의 제목: 전문에는 제목 블록이 들고, 제목 블록은 `#`을 수준만큼 앞에 붙이고 공백 하나를 둔 한 줄이다(`# 제1장 총칙`, `## 제1조 목적`). 문단과 표(행마다 한 줄, 칸은 ` | `)는 그대로다. DOCX와 HWPX의 전문에는 제목이 들고, PDF 파서는 제목 블록을 내지 않아 PDF의 전문에는 제목이 없다. 그래서 가짜 서버의 세 모양(제목이 든 것, 제목 없이 글만 이은 것, null)은 그대로 쓰되 제목이 든 모양은 `#` 줄로 바꾼다.
@@ -133,7 +133,8 @@ retro 스킬이 일지의 다음 절을 적은 계기로 돌았다. 후보 열. 
 
 - 손으로 친 것(모두 초록): `check_quotes.py --all-lines`(파일 넷을 경로로 줌. 경고 0), `check_md_tables.py`와 `check_line_separators.py`(파일 넷과 새 대기열 항목), `check_ticket.py`(면제 PR 모양), `queue_open_rows.py`(항목 파일 모양), `sibling_overlap.py`(0), 명세 표시 수 `grep -o`(머리와 같음). 파이프 없이 로그 파일로 돌렸다.
 - 커밋 672e1ef(명세·티켓·대기열·일지)의 pre-commit이 검사 러너(`tools/run_checks.py`의 CHECKS 전부)를 돌려 초록. PR 직전 리뷰의 반영은 다음 커밋에 실었다(같은 검사와 위의 손으로 친 것을 다시 돌렸다). 그 커밋의 첫 pre-commit은 pytest 하나(만료 토큰 시험. 부하 흔들림, 회고 절)로 빨갰고, 그 시험을 따로 돌려 초록을 본 뒤 다시 커밋했다(이 커밋).
-- PR 번호와 09 세션 메시지는 PR을 연 뒤 더한다.
+- PR #12(`https://github.com/njh6803/rag-engine/pull/12`). 커밋 둘(672e1ef, 0957e40)을 푸시해 열었다(origin/main은 1ab024d 그대로라 리베이스 없음). 본문은 PR 템플릿을 채웠고 PR 직전 리뷰의 결과와 사용자 판단으로 남긴 둘(내용 해시 칸, 기본값 근거 문장)을 적었다.
+- 09 세션([feature/09-search-complete-tools])에 메시지를 보냈다. 바뀐 모양과 규칙, 명세의 자리, 티켓 Comments 둘, PR 번호, 티켓 본문의 체크박스(17행)와 시험 목록(21행)을 제 워크트리에서 새 모양으로 고쳐 달라는 부탁, 병합 순서, 남긴 것(내용 해시 칸)이다.
 
 ## 다음
 
