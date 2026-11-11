@@ -11,6 +11,7 @@
 
 import asyncio
 import logging
+import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
@@ -456,12 +457,16 @@ def _joined(pieces: Sequence[str], tokens_of: Sequence[list[_Token]]) -> list[_T
 
 
 def _scores(ranks: Sequence[_Rank], expected_count: int) -> list[float]:
-    """리랭크 응답은 점수 순이라 `index`로 입력 순서를 되살린다. 순번이 글과 맞지 않으면 응답 형식이
-    어긋난 것이다."""
+    """리랭크 응답은 점수 순이라 `index`로 입력 순서를 되살린다. 순번이 글과 맞지 않거나 점수가
+    유한하지 않으면(NaN은 순서를 정할 수 없고 검색 결과의 점수로도 낼 수 없다) 응답 형식이 어긋난
+    것이다."""
     ordered = sorted(ranks, key=lambda rank: rank.index)
     if [rank.index for rank in ordered] != list(range(expected_count)):
         raise _malformed_response(server=_RERANKER)
-    return [rank.score for rank in ordered]
+    scores = [rank.score for rank in ordered]
+    if not all(math.isfinite(score) for score in scores):
+        raise _malformed_response(server=_RERANKER)
+    return scores
 
 
 def _parse[T](

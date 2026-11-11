@@ -82,7 +82,7 @@
 
 **남긴 것과 이유**(모두 Minor)
 
-- 리랭커가 NaN·inf 점수를 돌려주면 `SearchResult.score` 검증에서 `internal_error`가 된다. TEI가 그런 값을 낼 가능성이 낮아 손대지 않았다. 고친다면 `_scores`에서 유한하지 않은 값을 일시 실패(`search_unavailable`)로 올린다.
+- 리랭커가 NaN·inf 점수를 돌려주면 `SearchResult.score` 검증에서 `internal_error`가 된다. TEI가 그런 값을 낼 가능성이 낮아 처음에는 손대지 않았다. PR의 CodeRabbit 첫 회차가 같은 지적을 내서 고쳤다(아래 "PR 봇 첫 회차").
 - `filter.groups`는 이름마다 `get_group`을 순차로 부르고 이름 수의 상한이 없다. 20초 제한이 끝을 막는다. 그룹 이름이 많은 설치가 생기면 이름 목록으로 한 번에 조회하거나 상한을 둔다.
 - `get_document`는 창 하나마다 블록 전체를 읽고 전문을 새로 이어 붙인다(`text_length` 때문에 `include_text` 없이도 읽는다). 큰 문서를 창으로 끝까지 읽으면 호출 수만큼 되풀이해 읽는다. 병목으로 보이면 블록 경계를 누적 합으로 찾거나 `text_length`를 저장한다.
 - 리랭크 묶음마다 질의가 되풀이해 실리고 `search`에 질의 길이 상한이 없다. 매우 긴 질의는 요청 본문 상한을 넘을 수 있다. 상한을 어디에 둘지는 명세가 정할 일이다.
@@ -91,6 +91,21 @@
 **다시 돌린 명령**
 
 - `tests/adapters/test_settings.py`와 `tests/contract/test_search_complete.py`의 관련 시험 50개 통과, `pyright` 0 오류, `ruff check`·`ruff format --check` 통과. 이 반영은 커밋의 pre-commit이 전체를 한 번 더 돌린다.
+
+## PR 봇 첫 회차
+
+PR 14(헤드 `909a5e4`). 검사 여섯(`CodeRabbit`, `claude-review`, `image`, `python`, `ticket`, `verify`)이 모두 통과했다. CodeRabbit은 리뷰를 달았고(`Finished`, 인라인 1건) claude-review도 코멘트를 달았다. 둘 다 이 PR의 첫 리뷰라 첫 회차이고, 첫 회차의 Minor·Nit은 지적마다 판단한다.
+
+**고친 것**
+
+- CodeRabbit(Minor): 리랭커가 NaN·inf 점수를 돌려주면 정렬이 순서를 보장하지 못하고 `SearchResult.score` 검증이 실패해 `search_unavailable`이 아니라 `internal_error`가 된다. 위 PR 직전 리뷰가 낸 것과 같은 건이다. 시험을 먼저 썼다(`NaN`, `Infinity`, `-Infinity` 셋이 `DID NOT RAISE`로 빨강). `_scores`가 유한하지 않은 점수를 `_malformed_response`(일시 실패)로 올리게 했다(`adapters/tei.py`, `tests/adapters/test_tei_reranker.py`).
+
+**보류한 것과 이유**
+
+- claude-review(Major): `get_document`의 `text`가 전문에서 창으로 뜻이 바뀌었는데 판이 `1.0.0`이다. 사실과 달라 판을 올리지 않았다. main(`origin/main`)에는 출력 모델 `DocumentOutput`만 있고 `get_document` 도구는 어디에도 등록되지 않았으므로(`git grep get_document origin/main -- src`로 확인했다) 옛 `text`의 뜻이 클라이언트에 나간 적이 없다. 이 PR이 처음 도구를 열며 이 모양이 첫 판이다. 이는 사용자가 PR 12에서 고른 결정이고 명세 "MCP 도구" 절과 PR 12의 일지가 그렇게 적는다("`get_document`가 아직 나가지 않았으므로 판은 1.0.0 그대로"). 같은 명세는 이 PR이 옛 모양으로 먼저 나가면 판을 올린다고 적었는데 이 PR은 새 모양으로 나간다. 다만 리뷰가 짚은 대로 PR 본문의 "칸을 더하기만 했고 뜻을 바꾼 것이 없습니다"는 이 사정을 말하지 않아 오해를 부르므로, 본문 "계약 영향"을 고쳤다.
+- claude-review(Minor): `TeiReranker._endpoint_batch_size`와 `TeiEmbedder._endpoint_limits`·`_verify`가 `/info` 검증의 모양을 되풀이한다. 한쪽만 고치면 어긋날 수 있는 것은 맞다. 서버 이름과 오류 메시지만 다른 공통 함수로 뽑는 일은 14에서 두 풀을 함께 만질 때 하는 편이 낫다고 보아 넘긴다(코드 리뷰 절의 Duplicated Code와 같은 건이다).
+- claude-review(Minor): `text_window`가 창마다 전문 전체를 새로 짓는다. 위 PR 직전 리뷰의 남긴 것과 같은 건이다.
+- claude-review(Nit): `get_document`의 `include_text and blocks is not None and length is not None`에서 `length is not None`이 중복이라고 했다. `length`의 형이 `int | None`이라 이 조건이 pyright의 좁히기를 맡는다. 빼면 `offset > length`가 형 오류가 되어 둔다.
 
 ## 회고
 
@@ -119,6 +134,7 @@
   - 리랭크 글과 색인 때 글의 절 경로 어긋남. 순위에 미치는 영향을 재고 필요하면 `index_text`를 저장하는 것은 14와 함께 판단한다.
   - 명세의 보강 한 줄(공백뿐인 질의, 시간 제한의 시작점)은 사용자 판단이다.
   - `get_document`의 내용 해시 출력 칸은 사용자가 아직 정하지 않았다.
-  - PR 직전 리뷰가 남긴 Minor 다섯(위 "PR 직전 리뷰"의 남긴 것). 실패한 검색의 로그(질의 없이 코드와 지연)와 질의 길이 상한은 명세에 닿아 사용자 판단이고, 나머지(NaN 점수, 그룹 이름 일괄 조회, 창 읽기의 반복 비용)는 쓰임이 늘 때 다시 본다.
+  - PR 직전 리뷰가 남긴 Minor 넷(위 "PR 직전 리뷰"의 남긴 것. NaN 점수는 PR 봇 첫 회차에서 고쳤다). 실패한 검색의 로그(질의 없이 코드와 지연)와 질의 길이 상한은 명세에 닿아 사용자 판단이고, 나머지(그룹 이름 일괄 조회, 창 읽기의 반복 비용)는 쓰임이 늘 때 다시 본다.
+  - 리랭커와 임베더의 `/info` 검증 중복(claude-review Minor)은 14가 두 풀을 함께 만질 때 공통 함수로 뽑는다.
   - 병합 뒤 `parsers-isolation` 워크트리(08)가 `tests/support/pipeline.py`를 고치고 있어, 08이 origin/main을 합칠 때 이 PR의 같은 파일 변경과 글자 충돌이 날 수 있다.
   - 05에서 넘어온 것(확장자와 내용 불일치 판정, 키 길이 상한, `.env.example`, `request_failed` 이벤트, 토큰 목록의 회수 칸)은 여전히 사용자가 정할 것이다.

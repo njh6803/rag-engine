@@ -209,3 +209,33 @@ async def test_응답의_순번이_글과_맞지_않으면_일시_실패다() ->
     assert caught.value.code is ErrorCode.EMBEDDING_UNAVAILABLE
     assert "응답 형식" in str(caught.value)
     await client.aclose()
+
+
+@pytest.mark.parametrize("non_finite", ["NaN", "Infinity", "-Infinity"])
+async def test_점수가_유한하지_않으면_순위를_정할_수_없어_일시_실패다(non_finite: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/info":
+            return httpx.Response(
+                200,
+                json={
+                    "model_id": MODEL,
+                    "served_model_name": MODEL,
+                    "max_input_length": 512,
+                    "max_client_batch_size": 32,
+                    "auto_truncate": True,
+                },
+            )
+        body = f'[{{"index": 0, "score": {non_finite}}}, {{"index": 1, "score": 0.5}}]'
+        return httpx.Response(
+            200, content=body.encode(), headers={"content-type": "application/json"}
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://tei.test")
+    reranker = TeiReranker(client, model=MODEL, batch_size=8, max_chunk_tokens=512)
+
+    with pytest.raises(TransientFailure) as caught:
+        await reranker.rerank("연차", ["가", "나"])
+
+    assert caught.value.code is ErrorCode.EMBEDDING_UNAVAILABLE
+    assert "응답 형식" in str(caught.value)
+    await client.aclose()
