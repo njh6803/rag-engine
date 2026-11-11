@@ -9,9 +9,10 @@ from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 
 from rag_engine.adapters.blob_store import LocalBlobStore
+from rag_engine.domain.entities import IndexVersion
 from rag_engine.domain.errors import ErrorCode, PermanentFailure
 from rag_engine.domain.parsing import ParsedDocument, ParserVersion
-from rag_engine.domain.ports import Embedder
+from rag_engine.domain.ports import Embedder, EmbedderFor
 
 type Interloper = Callable[[], Awaitable[None]]
 
@@ -38,6 +39,15 @@ class InterruptingEmbedder:
 
     async def token_spans(self, text: str) -> list[tuple[int, int]]:
         return await self._inner.token_spans(text)
+
+
+def interrupting_embedder_for(embedder_for: EmbedderFor, interrupt: Interloper) -> EmbedderFor:
+    """임베딩 직전에 한 번 끼어드는 임베더를 판마다 낸다."""
+
+    def make(version: IndexVersion) -> Embedder:
+        return InterruptingEmbedder(embedder_for(version), interrupt)
+
+    return make
 
 
 class FailingRunner:

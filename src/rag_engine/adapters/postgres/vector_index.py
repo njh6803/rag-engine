@@ -10,11 +10,15 @@
 준비시키고 일반 계획을 골라도 술어가 상수라 색인을 쓴다. 판 UUID와 차원은 데이터베이스가 낸 UUID와
 정수라 문자열에 바깥 글이 끼지 않는다. 질의 벡터와 키워드와 후보 수는 매개변수다.
 
-조각 보관(`archive_chunks`)은 이 어댑터에 아직 없다(`NotImplementedError`).
+보관 표(`archived_chunks`)는 조각 표의 칸에 보관 시각만 더한 것이다. 보관(`archive_chunks`)은 문서의
+조각을 보관 표로 옮기고, 되돌림(`restore_archived_chunks`)은 만든 내용 해시가 같은 보관 조각을 복사
+칸을 문서의 지금 값으로 쓰며 검색 표로 복사한다.
 """
 
 import re
+from collections import Counter
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Final
 from uuid import UUID
 
@@ -39,7 +43,6 @@ from rag_engine.domain.entities import (
 )
 from rag_engine.domain.errors import ErrorCode
 
-_NOT_YET: Final = "이 어댑터에 아직 없다"
 # RRF의 순위 상수(명세 "검색 흐름"). 점수는 `1/(60+순위)`의 합이다.
 _RRF_RANK_CONSTANT: Final = 60
 # 한 `INSERT` 문장에 넣는 조각 수. 바인딩 값이 문장당 65535개까지이고 조각 하나가 열넷쯤 쓴다.
@@ -250,8 +253,59 @@ class PostgresVectorIndex:
             conditions.append(tables.chunks.c.index_version_id == index_version_id)
         await self._connection.execute(sa.delete(tables.chunks).where(*conditions))
 
-    async def archive_chunks(self, document_id: UUID) -> None:
-        raise NotImplementedError(_NOT_YET)
+    async def archive_chunks(self, document_id: UUID, archived_at: datetime) -> None:
+        # 보관 표는 조각 표의 칸에 보관 시각만 더한 것이라 칸 이름이 같다.
+        names = [column.name for column in tables.chunks.c]
+        stamp = sa.cast(sa.literal(archived_at), tables.archived_chunks.c.archived_at.type)
+        await self._connection.execute(
+            sa.insert(tables.archived_chunks).from_select(
+                [*names, "archived_at"],
+                sa.select(*(tables.chunks.c[name] for name in names), stamp).where(
+                    tables.chunks.c.document_id == document_id
+                ),
+            )
+        )
+        await self.delete_chunks(document_id, None)
+
+    async def restore_archived_chunks(
+        self, document: Document, index_version_ids: Sequence[UUID]
+    ) -> dict[UUID, int]:
+        archived = tables.archived_chunks
+        copies: dict[str, object] = {
+            "group_id": document.group_id,
+            "updated_at": document.updated_at,
+            "effective_date": document.effective_date,
+            "access_groups": list(document.access_groups),
+        }
+        names = [column.name for column in tables.chunks.c]
+        # 복사 칸은 문서 행의 지금 값이다. 값이 비었을 수 있어 칸의 형으로 캐스트해야
+        # `INSERT … SELECT`가 형을 정한다.
+        selected = [
+            sa.cast(sa.literal(copies[name]), tables.chunks.c[name].type)
+            if name in copies
+            else archived.c[name]
+            for name in names
+        ]
+        result = await self._connection.execute(
+            sa.insert(tables.chunks)
+            .from_select(
+                names,
+                sa.select(*selected).where(
+                    archived.c.document_id == document.id,
+                    archived.c.index_version_id.in_(index_version_ids),
+                    archived.c.source_content_hash == document.content_hash,
+                ),
+            )
+            .returning(tables.chunks.c.index_version_id)
+        )
+        return dict(Counter(row[0] for row in result))
+
+    async def delete_archived_chunks(self, document_id: UUID) -> None:
+        await self._connection.execute(
+            sa.delete(tables.archived_chunks).where(
+                tables.archived_chunks.c.document_id == document_id
+            )
+        )
 
     async def count_chunks(self, document_id: UUID, index_version_id: UUID) -> int:
         chunks = tables.chunks
@@ -313,6 +367,10 @@ class PostgresVectorIndex:
                 states.c.document_id == document_id, states.c.index_version_id == index_version_id
             )
         )
+
+    async def delete_states(self, document_id: UUID) -> None:
+        states = tables.document_index_states
+        await self._connection.execute(sa.delete(states).where(states.c.document_id == document_id))
 
     async def search_candidates(self, query: SearchQuery) -> SearchCandidates:
         # `hnsw.ef_search`의 기본 40은 후보 50개를 채우지 못한다(명세 "검색 흐름"). 트랜잭션

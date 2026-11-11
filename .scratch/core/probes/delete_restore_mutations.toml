@@ -1,0 +1,289 @@
+# core 11(삭제, 되살림, 묘비)이 더한 시험 가운데 처음부터 초록이던 것의 변이.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/delete_restore_mutations.toml
+
+[[mutation]]
+name = "삭제가 세대를 올리지 않는다"
+tests = ["tests/app/test_delete_restore.py", "tests/app/test_delete_crossings.py"]
+expect = "red"
+expect_output = ['At index 1 diff: 3 != 4']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/delete_document.py"
+old = '''            replace(document, deleted_at=now, generation=document.generation + 1, modified_at=now)
+'''
+new = '''            replace(document, deleted_at=now, modified_at=now)
+'''
+
+[[mutation]]
+name = "삭제가 대기 작업을 지우지 않는다"
+tests = ["tests/app/test_delete_restore.py"]
+expect = "red"
+expect_output = ["'queued' not in ['running', 'queued']"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/delete_document.py"
+old = '''        await transaction.jobs.delete_queued(document.id)
+'''
+new = ''
+
+[[mutation]]
+name = "삭제가 색인 상태를 지우지 않는다"
+tests = ["tests/app/test_delete_restore.py"]
+expect = "red"
+expect_output = ['error_code=None, updated_at=datetime.datetime(2026, 11, 11, 9']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/delete_document.py"
+old = '''        await transaction.index.delete_states(document.id)
+'''
+new = ''
+
+[[mutation]]
+name = "삭제가 건설 중인 판에 전환 검사를 부르지 않는다"
+tests = ["tests/app/test_delete_restore.py"]
+expect = "red"
+expect_output = ['Right contains one more item: UUID(']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/delete_document.py"
+old = '''        await _check_building_versions(transaction, knowledge_bases)
+'''
+new = ''
+
+[[mutation]]
+name = "삭제가 묘비 행을 있는 문서로 본다"
+tests = ["tests/app/test_delete_restore.py"]
+expect = "red"
+expect_output = ['DID NOT RAISE RequestError']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/delete_document.py"
+old = '''        if found is None or found.purged_at is not None:
+'''
+new = '''        if found is None:
+'''
+
+[[mutation]]
+name = "이미 지운 문서의 삭제가 다시 쓴다"
+tests = ["tests/app/test_delete_restore.py"]
+expect = "red"
+expect_output = ['generation: 3 != 2']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/delete_document.py"
+old = '''        if document.deleted_at is not None:
+            return
+'''
+new = ''
+
+[[mutation]]
+name = "삭제가 조각을 옮기지 않고 지우기만 한다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ["Right contains 2 more items, first extra item: ('건설 글'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''        await self._connection.execute(
+            sa.insert(tables.archived_chunks).from_select(
+                [*names, "archived_at"],
+                sa.select(*(tables.chunks.c[name] for name in names), stamp).where(
+                    tables.chunks.c.document_id == document_id
+                ),
+            )
+        )
+        await self.delete_chunks(document_id, None)
+'''
+new = '''        await self.delete_chunks(document_id, None)
+'''
+
+[[mutation]]
+name = "되살림이 내용 해시를 가리지 않고 보관 조각을 돌린다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ["): 2} != {UUID('"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''                    archived.c.source_content_hash == document.content_hash,
+'''
+new = ''
+
+[[mutation]]
+name = "되살림이 대상 판을 가리지 않고 보관 조각을 돌린다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ['Left contains 1 more item:']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''                    archived.c.index_version_id.in_(index_version_ids),
+'''
+new = ''
+
+[[mutation]]
+name = "대기 작업 삭제가 실행 중인 작업까지 지운다"
+tests = ["tests/adapters/test_job_queue.py"]
+expect = "red"
+expect_output = ["Right contains one more item: 'running'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''                tables.jobs.c.document_id == document_id,
+                tables.jobs.c.status == JobStatus.QUEUED.value,
+            )
+        )
+
+    async def get('''
+new = '''                tables.jobs.c.document_id == document_id,
+            )
+        )
+
+    async def get('''
+
+[[mutation]]
+name = "다른 내용의 되살림이 내용을 가리지 않는다"
+tests = ["tests/app/test_delete_restore.py"]
+expect = "red"
+expect_output = ['AssertionError: assert None is not None']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    if deleted.content_hash != upload.content_hash:
+        await transaction.index.delete_archived_chunks(deleted.id)
+'''
+new = '''    if False:
+        await transaction.index.delete_archived_chunks(deleted.id)
+'''
+
+[[mutation]]
+name = "다른 내용의 되살림이 보관 조각을 지우지 않는다"
+tests = ["tests/app/test_delete_restore.py", "tests/contract/test_delete_restore.py"]
+expect = "red"
+expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 뒤부터 발생한다.'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    if deleted.content_hash != upload.content_hash:
+        await transaction.index.delete_archived_chunks(deleted.id)
+'''
+new = '''    if deleted.content_hash != upload.content_hash:
+'''
+
+[[mutation]]
+name = "같은 내용의 되살림이 쓰고 남은 보관 조각을 지우지 않는다"
+tests = ["tests/app/test_delete_restore.py", "tests/app/test_delete_crossings.py"]
+expect = "red"
+expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 뒤부터 발생한다.'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    await transaction.index.delete_archived_chunks(document.id)
+    for version in versions:
+'''
+new = '''    for version in versions:
+'''
+
+[[mutation]]
+name = "같은 내용의 되살림이 세대를 올리지 않는다"
+tests = ["tests/app/test_delete_restore.py", "tests/app/test_delete_crossings.py"]
+expect = "red"
+expect_output = ['At index 1 diff: 3 != 4']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''        _refresh_metadata(revived, upload), generation=revived.generation + 1, modified_at=now
+'''
+new = '''        _refresh_metadata(revived, upload), modified_at=now
+'''
+
+[[mutation]]
+name = "건설 중인 판에도 pending을 쓴다"
+tests = ["tests/app/test_delete_restore.py"]
+expect = "red"
+expect_output = ['_hash=None, error_code=None, updated_at=datetime.datetime(2026, 11, 11, 9']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''            if version.status is not IndexVersionStatus.BUILDING:
+                await transaction.index.save_state(_pending_state(document, version, now))
+'''
+new = '''            if True:
+                await transaction.index.save_state(_pending_state(document, version, now))
+'''
+
+[[mutation]]
+name = "돌아온 건설 중인 판에 전환 검사를 부른다"
+tests = ["tests/app/test_delete_restore.py"]
+expect = "red"
+expect_output = ['Left contains one more item: IndexVersion(']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''                _restored_state(document, version, restored[version.id], now)
+            )
+'''
+new = '''                _restored_state(document, version, restored[version.id], now)
+            )
+            if version.status is IndexVersionStatus.BUILDING:
+                await check_version_switch(transaction, version)
+'''
+
+[[mutation]]
+name = "묘비를 다시 쓸 때 옛 원본을 지우지 않는다"
+tests = ["tests/app/test_delete_restore.py"]
+expect = "red"
+expect_output = ['Left contains one more item: WindowsPath(']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    return _Recorded(IngestResult(IngestAction.CREATED, document.id, job_id), tombstone.blob_path)
+'''
+new = '''    return _Recorded(IngestResult(IngestAction.CREATED, document.id, job_id), None)
+'''
+
+[[mutation]]
+name = "되살림이 새 원본을 남긴다"
+tests = ["tests/contract/test_delete_restore.py", "--show-capture=no"]
+expect = "red"
+expect_output = ['AssertionError: assert 2 == 1']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    return _Recorded(IngestResult(IngestAction.RESTORED, document.id, job_id), upload.blob_key)
+'''
+new = '''    return _Recorded(IngestResult(IngestAction.RESTORED, document.id, job_id), None)
+'''
+
+[[mutation]]
+name = "묘비를 다시 쓸 때 세대를 이어 올리지 않는다"
+tests = ["tests/app/test_delete_restore.py"]
+expect = "red"
+expect_output = ['At index 0 diff: 1 != 3']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    document = _fresh_document(upload, now, generation=tombstone.generation + 1)
+'''
+new = '''    document = _fresh_document(upload, now, generation=1)
+'''
+
+[[mutation]]
+name = "지운 문서를 묘비보다 먼저 가린다"
+tests = ["tests/app/test_delete_restore.py", "tests/contract/test_delete_restore.py"]
+expect = "red"
+expect_output = ["At index 0 diff: <IngestAction.RESTORED: 'restored'> != <IngestAction.CREATED: 'created'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    if existing.purged_at is not None:
+        return await _rewrite_tombstone(transaction, existing, upload, request_id, now)
+    if existing.deleted_at is not None:
+        return await _restore(transaction, existing, upload, request_id, now)
+'''
+new = '''    if existing.deleted_at is not None:
+        return await _restore(transaction, existing, upload, request_id, now)
+    if existing.purged_at is not None:
+        return await _rewrite_tombstone(transaction, existing, upload, request_id, now)
+'''

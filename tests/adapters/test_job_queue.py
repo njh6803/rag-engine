@@ -145,3 +145,26 @@ async def test_알림은_커밋_때_가고_롤백하면_가지_않는다(
         notes = [note async for note in listener.notifies(timeout=2.0, stop_after=1)]
 
     assert [note.channel for note in notes] == ["rag_jobs"]
+
+
+async def test_대기_작업을_지우면_그_문서의_대기_작업만_사라지고_다른_상태의_작업은_남는다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    unit_of_work = PostgresUnitOfWork(engine)
+    source, group = await seed_source_and_group(unit_of_work)
+    document = make_document(source, group, key="지울.docx")
+    other = make_document(source, group, key="남는.docx")
+    async with unit_of_work.begin() as transaction:
+        await transaction.documents.add(document)
+        await transaction.documents.add(other)
+        running = await transaction.jobs.enqueue(document.id, new_id(), NOW)
+        claimed = await transaction.jobs.claim("worker-1", NOW, 600.0)
+        assert claimed is not None and claimed.id == running.id
+        await transaction.jobs.enqueue(document.id, new_id(), NOW)
+        await transaction.jobs.enqueue(other.id, new_id(), NOW)
+
+    async with unit_of_work.begin() as transaction:
+        await transaction.jobs.delete_queued(document.id)
+
+    assert [row[1] for row in _rows(empty_database_url, document.id)] == ["running"]
+    assert [row[1] for row in _rows(empty_database_url, other.id)] == ["queued"]

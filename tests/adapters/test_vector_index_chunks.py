@@ -543,3 +543,150 @@ async def test_필터가_있을_때만_반복_스캔을_완화된_순서로_켠�
         True,
     ]
     assert any("relaxed_order" in text for text in filtered)
+
+
+async def _with_building_version(world: _World) -> IndexVersion:
+    building = replace(world.version, id=new_id(), status=IndexVersionStatus.BUILDING)
+    async with world.unit_of_work.begin() as transaction:
+        await transaction.catalog.add_index_version(building)
+        await transaction.index.create_version_index(building)
+    return building
+
+
+def _archived(database_url: str, document_id: UUID) -> list[tuple[str, object]]:
+    """보관 표의 (글, 보관 시각)."""
+    with psycopg.connect(database_url, autocommit=True) as connection:
+        return connection.execute(
+            "SELECT text, archived_at FROM archived_chunks WHERE document_id = %s ORDER BY text",
+            [document_id],
+        ).fetchall()
+
+
+async def test_조각을_보관하면_모든_판의_조각이_검색_표에서_보관_표로_옮겨진다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    world = await _world(engine)
+    building = await _with_building_version(world)
+    document = await world.document()
+    other = await world.document("다른.docx")
+    async with world.unit_of_work.begin() as transaction:
+        await transaction.index.replace_chunks(
+            document.id,
+            world.version.id,
+            [world.chunk(document, 0, "현재 글", (1.0, 0.0, 0.0), "현재")],
+        )
+        await transaction.index.replace_chunks(
+            document.id,
+            building.id,
+            [world.chunk(document, 0, "건설 글", (0.0, 1.0, 0.0), "건설", version=building)],
+        )
+        await transaction.index.replace_chunks(
+            other.id, world.version.id, [world.chunk(other, 0, "남는 글", (0.0, 0.0, 1.0), "남는")]
+        )
+
+    later = NOW + timedelta(hours=1)
+    async with world.unit_of_work.begin() as transaction:
+        await transaction.index.archive_chunks(document.id, later)
+
+    assert _count(empty_database_url, document.id) == 0
+    assert _archived(empty_database_url, document.id) == [("건설 글", later), ("현재 글", later)]
+    assert _count(empty_database_url, other.id) == 1
+    assert _archived(empty_database_url, other.id) == []
+    async with world.unit_of_work.begin() as transaction:
+        hits = await transaction.index.search_candidates(world.query((1.0, 0.0, 0.0), ()))
+    assert [hit.text for hit in hits.hits] == ["남는 글"]
+
+
+async def test_보관_조각을_되돌리면_대상_판의_같은_내용_조각만_문서의_지금_복사_칸으로_돌아온다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    world = await _world(engine)
+    building = await _with_building_version(world)
+    document = await world.document()
+    stale = replace(
+        world.chunk(document, 1, "옛 내용 글", (0.0, 1.0, 0.0), "옛"), source_content_hash="b" * 64
+    )
+    async with world.unit_of_work.begin() as transaction:
+        await transaction.index.replace_chunks(
+            document.id,
+            world.version.id,
+            [world.chunk(document, 0, "되돌릴 글", (1.0, 0.0, 0.0), "되돌릴"), stale],
+        )
+        await transaction.index.replace_chunks(
+            document.id,
+            building.id,
+            [world.chunk(document, 0, "건설 글", (0.0, 0.0, 1.0), "건설", version=building)],
+        )
+        await transaction.index.archive_chunks(document.id, NOW)
+    revived = replace(
+        document, updated_at=NOW + timedelta(days=3), access_groups=("교육팀",), deleted_at=None
+    )
+
+    async with world.unit_of_work.begin() as transaction:
+        restored = await transaction.index.restore_archived_chunks(revived, [world.version.id])
+
+    assert restored == {world.version.id: 1}
+    with psycopg.connect(empty_database_url, autocommit=True) as connection:
+        rows = connection.execute(
+            "SELECT text, index_version_id, group_id, updated_at, access_groups FROM chunks"
+            " WHERE document_id = %s",
+            [document.id],
+        ).fetchall()
+    assert rows == [
+        ("되돌릴 글", world.version.id, world.group.id, NOW + timedelta(days=3), ["교육팀"])
+    ]
+    async with world.unit_of_work.begin() as transaction:
+        hits = await transaction.index.search_candidates(world.query((1.0, 0.0, 0.0), ()))
+    assert [hit.text for hit in hits.hits] == ["되돌릴 글"]
+
+
+async def test_보관_조각을_지우면_그_문서의_보관_조각만_사라진다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    world = await _world(engine)
+    document = await world.document()
+    other = await world.document("다른.docx")
+    async with world.unit_of_work.begin() as transaction:
+        for target, text in ((document, "지울 글"), (other, "남는 글")):
+            await transaction.index.replace_chunks(
+                target.id, world.version.id, [world.chunk(target, 0, text, (1.0, 0.0, 0.0), text)]
+            )
+            await transaction.index.archive_chunks(target.id, NOW)
+
+    async with world.unit_of_work.begin() as transaction:
+        await transaction.index.delete_archived_chunks(document.id)
+
+    assert _archived(empty_database_url, document.id) == []
+    assert _archived(empty_database_url, other.id) == [("남는 글", NOW)]
+
+
+async def test_색인_상태를_모두_지우면_판과_상관없이_그_문서의_상태_행이_사라진다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    world = await _world(engine)
+    building = await _with_building_version(world)
+    document = await world.document()
+    other = await world.document("다른.docx")
+    async with world.unit_of_work.begin() as transaction:
+        for target in (document, other):
+            for version in (world.version, building):
+                await transaction.index.save_state(
+                    IndexState(
+                        document_id=target.id,
+                        index_version_id=version.id,
+                        status=IndexStateStatus.PENDING,
+                        chunk_count=0,
+                        built_content_hash=None,
+                        error_code=None,
+                        updated_at=NOW,
+                    )
+                )
+
+    async with world.unit_of_work.begin() as transaction:
+        await transaction.index.delete_states(document.id)
+
+    with psycopg.connect(empty_database_url, autocommit=True) as connection:
+        rows = connection.execute(
+            "SELECT document_id FROM document_index_states ORDER BY index_version_id"
+        ).fetchall()
+    assert rows == [(other.id,), (other.id,)]
