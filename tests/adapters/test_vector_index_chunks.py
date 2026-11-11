@@ -34,6 +34,7 @@ from rag_engine.domain.entities import (
     IndexStateStatus,
     IndexVersion,
     IndexVersionStatus,
+    SearchFilter,
     SearchQuery,
     Source,
 )
@@ -437,3 +438,108 @@ async def test_파싱_결과를_저장하면_다시_읽히고_다시_저장하�
         second = await transaction.documents.get_content(document.id)
 
     assert (before, first, second) == (None, content, newer)
+
+
+async def _document_in(world: _World, group: Group, key: str, **overrides: object) -> Document:
+    document = make_document(world.source, group, key=key, **overrides)
+    async with world.unit_of_work.begin() as transaction:
+        await transaction.documents.add(document)
+    return document
+
+
+async def _other_group(world: _World, name: str) -> Group:
+    """지식베이스의 그룹 집합에 드는 그룹 하나를 더한다."""
+    group = Group(new_id(), name, "")
+    async with world.unit_of_work.begin() as transaction:
+        await transaction.catalog.add_group(group)
+        await transaction.catalog.add_group_to_knowledge_base(
+            world.version.knowledge_base_id, group.id
+        )
+    return group
+
+
+async def _texts_found(world: _World, search_filter: SearchFilter) -> set[str]:
+    query = replace(world.query((1.0, 0.0, 0.0), ("찾는말",)), filter=search_filter)
+    async with world.unit_of_work.begin() as transaction:
+        found = await transaction.index.search_candidates(query)
+    return {hit.text for hit in found.hits}
+
+
+async def test_그룹_필터는_벡터와_키워드_두_쪽_모두에서_그_그룹의_조각만_남긴다(
+    engine: AsyncEngine,
+) -> None:
+    world = await _world(engine)
+    personnel = await _other_group(world, "인사")
+    base_document = await world.document("기본.docx")
+    personnel_document = await _document_in(world, personnel, "인사.docx")
+    await world.write(
+        base_document,
+        world.chunk(base_document, 0, "기본 벡터", (1.0, 0.0, 0.0), "무관"),
+        world.chunk(base_document, 1, "기본 키워드", (0.0, 0.0, 1.0), "찾는말"),
+    )
+    await world.write(
+        personnel_document,
+        world.chunk(personnel_document, 0, "인사 벡터", (0.9, 0.1, 0.0), "무관"),
+        world.chunk(personnel_document, 1, "인사 키워드", (0.0, 0.0, 1.0), "찾는말"),
+    )
+
+    only_personnel = await _texts_found(world, SearchFilter(group_ids=(personnel.id,)))
+    only_base = await _texts_found(world, SearchFilter(group_ids=(world.group.id,)))
+    both = await _texts_found(world, SearchFilter(group_ids=(personnel.id, world.group.id)))
+
+    assert only_personnel == {"인사 벡터", "인사 키워드"}
+    assert only_base == {"기본 벡터", "기본 키워드"}
+    assert len(both) == 4
+
+
+async def test_그룹_집합이_빈_필터는_아무_조각도_내지_않는다(engine: AsyncEngine) -> None:
+    world = await _world(engine)
+    document = await world.document()
+    await world.write(document, world.chunk(document, 0, "글", (1.0, 0.0, 0.0), "찾는말"))
+
+    assert await _texts_found(world, SearchFilter(group_ids=())) == set()
+
+
+async def test_갱신일_기간은_시작을_포함하고_끝을_제외한다(engine: AsyncEngine) -> None:
+    world = await _world(engine)
+    for days_ago, key in ((2, "이틀.docx"), (1, "하루.docx"), (0, "오늘.docx")):
+        document = await world.document(key, updated_at=NOW - timedelta(days=days_ago))
+        await world.write(document, world.chunk(document, 0, key, (1.0, 0.0, 0.0), "찾는말"))
+    yesterday = NOW - timedelta(days=1)
+
+    period = SearchFilter(updated_after=yesterday, updated_before=NOW)
+    from_yesterday = SearchFilter(updated_after=yesterday)
+    before_today = SearchFilter(updated_before=NOW)
+
+    assert await _texts_found(world, period) == {"하루.docx"}
+    assert await _texts_found(world, from_yesterday) == {"하루.docx", "오늘.docx"}
+    assert await _texts_found(world, before_today) == {"이틀.docx", "하루.docx"}
+
+
+async def test_필터가_있을_때만_반복_스캔을_완화된_순서로_켠다(engine: AsyncEngine) -> None:
+    world = await _world(engine)
+    seen: list[str] = []
+
+    def capture(
+        connection: Connection, cursor: object, statement: str, parameters: object, *rest: object
+    ) -> None:
+        if "set_config" in statement:
+            seen.append(repr(parameters))
+
+    event.listen(engine.sync_engine, "before_cursor_execute", capture)
+    try:
+        await _texts_found(world, SearchFilter())
+        unfiltered = list(seen)
+        seen.clear()
+        await _texts_found(world, SearchFilter(updated_after=NOW))
+        filtered = list(seen)
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", capture)
+
+    assert [
+        any("iterative_scan" in text for text in group) for group in (unfiltered, filtered)
+    ] == [
+        False,
+        True,
+    ]
+    assert any("relaxed_order" in text for text in filtered)

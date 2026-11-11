@@ -1,0 +1,395 @@
+# core 09(검색의 완성)가 더한 시험의 변이: 리랭크, 필터, 시간 제한, 읽기 도구, 도구 층의 검증.
+# 구현과 함께 쓴 시험이라 빨강을 본 적이 없어 변이로 본다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/search_complete_mutations.toml
+
+[[mutation]]
+name = "리랭크 점수를 오름차순으로 정렬한다"
+tests = ["tests/app/test_search_documents.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: UUID('''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    return tuple(sorted(scored, key=lambda hit: hit.score, reverse=True))'''
+new = '''    return tuple(sorted(scored, key=lambda hit: hit.score, reverse=False))'''
+
+[[mutation]]
+name = "리랭커가 실패하면 RRF 순서로 대신한다"
+tests = ["tests/app/test_search_documents.py"]
+expect = "red"
+expect_output = ['''DID NOT RAISE RagEngineError''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''        raise RequestError(ErrorCode.SEARCH_UNAVAILABLE, "후보를 리랭크하지 못했다") from None'''
+new = '''        return hits'''
+
+[[mutation]]
+name = "리랭크 글에 절 경로를 붙이지 않는다"
+tests = ["tests/app/test_search_documents.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: ('연차휴가', ['연차휴가는 입사 일 년 뒤부터 발생한다.'''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    texts = [compose_index_text(hit.location.section, hit.text) for hit in hits]'''
+new = '''    texts = [hit.text for hit in hits]'''
+
+[[mutation]]
+name = "검색에 시간 제한을 걸지 않는다"
+tests = ["tests/app/test_search_documents.py"]
+expect = "red"
+expect_output = ['''DID NOT RAISE RagEngineError''']
+timeout = 300
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''        async with asyncio.timeout(deps.timeout_seconds):'''
+new = '''        async with asyncio.timeout(None):'''
+
+[[mutation]]
+name = "top_k의 상한을 보지 않는다"
+tests = ["tests/app/test_search_documents.py"]
+expect = "red"
+expect_output = ['''DID NOT RAISE RagEngineError''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    if not 1 <= request.top_k <= deps.max_top_k:'''
+new = '''    if not 1 <= request.top_k:'''
+
+[[mutation]]
+name = "없는 그룹 이름만 주면 그룹으로 거르지 않는다"
+tests = ["tests/app/test_search_documents.py"]
+expect = "red"
+expect_output = ['''Extra items in the left set:''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    return tuple(group.id for group in groups if group is not None)'''
+new = '''    return tuple(group.id for group in groups if group is not None) or None'''
+
+[[mutation]]
+name = "필터가 있어도 iterative_scan을 켜지 않는다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ['''At index 1 diff: False != True''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''        if query.filter.is_active:'''
+new = '''        if False:'''
+
+[[mutation]]
+name = "updated_before가 그 시각을 포함한다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ['''Extra items in the left set:''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''        conditions.append("c.updated_at < :updated_before")'''
+new = '''        conditions.append("c.updated_at <= :updated_before")'''
+
+[[mutation]]
+name = "updated_after가 그 시각을 포함하지 않는다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ['''Extra items in the right set:''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''        conditions.append("c.updated_at >= :updated_after")'''
+new = '''        conditions.append("c.updated_at > :updated_after")'''
+
+[[mutation]]
+name = "리랭크 묶음을 끝점의 상한으로 줄이지 않는다"
+tests = ["tests/adapters/test_tei_reranker.py"]
+expect = "red"
+expect_output = ['''PermanentFailure: 리랭커가 요청을 거부했다(HTTP 422)''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/tei.py"
+old = '''                self._batch_size = max(
+                    1, min(self._configured_batch_size, info.max_client_batch_size)
+                )'''
+new = '''                self._batch_size = max(1, self._configured_batch_size)'''
+
+[[mutation]]
+name = "리랭크 점수를 입력 순서로 되돌리지 않는다"
+tests = ["tests/adapters/test_tei_reranker.py"]
+expect = "red"
+expect_output = ['''TransientFailure: 리랭커의 응답 형식이 맞지 않는다''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/tei.py"
+old = '''    ordered = sorted(ranks, key=lambda rank: rank.index)'''
+new = '''    ordered = list(ranks)'''
+
+[[mutation]]
+name = "내용이 바뀐 문서에 옛 파싱 결과의 글을 낸다"
+tests = ["tests/app/test_read_documents.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: 47 != None''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/read_documents.py"
+old = '''    if content is None or content.parsed_content_hash != document.content_hash:'''
+new = '''    if content is None:'''
+
+[[mutation]]
+name = "범위 밖 지식베이스도 문서의 조각 수에 싣는다"
+tests = ["tests/app/test_read_documents.py"]
+expect = "red"
+expect_output = ['''Left contains one more item: '추가'''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/read_documents.py"
+old = '''                document.group_id
+            )
+            if is_in_scope(allowed_knowledge_base_ids, knowledge_base.id)'''
+new = '''                document.group_id
+            )
+            if True'''
+
+[[mutation]]
+name = "범위 밖 지식베이스도 목록에 싣는다"
+tests = ["tests/app/test_read_documents.py"]
+expect = "red"
+expect_output = ['''Left contains one more item: 'default'''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/read_documents.py"
+old = '''            for knowledge_base in await transaction.catalog.list_knowledge_bases()
+            if is_in_scope(allowed_knowledge_base_ids, knowledge_base.id)'''
+new = '''            for knowledge_base in await transaction.catalog.list_knowledge_bases()
+            if True'''
+
+[[mutation]]
+name = "오프셋이 없는 시각을 받는다"
+tests = ["tests/contract/test_search_complete.py", "-k", "오프셋"]
+expect = "red"
+expect_output = ['''도구 오류가 아니라 결과를 냈다''']
+
+[[mutation.edit]]
+file = "src/rag_engine/server/search_tool.py"
+old = '''    if parsed.utcoffset() is None:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "search 로그에 리랭크 지연을 싣지 않는다"
+tests = ["tests/contract/test_search_complete.py", "-k", "로그"]
+expect = "red"
+expect_output = ['''Extra items in the right set:''']
+
+[[mutation.edit]]
+file = "src/rag_engine/server/search_tool.py"
+old = '''                rerank_ms=found.timings.rerank_ms,
+'''
+new = ''
+
+[[mutation]]
+name = "get_document가 UUID가 아닌 식별자를 invalid_argument로 알리지 않는다"
+tests = ["tests/contract/test_read_tools.py", "-k", "UUID"]
+expect = "red"
+expect_output = ['''At index 0 diff: 'document_not_found'''']
+
+[[mutation.edit]]
+file = "src/rag_engine/server/read_tools.py"
+old = '''    except ValueError:
+        raise RequestError(ErrorCode.INVALID_ARGUMENT, "document_id가 UUID 형식이 아니다") from None'''
+new = '''    except ValueError:
+        raise RequestError(ErrorCode.DOCUMENT_NOT_FOUND, "document_id가 UUID 형식이 아니다") from None'''
+
+# get_document의 전문 창(명세 "MCP 도구"): 제목 표시, 길이, 창을 자르는 규칙, 범위 검증.
+
+[[mutation]]
+name = "제목 블록에 샵 표시를 달지 않는다"
+tests = ["tests/app/test_document_text.py"]
+expect = "red"
+expect_output = ['''- # 제1조 휴가''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/document_text.py"
+old = '''        return "#" * block.level + " " + block.text'''
+new = '''        return block.text'''
+
+[[mutation]]
+name = "수준이 6을 넘는 제목은 샵을 여섯까지만 단다"
+tests = ["tests/app/test_document_text.py"]
+expect = "red"
+expect_output = ['''- ####### 제1조 휴가''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/document_text.py"
+old = '''        return "#" * block.level + " " + block.text'''
+new = '''        return "#" * min(block.level, 6) + " " + block.text'''
+
+[[mutation]]
+name = "전문의 길이에 블록 사이의 빈 줄을 세지 않는다"
+tests = ["tests/app/test_document_text.py"]
+expect = "red"
+expect_output = ['''test_document_text.py:46: AssertionError''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/document_text.py"
+old = '''    return sum(len(block_text(block)) for block in blocks) + len(BLOCK_SEPARATOR) * max(
+        len(blocks) - 1, 0
+    )'''
+new = '''    return sum(len(block_text(block)) for block in blocks)'''
+
+[[mutation]]
+name = "창이 넘치면 마지막 경계가 아니라 첫 경계에서 자른다"
+tests = ["tests/app/test_document_text.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: 'aaaa' != 'aaaa\n\nbbbb'''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/document_text.py"
+old = '''        if position > offset:
+            end = position'''
+new = '''        if position > offset and end == limit:
+            end = position'''
+
+[[mutation]]
+name = "offset이 경계의 시작이면 그 경계를 창의 끝으로 삼는다"
+tests = ["tests/app/test_document_text.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: '' != '\n\nb'''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/document_text.py"
+old = '''        if position > offset:
+            end = position'''
+new = '''        if position >= offset:
+            end = position'''
+
+[[mutation]]
+name = "경계가 없는 긴 블록을 상한보다 한 글자 짧게 자른다"
+tests = ["tests/app/test_document_text.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: 'aaa' != 'aaaa'''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/document_text.py"
+old = '''    end = limit
+    position = 0'''
+new = '''    end = limit - 1
+    position = 0'''
+
+[[mutation]]
+name = "남은 글이 정확히 max_chars여도 다음 창이 있다고 알린다"
+tests = ["tests/app/test_document_text.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: '가나다' != '가나다\n\n라마바'''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/document_text.py"
+old = '''    if len(full) <= limit:'''
+new = '''    if len(full) < limit:'''
+
+[[mutation]]
+name = "음수 offset을 문서를 찾기 전에 거절하지 않는다"
+tests = ["tests/app/test_read_documents.py", "-k", "범위_위반"]
+expect = "red"
+expect_output = ['''<ErrorCode.DOCUMENT_NOT_FOUND: 'document_not_found'>''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/read_documents.py"
+old = '''    if offset < 0:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "max_chars의 상한을 보지 않는다"
+tests = ["tests/app/test_read_documents.py", "-k", "범위_위반"]
+expect = "red"
+expect_output = ['''<ErrorCode.DOCUMENT_NOT_FOUND: 'document_not_found'>''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/read_documents.py"
+old = '''    if not 1 <= window_size <= max_text_chars:'''
+new = '''    if not 1 <= window_size:'''
+
+[[mutation]]
+name = "전문의 길이를 넘는 offset을 거절하지 않는다"
+tests = ["tests/app/test_read_documents.py", "-k", "길이와_같으면"]
+expect = "red"
+expect_output = ['''DID NOT RAISE RagEngineError''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/read_documents.py"
+old = '''            if offset > length:'''
+new = '''            if False:'''
+
+[[mutation]]
+name = "max_chars를 무시하고 설정의 상한으로 자른다"
+tests = ["tests/app/test_read_documents.py", "-k", "블록_경계"]
+expect = "red"
+expect_output = ['''AssertionError: assert None is not None''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/read_documents.py"
+old = '''    window_size = max_text_chars if max_chars is None else max_chars'''
+new = '''    window_size = max_text_chars'''
+
+[[mutation]]
+name = "글을 요청하지 않아도 전문의 길이를 내지 않는다"
+tests = ["tests/app/test_read_documents.py", "-k", "글을_요청하지_않아도_전문의_길이"]
+expect = "red"
+expect_output = ['''At index 0 diff: None != 47''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/read_documents.py"
+old = '''            text_length=length,'''
+new = '''            text_length=length if include_text else None,'''
+
+[[mutation]]
+name = "글을 요청하지 않아도 창의 글을 낸다"
+tests = ["tests/app/test_read_documents.py", "-k", "글을_요청하지_않아도_전문의_길이"]
+expect = "red"
+expect_output = ['''At index 1 diff: '# 제1조 휴가''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/read_documents.py"
+old = '''        if include_text and blocks is not None and length is not None:'''
+new = '''        if blocks is not None and length is not None:'''
+
+[[mutation]]
+name = "도구가 설정의 상한을 유스케이스에 넘기지 않고 큰 값을 넘긴다"
+tests = ["tests/contract/test_read_tools.py", "-k", "범위_위반"]
+expect = "red"
+expect_output = ['''At index 1 diff: ('document_not_found', 404) != ('invalid_argument', 422)''']
+
+[[mutation.edit]]
+file = "src/rag_engine/server/read_tools.py"
+old = '''                max_text_chars=max_text_chars,'''
+new = '''                max_text_chars=10**9,'''
+
+[[mutation]]
+name = "도구가 next_offset을 싣지 않는다"
+tests = ["tests/contract/test_read_tools.py", "-k", "이어_읽으면"]
+expect = "red"
+expect_output = ['''- 첫째 문단이다.''']
+
+[[mutation.edit]]
+file = "src/rag_engine/server/read_tools.py"
+old = '''        next_offset=view.next_offset,'''
+new = '''        next_offset=None,'''
+
+[[mutation]]
+name = "리랭커의 최대 입력 길이를 조각 상한과 견주지 않는다"
+tests = ["tests/adapters/test_tei_reranker.py"]
+expect = "red"
+expect_output = ['''Failed: DID NOT RAISE''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/tei.py"
+old = '''                if info.max_input_length < self._max_chunk_tokens:
+                    raise TransientFailure(
+                        ErrorCode.EMBEDDING_UNAVAILABLE,
+                        f"설정 불일치: 리랭커 서버의 최대 입력 길이({info.max_input_length})가"'''
+new = '''                if False:
+                    raise TransientFailure(
+                        ErrorCode.EMBEDDING_UNAVAILABLE,
+                        f"설정 불일치: 리랭커 서버의 최대 입력 길이({info.max_input_length})가"'''

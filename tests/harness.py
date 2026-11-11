@@ -44,6 +44,9 @@ class LogCapture:
         return self._text
 
     def events(self, event: str, *, count: int, timeout: float = 10.0) -> list[dict[str, object]]:
+        """`count`개 이상의 이벤트가 올 때까지 기다린다. 시간 안에 오지 않으면 모자란 목록을
+        돌려주지 않고 실패한다. 돌려주면 그 목록을 단언하지 않는 시험이 아무것도 보지 않은 채 초록이
+        된다."""
         deadline = time.monotonic() + timeout
         while True:
             found = [
@@ -51,15 +54,20 @@ class LogCapture:
                 for line in (json.loads(raw) for raw in self.text().splitlines() if raw.strip())
                 if line["event"] == event
             ]
-            if len(found) >= count or time.monotonic() > deadline:
+            if len(found) >= count:
                 return found
+            if time.monotonic() > deadline:
+                raise AssertionError(f"{event} 이벤트가 {count}개 오지 않았다({len(found)}개)")
             time.sleep(0.02)
 
     def lines_containing(self, fragment: str, *, count: int, timeout: float = 10.0) -> list[str]:
-        """JSON이 아닌 줄(`RAG_LOG_FORMAT=text`)에서 조각이 든 줄을 모은다."""
+        """JSON이 아닌 줄(`RAG_LOG_FORMAT=text`)에서 조각이 든 줄을 모은다. 모자라면 `events`처럼
+        실패한다."""
         deadline = time.monotonic() + timeout
         while True:
             found = [raw for raw in self.text().splitlines() if fragment in raw]
-            if len(found) >= count or time.monotonic() > deadline:
+            if len(found) >= count:
                 return found
+            if time.monotonic() > deadline:
+                raise AssertionError(f"{fragment}가 든 줄이 {count}개 오지 않았다({len(found)}개)")
             time.sleep(0.02)

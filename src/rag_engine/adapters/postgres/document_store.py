@@ -182,6 +182,20 @@ class PostgresDocumentStore:
             insertion.on_conflict_do_update(index_elements=["document_id"], set_=values)
         )
 
+    async def count_live_documents(self, knowledge_base_id: UUID) -> int:
+        documents = tables.documents
+        groups_of_knowledge_base = sa.select(tables.knowledge_base_groups.c.group_id).where(
+            tables.knowledge_base_groups.c.knowledge_base_id == knowledge_base_id
+        )
+        count = await self._connection.scalar(
+            sa.select(sa.func.count())
+            .select_from(documents)
+            .where(
+                documents.c.deleted_at.is_(None), documents.c.group_id.in_(groups_of_knowledge_base)
+            )
+        )
+        return 0 if count is None else count
+
     async def _select_one(
         self, *conditions: sa.ColumnElement[bool], lock: bool = False
     ) -> Document | None:

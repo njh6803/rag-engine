@@ -11,6 +11,7 @@
 
 import asyncio
 import logging
+import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
@@ -19,10 +20,14 @@ import httpx
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from rag_engine.adapters.utf8_offsets import Utf8Offsets
-from rag_engine.domain.entities import IndexVersion, JsonValue
+from rag_engine.domain.entities import IndexVersion, JsonValue, KnowledgeBase
 from rag_engine.domain.errors import ErrorCode, PermanentFailure, TransientFailure
 
 logger = logging.getLogger(__name__)
+
+# 오류 메시지에 쓰는 서버 이름.
+_EMBEDDING_SERVER: Final = "임베딩 서버"
+_RERANKER: Final = "리랭커"
 
 # 서버가 요청 자체를 받지 못한다고 알리는 상태 코드. 같은 입력으로 다시 해도 같다. 다만 `/info`는
 # 입력이 없는 조회라 이 코드가 와도 서버 쪽 문제로 보고 일시 실패로 옮긴다(`_send`).
@@ -68,6 +73,14 @@ class _Token(BaseModel):
 
 
 _TOKENIZE_RESPONSE: Final = TypeAdapter(list[list[_Token]])
+
+
+class _Rank(BaseModel):
+    index: int
+    score: float
+
+
+_RERANK_RESPONSE: Final = TypeAdapter(list[_Rank])
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,35 +228,110 @@ class TeiEmbedder:
             )
 
     async def _send(self, method: str, path: str, payload: Mapping[str, JsonValue] | None) -> bytes:
-        try:
-            response = await self._client.request(method, path, json=payload)
-        except httpx.RequestError:
-            raise TransientFailure(
-                ErrorCode.EMBEDDING_UNAVAILABLE, "임베딩 서버에 연결하지 못했거나 응답이 늦었다"
-            ) from None
-        if response.is_success:
-            return response.content
-        if path != "/info" and response.status_code in _REJECTED_STATUSES:
-            raise PermanentFailure(
-                ErrorCode.EMBEDDING_REJECTED,
-                f"임베딩 서버가 요청을 거부했다(HTTP {response.status_code})",
+        return await _request(self._client, method, path, payload, server=_EMBEDDING_SERVER)
+
+
+class TeiReranker:
+    """`Reranker` 포트의 TEI 어댑터. 끝점 하나, 모델 하나다. 첫 호출 전에 `/info`로 모델과 최대 입력
+    길이(조각 상한 이상이어야 한다)를 확인하고(다르면 "설정 불일치"라 일시 실패) `auto_truncate`를
+    로그에 남기며, 글을 `RAG_TEI_BATCH_SIZE`개씩(`max_client_batch_size`가 더
+    작으면 그 값) 나눠 `/rerank`를 부른 뒤 점수를 입력 순서로 합친다. 리랭커는 검색에서만 쓰여 오류
+    코드는 검색이 모두 `search_unavailable`로 옮긴다. 임베딩 어댑터와 같은 코드를 쓰는 까닭이다."""
+
+    def __init__(
+        self, client: httpx.AsyncClient, *, model: str, batch_size: int, max_chunk_tokens: int
+    ) -> None:
+        self._client = client
+        self._model = model
+        self._configured_batch_size = batch_size
+        self._max_chunk_tokens = max_chunk_tokens
+        self._batch_size: int | None = None
+        self._check_lock = asyncio.Lock()
+
+    async def rerank(self, query: str, texts: Sequence[str]) -> list[float]:
+        if not texts:
+            return []
+        batch_size = await self._endpoint_batch_size()
+        scores: list[float] = []
+        for batch in _batches(texts, size=batch_size, max_bytes=_MAX_BODY_BYTES):
+            content = await _request(
+                self._client,
+                "POST",
+                "/rerank",
+                {
+                    "query": query,
+                    "texts": batch,
+                    "truncate": True,
+                    "truncation_direction": "Right",
+                    "raw_scores": False,
+                    "return_text": False,
+                },
+                server=_RERANKER,
             )
-        raise TransientFailure(
-            ErrorCode.EMBEDDING_UNAVAILABLE,
-            f"임베딩 서버가 요청을 처리하지 못했다(HTTP {response.status_code})",
-        )
+            ranks = _parse(_RERANK_RESPONSE, content, server=_RERANKER)
+            scores.extend(_scores(ranks, len(batch)))
+        return scores
+
+    async def _endpoint_batch_size(self) -> int:
+        """끝점의 첫 호출 전에 `/info`를 확인하고 묶음 크기를 돌려준다. 실패하면 기억하지 않아 다음
+        호출이 다시 본다."""
+        async with self._check_lock:
+            if self._batch_size is None:
+                content = await _request(self._client, "GET", "/info", None, server=_RERANKER)
+                info = _parse(_Info, content, server=_RERANKER)
+                if self._model not in (info.model_id, info.served_model_name):
+                    raise TransientFailure(
+                        ErrorCode.EMBEDDING_UNAVAILABLE,
+                        f"설정 불일치: 리랭커 서버의 모델({info.model_id})이"
+                        f" 설정한 모델({self._model})과 다르다",
+                    )
+                if info.max_input_length < self._max_chunk_tokens:
+                    raise TransientFailure(
+                        ErrorCode.EMBEDDING_UNAVAILABLE,
+                        f"설정 불일치: 리랭커 서버의 최대 입력 길이({info.max_input_length})가"
+                        f" 조각 상한({self._max_chunk_tokens})보다 작다",
+                    )
+                logger.info(
+                    "리랭커 끝점을 확인했다: model=%s max_input_length=%d"
+                    " max_client_batch_size=%d auto_truncate=%s",
+                    info.model_id,
+                    info.max_input_length,
+                    info.max_client_batch_size,
+                    info.auto_truncate,
+                )
+                self._batch_size = max(
+                    1, min(self._configured_batch_size, info.max_client_batch_size)
+                )
+            return self._batch_size
+
+
+class _ClientCache:
+    """끝점 하나가 클라이언트 하나(연결 풀)를 쓰게 돌려쓴다."""
+
+    def __init__(self, client_for: Callable[[str], httpx.AsyncClient]) -> None:
+        self._client_for = client_for
+        self._clients: dict[str, httpx.AsyncClient] = {}
+
+    def get(self, endpoint: str) -> httpx.AsyncClient:
+        client = self._clients.get(endpoint)
+        if client is None:
+            client = self._client_for(endpoint)
+            self._clients[endpoint] = client
+        return client
+
+    async def aclose(self) -> None:
+        for client in self._clients.values():
+            await client.aclose()
 
 
 class TeiEmbedderPool:
     """색인 판에 적힌 끝점·모델·차원으로 `TeiEmbedder`를 하나씩 만들어 돌려쓴다. 어댑터가 첫
     호출에서 `/info`를 확인하므로 판마다 새로 만들면 글 묶음마다 확인을 되풀이한다. 키가 판의 ID가
-    아니라 그 네 값인 까닭은 `migrate`가 판에 적힌 끝점만 고칠 수 있어서다. 끝점 하나가 클라이언트
-    하나(연결 풀)를 쓴다."""
+    아니라 그 네 값인 까닭은 `migrate`가 판에 적힌 끝점만 고칠 수 있어서다."""
 
     def __init__(self, client_for: Callable[[str], httpx.AsyncClient], *, batch_size: int) -> None:
-        self._client_for = client_for
+        self._clients = _ClientCache(client_for)
         self._batch_size = batch_size
-        self._clients: dict[str, httpx.AsyncClient] = {}
         self._embedders: dict[tuple[str, str, int, int], TeiEmbedder] = {}
 
     def __call__(self, version: IndexVersion) -> TeiEmbedder:
@@ -255,13 +343,8 @@ class TeiEmbedderPool:
         )
         embedder = self._embedders.get(key)
         if embedder is None:
-            endpoint = version.embedding_endpoint
-            client = self._clients.get(endpoint)
-            if client is None:
-                client = self._client_for(endpoint)
-                self._clients[endpoint] = client
             embedder = TeiEmbedder(
-                client,
+                self._clients.get(version.embedding_endpoint),
                 model=version.embedding_model,
                 dimensions=version.embedding_dimensions,
                 max_chunk_tokens=version.chunking.max_tokens,
@@ -271,8 +354,65 @@ class TeiEmbedderPool:
         return embedder
 
     async def aclose(self) -> None:
-        for client in self._clients.values():
-            await client.aclose()
+        await self._clients.aclose()
+
+
+class TeiRerankerPool:
+    """지식베이스 설정의 리랭커 끝점·모델로 `TeiReranker`를 하나씩 만들어 돌려쓴다. 리랭커가 없는
+    지식베이스(끝점이나 모델이 없다)는 `None`이다."""
+
+    def __init__(self, client_for: Callable[[str], httpx.AsyncClient], *, batch_size: int) -> None:
+        self._clients = _ClientCache(client_for)
+        self._batch_size = batch_size
+        self._rerankers: dict[tuple[str, str, int], TeiReranker] = {}
+
+    def __call__(self, knowledge_base: KnowledgeBase) -> TeiReranker | None:
+        endpoint, model = knowledge_base.reranker_endpoint, knowledge_base.reranker_model
+        if endpoint is None or model is None:
+            return None
+        max_tokens = knowledge_base.chunking.max_tokens
+        reranker = self._rerankers.get((endpoint, model, max_tokens))
+        if reranker is None:
+            reranker = TeiReranker(
+                self._clients.get(endpoint),
+                model=model,
+                batch_size=self._batch_size,
+                max_chunk_tokens=max_tokens,
+            )
+            self._rerankers[(endpoint, model, max_tokens)] = reranker
+        return reranker
+
+    async def aclose(self) -> None:
+        await self._clients.aclose()
+
+
+async def _request(
+    client: httpx.AsyncClient,
+    method: str,
+    path: str,
+    payload: Mapping[str, JsonValue] | None,
+    *,
+    server: str,
+) -> bytes:
+    """TEI에 요청 하나를 보내 본문을 돌려준다. `server`는 오류 메시지에 쓰는 말이다. 서버가 보낸
+    메시지는 옮기지 않는다."""
+    try:
+        response = await client.request(method, path, json=payload)
+    except httpx.RequestError:
+        raise TransientFailure(
+            ErrorCode.EMBEDDING_UNAVAILABLE, f"{server}에 연결하지 못했거나 응답이 늦었다"
+        ) from None
+    if response.is_success:
+        return response.content
+    if path != "/info" and response.status_code in _REJECTED_STATUSES:
+        raise PermanentFailure(
+            ErrorCode.EMBEDDING_REJECTED,
+            f"{server}가 요청을 거부했다(HTTP {response.status_code})",
+        )
+    raise TransientFailure(
+        ErrorCode.EMBEDDING_UNAVAILABLE,
+        f"{server}가 요청을 처리하지 못했다(HTTP {response.status_code})",
+    )
 
 
 def _batches(texts: Sequence[str], *, size: int, max_bytes: int) -> list[list[str]]:
@@ -316,15 +456,28 @@ def _joined(pieces: Sequence[str], tokens_of: Sequence[list[_Token]]) -> list[_T
     return joined
 
 
-def _parse[T](model: type[T] | TypeAdapter[T], content: bytes) -> T:
+def _scores(ranks: Sequence[_Rank], expected_count: int) -> list[float]:
+    """리랭크 응답은 점수 순이라 `index`로 입력 순서를 되살린다. 순번이 글과 맞지 않거나 점수가
+    유한하지 않으면(NaN은 순서를 정할 수 없고 검색 결과의 점수로도 낼 수 없다) 응답 형식이 어긋난
+    것이다."""
+    ordered = sorted(ranks, key=lambda rank: rank.index)
+    if [rank.index for rank in ordered] != list(range(expected_count)):
+        raise _malformed_response(server=_RERANKER)
+    scores = [rank.score for rank in ordered]
+    if not all(math.isfinite(score) for score in scores):
+        raise _malformed_response(server=_RERANKER)
+    return scores
+
+
+def _parse[T](
+    model: type[T] | TypeAdapter[T], content: bytes, *, server: str = _EMBEDDING_SERVER
+) -> T:
     adapter = model if isinstance(model, TypeAdapter) else TypeAdapter(model)
     try:
         return adapter.validate_json(content)
     except ValidationError:
-        raise _malformed_response() from None
+        raise _malformed_response(server=server) from None
 
 
-def _malformed_response() -> TransientFailure:
-    return TransientFailure(
-        ErrorCode.EMBEDDING_UNAVAILABLE, "임베딩 서버의 응답 형식이 맞지 않는다"
-    )
+def _malformed_response(*, server: str = _EMBEDDING_SERVER) -> TransientFailure:
+    return TransientFailure(ErrorCode.EMBEDDING_UNAVAILABLE, f"{server}의 응답 형식이 맞지 않는다")
