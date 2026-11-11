@@ -190,15 +190,15 @@ expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 �
 
 [[mutation.edit]]
 file = "src/rag_engine/app/index_document.py"
-old = '''        await _hold(transaction, job)
-        if document is None or document.generation != claim.generation:
-            return
-        if document.status is not DocumentStatus.PARSED:
+old = '''            await hold_attempt(transaction, job)
+            if document is None or document.generation != claim.generation:
+                return failure_code
+            if document.status is not DocumentStatus.PARSED:
 '''
-new = '''        await _hold(transaction, job)
-        if document is None:
-            return
-        if document.status is not DocumentStatus.PARSED:
+new = '''            await hold_attempt(transaction, job)
+            if document is None:
+                return failure_code
+            if document.status is not DocumentStatus.PARSED:
 '''
 
 [[mutation]]

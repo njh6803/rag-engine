@@ -4,7 +4,7 @@
 UPDATE` 한 문장으로 있는 행을 다시 쓴다. 있는지 보는 일과 넣는 일이 한 문장이어야 같은 문서에 동시에
 넣어도 대기 작업이 둘이 되지 않는다. 알림(`NOTIFY rag_jobs`)은 PostgreSQL이 커밋 때 보낸다.
 
-다시 예약하기(12)와 임대 연장(13)은 이 어댑터에 아직 없다.
+임대 연장(13)은 이 어댑터에 아직 없다.
 """
 
 from datetime import datetime, timedelta
@@ -53,8 +53,9 @@ def _job(row: sa.RowMapping) -> Job:
 
 def _attempt_of(job: Job) -> list[sa.ColumnElement[bool]]:
     """이 시도가 쓴 작업 행만 고르는 조건. 임대가 끝나 다른 작업자가 가져간 작업(작업자 ID나 시도
-    횟수가 다르다)은 고르지 않는다. 지식베이스 행을 잠금 순서에 맞게 작업 행 앞에서 잠그는 일은 14가
-    한다."""
+    횟수가 다르다)은 고르지 않는다. 지식베이스 행을 잠금 순서에 맞게 작업 행 앞에서 잠그는 것은
+    부르는 쪽의 몫이다(다시 예약하기와 재시도 소진은 `app/job_failure.py`가 잠근다. 색인 작업 자신의
+    작업 단위가 잠그는 일은 14가 한다)."""
     return [
         tables.jobs.c.id == job.id,
         tables.jobs.c.worker_id == job.worker_id,
@@ -159,8 +160,47 @@ class PostgresJobQueue:
             )
         )
 
-    async def reschedule(self, job: Job, run_after: datetime, error_code: ErrorCode) -> None:
-        raise NotImplementedError(_NOT_YET)
+    async def reschedule(self, job: Job, run_after: datetime, error_code: ErrorCode) -> bool:
+        jobs = tables.jobs
+        other = jobs.alias("other")
+        no_other_queued = ~sa.exists().where(
+            other.c.document_id == jobs.c.document_id,
+            other.c.status == JobStatus.QUEUED.value,
+            other.c.id != jobs.c.id,
+        )
+        rescheduled = await self._connection.execute(
+            sa.update(jobs)
+            .where(*_attempt_of(job), no_other_queued)
+            .values(
+                status=JobStatus.QUEUED.value,
+                run_after=run_after,
+                last_error_code=error_code.value,
+                leased_until=None,
+                worker_id=None,
+                raised_generation=None,
+            )
+            .returning(jobs.c.id)
+        )
+        return rescheduled.first() is not None
+
+    async def has_other_job_from_start(self, document_id: UUID, excluding_job_id: UUID) -> bool:
+        jobs = tables.jobs
+        found = await self._connection.execute(
+            sa.select(jobs.c.id)
+            .where(
+                jobs.c.document_id == document_id,
+                jobs.c.id != excluding_job_id,
+                sa.or_(
+                    jobs.c.status == JobStatus.QUEUED.value,
+                    sa.and_(
+                        jobs.c.status == JobStatus.RUNNING.value,
+                        jobs.c.raised_generation.is_(None),
+                    ),
+                ),
+            )
+            .limit(1)
+        )
+        return found.first() is not None
 
     async def extend_lease(self, job: Job, leased_until: datetime) -> None:
         raise NotImplementedError(_NOT_YET)

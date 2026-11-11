@@ -1,0 +1,342 @@
+# core 12(일시 실패의 재시도, 재시도 소진, 오류 번역)가 더한 시험 가운데 처음부터 초록이던 것의 변이.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/retries_mutations.toml
+
+[[mutation]]
+name = "백오프에 한 시간 상한이 없다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["7680.0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/retry_policy.py"
+old = '''        return timedelta(seconds=min(seconds, MAX_BACKOFF_SECONDS))
+'''
+new = '''        return timedelta(seconds=seconds)
+'''
+
+[[mutation]]
+name = "백오프가 네 배가 아니라 두 배씩 는다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["60.0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/retry_policy.py"
+old = '''_GROWTH: Final = 4
+'''
+new = '''_GROWTH: Final = 2
+'''
+
+[[mutation]]
+name = "시도를 다 쓴 판정이 한 번 늦다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["'queued'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/retry_policy.py"
+old = '''        return attempts >= self.max_attempts
+'''
+new = '''        return attempts > self.max_attempts
+'''
+
+[[mutation]]
+name = "다시 예약이 같은 문서의 다른 대기 작업을 보지 않는다"
+tests = ["tests/adapters/test_job_queue_reschedule.py", "tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["UniqueViolation"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''            .where(*_attempt_of(job), no_other_queued)
+'''
+new = '''            .where(*_attempt_of(job))
+'''
+
+[[mutation]]
+name = "재시도 소진이 처음부터 맡을 다른 작업을 보지 않는다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["<IndexStateStatus.FAILED: 'failed'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/job_failure.py"
+old = '''    if await transaction.jobs.has_other_job_from_start(document.id, job.id):
+        return False
+'''
+new = ''
+
+[[mutation]]
+name = "재시도 소진이 올린 세대를 대 보지 않는다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["Left contains 1 more item"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/job_failure.py"
+old = '''    return raised is None or raised == document.generation
+'''
+new = '''    return True
+'''
+
+[[mutation]]
+name = "재시도 소진이 지운 문서에도 쓴다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["Full output truncated"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/job_failure.py"
+old = '''    if document.deleted_at is not None or document.purged_at is not None:
+        return False
+'''
+new = ''
+
+[[mutation]]
+name = "재시도 소진이 지금 내용으로 색인된 판도 지운다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["Differing items"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/job_failure.py"
+old = '''    return (
+        state.status is IndexStateStatus.INDEXED
+        and state.built_content_hash != document.content_hash
+    )
+'''
+new = '''    return True
+'''
+
+[[mutation]]
+name = "내용이 바뀐 문서의 옛 조각을 재시도 소진이 남긴다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["assert ['"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/job_failure.py"
+old = '''        and state.built_content_hash != document.content_hash
+'''
+new = '''        and state.built_content_hash is None
+'''
+
+[[mutation]]
+name = "다시 예약이 지식베이스 행을 잠그지 않는다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["built-in method done of _asyncio.Task"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/job_failure.py"
+old = '''            await _lock_knowledge_bases(transaction, document.group_id, LockMode.SHARE)
+'''
+new = '''            pass
+'''
+
+[[mutation]]
+name = "다시 예약이 지식베이스 행을 공유가 아니라 갱신으로 잠근다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["TimeoutError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/job_failure.py"
+old = '''            await _lock_knowledge_bases(transaction, document.group_id, LockMode.SHARE)
+'''
+new = '''            await _lock_knowledge_bases(transaction, document.group_id, LockMode.UPDATE)
+'''
+
+[[mutation]]
+name = "재시도 소진이 지식베이스 행을 공유로만 잠근다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["built-in method done of _asyncio.Task"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/job_failure.py"
+old = '''            versions = await _lock_knowledge_bases(transaction, document.group_id, LockMode.UPDATE)
+'''
+new = '''            versions = await _lock_knowledge_bases(transaction, document.group_id, LockMode.SHARE)
+'''
+
+[[mutation]]
+name = "어느 갈래에도 들지 않는 예외를 다시 예약한다"
+tests = ["tests/app/test_job_retry.py", "tests/app/test_process_job.py"]
+expect = "red"
+expect_output = ["'queued'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''        return await _settle(deps, job, timer, ErrorCode.INTERNAL_ERROR, exhaust)
+'''
+new = '''        return await _settle(deps, job, timer, ErrorCode.INTERNAL_ERROR, settle_transient_failure)
+'''
+
+[[mutation]]
+name = "임베딩 영구 실패한 판에 failed를 쓰지 않는다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["KeyError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''            for version, code in rejected:
+                await mark_version_failed(transaction, document.id, version, code, deps.now())
+'''
+new = ''
+
+[[mutation]]
+name = "임베딩 영구 실패한 시도의 작업을 failed로 끝내지 않는다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["'succeeded'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''    failure_code = rejected[-1][1] if rejected else None
+'''
+new = '''    failure_code = None
+'''
+
+[[mutation]]
+name = "실패한 시도가 파싱 지연을 싣지 않는다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["assert 0.0 > 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''        result: IndexResult = await index_document(deps, job, timer)
+'''
+new = '''        result: IndexResult = await index_document(deps, job)
+'''
+
+[[mutation]]
+name = "처음부터 맡을 다른 작업에 올린 세대가 찬 실행 중 작업도 센다"
+tests = ["tests/adapters/test_job_queue_reschedule.py", "tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["assert True is False"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''                    sa.and_(
+                        jobs.c.status == JobStatus.RUNNING.value,
+                        jobs.c.raised_generation.is_(None),
+                    ),
+'''
+new = '''                    jobs.c.status == JobStatus.RUNNING.value,
+'''
+
+[[mutation]]
+name = "작업 단위가 SQLSTATE 08 클래스를 일시 오류로 보지 않는다"
+tests = ["tests/adapters/test_postgres_error_translation.py"]
+expect = "red"
+expect_output = ["sqlalchemy.exc.OperationalError: (psycopg.errors.ConnectionException)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/error_translation.py"
+old = '''    return sqlstate.startswith(_CONNECTION_CLASS) or sqlstate in _TRANSIENT_SQLSTATES
+'''
+new = '''    return sqlstate in _TRANSIENT_SQLSTATES
+'''
+
+[[mutation]]
+name = "작업 단위가 교착을 일시 오류로 보지 않는다"
+tests = ["tests/adapters/test_postgres_error_translation.py"]
+expect = "red"
+expect_output = ["psycopg.errors.DeadlockDetected"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/error_translation.py"
+old = '''_TRANSIENT_SQLSTATES: Final = frozenset({"40001", "40P01", "57P01", "57P02", "57P03"})
+'''
+new = '''_TRANSIENT_SQLSTATES: Final = frozenset({"40001", "57P01", "57P02", "57P03"})
+'''
+
+[[mutation]]
+name = "작업 단위가 SQLSTATE 없는 연결 오류를 일시 오류로 보지 않는다"
+tests = ["tests/adapters/test_postgres_error_translation.py"]
+expect = "red"
+expect_output = ["sqlalchemy.exc.OperationalError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/error_translation.py"
+old = '''        return isinstance(original, psycopg.OperationalError | psycopg.InterfaceError)
+'''
+new = '''        return False
+'''
+
+[[mutation]]
+name = "작업 단위가 SQLSTATE 없는 DataError까지 일시 오류로 본다"
+tests = ["tests/adapters/test_postgres_error_translation.py"]
+expect = "red"
+expect_output = ["TransientFailure: 데이터베이스를 잠시 쓸 수 없다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/error_translation.py"
+old = '''        return isinstance(original, psycopg.OperationalError | psycopg.InterfaceError)
+'''
+new = '''        return True
+'''
+
+[[mutation]]
+name = "번역한 예외가 드라이버 예외의 메시지를 옮긴다"
+tests = ["tests/adapters/test_postgres_error_translation.py"]
+expect = "red"
+expect_output = ["is contained here"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/error_translation.py"
+old = '''    return TransientFailure(ErrorCode.DATABASE_UNAVAILABLE, "데이터베이스를 잠시 쓸 수 없다")
+'''
+new = '''    return TransientFailure(ErrorCode.DATABASE_UNAVAILABLE, str(error))
+'''
+
+[[mutation]]
+name = "백오프의 지수에 상한이 없다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["OverflowError: int too large to convert to float"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/retry_policy.py"
+old = '''        exponent = min(attempts - 1, _MAX_EXPONENT)
+'''
+new = '''        exponent = attempts - 1
+'''
+
+[[mutation]]
+name = "예외로 끝난 시도의 임베딩 지연을 더하지 않는다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["assert 0.0 > 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''    finally:
+        timer.embedding_ms += _elapsed_ms(started)
+'''
+new = '''    finally:
+        pass
+    timer.embedding_ms += _elapsed_ms(started)
+'''
+
+[[mutation]]
+name = "예외로 끝난 시도의 파싱 지연을 더하지 않는다"
+tests = ["tests/app/test_job_retry.py"]
+expect = "red"
+expect_output = ["assert 0.0 > 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''    try:
+        return await _parse_and_save(deps, job, claim)
+    finally:
+        timer.parse_ms += _elapsed_ms(started)
+'''
+new = '''    result = await _parse_and_save(deps, job, claim)
+    timer.parse_ms += _elapsed_ms(started)
+    return result
+'''

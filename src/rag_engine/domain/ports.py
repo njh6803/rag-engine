@@ -271,7 +271,8 @@ class VectorIndex(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class JobOutcome:
-    """작업이 끝난 모양. 작업의 상태는 그 작업이 끝난 모양이지 문서의 색인 결과가 아니다."""
+    """한 시도가 끝나고 작업이 놓인 상태(`succeeded`, `failed`, 다시 예약했으면 `queued`). 작업의
+    상태는 그 시도의 결과이지 문서의 색인 결과가 아니다."""
 
     status: JobStatus
     error_code: ErrorCode | None
@@ -308,7 +309,19 @@ class JobQueue(Protocol):
 
     async def finish(self, job: Job, outcome: JobOutcome, now: datetime) -> None: ...
 
-    async def reschedule(self, job: Job, run_after: datetime, error_code: ErrorCode) -> None: ...
+    async def reschedule(self, job: Job, run_after: datetime, error_code: ErrorCode) -> bool:
+        """일시 실패한 시도의 작업을 `queued`로 되돌려 `run_after`와 마지막 오류 코드를 두고 임대와
+        작업자와 올린 세대를 비운다(시도 횟수는 둔다). 같은 문서에 다른 대기 작업이 있거나 이
+        시도가 쓴 작업 행이 아니면 아무것도 쓰지 않고 `False`다. 같은 문서의 대기 작업은 부분 유일
+        색인으로 하나라서, 되돌리는 일과 다른 대기 작업을 보는 일이 한 문장이어야 해 조회와 변경을
+        나누지 않는다(`CODING_STANDARDS.md`의 CQS에 대한 의도한 예외다). 문서 행과 지식베이스
+        행(`SHARE`)을 잠근 뒤 `hold_attempt` 다음에 부른다."""
+        ...
+
+    async def has_other_job_from_start(self, document_id: UUID, excluding_job_id: UUID) -> bool:
+        """그 문서를 처음부터 맡을 다른 작업이 있는지 본다. 대기 작업과, 실행 중이면서 올린 세대가
+        빈 작업이다. 올린 세대가 채워진 실행 중 작업은 세지 않는다(재시도 소진의 판정)."""
+        ...
 
     async def extend_lease(self, job: Job, leased_until: datetime) -> None: ...
 

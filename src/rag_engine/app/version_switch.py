@@ -1,8 +1,9 @@
 """전환 검사의 자리(명세 "수집 파이프라인과 작업").
 
 건설 중인 판에서 문서의 색인 상태를 쓰거나 지운 작업 단위가 그 뒤에 부른다. 부르는 곳은 색인
-작업(`index_document`)의 색인 상태 쓰기와 파싱 영구 실패, 그룹을 바꾸는 수집(`ingest`)의 색인 상태
-지우기, 삭제(`delete_document`)의 색인 상태 지우기다. 같은 내용의 되살림(`ingest._restore_chunks`)은
+작업(`index_document`)의 색인 상태 쓰기, 파싱과 임베딩의 영구 실패와 재시도 소진(셋 다
+`index_failure.mark_version_failed`를 거친다), 그룹을 바꾸는 수집(`ingest`)의 색인 상태 지우기,
+삭제(`delete_document`)의 색인 상태 지우기다. 같은 내용의 되살림(`ingest._restore_chunks`)은
 건설 중인 판에 `indexed`를 써도 부르지 않는다(까닭은 티켓 14의 07이 넘긴 것 항목).
 """
 

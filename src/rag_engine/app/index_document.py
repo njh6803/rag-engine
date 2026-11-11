@@ -14,12 +14,15 @@
 문서에 쓰는 작업 단위는 모두 문서 행을 먼저, 작업 행을 마지막에 잠근다. 작업 행 조건이 어긋나면
 (임대가 끝나 다른 작업자가 가져갔다) `AttemptLostError`를 올려 그 작업 단위를 롤백한다. 세대가
 첫째 단계에서 올린 값과 다르면(그사이 수집·삭제나 뒤에 시작한 작업이 세대를 올렸다) 문서에 쓰지
-않고 성공으로 끝낸다. 새 상태는 세대를 올린 쪽이 맞춘다. 파싱의 영구 실패만 예외다. 그때도 문서와
-색인에는 쓰지 않지만 실패를 그대로 올리므로 작업은 `failed`로 끝난다(아래).
+않고 성공으로 끝낸다. 새 상태는 세대를 올린 쪽이 맞춘다. 영구 실패는 예외다. 파싱의 영구 실패와
+(셋째 단계에서 이미 알아낸) 임베딩의 영구 실패는 세대가 달라 문서와 색인에 쓰지 않을 때도 그
+실패를 작업의 결과로 올리므로 작업은 `failed`로 끝난다(아래).
 
 파싱이 영구 실패하면 둘째 단계가 문서와 색인에 그 실패를 적고(`_record_permanent_failure`) 실패를
-그대로 올려 작업자가 작업을 재시도 없이 `failed`로 끝낸다. 실패 분류와 재시도(12), 전환 검사(14),
-임대 연장(13)은 뒤 티켓이 채운다. 임베딩 쪽의 영구·일시 실패 예외는 지금은 그대로 올린다.
+그대로 올려 작업자가 작업을 재시도 없이 `failed`로 끝낸다. 임베딩이 영구 실패한 판은 그 판만
+`failed`로 쓰고(`mark_version_failed`) 남은 판을 끝까지 처리한 뒤 작업을 그 오류 코드로 끝낸다.
+일시 실패는 그대로 올리고, 작업자가 `job_failure`로 다시 예약하거나 재시도를 다 썼으면 그쪽에서
+끝낸다. 임대 연장(13)은 뒤 티켓이 채운다.
 """
 
 import hashlib
@@ -29,7 +32,10 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from uuid import UUID
 
+from rag_engine.app.index_failure import mark_version_failed
+from rag_engine.app.job_attempt import hold_attempt
 from rag_engine.app.live_versions import live_index_versions
+from rag_engine.app.retry_policy import RetryPolicy
 from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import (
     Block,
@@ -44,7 +50,7 @@ from rag_engine.domain.entities import (
     Job,
     JobStatus,
 )
-from rag_engine.domain.errors import AttemptLostError, PermanentFailure
+from rag_engine.domain.errors import ErrorCode, PermanentFailure
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.parsing import ParseRunner, ParserVersion
 from rag_engine.domain.ports import (
@@ -53,7 +59,6 @@ from rag_engine.domain.ports import (
     EmbedderFor,
     JobOutcome,
     KeywordTokenizer,
-    Transaction,
     UnitOfWork,
 )
 
@@ -71,6 +76,7 @@ class IndexDocumentDeps:
     chunker_for: ChunkerFor
     tokenize_keywords: KeywordTokenizer
     now: Callable[[], datetime]
+    retry: RetryPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,16 +109,20 @@ class _Claim:
 
 
 @dataclass(slots=True)
-class _Timer:
+class IndexTimer:
+    """단계별 지연을 쌓는다. 실패로 끝난 시도도 그때까지의 지연을 남기도록 부르는 쪽이 만들어
+    건넨다."""
+
     parse_ms: float = 0.0
     embedding_ms: float = 0.0
     write_ms: float = 0.0
 
-    def result(self) -> IndexResult:
-        return IndexResult(
-            outcome=JobOutcome(JobStatus.SUCCEEDED, None),
-            timings=IndexTimings(self.parse_ms, self.embedding_ms, self.write_ms),
-        )
+    def timings(self) -> IndexTimings:
+        return IndexTimings(self.parse_ms, self.embedding_ms, self.write_ms)
+
+    def result(self, failure: ErrorCode | None = None) -> IndexResult:
+        status = JobStatus.SUCCEEDED if failure is None else JobStatus.FAILED
+        return IndexResult(outcome=JobOutcome(status, failure), timings=self.timings())
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,23 +139,26 @@ def _elapsed_ms(started: float) -> float:
     return (time.perf_counter() - started) * _MS_PER_SECOND
 
 
-async def index_document(deps: IndexDocumentDeps, job: Job) -> IndexResult:
-    timer = _Timer()
+async def index_document(
+    deps: IndexDocumentDeps, job: Job, timer: IndexTimer | None = None
+) -> IndexResult:
+    """`timer`를 주면 예외로 끝난 시도의 지연도 부른 쪽이 그 timer에서 읽는다."""
+    timer = timer or IndexTimer()
     claim = await _raise_generation(deps, job)
     if claim is None:
         return timer.result()
     content = await _ensure_parsed(deps, job, claim, timer)
     if content is None:
         return timer.result()
-    await _replace_chunks(deps, job, claim, content, timer)
-    return timer.result()
+    failure = await _replace_chunks(deps, job, claim, content, timer)
+    return timer.result(failure)
 
 
 async def _raise_generation(deps: IndexDocumentDeps, job: Job) -> _Claim | None:
     """첫째 단계. 지워진 문서면 `None`이다."""
     async with deps.unit_of_work.begin() as transaction:
         document = await transaction.documents.lock(job.document_id)
-        await _hold(transaction, job)
+        await hold_attempt(transaction, job)
         if document is None or document.deleted_at is not None or document.purged_at is not None:
             return None
         generation = document.generation + 1
@@ -162,13 +175,8 @@ async def _raise_generation(deps: IndexDocumentDeps, job: Job) -> _Claim | None:
         )
 
 
-async def _hold(transaction: Transaction, job: Job) -> None:
-    if not await transaction.jobs.hold_attempt(job):
-        raise AttemptLostError
-
-
 async def _ensure_parsed(
-    deps: IndexDocumentDeps, job: Job, claim: _Claim, timer: _Timer
+    deps: IndexDocumentDeps, job: Job, claim: _Claim, timer: IndexTimer
 ) -> DocumentContent | None:
     """둘째 단계. 세대 대조에 걸리면 `None`이다."""
     async with deps.unit_of_work.begin() as transaction:
@@ -178,12 +186,22 @@ async def _ensure_parsed(
     ):
         return saved
     started = time.perf_counter()
+    try:
+        return await _parse_and_save(deps, job, claim)
+    finally:
+        timer.parse_ms += _elapsed_ms(started)
+
+
+async def _parse_and_save(
+    deps: IndexDocumentDeps, job: Job, claim: _Claim
+) -> DocumentContent | None:
+    """원본을 읽어 파싱하고 결과를 쓴다. 어떻게 끝나든 호출한 쪽이 걸린 시간을 `parse_ms`에
+    더한다."""
     data = await deps.blob_store.read(claim.blob_path)
     try:
         parsed = await deps.parse_runner.parse(data, claim.mime)
     except PermanentFailure as failure:
         await _record_permanent_failure(deps, job, claim, failure)
-        timer.parse_ms += _elapsed_ms(started)
         raise
     content = DocumentContent(
         document_id=job.document_id,
@@ -197,9 +215,8 @@ async def _ensure_parsed(
     )
     async with deps.unit_of_work.begin() as transaction:
         document = await transaction.documents.lock(job.document_id)
-        await _hold(transaction, job)
+        await hold_attempt(transaction, job)
         if document is None or document.generation != claim.generation:
-            timer.parse_ms += _elapsed_ms(started)
             return None
         await transaction.documents.save_content(content)
         await transaction.documents.update(
@@ -210,7 +227,6 @@ async def _ensure_parsed(
                 modified_at=deps.now(),
             )
         )
-    timer.parse_ms += _elapsed_ms(started)
     return content
 
 
@@ -224,7 +240,7 @@ async def _record_permanent_failure(
     끝난다."""
     async with deps.unit_of_work.begin() as transaction:
         document = await transaction.documents.lock(job.document_id)
-        await _hold(transaction, job)
+        await hold_attempt(transaction, job)
         if document is None or document.generation != claim.generation:
             return
         await transaction.documents.update(
@@ -236,20 +252,7 @@ async def _record_permanent_failure(
             )
         )
         for version in await live_index_versions(transaction, claim.group_id):
-            await transaction.index.delete_chunks(document.id, version.id)
-            await transaction.index.save_state(
-                IndexState(
-                    document_id=document.id,
-                    index_version_id=version.id,
-                    status=IndexStateStatus.FAILED,
-                    chunk_count=0,
-                    built_content_hash=None,
-                    error_code=failure.code,
-                    updated_at=deps.now(),
-                )
-            )
-            if version.status is IndexVersionStatus.BUILDING:
-                await check_version_switch(transaction, version)
+            await mark_version_failed(transaction, document.id, version, failure.code, deps.now())
 
 
 def _is_reusable(saved: DocumentContent, content_hash: str, current: ParserVersion | None) -> bool:
@@ -267,65 +270,82 @@ def _text_hash(blocks: Sequence[Block]) -> str:
 
 
 async def _replace_chunks(
-    deps: IndexDocumentDeps, job: Job, claim: _Claim, content: DocumentContent, timer: _Timer
-) -> None:
-    """셋째 단계. 판마다 재료를 만든 뒤 작업 단위 하나에서 세대를 대조하고 모두 바꾼다."""
+    deps: IndexDocumentDeps, job: Job, claim: _Claim, content: DocumentContent, timer: IndexTimer
+) -> ErrorCode | None:
+    """셋째 단계. 판마다 재료를 만든 뒤 작업 단위 하나에서 세대를 대조하고 모두 바꾼다. 어느 판의
+    임베딩이 영구 실패했으면 그 판의 계산은 건너뛰고 남은 판을 이어 가며, 마지막 영구 실패의 코드를
+    낸다(작업이 그 코드로 `failed`가 된다). 남은 판에서 일시 실패가 나면 아무것도 쓰기 전에 그
+    예외가 올라가 시도 전체가 일시 실패다."""
     async with deps.unit_of_work.begin() as transaction:
         versions = await live_index_versions(transaction, claim.group_id)
     started = time.perf_counter()
-    prepared = [await _prepare(deps, version, content.blocks) for version in versions]
-    timer.embedding_ms += _elapsed_ms(started)
+    prepared: list[_Prepared] = []
+    rejected: list[tuple[IndexVersion, ErrorCode]] = []
+    try:
+        for version in versions:
+            try:
+                prepared.append(await _prepare(deps, version, content.blocks))
+            except PermanentFailure as failure:
+                rejected.append((version, failure.code))
+    finally:
+        timer.embedding_ms += _elapsed_ms(started)
+    failure_code = rejected[-1][1] if rejected else None
 
     started = time.perf_counter()
-    async with deps.unit_of_work.begin() as transaction:
-        document = await transaction.documents.lock(job.document_id)
-        await _hold(transaction, job)
-        if document is None or document.generation != claim.generation:
-            return
-        if document.status is not DocumentStatus.PARSED:
-            await transaction.documents.update(
-                replace(
-                    document,
-                    status=DocumentStatus.PARSED,
-                    error_code=None,
-                    modified_at=deps.now(),
+    try:
+        async with deps.unit_of_work.begin() as transaction:
+            document = await transaction.documents.lock(job.document_id)
+            await hold_attempt(transaction, job)
+            if document is None or document.generation != claim.generation:
+                return failure_code
+            if document.status is not DocumentStatus.PARSED:
+                await transaction.documents.update(
+                    replace(
+                        document,
+                        status=DocumentStatus.PARSED,
+                        error_code=None,
+                        modified_at=deps.now(),
+                    )
                 )
-            )
-        for material in prepared:
-            chunks = [
-                Chunk(
-                    id=new_id(),
-                    document_id=document.id,
-                    index_version_id=material.version.id,
-                    ordinal=ordinal,
-                    text=draft.text,
-                    token_count=draft.token_count,
-                    location=draft.location,
-                    embedding=material.embeddings[ordinal],
-                    keyword_text=material.keyword_texts[ordinal],
-                    source_content_hash=document.content_hash,
-                    group_id=document.group_id,
-                    updated_at=document.updated_at,
-                    effective_date=document.effective_date,
-                    access_groups=document.access_groups,
+            for version, code in rejected:
+                await mark_version_failed(transaction, document.id, version, code, deps.now())
+            for material in prepared:
+                chunks = [
+                    Chunk(
+                        id=new_id(),
+                        document_id=document.id,
+                        index_version_id=material.version.id,
+                        ordinal=ordinal,
+                        text=draft.text,
+                        token_count=draft.token_count,
+                        location=draft.location,
+                        embedding=material.embeddings[ordinal],
+                        keyword_text=material.keyword_texts[ordinal],
+                        source_content_hash=document.content_hash,
+                        group_id=document.group_id,
+                        updated_at=document.updated_at,
+                        effective_date=document.effective_date,
+                        access_groups=document.access_groups,
+                    )
+                    for ordinal, draft in enumerate(material.drafts)
+                ]
+                await transaction.index.replace_chunks(document.id, material.version.id, chunks)
+                await transaction.index.save_state(
+                    IndexState(
+                        document_id=document.id,
+                        index_version_id=material.version.id,
+                        status=IndexStateStatus.INDEXED,
+                        chunk_count=len(chunks),
+                        built_content_hash=document.content_hash,
+                        error_code=None,
+                        updated_at=deps.now(),
+                    )
                 )
-                for ordinal, draft in enumerate(material.drafts)
-            ]
-            await transaction.index.replace_chunks(document.id, material.version.id, chunks)
-            await transaction.index.save_state(
-                IndexState(
-                    document_id=document.id,
-                    index_version_id=material.version.id,
-                    status=IndexStateStatus.INDEXED,
-                    chunk_count=len(chunks),
-                    built_content_hash=document.content_hash,
-                    error_code=None,
-                    updated_at=deps.now(),
-                )
-            )
-            if material.version.status is IndexVersionStatus.BUILDING:
-                await check_version_switch(transaction, material.version)
-    timer.write_ms += _elapsed_ms(started)
+                if material.version.status is IndexVersionStatus.BUILDING:
+                    await check_version_switch(transaction, material.version)
+    finally:
+        timer.write_ms += _elapsed_ms(started)
+    return failure_code
 
 
 async def _prepare(
