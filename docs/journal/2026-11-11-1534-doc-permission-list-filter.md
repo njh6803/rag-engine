@@ -1,6 +1,6 @@
 # doc-permission 계획 고침: 지식베이스 목록을 주체로 거른다 · 2026-11-11
 
-사용자가 agent-os 쪽에서 정리한 글 둘을 한 번에 붙여 넣어 판정을 맡긴 세션의 기록이다. 지시문 없이 연 세션(Fable 5.2)이고, 브랜치는 `docs/doc-permission-list-filter`(티켓 없는 면제 PR. 기능 계획을 고치는 일), 작업은 워크트리 `doc-permission-list-filter`에서 했다. 준비, 사용자가 넘긴 것, 확인한 것, 물은 것과 답, 반영한 것, agent-os에 넘길 글, 셀프 리뷰, 회고, 검증, 다음을 차례로 둔다.
+사용자가 agent-os 쪽에서 정리한 글 둘을 한 번에 붙여 넣어 판정을 맡긴 세션의 기록이다. 지시문 없이 연 세션(Fable 5.2)이고, 브랜치는 `docs/doc-permission-list-filter`(티켓 없는 면제 PR. 기능 계획을 고치는 일), 작업은 워크트리 `doc-permission-list-filter`에서 했다. 준비, 사용자가 넘긴 것, 확인한 것, 물은 것과 답, 반영한 것, agent-os에 넘길 글, 셀프 리뷰, PR 봇 회차, 회고, 검증, 다음을 차례로 둔다.
 
 ## 준비
 
@@ -75,7 +75,7 @@
 
 사용자가 agent-os 쪽 세션에 붙여 넣을 글이다. 앞 글(전문 크기, 절의 제목)의 답은 앞 일지의 같은 절에 있고, 그 글의 3번이 말한 티켓 09는 그 뒤 PR 14로 병합되었다.
 
-> rag-engine이 판정했다(2026-11-11, `.scratch/doc-permission/plan.md` 본문, 브랜치 `docs/doc-permission-list-filter`).
+> rag-engine이 판정했다(2026-11-11, `.scratch/doc-permission/plan.md` 본문, PR njh6803/rag-engine#16).
 >
 > 1. 거른다. `list_knowledge_bases`는 토큰 범위 안에서 그 주체가 볼 수 있는 그룹이 하나라도 든 지식베이스만 내고, `document_count`도 그 주체가 볼 수 있는 문서만 센다. 다만 이것은 doc-permission(슬라이스 3, 1.0)이 들어온 뒤의 모양이다. 그 전의 rag-engine에는 접근 그룹이 없어 목록은 토큰의 지식베이스 범위로만 거르고, 같은 토큰을 쓰는 주체는 모두 같은 목록을 본다.
 > 2. 거르므로 해당하지 않는다. 다만 doc-permission 전의 기간에는 토큰 범위 안 지식베이스의 이름, 설명, 문서 수가 그 토큰을 쓰는 모든 주체에게 나간다. 그 기간에 주체마다 다른 목록이 필요하면, 이 서버 쪽에서는 지식베이스 범위가 다른 토큰을 따로 발급해 가를 수 있다(관리 API의 토큰 발급이 지식베이스 이름 배열을 받는다).
@@ -107,6 +107,22 @@ PR 직전 리뷰. 사용자가 PR을 열라고 한 뒤 커밋 382abe7에 `codera
 
 이 반영으로 새로 쓴 사실 문장(PR 봇이 밀 주장): "그 주체가 볼 수 없는 그룹의 이름은 없는 그룹 이름과 같은 빈 결과여야 한다"(지금은 없는 그룹 이름이 빈 결과라는 것만 계약 시험이 고정한다는 괄호와 함께), "접근 그룹이 그룹보다 잘게(문서마다) 정해지면 볼 수 있는 그룹은 있어도 볼 수 있는 문서가 하나도 없는 지식베이스가 문서 수 0으로 목록에 나와 그 이름이 드러나므로".
 
+## PR 봇 회차
+
+PR 16(`https://github.com/njh6803/rag-engine/pull/16`)을 헤드 f0c7e42로 열었다. `@coderabbitai review` 코멘트를 남기고 `tools/wait_ci.py 16`을 백그라운드로 띄웠고, 그 끝 줄은 모두 통과에 CodeRabbit `Finished`였다. `gh pr checks 16`으로 본 검사 여섯(CodeRabbit, claude-review, image, python, ticket, verify)도 모두 pass다.
+
+첫 회차의 보고(헤드 f0c7e42).
+- CodeRabbit: 고칠 지적이 없다. 요약 코멘트가 68aa7e0부터 f0c7e42까지의 네 파일을 봤다고 적고, 인라인 코멘트와 리뷰 본문은 없다(`gh api`로 읽은 PR의 인라인 코멘트 목록과 `gh pr view --json reviews`가 비었다). 같은 코멘트가 한 시간에 한 번인 포함 리뷰를 이 리뷰가 썼다고 적는다.
+- claude-review: Critical·Major 없음, Minor 둘. 하나는 계획의 "사용자가 넘긴 것" 문단(7행)이 시험 함수명 다섯, 괄호 단서 셋, 선택지 설명, 받는 것 셋을 한 문단에 품어 읽기 어렵다는 것이다(받는 것 셋은 목록으로 나누고 근거로 드는 시험은 따로 빼자고 했다). 둘은 계획 5행이 주체가 오지 않은 요청을 조건 없이 거부한다고 적고 9행은 접근 그룹을 쓰는 설치라는 조건을 달아, 한 파일 안에서 조건의 유무가 다르다는 것이다(첫 문단에 아래를 가리키는 포인터를 두자고 했다). 본 것으로는 계획 본문에 특정 클라이언트의 이름과 계획이 없다는 것, 받는 것 셋이 모두 읽기 도구라는 것, 계약 문서·계약 시험·판·ADR을 바꾸지 않았다는 것, 계획이 든 계약 시험 다섯의 함수명이 `tests/contract/`에 있다는 것, 용어집의 주체 항목이 접근 그룹을 쓰는 설치라는 조건을 이미 적는다는 것을 들었다.
+
+반영(고친 것). 첫 회차의 Minor는 지적마다 판단한다(`.claude/skills/next-session/merge.md`의 봇 회차). 둘 다 고쳤다.
+- 긴 문단. "사용자가 넘긴 것"을 문단 셋과 번호 목록 하나로 나눴다. 판정과 선택지의 조건, 받는 것 셋을 여는 문장, 받는 것 셋의 번호 목록, 둘째의 근거(계약 시험의 이름)다. 문장은 자리만 옮기고 뜻은 바꾸지 않았다. `filter.groups`의 요구 문장은 목록의 둘째에 두고, 지금은 없는 그룹 이름이 빈 결과라는 것을 고정하는 시험은 괄호에서 꺼내 근거 문단의 문장으로 옮겼다(셀프 리뷰 절 끝의 새로 쓴 사실 문장이 말한 괄호가 이것이다). 기능 계획 열둘(`.scratch/*/plan.md`)의 본문에 목록을 쓴 선례는 없었다(`grep -c`로 줄 머리의 목록 표시를 세어 열둘 모두 0이었다). 다만 `tools/plan_table.py`는 첫 줄과 그 뒤 첫 문단의 필드 줄만 읽고 본문의 모양은 보지 않는다(그 독스트링과 `docs/agents/issue-tracker.md`의 전체 계획 절을 읽었다).
+- 조건의 유무. 첫 문단의 그 문장 괄호에 아래 두 묶음("사용자가 넘긴 것", "설계 인터뷰가 정할 것")을 가리키는 포인터를 달았다. 셀프 리뷰가 명세 축 Nit으로 남긴 자리다. 그때 남긴 까닭(첫 줄을 고치면 생성 파일이 함께 바뀐다, 용어집은 승인 뒤에 고친다)은 첫 줄과 용어집의 것이고 첫 문단에 포인터를 다는 데에는 해당하지 않는다. 설치 조건을 첫 문단에 적어 뜻을 바꾸는 고침은 그 기준을 정할 설계 인터뷰의 몫이라 하지 않았고, 설계 인터뷰가 정할 것 문단에 괄호만 달아 두었다는 문장을 더했다.
+
+PR 본문. 이 반영으로 본문의 두 문장(계획 본문에 문단 둘을 더했다, 첫 문단을 고치지 않았다)이 지금 모양과 어긋나, 푸시하기 전에 `gh pr edit`으로 고친다(claude-review는 푸시마다 본문을 처음에 읽는다). 새 결정을 더한 커밋은 아니다.
+
+이 반영을 실은 커밋의 푸시로 도는 리뷰는 claude-review의 둘째 회차다. 그 보고와 판정은 이 일지에 다시 싣지 않고 PR 코멘트에 남긴다(같은 절차의 뒤로 넘긴 일). CodeRabbit은 한 시간에 한 번인 한도를 첫 회차가 썼다.
+
 ## 회고
 
 retro 스킬이 일지의 다음 절을 적은 계기로 돌았다. 후보 셋. 승인 하나(새 항목), 기각 하나, 일지에만 하나, 넘김 없음. 만료할 항목은 이 워크트리와 `--ref origin/main`의 두 출력 모두 없음. 이 세션에서 반영한 대기열 처방은 없다.
@@ -124,6 +140,8 @@ retro 스킬이 일지의 다음 절을 적은 계기로 돌았다. 후보 셋. 
 - 승인(회차). 대기열 client-name-in-spec-body 2회차. 기능 계획 본문에 클라이언트의 이름은 적지 않았지만 그 클라이언트의 동작과 주체 전달 설계를 서술했고, 표준 축 Minor가 원칙 III로 잡았다. 원칙 III는 늘 실리는 지침이라 그 지침을 어겨 리뷰가 잡은 사건으로 센다. 이름이 없는 꼴이라 그 항목이 처방한 낱말 목록 검사로는 잡히지 않는다는 것을 항목 본문에 적었다.
 - 기각. 명세 축 Minor 둘(수락 줄이 받는 것의 일부만 받음, 설계 인터뷰가 정할 것의 귀속)은 리뷰의 기준(명세의 누락과 주장 검증)이 잡은 것이라 회차로 세지 않는다. 수락 줄은 대기열 out-of-scope-receiver-unwritten과 닮았지만, 넘긴 것 셋은 받는 쪽인 계획 본문에 모두 있었고 수락 줄만 모자랐으므로 그 항목의 회차로도 세지 않는다.
 
+PR 봇 첫 회차 뒤에 더 본 것. 후보 하나, 기각. claude-review의 Minor 둘(읽기 어려운 긴 문단, 조건의 유무가 다른 두 문장)은 리뷰의 기준(유지보수성)이 잡은 것이고 구현 때 실리는 지침을 어긴 사건이 아니라 회차로 세지 않는다. 둘째는 셀프 리뷰가 이미 알고 남긴 자리다.
+
 ## 검증
 
 - 계약 시험 일곱을 손으로 돌렸다(워크트리, main 68aa7e0, 이미 떠 있던 테스트 PostgreSQL 컨테이너). 명령은 `uv run pytest tests/contract/test_search_tool.py tests/contract/test_read_tools.py -k "범위 or 볼_수_없는 or 없는_문서" -v`이고 `RAG_TEST_DATABASE_URL`을 내보냈다. 결과는 7 passed, 13 deselected(71.8초)다. 계획 본문이 이름으로 든 시험 셋이 그 일곱에 든다.
@@ -131,9 +149,14 @@ retro 스킬이 일지의 다음 절을 적은 계기로 돌았다. 후보 셋. 
 - 위 둘은 셀프 리뷰 전에 친 것이고, 리뷰 반영 뒤에 다시 친 결과는 셀프 리뷰 절의 다시 돌린 명령에 있다.
 - 커밋 382abe7의 pre-commit이 검사 러너를 돌렸다. test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright-linux, pyright, run-hooks, pytest(394.5초)가 모두 Passed이고, 표·줄 구분자·변이 표·인용(8건, 경고 없음)·커밋 메시지 훅도 Passed다. ruff check와 ruff format은 파이썬 파일이 없어 Skipped이고 헌법 판 검사도 해당 파일이 없어 Skipped다(Skipped는 실행이 아니다).
 - 바뀐 파일은 셀프 리뷰 뒤에 넷이 되었고(대기열 client-name-in-spec-body에 회차를 더했다) 모두 면제 모양(`.scratch/<slug>/plan.md`, `docs/journal/*.md`, `.scratch/retro-queue/*.md`)이다. `tools/check_ticket.py`는 색인을 보므로 스테이지하기 전인 지금은 돌리지 않았고, 검사 러너와 pytest 전체도 커밋 때 pre-commit이 돈다.
+- 커밋 f0c7e42의 pre-commit도 검사 러너를 돌렸다. test-db, zizmor, check-ticket, lint-imports, check-instructions, check-type-escapes, pyright-linux, pyright, run-hooks, pytest(380.6초)가 모두 Passed이고, 표·줄 구분자·변이 표·인용(2건, 경고 없음)·커밋 메시지 훅도 Passed다. ruff 둘과 헌법 판 검사는 앞 커밋처럼 Skipped라, ruff는 PR을 열기 전에 손으로 따로 쳤다(`uv run ruff check .`는 `All checks passed!`, `uv run ruff format --check .`는 `433 files already formatted`).
+- PR 16의 CI는 헤드 f0c7e42에서 검사 여섯이 모두 통과했다(PR 봇 회차 절).
+- 봇 첫 회차를 반영한 뒤 바뀐 파일 둘(계획, 이 일지)을 경로로 주어 문서 검사를 다시 쳤다. `tools/check_md_tables.py`와 `tools/check_line_separators.py`는 출력 없이 0, `tools/check_quotes.py --all-lines`는 인용 10건에 경고 없음, `tools/plan_table.py`는 출력 없이 끝났고 `.scratch/plan.md`는 바뀌지 않았다(`git status`), `tools/sibling_overlap.py`는 번호 겹침 없음과 함께 고친 파일 없음으로 0이다. 이 반영을 실은 커밋의 pre-commit 결과는 같은 커밋에 든 이 일지에 싣지 못해 PR 코멘트에 적는다.
 
 ## 다음
 
-- 사용자의 요청으로 커밋 둘(382abe7과 PR 직전 리뷰를 반영한 커밋)을 푸시하고 PR을 연다. 병합은 사용자가 정한다.
-- 위 "agent-os에 넘길 글"을 커밋 뒤에 사용자가 agent-os 쪽 세션에 붙여 넣는다. PR을 열면 글의 첫 줄에 그 번호를 더한다. agent-os의 kb-selection 계획은 그 답으로 Blocked by에 `rag-engine:doc-permission`을 더한다.
+- PR 16을 열었다(커밋 382abe7, f0c7e42, 그리고 봇 첫 회차를 반영한 커밋). 사용자의 요청은 PR을 여는 데까지였고, 병합은 PR을 연 뒤의 훅 계기와 `next-session`의 병합 절차(`merge.md`)가 PR을 연 세션의 일로 정해 이 세션이 워크트리 길로 squash 병합한다. 이 PR이 담은 결정(목록도 주체로 거르고 doc-permission이 맡는다)은 물은 것과 답의 질문 3에서 사용자가 정했다. 사용자에게는 병합을 직접 하려면 말해 달라고 알렸고, 이 줄을 쓰는 때까지 다른 말이 없었다.
+- 주 체크아웃 미갱신: 루트는 main(68aa7e0. 병합 전에 본 `git worktree list`의 첫 줄이다). 이 세션은 주 체크아웃을 당기지 않는다. 다음에 여는 세션이 워크트리에 들어가기 전에 `tidy-checkouts`로 당긴다.
+- 위 "agent-os에 넘길 글"을 사용자가 agent-os 쪽 세션에 붙여 넣는다. agent-os의 kb-selection 계획은 그 답으로 Blocked by에 `rag-engine:doc-permission`을 더한다.
 - doc-permission의 설계 인터뷰(admin 뒤)가 계획 본문의 "설계 인터뷰가 정할 것"을 받는다.
+- 병합 뒤의 다음 작업은 `next-session`의 결정표가 고른다. 이 PR은 티켓 없는 문서 PR이고 같은 주제로 남은 일이 없으며, 전체 계획의 프론티어는 core다(`.scratch/plan.md`).
