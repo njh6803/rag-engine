@@ -314,7 +314,8 @@ class JobQueue(Protocol):
         작업자와 올린 세대를 비운다(시도 횟수는 둔다). 같은 문서에 다른 대기 작업이 있거나 이
         시도가 쓴 작업 행이 아니면 아무것도 쓰지 않고 `False`다. 같은 문서의 대기 작업은 부분 유일
         색인으로 하나라서, 되돌리는 일과 다른 대기 작업을 보는 일이 한 문장이어야 해 조회와 변경을
-        나누지 않는다. 문서 행과 지식베이스 행(`SHARE`)을 잠근 뒤 `hold_attempt` 다음에 부른다."""
+        나누지 않는다(`CODING_STANDARDS.md`의 CQS에 대한 의도한 예외다). 문서 행과 지식베이스
+        행(`SHARE`)을 잠근 뒤 `hold_attempt` 다음에 부른다."""
         ...
 
     async def has_other_job_from_start(self, document_id: UUID, excluding_job_id: UUID) -> bool:

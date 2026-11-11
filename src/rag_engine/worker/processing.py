@@ -19,6 +19,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from enum import Enum, auto
 from typing import Final
 
 from rag_engine.adapters.log_format import log_event
@@ -41,14 +42,21 @@ _MS_PER_SECOND: Final = 1000.0
 type _Settle = Callable[[IndexDocumentDeps, Job, ErrorCode], Awaitable[JobOutcome]]
 
 
+class _JobRow(Enum):
+    """작업 행을 누가 쓰는가. 다시 예약하기와 재시도 소진은 잠금 순서 안에서 자기 작업 단위가 이미
+    쓰고(`WRITTEN`), 나머지는 `process_job`이 이어서 끝낸다(`PENDING`)."""
+
+    PENDING = auto()
+    WRITTEN = auto()
+
+
 @dataclass(frozen=True, slots=True)
 class _Settled:
-    """시도가 끝난 모양. `outcome`이 `None`이면 임대를 잃은 시도다. `recorded`는 작업 행을 이미
-    썼다는 뜻이다(다시 예약하기와 재시도 소진이 잠금 순서 안에서 쓴다)."""
+    """시도가 끝난 모양. `outcome`이 `None`이면 임대를 잃은 시도다."""
 
     outcome: JobOutcome | None
     timings: IndexTimings
-    recorded: bool = False
+    job_row: _JobRow = _JobRow.PENDING
 
 
 async def run_once(deps: IndexDocumentDeps, *, worker_id: str, lease_seconds: float) -> int:
@@ -76,7 +84,7 @@ async def process_job(deps: IndexDocumentDeps, job: Job) -> None:
     )
     settled = await _run(deps, job)
     outcome, timings = settled.outcome, settled.timings
-    if outcome is not None and not settled.recorded:
+    if outcome is not None and settled.job_row is _JobRow.PENDING:
         async with deps.unit_of_work.begin() as transaction:
             await transaction.jobs.finish(job, outcome, deps.now())
     log_event(
@@ -134,4 +142,4 @@ async def _settle(
         outcome = await settle(deps, job, code)
     except AttemptLostError:
         return _Settled(None, timer.timings())
-    return _Settled(outcome, timer.timings(), recorded=True)
+    return _Settled(outcome, timer.timings(), _JobRow.WRITTEN)
