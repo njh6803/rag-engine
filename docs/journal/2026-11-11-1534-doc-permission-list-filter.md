@@ -101,6 +101,12 @@
 
 이 반영으로 새로 쓴 사실 문장(다음 리뷰 층이 밀 주장): "이름을 주지 않아 기본 지식베이스로 가는 요청도 그 주체가 기본 지식베이스를 볼 수 없으면 같다", "토큰 범위에 대해서는 core가 이미 이렇게 하고 계약 시험 넷이 고정한다", "둘째의 도구별 문장과 셋째의 도구 셋은 설명에 글자로는 없고, 규칙을 넓힌다는 조건과 원칙 V에서 풀어 적은 것이다", "이 계획의 첫 줄과 첫 문단은 주체가 없는 요청을 설치 조건 없이 거부한다고 적고 첫 줄은 검색만 들며, `GLOSSARY.md`의 주체 항목은 주체를 검색을 요청한 쪽의 신원이라 적는다", "이 서버 쪽에서는 지식베이스 범위가 다른 토큰을 따로 발급해 가를 수 있다(관리 API의 토큰 발급이 지식베이스 이름 배열을 받는다)", "`filter.groups`에 없는 그룹 이름을 넣으면 오류가 아니라 빈 결과다", "세션 기록 파일의 첫 시각은 15:24다".
 
+PR 직전 리뷰. 사용자가 PR을 열라고 한 뒤 커밋 382abe7에 `coderabbit-review` 서브에이전트를 띄웠다(CodeRabbit CLI 0.7.5, `Plan: Free`, `Seat: not assigned`. 기준은 CLI가 스스로 잡은 origin/main이고 리뷰는 `review_completed`로 끝났다. 네 파일). 위 문단의 새로 쓴 사실 문장 가운데 코드에 닿는 넷을 브리프에 밀 주장으로 넘겼다. 보고(요지). CLI의 지적은 0건이다. 리뷰어가 직접 대 본 것에서 보류 둘(둘 다 Minor), 유효 0, 오탐 0. 하나: 목록에 내는 조건의 그룹이 무엇의 단위인지 정해져 있지 않다. 코드에는 `filter.groups`가 거르는 그룹과 문서·조각마다의 `access_groups` 칸이 따로 있어, 볼 수 있는 그룹은 있어도 볼 수 있는 문서가 하나도 없는 지식베이스가 문서 수 0으로 목록에 나오면 그 이름이 드러난다(원칙 V). 둘: 계획이 `filter.groups`를 다루지 않는다. 지금은 없는 그룹 이름도 빈 결과라 새는 길이 없지만, 주체 기준에서는 볼 수 없는 그룹 이름과 없는 그룹 이름이 같은 빈 결과라는 것이 `knowledge_base_not_found`의 규칙과 같은 층위의 요구다. 밀 주장 넷은 모두 코드와 맞다고 했다(계약 시험 넷은 이름이 있는 것만 봤고 본문은 열지 않았다고 적었다. 본문은 셀프 리뷰의 두 축과 이 세션이 읽었다).
+
+반영(고친 것). 계획의 설계 인터뷰가 정할 것에 PR 직전 리뷰가 더한 물음으로 목록에 내는 조건의 단위를 적었다(볼 수 있는 그룹이 든 지식베이스인지, 볼 수 있는 문서가 하나라도 있는 지식베이스인지. 접근 그룹을 어디서 정할지는 첫 문단이 이미 이 인터뷰에 넘긴 것이라 함께 정한다). 받는 것 둘째에 `filter.groups`의 문장을 더하고 수락 줄에도 넣었다. 둘 다 사용자가 고른 조건(범위 밖의 존재를 드러내지 않는 규칙을 주체 단위로 넓힌다)에서 풀어 적은 것이다. 용어집은 접근 그룹이 그룹에 붙는다고 적고(`GLOSSARY.md`의 그룹 항목) 코드는 문서와 조각에 `access_groups` 칸을 두는 것을 읽었다(`src/rag_engine/domain/entities.py`, 382abe7). `_group_ids`가 없는 이름을 빼는 것도 읽었다(`src/rag_engine/app/search.py`).
+
+이 반영으로 새로 쓴 사실 문장(PR 봇이 밀 주장): "그 주체가 볼 수 없는 그룹의 이름은 없는 그룹 이름과 같은 빈 결과여야 한다"(지금은 없는 그룹 이름이 빈 결과라는 것만 계약 시험이 고정한다는 괄호와 함께), "접근 그룹이 그룹보다 잘게(문서마다) 정해지면 볼 수 있는 그룹은 있어도 볼 수 있는 문서가 하나도 없는 지식베이스가 문서 수 0으로 목록에 나와 그 이름이 드러나므로".
+
 ## 회고
 
 retro 스킬이 일지의 다음 절을 적은 계기로 돌았다. 후보 셋. 승인 하나(새 항목), 기각 하나, 일지에만 하나, 넘김 없음. 만료할 항목은 이 워크트리와 `--ref origin/main`의 두 출력 모두 없음. 이 세션에서 반영한 대기열 처방은 없다.
@@ -123,10 +129,11 @@ retro 스킬이 일지의 다음 절을 적은 계기로 돌았다. 후보 셋. 
 - 계약 시험 일곱을 손으로 돌렸다(워크트리, main 68aa7e0, 이미 떠 있던 테스트 PostgreSQL 컨테이너). 명령은 `uv run pytest tests/contract/test_search_tool.py tests/contract/test_read_tools.py -k "범위 or 볼_수_없는 or 없는_문서" -v`이고 `RAG_TEST_DATABASE_URL`을 내보냈다. 결과는 7 passed, 13 deselected(71.8초)다. 계획 본문이 이름으로 든 시험 셋이 그 일곱에 든다.
 - 문서 검사를 손으로 쳤다(바뀐 파일 셋을 경로로 줬다). `tools/check_md_tables.py`와 `tools/check_line_separators.py`는 출력 없이 0, `tools/check_quotes.py --all-lines`는 인용 1건에 경고 없음, `tools/plan_table.py`는 출력 없이 끝났고 `.scratch/plan.md`는 바뀌지 않았다(`git status`), `tools/queue_open_rows.py --search stale-checkout`은 새 항목을 열림 1회차로 읽었다. `tools/sibling_overlap.py`는 처음에 이 일지가 든 agent-os 일지의 이름을 이 저장소에 없는 일지 인용으로 잡아 1로 끝났고, 그 이름을 코드 스팬에 넣은 뒤 다시 돌려 0으로 끝났다(번호 겹침 없음, 함께 고친 파일 없음).
 - 위 둘은 셀프 리뷰 전에 친 것이고, 리뷰 반영 뒤에 다시 친 결과는 셀프 리뷰 절의 다시 돌린 명령에 있다.
+- 커밋 382abe7의 pre-commit이 검사 러너를 돌렸다. test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright-linux, pyright, run-hooks, pytest(394.5초)가 모두 Passed이고, 표·줄 구분자·변이 표·인용(8건, 경고 없음)·커밋 메시지 훅도 Passed다. ruff check와 ruff format은 파이썬 파일이 없어 Skipped이고 헌법 판 검사도 해당 파일이 없어 Skipped다(Skipped는 실행이 아니다).
 - 바뀐 파일은 셀프 리뷰 뒤에 넷이 되었고(대기열 client-name-in-spec-body에 회차를 더했다) 모두 면제 모양(`.scratch/<slug>/plan.md`, `docs/journal/*.md`, `.scratch/retro-queue/*.md`)이다. `tools/check_ticket.py`는 색인을 보므로 스테이지하기 전인 지금은 돌리지 않았고, 검사 러너와 pytest 전체도 커밋 때 pre-commit이 돈다.
 
 ## 다음
 
-- 사용자의 요청으로 이 일지까지 커밋 하나에 싣는다. 푸시와 PR은 사용자가 정한다.
+- 사용자의 요청으로 커밋 둘(382abe7과 PR 직전 리뷰를 반영한 커밋)을 푸시하고 PR을 연다. 병합은 사용자가 정한다.
 - 위 "agent-os에 넘길 글"을 커밋 뒤에 사용자가 agent-os 쪽 세션에 붙여 넣는다. PR을 열면 글의 첫 줄에 그 번호를 더한다. agent-os의 kb-selection 계획은 그 답으로 Blocked by에 `rag-engine:doc-permission`을 더한다.
 - doc-permission의 설계 인터뷰(admin 뒤)가 계획 본문의 "설계 인터뷰가 정할 것"을 받는다.
