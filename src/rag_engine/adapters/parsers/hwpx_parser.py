@@ -33,10 +33,16 @@ class HwpxParser:
         document = HwpxDocument.open(io.BytesIO(data))
         try:
             blocks: list[Block] = []
+            # 라이브러리의 문단 모양 조회는 부를 때마다 헤더의 모든 문단 모양을 훑으므로 모양마다
+            # 한 번만 찾는다.
+            levels: dict[str | int | None, int | None] = {}
             for paragraph in document.paragraphs:
                 text = paragraph.text.strip()
                 if text:
-                    level = _outline_level(document, paragraph.para_pr_id_ref)
+                    ref = paragraph.para_pr_id_ref
+                    if ref not in levels:
+                        levels[ref] = _outline_level(document, ref)
+                    level = levels[ref]
                     kind = BlockKind.PARAGRAPH if level is None else BlockKind.HEADING
                     blocks.append(Block(kind, text, level, page=None, ordinal=len(blocks)))
                 for table in paragraph.tables:
