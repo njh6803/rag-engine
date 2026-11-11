@@ -46,7 +46,7 @@ expect_output = ["Right contains one more item"]
 [[mutation.edit]]
 file = "src/rag_engine/app/index_document.py"
 old = '''            if version.status is IndexVersionStatus.BUILDING:
-                await _check_version_switch(transaction, version)
+                await check_version_switch(transaction, version)
 '''
 new = ''
 

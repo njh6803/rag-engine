@@ -1,0 +1,223 @@
+# core 10(수집의 갱신 갈래)이 더한 시험 가운데 처음부터 초록이던 것의 변이.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/ingest_updates_mutations.toml
+
+[[mutation]]
+name = "빠지는 지식베이스에서 문서의 조각을 걷지 않는다"
+tests = ["tests/app/test_ingest_group_requeue.py"]
+expect = "red"
+expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 뒤부터 발생한다.'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''            await transaction.index.delete_chunks(document.id, version.id)
+'''
+new = ''
+
+[[mutation]]
+name = "빠지는 지식베이스에서 문서의 색인 상태를 걷지 않는다"
+tests = ["tests/app/test_ingest_group_requeue.py"]
+expect = "red"
+expect_output = ["error_code=None, updated_at=datetime.datetime(2026, 11, 11, 9, 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''            await transaction.index.delete_state(document.id, version.id)
+'''
+new = ''
+
+[[mutation]]
+name = "빠지는 지식베이스의 건설 중인 판에 전환 검사를 부르지 않는다"
+tests = ["tests/app/test_ingest_group_requeue.py"]
+expect = "red"
+expect_output = ["Right contains one more item: UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''            if version.status is IndexVersionStatus.BUILDING:
+                await check_version_switch(transaction, version)
+'''
+new = ''
+
+[[mutation]]
+name = "그룹만 바뀐 갱신이 조각의 복사 칸을 고치지 않는다"
+tests = ["tests/app/test_ingest_group_requeue.py"]
+expect = "red"
+expect_output = ["At index 0 diff: (UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''        previous.group_id != document.group_id or previous.updated_at != document.updated_at
+'''
+new = '''        previous.updated_at != document.updated_at
+'''
+
+[[mutation]]
+name = "빠지는 지식베이스를 FOR SHARE로 잠근다"
+tests = ["tests/app/test_ingest_group_requeue.py"]
+expect = "red"
+expect_output = ["<Task finished name="]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    modes.update({knowledge_base.id: LockMode.UPDATE for knowledge_base in departing})
+'''
+new = '''    modes.update({knowledge_base.id: LockMode.SHARE for knowledge_base in departing})
+'''
+
+[[mutation]]
+name = "requeued가 세대를 올리지 않는다"
+tests = ["tests/app/test_ingest_group_requeue.py", "tests/contract/test_ingest_updates.py"]
+expect = "red"
+expect_output = ["At index 0 diff: 4 != 5"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    document = replace(refreshed, generation=existing.generation + 1, modified_at=now)
+    await transaction.documents.update(document)
+    job_id = await _schedule(transaction, document, existing, request_id, now)
+    return _Recorded(IngestResult(IngestAction.REQUEUED, document.id, job_id), upload.blob_key)
+'''
+new = '''    document = replace(refreshed, modified_at=now)
+    await transaction.documents.update(document)
+    job_id = await _schedule(transaction, document, existing, request_id, now)
+    return _Recorded(IngestResult(IngestAction.REQUEUED, document.id, job_id), upload.blob_key)
+'''
+
+[[mutation]]
+name = "requeued가 새 원본을 지우지 않는다"
+tests = ["tests/app/test_ingest_group_requeue.py", "tests/contract/test_ingest_updates.py"]
+expect = "red"
+expect_output = ["ValueError: too many values to unpack (expected 1)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    return _Recorded(IngestResult(IngestAction.REQUEUED, document.id, job_id), upload.blob_key)
+'''
+new = '''    return _Recorded(IngestResult(IngestAction.REQUEUED, document.id, job_id), None)
+'''
+
+[[mutation]]
+name = "그룹만 바뀐 갱신이 새 원본을 지우지 않는다"
+tests = ["tests/app/test_ingest_group_requeue.py", "tests/contract/test_ingest_updates.py"]
+expect = "red"
+expect_output = ["ValueError: too many values to unpack (expected 1)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    return _Recorded(IngestResult(IngestAction.UPDATED, document.id, job_id), upload.blob_key)
+'''
+new = '''    return _Recorded(IngestResult(IngestAction.UPDATED, document.id, job_id), None)
+'''
+
+[[mutation]]
+name = "문서 상태가 failed여도 색인 실패로 보지 않는다"
+tests = ["tests/app/test_ingest_group_requeue.py", "tests/contract/test_ingest_updates.py"]
+expect = "red"
+expect_output = ["IngestAction.UNCHANGED: 'unchanged'> is <IngestAction.REQUEUED"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    if document.status is DocumentStatus.FAILED:
+        return True
+'''
+new = ''
+
+[[mutation]]
+name = "살아 있는 판의 failed 색인 상태를 색인 실패로 보지 않는다"
+tests = ["tests/app/test_ingest_group_requeue.py", "tests/contract/test_ingest_updates.py"]
+expect = "red"
+expect_output = ["pipeline.py:100: AssertionError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''        if state is not None and state.status is IndexStateStatus.FAILED:
+            return True
+'''
+new = ''
+
+[[mutation]]
+name = "내용이 바뀐 갱신이 문서의 그룹을 바꾸지 않는다"
+tests = ["tests/app/test_ingest_group_requeue.py", "tests/contract/test_ingest_updates.py"]
+expect = "red"
+expect_output = ["At index 0 diff: UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''        existing,
+        group_id=upload.group_id,
+        title=upload.title,
+        mime=upload.mime,
+'''
+new = '''        existing,
+        title=upload.title,
+        mime=upload.mime,
+'''
+
+[[mutation]]
+name = "내용이 같은 수집이 갱신일이 바뀌어도 조각의 복사 칸을 고치지 않는다"
+tests = ["tests/app/test_ingest.py", "tests/app/test_ingest_group_requeue.py"]
+expect = "red"
+expect_output = ["- 2026-12-01"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''        if refreshed.updated_at != existing.updated_at:
+            await transaction.index.update_chunk_copies(refreshed)
+'''
+new = ''
+
+[[mutation]]
+name = "원본 키가 요청마다 달라지지 않고 고정된다"
+tests = ["tests/app/test_ingest.py", "tests/app/test_ingest_group_requeue.py"]
+expect = "red"
+expect_output = ["ValueError: not enough values to unpack (expected 1, got 0)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    return f"blobs/{document_id}/{new_id()}"
+'''
+new = '''    return f"blobs/{document_id}/fixed"
+'''
+
+[[mutation]]
+name = "셋째 단계가 세대를 대조하지 않고 조각을 바꾼다"
+tests = ["tests/app/test_ingest_crossings.py"]
+expect = "red"
+expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 뒤부터 발생한다.'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        await _hold(transaction, job)
+        if document is None or document.generation != claim.generation:
+            return
+        if document.status is not DocumentStatus.PARSED:
+'''
+new = '''        await _hold(transaction, job)
+        if document is None:
+            return
+        if document.status is not DocumentStatus.PARSED:
+'''
+
+[[mutation]]
+name = "먼저 시작한 작업의 늦은 영구 실패가 세대를 대조하지 않고 문서에 쓴다"
+tests = ["tests/app/test_ingest_crossings.py"]
+expect = "red"
+expect_output = ["At index 0 diff: <DocumentStatus.FAILED: 'failed'> != <DocumentStatus.PARSED: 'parsed'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        if document is None or document.generation != claim.generation:
+            return
+        await transaction.documents.update(
+            replace(
+                document,
+                status=DocumentStatus.FAILED,
+'''
+new = '''        if document is None:
+            return
+        await transaction.documents.update(
+            replace(
+                document,
+                status=DocumentStatus.FAILED,
+'''

@@ -241,6 +241,10 @@ class VectorIndex(Protocol):
         """(문서, 판)의 색인 상태를 쓴다. 이미 있으면 덮는다."""
         ...
 
+    async def delete_state(self, document_id: UUID, index_version_id: UUID) -> None:
+        """(문서, 판)의 색인 상태를 지운다. 없으면 아무것도 하지 않는다."""
+        ...
+
     async def search_candidates(self, query: SearchQuery) -> SearchCandidates:
         """벡터와 키워드 후보를 SQL 하나로 모아 RRF로 합친다. 같은 문장에서 질의한 판이 아직
         현재 판인지도 읽는다. 벡터 질의는 판의 HNSW 부분 색인을 탄다."""
