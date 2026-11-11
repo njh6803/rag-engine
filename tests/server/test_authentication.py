@@ -31,9 +31,12 @@ def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _issue(server: RunningServer, **body: object) -> tuple[str, str]:
-    """admin 토큰으로 토큰을 발급하고 (id, 원문)을 낸다."""
-    response = httpx.post(
+def _issue(
+    server: RunningServer, *, via: httpx.Client | None = None, **body: object
+) -> tuple[str, str]:
+    """admin 토큰으로 토큰을 발급하고 (id, 원문)을 낸다. `via`를 주면 그 클라이언트로 보낸다."""
+    post = httpx.post if via is None else via.post
+    response = post(
         server.base_url + ADMIN_PATH,
         headers=_bearer(server.admin_token),
         json={"name": "시험", "role": "admin", **body},
@@ -129,9 +132,15 @@ def test_회수된_토큰은_회수_사실을_드러내지_않고_401이다(serv
 
 
 def test_만료된_토큰은_401_토큰_만료이고_만료_전에는_받는다(server: RunningServer) -> None:
-    expires_at = (datetime.now(UTC) + timedelta(seconds=2)).isoformat()
-    _, token = _issue(server, expires_at=expires_at)
-    assert httpx.get(server.base_url + ADMIN_PATH, headers=_bearer(token)).status_code == 200
+    # 만료 시각을 셈한 뒤 발급과 첫 조회까지가 여유 2초 안이어야 한다. 최상위 `httpx.post`가
+    # 호출마다 새 클라이언트를 만드는 시간(프로브는 생성 전체를 쟀다. 그 안에 SSL 컨텍스트 생성이
+    # 든다는 것은 코드를 읽은 것이다)이 그 창에 들지 않게 클라이언트를 먼저 만든다
+    # (`.scratch/harness/probes/kiwi_warmup_stall/`의 `httpx.Client() construction` 줄).
+    with httpx.Client() as client:
+        expires_at = (datetime.now(UTC) + timedelta(seconds=2)).isoformat()
+        _, token = _issue(server, via=client, expires_at=expires_at)
+        before_expiry = client.get(server.base_url + ADMIN_PATH, headers=_bearer(token))
+    assert before_expiry.status_code == 200
 
     time.sleep(2.2)
 

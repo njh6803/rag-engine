@@ -67,7 +67,7 @@
 
 - 새 시험은 구현 전에 아직 없는 모듈과 설정 칸 때문에 빨강이었다(`document_text`, `document_text_max_chars`, `TeiReranker(max_chunk_tokens=)`). 구현 뒤 `ruff format`, `ruff check .`, `pyright` 0 오류, `lint-imports` 통과다.
 - 리뷰 반영 전 트리에서 전체 `pytest` 3386개 통과(7분 51초)다. 리뷰를 반영한 트리에서 3390개 통과(7분 31초)다. 그 뒤 회고가 로그 도우미를 고쳐 `tests/server` 122개와 `tests/contract` 50개를 다시 돌렸고 모두 초록이다.
-- 같은 트리에서 `ruff format --check .`, `ruff check .`, `pyright`(0 오류), `lint-imports`(계약 2 유지), `tools/check_type_escapes.py`가 통과다. 같은 검사를 커밋이 부르는 pre-commit이 한 번 더 돌린다(결과는 커밋 뒤에 적는다).
+- 같은 트리에서 `ruff format --check .`, `ruff check .`, `pyright`(0 오류), `lint-imports`(계약 2 유지), `tools/check_type_escapes.py`가 통과다. 같은 검사를 커밋이 부르는 pre-commit이 한 번 더 돌렸고(테스트 3390 통과, 변이 표 검사 포함), 첫 시도는 변이 표의 표지 아홉 개가 pytest 단언 풀이 줄이라 막혀 `At index 0 diff`와 `-` 줄과 단언 위치 줄로 고친 뒤 변이 아홉을 다시 돌려 기대대로를 보았다. 둘째 시도는 커밋 메시지 제목이 72자를 넘어 막혀 줄였고, 셋째 시도가 통과했다(`ac14244`). 그 뒤 origin/main(PR 12의 명세, 하네스 chore 두 건)을 합쳐 티켓 둘의 충돌을 풀었다.
 - 변이 표 서른셋은 마지막 수정(리랭커 확인 변이 33과 표지 고침) 뒤에 12~14, 28, 30~33번을 다시 돌려 기대한 빨강임을 보았다. 나머지는 해당 소스가 바뀐 뒤 처음 돌린 결과가 그대로다.
 
 ## 회고

@@ -50,6 +50,7 @@ from tests.support.pipeline import Pipeline, build_pipeline
 from tests.support.round_trip import RoundTrip, wire_stubs
 from tools.run_checks import TEST_DATABASE_ENV, database_problem
 
+from rag_engine.adapters import kiwi
 from rag_engine.adapters.postgres.bootstrap import issue_bootstrap_token, migrate_database
 from rag_engine.adapters.postgres.engine import create_engine
 from rag_engine.adapters.postgres.migrate import upgrade_to_head
@@ -291,6 +292,11 @@ def run_server(
         )
         server = uvicorn.Server(config)
         thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
+        # 앱 lifespan의 예열 스레드가 Kiwi 모델을 적재하는 동안 GIL을 쥐어, 기동 직후 서버 루프와
+        # 시험 스레드가 함께 수 초 멈추고 첫 요청의 시간 단언(만료 토큰의 2초 여유)이 깨졌다. 서버를
+        # 띄우기 전에 여기서 적재해 두면(프로세스마다 한 번 캐시) 앱의 예열은 바로 끝난다. 모듈로
+        # 불러 시험이 바꿔 끼울 수 있다(`.scratch/harness/probes/kiwi_warmup_stall/`).
+        kiwi.tokenize_keywords("준비")
         thread.start()
         running.append((server, thread))
         deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
