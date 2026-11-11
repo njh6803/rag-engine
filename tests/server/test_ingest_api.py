@@ -309,6 +309,47 @@ def test_파일_이름이_빈_업로드는_422이고_원본을_남기지_않는�
     assert _blobs(server.settings) == []
 
 
+def test_삭제의_키가_없거나_비었거나_NUL을_담으면_422이고_문서는_그대로다(
+    server: RunningServer,
+) -> None:
+    _post(server, data={"key": "규정.pdf"})
+    url = server.base_url + PATH
+
+    missing = httpx.delete(url, headers=_auth(server))
+    empty = httpx.delete(url, headers=_auth(server), params={"key": ""})
+    nul = httpx.delete(url, headers=_auth(server), params={"key": "규정\x00.pdf"})
+
+    for response in (missing, empty, nul):
+        assert response.status_code == 422
+        assert response.json()["code"] == "validation_error"
+    assert _query(server.settings, "SELECT deleted_at FROM documents") == [(None,)]
+
+
+def test_토큰이_없는_삭제는_401이고_문서는_그대로다(server: RunningServer) -> None:
+    _post(server, data={"key": "규정.pdf"})
+
+    anonymous = httpx.delete(server.base_url + PATH, params={"key": "규정.pdf"})
+
+    assert anonymous.status_code == 401
+    assert _query(server.settings, "SELECT deleted_at FROM documents") == [(None,)]
+
+
+def test_삭제의_로그에는_문서의_키가_남지_않는다(
+    server: RunningServer, log_capture: LogCapture
+) -> None:
+    _post(server, data={"key": "비밀/키.pdf"})
+
+    response = httpx.delete(
+        server.base_url + PATH, headers=_auth(server), params={"key": "비밀/키.pdf"}
+    )
+
+    assert response.status_code == 204
+    log_capture.events("http_request", count=2)
+    text = log_capture.text()
+    for secret in ("비밀/키", "%EB%B9%84%EB%B0%80", server.admin_token):
+        assert secret not in text
+
+
 def test_토큰이_없으면_401이고_reader_토큰이면_403이다(server: RunningServer) -> None:
     anonymous = httpx.post(server.base_url + PATH, files={"file": ("a.pdf", PDF)})
     reader = httpx.post(

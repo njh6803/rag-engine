@@ -85,6 +85,14 @@ class PostgresJobQueue:
         await self._connection.execute(sa.select(sa.func.pg_notify(NOTIFY_CHANNEL, "")))
         return _job(row)
 
+    async def delete_queued(self, document_id: UUID) -> None:
+        await self._connection.execute(
+            sa.delete(tables.jobs).where(
+                tables.jobs.c.document_id == document_id,
+                tables.jobs.c.status == JobStatus.QUEUED.value,
+            )
+        )
+
     async def get(self, job_id: UUID) -> Job | None:
         row = (
             (

@@ -4,16 +4,21 @@
 작업을 넣는다. 순서는 이렇다. 먼저 크기와 형식과 그룹을 거른다(셋 다 작업을 만들지 않는다). 원본은
 작업 단위를 열기 전에 새 경로 `blobs/<문서 UUID>/<원본 UUID>`에 쓴다. 작업 단위가 롤백되면 그 요청이
 쓴 새 원본만 지우고, 커밋된 뒤에는 문서 행이 더는 가리키지 않는 원본을 지운다. 내용이 바뀐 갱신은
-옛 원본을, 문서 행이 새 원본을 가리키지 않는 수집(`unchanged`, `requeued`, 그룹만 바뀐 `updated`)은
-방금 쓴 새 원본을 지운다. 지우기는 최선 노력이다. 지우지 못한 원본은 고아로 남긴다.
+옛 원본을, 묘비 행을 다시 쓰는 `created`는 묘비 행이 가리키던 원본을, 문서 행이 새 원본을 가리키지
+않는 수집(`unchanged`, `requeued`, 그룹만 바뀐 `updated`, 내용이 같은 되살림)은 방금 쓴 새 원본을
+지운다. 지우기는 최선 노력이다. 지우지 못한 원본은 고아로 남긴다.
 
 같은 키를 동시에 넣은 두 요청은 (원천, 키) 유일 제약이 직렬화한다. 진 쪽은 원본을 이긴 문서의 UUID
 아래 새 원본 경로로 옮긴 뒤 갱신으로 다시 처리한다.
 
-내용이 같은 수집은 셋으로 갈린다. 그룹이 바뀌었으면 `updated`이고, 앞선 색인이 실패했으면
-`requeued`이며, 아니면 `unchanged`다. 그룹이 바뀌면 같은 작업 단위에서 조각의 복사 칸을 새 그룹으로
-고치고 문서가 빠지는 지식베이스의 살아 있는 판에서 문서의 조각과 색인 상태를 지운다. 지운 문서를
-되살리는 수집(11)은 이 모듈이 아직 처리하지 않는다.
+지우지 않은 문서에 내용이 같은 수집은 셋으로 갈린다. 그룹이 바뀌었으면 `updated`이고, 앞선 색인이
+실패했으면 `requeued`이며, 아니면 `unchanged`다. 그룹이 바뀌면 같은 작업 단위에서 조각의 복사 칸을
+새 그룹으로 고치고 문서가 빠지는 지식베이스의 살아 있는 판에서 문서의 조각과 색인 상태를 지운다.
+
+지운 문서(`deleted_at`은 있고 `purged_at`은 없다)가 같은 키로 돌아오면 되살림(`restored`)이다. 문서
+UUID를 그대로 두고, 내용이 같으면 보관 조각을 검색 표로 되돌리며(되돌릴 조각이 없는 대상 판이 있을
+때만 작업을 넣는다), 내용이 다르면 보관 조각을 지우고 갱신으로 간다. 정리 작업이 물리 삭제해 묘비
+행만 남은 문서(`purged_at`)가 같은 키로 오면 그 행을 다시 써 UUID를 잇고 `created`다.
 """
 
 import hashlib
@@ -31,7 +36,9 @@ from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import (
     Document,
     DocumentStatus,
+    IndexState,
     IndexStateStatus,
+    IndexVersion,
     IndexVersionStatus,
     IngestAction,
     JsonValue,
@@ -260,10 +267,10 @@ async def _record(
         return await _amend(transaction, locked, upload, request_id, now)
 
 
-async def _create(
-    transaction: Transaction, upload: _Upload, request_id: UUID, now: datetime
-) -> _Recorded:
-    document = Document(
+def _fresh_document(upload: _Upload, now: datetime, *, generation: int) -> Document:
+    """요청이 만드는 문서 행. 시행일과 접근 그룹은 비운다. 묘비 행을 다시 쓸 때는 `update`가 만든
+    시각을 그대로 두므로 `created_at`은 처음 만든 시각으로 남는다."""
+    return Document(
         id=upload.document_id,
         source_id=upload.source_id,
         key=upload.key,
@@ -279,15 +286,33 @@ async def _create(
         access_groups=(),
         status=DocumentStatus.RECEIVED,
         error_code=None,
-        generation=1,
+        generation=generation,
         deleted_at=None,
         purged_at=None,
         created_at=now,
         modified_at=now,
     )
+
+
+async def _create(
+    transaction: Transaction, upload: _Upload, request_id: UUID, now: datetime
+) -> _Recorded:
+    document = _fresh_document(upload, now, generation=1)
     await transaction.documents.add(document)
     job_id = await _schedule(transaction, document, None, request_id, now)
     return _Recorded(IngestResult(IngestAction.CREATED, document.id, job_id), None)
+
+
+async def _rewrite_tombstone(
+    transaction: Transaction, tombstone: Document, upload: _Upload, request_id: UUID, now: datetime
+) -> _Recorded:
+    """정리 작업이 물리 삭제한 문서의 묘비 행을 다시 쓴다. UUID를 잇고 세대를 이어서 올린다. 묘비는
+    "있었다"는 표시이지 새 문서를 막는 장치가 아니다. 묘비 행이 아직 가리키는 옛 원본은 정리 작업이
+    이미 지웠을 수 있고, 지우기는 없는 원본에도 안전하므로 커밋 뒤에 한 번 더 지운다."""
+    document = _fresh_document(upload, now, generation=tombstone.generation + 1)
+    await transaction.documents.update(document)
+    job_id = await _schedule(transaction, document, None, request_id, now)
+    return _Recorded(IngestResult(IngestAction.CREATED, document.id, job_id), tombstone.blob_path)
 
 
 async def _amend(
@@ -297,8 +322,10 @@ async def _amend(
     request_id: UUID,
     now: datetime,
 ) -> _Recorded:
+    if existing.purged_at is not None:
+        return await _rewrite_tombstone(transaction, existing, upload, request_id, now)
     if existing.deleted_at is not None:
-        raise NotImplementedError("지운 문서를 되살리는 수집은 티켓 11이 처리한다")
+        return await _restore(transaction, existing, upload, request_id, now)
     if existing.content_hash != upload.content_hash:
         return await _update_content(transaction, existing, upload, request_id, now)
     refreshed = _refresh_metadata(existing, upload)
@@ -325,14 +352,105 @@ def _refresh_metadata(existing: Document, upload: _Upload) -> Document:
     )
 
 
+async def _restore(
+    transaction: Transaction,
+    deleted: Document,
+    upload: _Upload,
+    request_id: UUID,
+    now: datetime,
+) -> _Recorded:
+    """지운 문서가 같은 키로 돌아왔다. 지운 문서는 조각이 보관 표에만 있고 색인 상태가 없어 어느
+    지식베이스에서도 빠질 것이 없다. 그래서 되살린 문서를 처음부터 요청의 그룹에 든 것으로 두고
+    지식베이스 행의 잠금과 조각의 복사 칸을 다룬다. 내용이 다르면 보관 조각을 지우고 갱신으로
+    간다(`restored`에 작업 ID)."""
+    revived = replace(deleted, deleted_at=None, group_id=upload.group_id)
+    if deleted.content_hash != upload.content_hash:
+        await transaction.index.delete_archived_chunks(deleted.id)
+        return await _update_content(
+            transaction, revived, upload, request_id, now, action=IngestAction.RESTORED
+        )
+    return await _restore_chunks(transaction, revived, upload, request_id, now)
+
+
+async def _restore_chunks(
+    transaction: Transaction,
+    revived: Document,
+    upload: _Upload,
+    request_id: UUID,
+    now: datetime,
+) -> _Recorded:
+    """내용이 같은 되살림이다. 대상 판은 요청의 그룹이 든 지식베이스의 살아 있는 판이다. 만든 내용
+    해시가 같은 보관 조각을 대상 판의 검색 표로 되돌리고 그 판에 `indexed`를 쓴다. 보관 조각은
+    되돌렸든 아니든 모두 지운다. 되돌릴 조각이 없는 대상 판이 있으면 작업을 넣고, 그 판이 건설 중인
+    판이 아니면 `pending`을 쓴다(건설 중인 판에 `pending`을 쓰면 그 문서의 작업이 끝날 때까지 판이
+    전환되지 않을 수 있다. 명세 "재색인 시작" 항목). 건설 중인 판에 `indexed`를 써도 전환 검사를
+    부르지 않는다. 그 판에 색인 상태가 없던 문서의 `indexed` 한 행은 전환 조건(모든 색인 상태가
+    `indexed`나 `failed`)을 새로 채우지 못하고, 검사는 지식베이스 행을 `FOR UPDATE`로 올려 잠가야
+    해서 같은 지식베이스의 되살림끼리 서로를 기다릴 수 있다. 문서 행은 새 원본을 가리키지 않아 새
+    원본은 커밋 뒤에 지운다."""
+    document = replace(
+        _refresh_metadata(revived, upload), generation=revived.generation + 1, modified_at=now
+    )
+    await transaction.documents.update(document)
+    await _lock_knowledge_bases(transaction, document.group_id, document.group_id)
+    versions = await live_index_versions(transaction, document.group_id)
+    restored = await transaction.index.restore_archived_chunks(
+        document, [version.id for version in versions]
+    )
+    await transaction.index.delete_archived_chunks(document.id)
+    for version in versions:
+        if version.id in restored:
+            await transaction.index.save_state(
+                _restored_state(document, version, restored[version.id], now)
+            )
+    unrestored = [version for version in versions if version.id not in restored]
+    job_id: UUID | None = None
+    if unrestored:
+        for version in unrestored:
+            if version.status is not IndexVersionStatus.BUILDING:
+                await transaction.index.save_state(_pending_state(document, version, now))
+        job_id = (await transaction.jobs.enqueue(document.id, request_id, now)).id
+    return _Recorded(IngestResult(IngestAction.RESTORED, document.id, job_id), upload.blob_key)
+
+
+def _restored_state(
+    document: Document, version: IndexVersion, chunk_count: int, now: datetime
+) -> IndexState:
+    """보관 조각이 돌아온 판의 색인 상태다. 돌아온 조각이 만든 내용 해시는 문서의 것과 같다."""
+    return IndexState(
+        document_id=document.id,
+        index_version_id=version.id,
+        status=IndexStateStatus.INDEXED,
+        chunk_count=chunk_count,
+        built_content_hash=document.content_hash,
+        error_code=None,
+        updated_at=now,
+    )
+
+
+def _pending_state(document: Document, version: IndexVersion, now: datetime) -> IndexState:
+    return IndexState(
+        document_id=document.id,
+        index_version_id=version.id,
+        status=IndexStateStatus.PENDING,
+        chunk_count=0,
+        built_content_hash=None,
+        error_code=None,
+        updated_at=now,
+    )
+
+
 async def _update_content(
     transaction: Transaction,
     existing: Document,
     upload: _Upload,
     request_id: UUID,
     now: datetime,
+    *,
+    action: IngestAction = IngestAction.UPDATED,
 ) -> _Recorded:
-    """내용이 바뀐 갱신이다. 문서 행이 새 원본을 가리키고 옛 원본은 커밋 뒤에 지운다."""
+    """내용이 바뀐 갱신이다. 문서 행이 새 원본을 가리키고 옛 원본은 커밋 뒤에 지운다. `action`은
+    지운 문서를 다른 내용으로 되살릴 때만 `restored`다."""
     document = replace(
         existing,
         group_id=upload.group_id,
@@ -350,7 +468,7 @@ async def _update_content(
     )
     await transaction.documents.update(document)
     job_id = await _schedule(transaction, document, existing, request_id, now)
-    return _Recorded(IngestResult(IngestAction.UPDATED, document.id, job_id), existing.blob_path)
+    return _Recorded(IngestResult(action, document.id, job_id), existing.blob_path)
 
 
 async def _update_group(

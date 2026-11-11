@@ -24,6 +24,7 @@ from rag_engine.adapters.parsers.registry import ParserRegistry, discover_parser
 from rag_engine.adapters.parsers.runner import SubprocessParseRunner
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.tei import TeiEmbedderPool
+from rag_engine.app.delete_document import delete_document
 from rag_engine.app.index_document import IndexDocumentDeps
 from rag_engine.app.ingest import IngestRequest, IngestResult, ingest_document
 from rag_engine.domain.entities import (
@@ -91,6 +92,50 @@ class Pipeline:
             now=self.clock[0],
             max_upload_bytes=MAX_UPLOAD_BYTES,
         )
+
+    async def delete(self, key: str = "규정.docx") -> None:
+        await delete_document(self.unit_of_work, key, now=self.clock[0])
+
+    async def archived_texts(self, document_id: UUID) -> list[str]:
+        """보관 표에 있는 그 문서의 조각 글(순번 순)."""
+        async with self.engine.connect() as connection:
+            rows = await connection.execute(
+                sa.text(
+                    "SELECT text FROM archived_chunks WHERE document_id = :document"
+                    " ORDER BY index_version_id, ordinal"
+                ),
+                {"document": document_id},
+            )
+            return [row[0] for row in rows]
+
+    async def job_statuses(self, document_id: UUID) -> list[str]:
+        async with self.engine.connect() as connection:
+            rows = await connection.execute(
+                sa.text("SELECT status FROM jobs WHERE document_id = :document ORDER BY id"),
+                {"document": document_id},
+            )
+            return [row[0] for row in rows]
+
+    async def make_tombstone(self, document_id: UUID) -> None:
+        """정리 작업이 물리 삭제한 모양을 만든다. 문서 행만 남고 조각, 보관 조각, 색인 상태, 작업,
+        파싱 결과가 없으며 `deleted_at`과 `purged_at`이 있다. core에는 정리 작업이 없어 시험이
+        데이터베이스에 직접 만든다."""
+        async with self.engine.begin() as connection:
+            for table in ("chunks", "archived_chunks", "document_index_states", "jobs"):
+                await connection.execute(
+                    sa.text(f"DELETE FROM {table} WHERE document_id = :document"),
+                    {"document": document_id},
+                )
+            await connection.execute(
+                sa.text("DELETE FROM document_contents WHERE document_id = :document"),
+                {"document": document_id},
+            )
+            await connection.execute(
+                sa.text(
+                    "UPDATE documents SET deleted_at = :now, purged_at = :now WHERE id = :document"
+                ),
+                {"now": self.clock[0], "document": document_id},
+            )
 
     async def claim(self, worker_id: str = "worker-1", *, later: float = 0.0) -> Job:
         """작업 하나를 꺼낸다. `later`초 뒤의 시각에서 꺼내면 임대가 끝난 작업도 꺼낸다."""

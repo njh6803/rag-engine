@@ -34,10 +34,12 @@ expect_output = ["Right contains one more item: UUID("]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/ingest.py"
-old = '''            if version.status is IndexVersionStatus.BUILDING:
+old = '''            await transaction.index.delete_state(document.id, version.id)
+            if version.status is IndexVersionStatus.BUILDING:
                 await check_version_switch(transaction, version)
 '''
-new = ''
+new = '''            await transaction.index.delete_state(document.id, version.id)
+'''
 
 [[mutation]]
 name = "그룹만 바뀐 갱신이 조각의 복사 칸을 고치지 않는다"

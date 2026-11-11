@@ -5,10 +5,11 @@
 """
 
 import math
-from typing import Final
+from typing import Annotated, Final
 from uuid import UUID
 
 from pydantic import (
+    AfterValidator,
     AwareDatetime,
     BaseModel,
     ConfigDict,
@@ -45,6 +46,20 @@ def _has_nul(value: JsonValue) -> bool:
     if isinstance(value, dict):
         return any(_NUL in key or _has_nul(item) for key, item in value.items())
     return False
+
+
+def _reject_nul(value: str) -> str:
+    if _NUL in value:
+        raise ValueError("NUL 문자(\\u0000)를 담을 수 없다")
+    return value
+
+
+# 삭제 요청의 키(쿼리 매개변수). 키는 text 칸에 들어가므로 비어 있거나 NUL을 담으면 422다.
+DocumentKey = Annotated[
+    str,
+    Field(min_length=1, description="지울 문서의 키. URL 인코딩한 쿼리 매개변수다"),
+    AfterValidator(_reject_nul),
+]
 
 
 class IngestFields(BaseModel):

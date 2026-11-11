@@ -5,31 +5,21 @@
 수집이나 같은 문서의 다른 작업이 끝까지 돈다.
 """
 
-from collections.abc import Callable
 from uuid import UUID
 
 import pytest
 from tests.support.docx_files import docx_bytes
-from tests.support.interleaving import FailingRunner, Interloper, InterruptingEmbedder
+from tests.support.interleaving import FailingRunner, interrupting_embedder_for
 from tests.support.pipeline import Pipeline
 
 from rag_engine.app.index_document import index_document
-from rag_engine.domain.entities import DocumentStatus, IndexStateStatus, IndexVersion, JobStatus
+from rag_engine.domain.entities import DocumentStatus, IndexStateStatus, JobStatus
 from rag_engine.domain.errors import ErrorCode, PermanentFailure
-from rag_engine.domain.ports import Embedder, JobOutcome
+from rag_engine.domain.ports import JobOutcome
 
 휴가 = docx_bytes("제1조 휴가", "연차휴가는 입사 일 년 뒤부터 발생한다.")
 출장 = docx_bytes("제2조 출장", "출장비는 실비로 정산한다.")
 SUCCEEDED = JobOutcome(JobStatus.SUCCEEDED, None)
-
-
-def _interrupting(pipeline: Pipeline, interrupt: Interloper) -> Callable[[IndexVersion], Embedder]:
-    """임베딩 직전에 한 번 끼어드는 임베더를 판마다 낸다."""
-
-    def embedder_for(version: IndexVersion) -> Embedder:
-        return InterruptingEmbedder(pipeline.pool(version), interrupt)
-
-    return embedder_for
 
 
 async def _document_state(
@@ -50,7 +40,7 @@ async def test_내용이_바뀐_뒤_셋째_단계에_든_작업은_옛_조각을
         await pipeline.ingest(출장)
 
     first = await index_document(
-        pipeline.deps(embedder_for=_interrupting(pipeline, change_content)),
+        pipeline.deps(embedder_for=interrupting_embedder_for(pipeline.pool, change_content)),
         await pipeline.claim(),
     )
 
@@ -75,7 +65,7 @@ async def test_그룹이_바뀐_뒤_셋째_단계에_든_작업은_옛_조각을
         await pipeline.ingest(휴가, group="팀B")
 
     first = await index_document(
-        pipeline.deps(embedder_for=_interrupting(pipeline, change_group)),
+        pipeline.deps(embedder_for=interrupting_embedder_for(pipeline.pool, change_group)),
         await pipeline.claim(),
     )
 

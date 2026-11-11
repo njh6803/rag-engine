@@ -2,7 +2,7 @@
 `list_knowledge_bases`.
 
 서버는 실제 uvicorn이고 도구는 공식 MCP SDK의 클라이언트로 HTTP 접속해 부른다
-(`.claude/rules/tests.md`). 문서를 지운 갈래는 삭제가 생기는 티켓 11이 시험한다.
+(`.claude/rules/tests.md`). 문서를 지운 갈래는 `test_delete_restore.py`가 시험한다.
 """
 
 import json

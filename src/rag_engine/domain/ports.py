@@ -227,8 +227,22 @@ class VectorIndex(Protocol):
         """그 문서의 조각을 지운다. 판을 주지 않으면 모든 판의 것이다."""
         ...
 
-    async def archive_chunks(self, document_id: UUID) -> None:
-        """그 문서의 모든 판의 조각을 보관 표로 옮긴다."""
+    async def archive_chunks(self, document_id: UUID, archived_at: datetime) -> None:
+        """그 문서의 모든 판의 조각을 보관 표로 옮긴다. 검색 표에는 남기지 않는다."""
+        ...
+
+    async def restore_archived_chunks(
+        self, document: Document, index_version_ids: Sequence[UUID]
+    ) -> dict[UUID, int]:
+        """보관 조각 가운데 `index_version_ids`의 판의 것이면서 만든 내용 해시가 문서의 내용 해시와
+        같은 것을 복사 칸(그룹, 갱신일, 시행일, 접근 그룹)을 문서의 지금 값으로 쓴 채 검색 표로
+        되돌리고, 조각이 돌아온 판마다 돌아온 수를 낸다. 돌아온 판만 키로 든다. 보관 표는 건드리지
+        않는다(`delete_archived_chunks`가 지운다). 되돌리는 일과 센 수가 한 문장이어야 해서 조회와
+        변경을 나누지 않고 수를 돌려준다."""
+        ...
+
+    async def delete_archived_chunks(self, document_id: UUID) -> None:
+        """그 문서의 보관 조각을 모두 지운다."""
         ...
 
     async def count_chunks(self, document_id: UUID, index_version_id: UUID) -> int:
@@ -243,6 +257,10 @@ class VectorIndex(Protocol):
 
     async def delete_state(self, document_id: UUID, index_version_id: UUID) -> None:
         """(문서, 판)의 색인 상태를 지운다. 없으면 아무것도 하지 않는다."""
+        ...
+
+    async def delete_states(self, document_id: UUID) -> None:
+        """그 문서의 색인 상태를 모든 판에서 지운다(물러난 판의 것도)."""
         ...
 
     async def search_candidates(self, query: SearchQuery) -> SearchCandidates:
@@ -265,6 +283,10 @@ class JobQueue(Protocol):
     async def enqueue(self, document_id: UUID, request_id: UUID, now: datetime) -> Job:
         """같은 문서의 대기 작업이 있으면 새 행 없이 그것을 다시 써서 낸다. 있는지 보는 일과 넣는
         일이 한 번에 이뤄져야 해서 조회와 변경을 나누지 않고 `Job`을 돌려준다."""
+        ...
+
+    async def delete_queued(self, document_id: UUID) -> None:
+        """그 문서의 대기(`queued`) 작업을 지운다. 실행 중인 작업과 끝난 작업은 건드리지 않는다."""
         ...
 
     async def get(self, job_id: UUID) -> Job | None: ...
