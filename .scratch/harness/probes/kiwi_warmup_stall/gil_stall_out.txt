@@ -1,0 +1,15 @@
+gil_stall.py 출력. 2026-11-11, 이 PC(Windows 10, kiwipiepy 0.24.1). 다른 세션의 검사가 돌던 때(CPU 50% 남짓)라
+한가한 때는 짧다. 두 번 돌렸다.
+
+첫 실행(이 파일로 옮기기 전에 세션 스크래치패드에서 돌린 것이라 코드가 같다는 것은 대조할 수 없다. 11:53 KST 무렵):
+[probe] kiwi cold load in thread: 4.750s
+[probe] main thread max stall while loading: 3.012s (gaps>100ms: 2)
+[probe] warm tokenize: 0.000s
+
+둘째 실행(이 자리에서, 12:01 KST 무렵):
+[probe] kiwi cold load in thread: 3.897s
+[probe] main thread max stall while loading: 2.644s (gaps>100ms: 2)
+[probe] warm tokenize: 0.000s
+
+읽는 법: 다른 스레드가 Kiwi 모델을 처음 적재하는 동안 주 스레드의 `time.sleep(0.01)` 한 번이 최대 2.6~3.0초
+걸렸다. 적재가 GIL을 쥐어 다른 스레드가 돌지 못한 시간이다. 스레드는 `threading.Thread`이고, 앱 lifespan이 쓰는 `asyncio.to_thread` 길은 `server_first_request.py`의 원인 재현 갈래가 잰다.

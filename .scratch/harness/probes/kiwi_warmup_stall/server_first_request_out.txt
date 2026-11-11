@@ -1,0 +1,39 @@
+server_first_request.py 출력. 2026-11-11, 이 PC(Windows 10, kiwipiepy 0.24.1, httpx 0.28.1, uvicorn 0.54.0).
+다른 세션의 검사가 돌던 때(CPU 50% 남짓)라 한가한 때는 짧다.
+
+고치기 전의 fixture로 같은 코드를 `tests/server/` 아래 던져 버릴 파일로 돌린 것(11:50 KST 무렵. 예열 그대로
+세 번, 예열 no-op 두 번):
+raw connect: 0.001s / raw GET /health first byte: 4.497s / httpx.Client() construction: 0.563s
+raw connect: 2.963s / raw GET /health first byte: 0.011s / httpx.Client() construction: 0.608s
+raw connect: 2.965s / raw GET /health first byte: 0.023s / httpx.Client() construction: 0.685s
+no-warmup raw connect: 0.000s / no-warmup raw GET /health first byte: 0.020s
+no-warmup raw connect: 0.001s / no-warmup raw GET /health first byte: 0.009s
+
+고친 뒤 이 자리에서 세 갈래를 돌린 것(12:01 KST 무렵, `uv run pytest … -p tests.conftest -p no:xdist -q -s`):
+[probe] 원인 재현(기동 뒤 예열 스레드가 적재) raw connect: 2.669s
+[probe] 원인 재현(기동 뒤 예열 스레드가 적재) raw GET /health first byte (b'HTTP/1.1 200'): 0.004s
+[probe] 원인 재현(기동 뒤 예열 스레드가 적재) httpx.Client() construction: 0.412s
+[probe] 예열 없음(대조) raw connect: 0.001s
+[probe] 예열 없음(대조) raw GET /health first byte (b'HTTP/1.1 200'): 0.006s
+[probe] 예열 없음(대조) httpx.Client() construction: 0.355s
+[probe] 지금 fixture(기동 전 적재) raw connect: 0.001s
+[probe] 지금 fixture(기동 전 적재) raw GET /health first byte (b'HTTP/1.1 200'): 0.003s
+[probe] 지금 fixture(기동 전 적재) httpx.Client() construction: 0.441s
+3 passed in 7.09s
+
+이 실행의 지금 fixture 갈래는 앞 갈래가 채운 모델 캐시가 남은 채 돌아 고침의 확인이 아니었다(넷째 커밋의
+셀프 리뷰 명세 축이 잡았다). 갈래마다 캐시를 비우게 고친 뒤 다시 돌린 것(12:31 KST 무렵, 같은 명령):
+[probe] 원인 재현(기동 뒤 예열 스레드가 적재) raw connect: 2.578s
+[probe] 원인 재현(기동 뒤 예열 스레드가 적재) raw GET /health first byte (b'HTTP/1.1 200'): 0.004s
+[probe] 원인 재현(기동 뒤 예열 스레드가 적재) httpx.Client() construction: 0.399s
+[probe] 예열 없음(대조) raw connect: 0.000s
+[probe] 예열 없음(대조) raw GET /health first byte (b'HTTP/1.1 200'): 0.003s
+[probe] 예열 없음(대조) httpx.Client() construction: 0.379s
+[probe] 지금 fixture(기동 전 적재) raw connect: 0.000s
+[probe] 지금 fixture(기동 전 적재) raw GET /health first byte (b'HTTP/1.1 200'): 0.003s
+[probe] 지금 fixture(기동 전 적재) httpx.Client() construction: 0.369s
+3 passed in 101.08s (0:01:41)
+
+읽는 법: 기동 뒤 예열 스레드가 모델을 적재하는 동안은 연결이나 첫 바이트가 2.6~4.5초 멈춘다(어느 쪽이 멈추는지는
+GIL을 누가 쥔 순간에 따라 갈린다). 예열이 없거나 fixture가 기동 전에 적재하면 25ms 안이다(지금 fixture 갈래의 고침 확인은 마지막 실행의 값이다). 새 `httpx.Client()`
+하나는 0.35~0.69초다(프로브는 생성 전체를 쟀다. 그 안에 SSL 컨텍스트 생성이 든다는 것은 코드를 읽은 것이다).
