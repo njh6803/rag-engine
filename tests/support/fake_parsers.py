@@ -6,9 +6,11 @@
 import gc
 import os
 import signal
+import struct
 import sys
 import time
 from collections.abc import Callable, Sequence
+from multiprocessing.connection import Connection
 
 from rag_engine.domain.entities import Block, BlockKind
 from rag_engine.domain.parsing import (
@@ -62,6 +64,15 @@ class MemoryHungryParser(_FakeParser):
         raise MemoryError
 
 
+class AllocatingParser(_FakeParser):
+    """768MiB를 한 번에 잡고 그 길이를 글로 낸다. `RLIMIT_AS`가 걸린 자식에서는 한도를 넘어
+    `MemoryError`가 나고, 한도를 걸지 않는 윈도에서는 그대로 성공한다."""
+
+    def parse(self, data: bytes, mime: str, limits: ParserLimits) -> Sequence[Block]:
+        held = bytearray(768 * 1024 * 1024)
+        return [Block(BlockKind.PARAGRAPH, str(len(held)), None, None, 0)]
+
+
 class CrashingParser(_FakeParser):
     """메시지를 보내기 전에 죽는다. 리눅스에서는 신호(`SIGKILL`)로, 윈도에서는 양수 종료 코드로
     죽는다. 신호 종료는 OOM 킬러와 `RLIMIT_AS`가 자식을 죽이는 모양이다."""
@@ -87,21 +98,53 @@ class _Exploit:
         return (write_marker, (self._path,))
 
 
+# `Connection`은 런타임에 제네릭이 아니다. `type` 별칭은 지연 평가라 타입 검사기만 본다.
+type _ParentConnection = Connection[object, object]
+
+
+def _parent_connection() -> _ParentConnection:
+    """자식이 부모에게 쓰는 연결. 연결의 클래스는 리눅스에서 `Connection`, 윈도에서
+    `PipeConnection`이라 모듈 이름으로 찾는다."""
+    return next(
+        item for item in gc.get_objects() if type(item).__module__ == "multiprocessing.connection"
+    )
+
+
 class HijackingParser(_FakeParser):
     """침해된 파서를 흉내 낸다. 자식이 부모에게 쓰는 연결을 찾아, 부모가 pickle로 풀면 코드가 도는
     메시지를 보낸다. 표지 파일의 경로는 환경 변수(`MARKER_ENV`)로 받는다."""
 
     def parse(self, data: bytes, mime: str, limits: ParserLimits) -> Sequence[Block]:
         marker = os.environ[MARKER_ENV]
-        # 연결의 클래스는 리눅스에서 `Connection`, 윈도에서 `PipeConnection`이라 모듈 이름으로
-        # 찾는다.
-        connection = next(
-            item
-            for item in gc.get_objects()
-            if type(item).__module__ == "multiprocessing.connection"
-        )
-        connection.send(_Exploit(marker))
+        _parent_connection().send(_Exploit(marker))
         os._exit(0)
+
+
+class OversizedMessageParser(_FakeParser):
+    """침해된 파서를 흉내 낸다. 글은 없지만 공백으로 부풀린 메시지를 보낸다. 받는 크기 상한이 없으면
+    부모는 이 메시지를 끝까지 읽고 빈 블록 목록으로 성공한다. 원본 바이트의 길이를 공백 수로
+    쓴다(`data`는 `str(공백 수).encode()`)."""
+
+    def parse(self, data: bytes, mime: str, limits: ParserLimits) -> Sequence[Block]:
+        padding = b" " * int(data.decode())
+        _parent_connection().send_bytes(b'{"error": null, "blocks": []}' + padding)
+        os._exit(0)
+
+
+class StallingMidMessageParser(_FakeParser):
+    """메시지를 보내다 멈춘다. 리눅스의 연결은 길이를 앞에 단 틀이라 길이만 알리고 일부만 쓰면
+    부모의 `recv_bytes()`가 나머지를 기다린다. 윈도의 연결은 한 번의 쓰기가 한 메시지라 일부만 쓸 수
+    없고, 잘린 JSON이 온전한 메시지로 간다."""
+
+    def parse(self, data: bytes, mime: str, limits: ParserLimits) -> Sequence[Block]:
+        connection = _parent_connection()
+        half = b'{"error": null, "blocks": ['
+        if sys.platform == "win32":
+            connection.send_bytes(half)
+        else:
+            os.write(connection.fileno(), struct.pack("!i", 1 << 20) + half)
+        time.sleep(60)
+        return []
 
 
 class MajorTwoParser(_FakeParser):

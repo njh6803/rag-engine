@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 PARSER_ENTRY_POINT_GROUP: Final = "rag_engine.parsers"
 # 내장 파서가 감싸는 라이브러리의 배포 이름. 파싱 결과 행의 "라이브러리 판"이 이 배포의 판이다.
-_BUILTIN_LIBRARIES: Final = {"docx": "python-docx"}
+_BUILTIN_LIBRARIES: Final = {"docx": "python-docx", "pdf": "pdfplumber", "hwpx": "python-hwpx"}
 
 
 @dataclass(frozen=True, slots=True)

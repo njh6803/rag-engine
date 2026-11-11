@@ -14,10 +14,12 @@
 문서에 쓰는 작업 단위는 모두 문서 행을 먼저, 작업 행을 마지막에 잠근다. 작업 행 조건이 어긋나면
 (임대가 끝나 다른 작업자가 가져갔다) `AttemptLostError`를 올려 그 작업 단위를 롤백한다. 세대가
 첫째 단계에서 올린 값과 다르면(그사이 수집·삭제나 뒤에 시작한 작업이 세대를 올렸다) 문서에 쓰지
-않고 성공으로 끝낸다. 새 상태는 세대를 올린 쪽이 맞춘다.
+않고 성공으로 끝낸다. 새 상태는 세대를 올린 쪽이 맞춘다. 파싱의 영구 실패만 예외다. 그때도 문서와
+색인에는 쓰지 않지만 실패를 그대로 올리므로 작업은 `failed`로 끝난다(아래).
 
-실패 분류와 재시도(12), 파싱의 영구 실패 종결(08), 전환 검사(14), 임대 연장(13)은 뒤 티켓이 채운다.
-이 모듈은 영구·일시 실패 예외를 그대로 올리고 작업자가 작업을 `failed`로 끝낸다.
+파싱이 영구 실패하면 둘째 단계가 문서와 색인에 그 실패를 적고(`_record_permanent_failure`) 실패를
+그대로 올려 작업자가 작업을 재시도 없이 `failed`로 끝낸다. 실패 분류와 재시도(12), 전환 검사(14),
+임대 연장(13)은 뒤 티켓이 채운다. 임베딩 쪽의 영구·일시 실패 예외는 지금은 그대로 올린다.
 """
 
 import hashlib
@@ -40,7 +42,7 @@ from rag_engine.domain.entities import (
     Job,
     JobStatus,
 )
-from rag_engine.domain.errors import AttemptLostError
+from rag_engine.domain.errors import AttemptLostError, PermanentFailure
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.parsing import ParseRunner, ParserVersion
 from rag_engine.domain.ports import (
@@ -175,7 +177,12 @@ async def _ensure_parsed(
         return saved
     started = time.perf_counter()
     data = await deps.blob_store.read(claim.blob_path)
-    parsed = await deps.parse_runner.parse(data, claim.mime)
+    try:
+        parsed = await deps.parse_runner.parse(data, claim.mime)
+    except PermanentFailure as failure:
+        await _record_permanent_failure(deps, job, claim, failure)
+        timer.parse_ms += _elapsed_ms(started)
+        raise
     content = DocumentContent(
         document_id=job.document_id,
         parser_name=parsed.parser_name,
@@ -203,6 +210,44 @@ async def _ensure_parsed(
         )
     timer.parse_ms += _elapsed_ms(started)
     return content
+
+
+async def _record_permanent_failure(
+    deps: IndexDocumentDeps, job: Job, claim: _Claim, failure: PermanentFailure
+) -> None:
+    """파싱의 영구 실패를 문서와 색인에 적는다. 세대가 같을 때만 문서 상태를 `failed`와 그 코드로
+    쓰고, 살아 있는 판마다 그 문서의 조각을 지우고 색인 상태 `failed`를 쓴다. 옛 조각을 두면 지금
+    내용과 다른 글이 검색에 남는다. 세대가 다르면 새 내용을 맡은 쪽이 문서를 맞추므로 문서도 조각도
+    색인 상태도 건드리지 않는다. 호출한 쪽이 실패를 다시 올려 작업이 재시도 없이 `failed`로
+    끝난다."""
+    async with deps.unit_of_work.begin() as transaction:
+        document = await transaction.documents.lock(job.document_id)
+        await _hold(transaction, job)
+        if document is None or document.generation != claim.generation:
+            return
+        await transaction.documents.update(
+            replace(
+                document,
+                status=DocumentStatus.FAILED,
+                error_code=failure.code,
+                modified_at=deps.now(),
+            )
+        )
+        for version in await _live_versions(transaction, claim.group_id):
+            await transaction.index.delete_chunks(document.id, version.id)
+            await transaction.index.save_state(
+                IndexState(
+                    document_id=document.id,
+                    index_version_id=version.id,
+                    status=IndexStateStatus.FAILED,
+                    chunk_count=0,
+                    built_content_hash=None,
+                    error_code=failure.code,
+                    updated_at=deps.now(),
+                )
+            )
+            if version.status is IndexVersionStatus.BUILDING:
+                await _check_version_switch(transaction, version)
 
 
 def _is_reusable(saved: DocumentContent, content_hash: str, current: ParserVersion | None) -> bool:

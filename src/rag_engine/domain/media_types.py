@@ -47,7 +47,7 @@ def _sniff(data: bytes) -> str | None:
     return None
 
 
-def _central_directory_fits(data: bytes) -> bool:
+def central_directory_fits(data: bytes) -> bool:
     """끝 레코드가 적은 중앙 디렉터리의 크기가 상한 안인지 본다.
 
     `ZipFile`은 열 때 중앙 디렉터리를 통째로 읽어 항목마다 객체를 만든다. 업로드 상한 안에서도
@@ -66,7 +66,7 @@ def _central_directory_fits(data: bytes) -> bool:
 
 
 def _sniff_zip(data: bytes) -> str | None:
-    if not _central_directory_fits(data):
+    if not central_directory_fits(data):
         return None
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
