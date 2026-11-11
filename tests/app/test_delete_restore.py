@@ -259,6 +259,24 @@ async def test_색인되기_전에_지운_갱신_내용을_같은_내용으로_�
     assert not any("연차휴가" in text for text in texts)
 
 
+async def test_색인_전에_지운_문서를_옛_내용으로_되살려_조각이_돌아오면_문서_상태도_parsed다(
+    pipeline: Pipeline,
+) -> None:
+    ingested = await pipeline.ingest(휴가)
+    await _work(pipeline)
+    await pipeline.ingest(출장)
+    await pipeline.ingest(휴가)
+    assert (await _document(pipeline, ingested.document_id)).status is DocumentStatus.RECEIVED
+    await pipeline.delete()
+
+    restored = await pipeline.ingest(휴가)
+
+    assert restored.action is IngestAction.RESTORED and restored.job_id is None
+    assert await pipeline.chunk_texts(ingested.document_id) != []
+    document = await _document(pipeline, ingested.document_id)
+    assert document.status is DocumentStatus.PARSED
+
+
 async def test_묘비_행과_같은_키가_오면_그_행을_다시_써_UUID와_세대를_잇고_created를_낸다(
     pipeline: Pipeline, tmp_path: Path
 ) -> None:

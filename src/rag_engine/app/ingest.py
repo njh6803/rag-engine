@@ -386,17 +386,21 @@ async def _restore_chunks(
     전환되지 않을 수 있다. 명세 "재색인 시작" 항목). 건설 중인 판에 `indexed`를 써도 전환 검사를
     부르지 않는다. 그 판에 색인 상태가 없던 문서의 `indexed` 한 행은 전환 조건(모든 색인 상태가
     `indexed`나 `failed`)을 새로 채우지 못하고, 검사는 지식베이스 행을 `FOR UPDATE`로 올려 잠가야
-    해서 같은 지식베이스의 되살림끼리 서로를 기다릴 수 있다. 문서 행은 새 원본을 가리키지 않아 새
-    원본은 커밋 뒤에 지운다."""
+    해서 같은 지식베이스의 되살림끼리 서로를 기다릴 수 있다. 조각이 하나라도 돌아오면 그 조각은 같은
+    해시의 내용을 파싱해 만든 것이므로 문서 상태를 `parsed`로 쓴다(갱신이 `received`로 쓴 뒤 색인
+    작업이 돌기 전에 지운 문서는 작업이 지워져 상태를 고칠 작업이 없다). 문서 행은 새 원본을
+    가리키지 않아 새 원본은 커밋 뒤에 지운다."""
     document = replace(
         _refresh_metadata(revived, upload), generation=revived.generation + 1, modified_at=now
     )
-    await transaction.documents.update(document)
     await _lock_knowledge_bases(transaction, document.group_id, document.group_id)
     versions = await live_index_versions(transaction, document.group_id)
     restored = await transaction.index.restore_archived_chunks(
         document, [version.id for version in versions]
     )
+    if restored:
+        document = replace(document, status=DocumentStatus.PARSED)
+    await transaction.documents.update(document)
     await transaction.index.delete_archived_chunks(document.id)
     for version in versions:
         if version.id in restored:
