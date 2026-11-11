@@ -12,7 +12,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Final, Literal
 
-from pydantic import Field, ValidationError, field_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from rag_engine.app.default_records import DefaultKnowledgeBaseSettings
@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     search_default_top_k: int = Field(default=10, gt=0)
     search_max_top_k: int = Field(default=50, gt=0)
     search_timeout_seconds: int = Field(default=20, gt=0)
+    # `get_document`가 한 번에 내는 전문 창의 최대 글자 수(코드 포인트). 클라이언트마다 도구 출력의
+    # 상한이 있어, 전문 전체를 한 번에 내지 않고 이 크기로 나눠 낸다(명세 "MCP 도구").
+    document_text_max_chars: int = Field(default=20000, gt=0)
 
     @field_validator("allowed_hosts", mode="before")
     @classmethod
@@ -99,6 +102,17 @@ class Settings(BaseSettings):
     @classmethod
     def _empty_reranker_url_means_none(cls, value: object) -> object:
         return None if value == "" else value
+
+    @model_validator(mode="after")
+    def _require_default_top_k_within_max(self) -> "Settings":
+        # 검색이 `top_k`의 상한을 강제하므로, 기본값이 상한을 넘으면 `top_k`를 주지 않은 모든 검색이
+        # 요청 때마다 `invalid_argument`가 된다. 기동 때 걸러 설정 오류를 바로 드러낸다.
+        if self.search_default_top_k > self.search_max_top_k:
+            raise ValueError(
+                f"RAG_SEARCH_DEFAULT_TOP_K({self.search_default_top_k})가 "
+                f"RAG_SEARCH_MAX_TOP_K({self.search_max_top_k})보다 크다"
+            )
+        return self
 
     def default_knowledge_base(self) -> DefaultKnowledgeBaseSettings:
         has_reranker = self.default_reranker_url is not None

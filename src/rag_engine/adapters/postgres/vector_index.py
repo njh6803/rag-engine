@@ -33,6 +33,7 @@ from rag_engine.domain.entities import (
     IndexStateStatus,
     IndexVersion,
     SearchCandidates,
+    SearchFilter,
     SearchHit,
     SearchQuery,
 )
@@ -70,10 +71,11 @@ def search_sql(query: SearchQuery) -> str:
         "c.group_id IN (SELECT group_id FROM knowledge_base_groups"
         f" WHERE knowledge_base_id = '{knowledge_base}')"
     )
+    filters = _filter_conditions(query.filter)
     ctes = [
         "vec AS (SELECT c.id,"
         f" row_number() OVER (ORDER BY {vector_expression} <=> CAST(:vector AS vector)) AS rank"
-        f" FROM chunks c WHERE c.index_version_id = '{version}' AND {in_groups}"
+        f" FROM chunks c WHERE c.index_version_id = '{version}' AND {in_groups}{filters}"
         f" ORDER BY {vector_expression} <=> CAST(:vector AS vector) LIMIT :candidates)"
     ]
     if query.keywords:
@@ -81,7 +83,8 @@ def search_sql(query: SearchQuery) -> str:
             "kw AS (SELECT c.id,"
             " row_number() OVER (ORDER BY ts_rank_cd(c.keywords, q.query) DESC, c.id) AS rank"
             " FROM chunks c, to_tsquery('simple', :keywords) AS q(query)"
-            f" WHERE c.index_version_id = '{version}' AND c.keywords @@ q.query AND {in_groups}"
+            f" WHERE c.index_version_id = '{version}' AND c.keywords @@ q.query"
+            f" AND {in_groups}{filters}"
             " ORDER BY ts_rank_cd(c.keywords, q.query) DESC, c.id LIMIT :candidates)"
         )
         joined = "vec FULL OUTER JOIN kw ON vec.id = kw.id"
@@ -112,6 +115,19 @@ def search_sql(query: SearchQuery) -> str:
     )
 
 
+def _filter_conditions(search_filter: SearchFilter) -> str:
+    """사용자가 주는 필터를 두 쪽의 `WHERE`에 더하는 조건. 값은 모두 매개변수이고 필터가 비면 빈
+    글이다. 그룹 집합의 방어 조건은 필터가 아니라 늘 든다."""
+    conditions: list[str] = []
+    if search_filter.group_ids is not None:
+        conditions.append("c.group_id = ANY(CAST(:group_ids AS uuid[]))")
+    if search_filter.updated_after is not None:
+        conditions.append("c.updated_at >= :updated_after")
+    if search_filter.updated_before is not None:
+        conditions.append("c.updated_at < :updated_before")
+    return "".join(f" AND {condition}" for condition in conditions)
+
+
 def _search_parameters(query: SearchQuery) -> dict[str, object]:
     parameters: dict[str, object] = {
         "vector": _vector_literal(query.vector),
@@ -119,6 +135,13 @@ def _search_parameters(query: SearchQuery) -> dict[str, object]:
     }
     if query.keywords:
         parameters["keywords"] = _tsquery(query.keywords)
+    search_filter = query.filter
+    if search_filter.group_ids is not None:
+        parameters["group_ids"] = list(search_filter.group_ids)
+    if search_filter.updated_after is not None:
+        parameters["updated_after"] = search_filter.updated_after
+    if search_filter.updated_before is not None:
+        parameters["updated_before"] = search_filter.updated_before
     return parameters
 
 
@@ -230,6 +253,15 @@ class PostgresVectorIndex:
     async def archive_chunks(self, document_id: UUID) -> None:
         raise NotImplementedError(_NOT_YET)
 
+    async def count_chunks(self, document_id: UUID, index_version_id: UUID) -> int:
+        chunks = tables.chunks
+        count = await self._connection.scalar(
+            sa.select(sa.func.count()).where(
+                chunks.c.document_id == document_id, chunks.c.index_version_id == index_version_id
+            )
+        )
+        return 0 if count is None else count
+
     async def get_state(self, document_id: UUID, index_version_id: UUID) -> IndexState | None:
         states = tables.document_index_states
         row = (
@@ -280,6 +312,11 @@ class PostgresVectorIndex:
         await self._connection.execute(
             sa.select(sa.func.set_config("hnsw.ef_search", str(query.candidates), sa.true()))
         )
+        if query.filter.is_active:
+            # 필터가 좁으면 색인 스캔이 후보 수를 채우기 전에 끝난다. 반복 스캔이 더 읽게 한다.
+            await self._connection.execute(
+                sa.select(sa.func.set_config("hnsw.iterative_scan", "relaxed_order", sa.true()))
+            )
         result = await self._connection.execute(
             sa.text(search_sql(query)), _search_parameters(query)
         )

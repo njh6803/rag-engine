@@ -125,9 +125,22 @@ class PostgresCatalog:
         )
 
     async def get_group(self, name: str) -> Group | None:
+        return await self._group_where(tables.groups.c.name == name)
+
+    async def get_source_by_id(self, source_id: UUID) -> Source | None:
         result = await self._connection.execute(
-            sa.select(tables.groups).where(tables.groups.c.name == name)
+            sa.select(tables.sources).where(tables.sources.c.id == source_id)
         )
+        row = result.mappings().one_or_none()
+        if row is None:
+            return None
+        return Source(id=row["id"], name=row["name"], kind=SourceKind(row["kind"]))
+
+    async def get_group_by_id(self, group_id: UUID) -> Group | None:
+        return await self._group_where(tables.groups.c.id == group_id)
+
+    async def _group_where(self, condition: sa.ColumnElement[bool]) -> Group | None:
+        result = await self._connection.execute(sa.select(tables.groups).where(condition))
         row = result.mappings().one_or_none()
         if row is None:
             return None

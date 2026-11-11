@@ -14,3 +14,17 @@ def docx_bytes(title: str, *paragraphs: str) -> bytes:
     buffer = io.BytesIO()
     document.save(buffer)
     return buffer.getvalue()
+
+
+def docx_outline(*entries: str | tuple[int, str]) -> bytes:
+    """문자열은 문단이고 `(수준, 글)`은 그 수준의 제목인 DOCX 바이트. 수준은 1부터다."""
+    document = Document()
+    for entry in entries:
+        if isinstance(entry, str):
+            document.add_paragraph(entry)
+        else:
+            level, text = entry
+            document.add_heading(text, level=level)
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()

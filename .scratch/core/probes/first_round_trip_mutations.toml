@@ -96,7 +96,7 @@ expect_output = ["도구 오류가 아니라 결과를 냈다"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/search.py"
-old = '''    if found is None or (scope and found.id not in scope):'''
+old = '''    if found is None or not is_in_scope(request.allowed_knowledge_base_ids, found.id):'''
 new = '''    if found is None:'''
 
 [[mutation]]
@@ -107,8 +107,8 @@ expect_output = ["Left contains one more item: 2"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/search.py"
-old = '''                found.hits[: request.top_k],'''
-new = '''                found.hits,'''
+old = '''                hits[: request.top_k],'''
+new = '''                hits,'''
 
 [[mutation]]
 name = "판이 바뀐 검색을 다시 하지 않고 그대로 낸다"

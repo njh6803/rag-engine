@@ -47,8 +47,7 @@ from psycopg import sql
 from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.harness import LogCapture, RunningServer, replace_database
 from tests.support.pipeline import Pipeline, build_pipeline
-from tests.support.round_trip import RoundTrip, new_stub, point_default_version_at
-from tests.support.tei_server import serve_stub
+from tests.support.round_trip import RoundTrip, wire_stubs
 from tools.run_checks import TEST_DATABASE_ENV, database_problem
 
 from rag_engine.adapters import kiwi
@@ -181,12 +180,10 @@ async def engine(empty_database_url: str) -> AsyncIterator[AsyncEngine]:
 
 @pytest.fixture
 def round_trip(server: RunningServer) -> Iterator[RoundTrip]:
-    """수집 → 작업자 한 번 → `search`의 왕복 도우미. 임베딩 스텁을 실제 포트에 띄우고 서버의
-    기본 판이 그 주소를 쓰게 한다(`tests/support/round_trip.py`)."""
-    stub = new_stub()
-    with serve_stub(stub) as endpoint:
-        point_default_version_at(server, endpoint)
-        yield RoundTrip(server, stub)
+    """수집 → 작업자 한 번 → `search`의 왕복 도우미. 임베딩 스텁과 리랭커 스텁을 실제 포트에 띄우고
+    서버의 기본 판과 기본 지식베이스가 그 주소를 쓰게 한다(`tests/support/round_trip.py`)."""
+    with wire_stubs(server) as wired:
+        yield wired
 
 
 @pytest.fixture

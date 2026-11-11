@@ -8,7 +8,8 @@ Decisions).
   단어 주머니 벡터다. 같은 글은 같은 벡터이고 낱말이 겹치면 가까운 벡터다.
 - 토큰 세기: 같은 낱말 단위에 입력의 UTF-8 바이트 오프셋을 붙인다. `add_special_tokens`가 참이면
   앞뒤에 오프셋이 null인 특수 토큰을 더한다. 빈 글은 TEI처럼 거부한다.
-- 리랭크: 질의 낱말 가운데 글에 든 비율을 점수로 내고 점수가 큰 순서로 돌려준다.
+- 리랭크: 질의 낱말 가운데 글에 든 비율을 점수로 내고 점수가 큰 순서로 돌려준다. 시험이
+  `score_with`로 점수를 정하거나 `rerank_delay_seconds`로 답을 늦출 수 있다.
 - 입력 상한: `/tokenize`는 글 하나가 `max_input_length`의 250배 글자를 넘으면 422로, 요청 본문이
   `payload_limit` 바이트를 넘으면 413으로 거부한다(상류 v1.9.4의 `MAX_CHAR_MULTIPLIER`와
   `--payload-limit`을 웹 요약으로 읽었다).
@@ -18,11 +19,12 @@ Decisions).
 `SECRET_MESSAGE`를 담는다. 선례는 `.scratch/core/probes/embedding/fake_server.py`다.
 """
 
+import asyncio
 import hashlib
 import json
 import math
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -55,6 +57,10 @@ class TeiStub:
     payload_limit: int = 2_000_000
     dimensions: int = 16
     special_tokens: int = 2
+    # 시험이 리랭크 점수를 정한다(질의, 후보 글). 없으면 낱말 겹침 비율이다.
+    score_with: Callable[[str, str], float] | None = None
+    # `/rerank`가 답하기 전에 기다리는 시간(초). 서버의 시간 제한을 넘기는 시험이 쓴다.
+    rerank_delay_seconds: float = 0.0
     requests: list[RecordedRequest] = field(default_factory=lambda: [])
     forced_statuses: dict[str, int] = field(default_factory=lambda: {})
     app: FastAPI = field(init=False)
@@ -159,13 +165,23 @@ class TeiStub:
             return forced
         query = body.get("query")
         texts = _texts(body.get("texts"))
-        query_words = {unit.text for unit in _units(query if isinstance(query, str) else "")}
+        if len(texts) > self.max_client_batch_size:
+            return _error(422, f"batch size {len(texts)} > {self.max_client_batch_size}")
+        if self.rerank_delay_seconds:
+            await asyncio.sleep(self.rerank_delay_seconds)
+        query_text = query if isinstance(query, str) else ""
+        query_words = {unit.text for unit in _units(query_text)}
         ranks = [
-            {"index": i, "score": _overlap(query_words, {unit.text for unit in _units(text)})}
+            {"index": i, "score": self._score(query_text, query_words, text)}
             for i, text in enumerate(texts)
         ]
         ranks.sort(key=lambda rank: rank["score"], reverse=True)
         return JSONResponse(ranks)
+
+    def _score(self, query: str, query_words: set[str], text: str) -> float:
+        if self.score_with is not None:
+            return self.score_with(query, text)
+        return _overlap(query_words, {unit.text for unit in _units(text)})
 
     def _tokens(self, text: str, *, with_special: bool) -> list[dict[str, JsonValue]]:
         tokens: list[dict[str, JsonValue]] = [
