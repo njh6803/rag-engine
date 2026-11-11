@@ -70,7 +70,7 @@
 
 **승인**
 
-- 스크립트가 쓴 저장소 파일의 CRLF. 사건: 작업 트리의 `tests/adapters/test_zip_guard.py`가 CRLF였고 `git add`의 `CRLF will be replaced by LF` 경고로야 알았다(`git ls-files --eol`이 `i/lf w/crlf`를 냈다). 어느 도구가 썼는지는 가리지 못했다(07 회고가 같은 근거로 센 꼴이다). `sed`로 LF로 되돌려 다시 스테이징했다. 층: 검사가 가장 높고 열린 항목 `crlf-from-script-edits`가 이미 그 처방을 든다. 되돌림: PR 하나. `crlf-from-script-edits`에 3회차를 더했다(더하는 것이라 다섯 번째에 반영한다).
+- 스크립트가 쓴 저장소 파일의 CRLF. 사건: 작업 트리의 `tests/adapters/test_zip_guard.py`가 CRLF였고 `git add`의 `CRLF will be replaced by LF` 경고로야 알았다(`git ls-files --eol`이 `i/lf w/crlf`를 냈다). 어느 도구가 썼는지는 가리지 못했다(07 회고가 같은 근거로 센 꼴이다). `sed`로 LF로 되돌려 다시 스테이징했다. 층: 검사가 가장 높고 열린 항목 `crlf-from-script-edits`가 이미 그 처방을 든다. 되돌림: PR 하나. `crlf-from-script-edits`에 회차를 더했다. 병합하려 `origin/main`을 합치니 09 세션이 같은 항목에 3회차를 이미 더해 두어(충돌) 이 사건은 4회차가 되었다(더하는 것이라 다섯 번째에 반영한다).
 - 윈도 PC에서 리눅스 갈래를 확인하는 컨테이너 실행. 사건: 리눅스에서만 서는 시험 갈래(`RLIMIT_AS`, 수신 중 기한)를 재려고 컨테이너 명령을 두 번 직접 지었고, 한 번은 `--exclude=.git`이 든 명령을 워크트리 가드가 거절했다. 컨테이너 실행이 상한을 올린 뒤 깨진 시험 하나를 윈도 부분 실행보다 먼저 잡았다. 층: 새 도구(`tools/linux_check.py`)가 지침보다 높다. 되돌림: PR 하나. 대기열 `linux-container-test-run`을 1회차로 더했다(더하는 것이라 다섯 번째에 반영한다).
 
 **기각**
