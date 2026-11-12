@@ -1,5 +1,9 @@
 """PreToolUse 훅(Bash|PowerShell). 커밋이 있는 저장소에서 보호 브랜치 위의 `git commit` 을 막는다.
 
+보호 브랜치는 main 과 dev 다(dev 는 agent-os ADR 0043 의 개발 브랜치. 티켓 PR 만 dev 로 들어오고
+직접 커밋은 없다). dev 가 없는 저장소에서는 main 만 걸린다. 아래 이유는 main 의 사건이고 dev 에도
+같다.
+
 main 은 보호 브랜치라 커밋이 있는 저장소에서 main 위의 커밋은 언제나 실수다. 같은 체크아웃을 세션
 둘이 쓰다 커밋이 엉뚱한 브랜치에 들어간 것이 두 번이다(대기열 15) — PR #46(2026-09-23)에서는 다른
 세션의 커밋이 내 피처 브랜치에 얹혔고, 2026-09-27 에는 다른 세션이 체크아웃을 main 으로 옮긴 32초 뒤
@@ -18,13 +22,15 @@ main 은 막지 않는다. 킥오프는 새 프로젝트의 첫 커밋을 main �
 환경의 `GIT_DIR`·`GIT_WORK_TREE`·`GIT_COMMON_DIR` 을 벗기고 읽는다 — git 이 훅 자식에 내보낸 값이
 남아 있으면 cwd 가 아닌 저장소의 브랜치가 나온다(pre-commit 아래 실측, 2026-09-28). 훅은 단독 실행
 스크립트라 서로 import 하지 않는다.
-못 보는 것: `git -C <다른 저장소> commit` 과 `cd <다른 저장소> && git commit`(둘 다 cwd 의 브랜치로
-판정한다 — 앞은 못 막고 뒤는 오탐이다), 래퍼 스크립트 안의 커밋, detached HEAD(브랜치 이름이 비어
-막지 않는다), `HEAD` 가 아직 커밋을 가리키지 않는 main(다른 브랜치에 커밋이 있는 저장소에서
-`git switch --orphan main` 한 뒤 — 커밋의 유무를 저장소가 아니라 `HEAD` 로 재므로 막지 않는다),
-git 이 없거나 저장소 밖이거나 `CALL_TIMEOUT` 초 안에 돌아오지 않을 때(막지 않는다 — 게이트가 아니라
-안전장치라 fail-open 이다. 커밋의 유무를 읽지 못해도 커밋이 없다고 본다), 앞 모양(다른 세션의 커밋이
-내 브랜치에 얹히는 것).
+못 보는 것: `git merge` 가 만드는 병합 커밋(명령이 `git commit` 이 아니라 보지 않는다. 핫픽스를 main
+에 합친 세션이 main 을 dev 에 되돌려 합치는 병합이 이 훅에 걸리지 않는 것은 agent-os ADR 0043 이
+일부러 둔 길이다. 충돌을 풀고 `git commit` 으로 끝내는 병합은 걸린다), `git -C <다른 저장소> commit`
+과 `cd <다른 저장소> && git commit`(둘 다 cwd 의 브랜치로 판정한다 — 앞은 못 막고 뒤는 오탐이다),
+래퍼 스크립트 안의 커밋, detached HEAD(브랜치 이름이 비어 막지 않는다), `HEAD` 가 아직 커밋을
+가리키지 않는 main(다른 브랜치에 커밋이 있는 저장소에서 `git switch --orphan main` 한 뒤 — 커밋의
+유무를 저장소가 아니라 `HEAD` 로 재므로 막지 않는다), git 이 없거나 저장소 밖이거나 `CALL_TIMEOUT`
+초 안에 돌아오지 않을 때(막지 않는다 — 게이트가 아니라 안전장치라 fail-open 이다. 커밋의 유무를 읽지
+못해도 커밋이 없다고 본다), 앞 모양(다른 세션의 커밋이 내 브랜치에 얹히는 것).
 """
 
 from __future__ import annotations
@@ -36,7 +42,7 @@ import subprocess
 import sys
 from typing import TypedDict
 
-PROTECTED = frozenset({"main"})
+PROTECTED = frozenset({"main", "dev"})
 _REPO_LOCATION_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")
 # git 하나를 기다리는 초. 많아야 두 번 부르므로 더해도 등록의 시간 제한(20초) 안이다(대기열 342).
 CALL_TIMEOUT = 8

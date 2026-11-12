@@ -2495,3 +2495,233 @@ def test_이_브랜치가_더한_일지가_없으면_1로_끝나고_아무것도
     assert code == 1
     assert captured.out == ""
     assert "이 브랜치가 더한 일지가 없다" in captured.err
+
+
+# --- 기준 브랜치 규칙(agent-os ADR 0043, tools/base_rule.py) -----------------------------
+
+
+def _dev를_딴다(work: Path, pusher: Path, dev: dict[str, str], hotfix: dict[str, str]) -> None:
+    """원격에 main 에서 딴 dev 를 두고 dev 에 `dev` 를, main 에 `hotfix` 를 더해 둘이 갈라지게 한다.
+    작업 클론은 받아 `origin/dev` 의 추적 ref 를 갖는다. 브랜치는 `topic` 그대로다."""
+    _git(pusher, "checkout", "-q", "-b", "dev", "main")
+    _커밋한다(pusher, dev, "dev 가 나아간다")
+    _git(pusher, "push", "-q", "origin", "dev")
+    _git(pusher, "checkout", "-q", "main")
+    _커밋한다(pusher, hotfix, "main 에 핫픽스")
+    _git(pusher, "push", "-q", "origin", "main")
+    _git(work, "fetch", "-q", "origin")
+
+
+def test_origin_dev가_있으면_dev를_기준으로_하고_dev에서_딴_브랜치의_번호를_견준다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    _, work, pusher = 저장소
+    _dev를_딴다(work, pusher, {"docs/adr/0002-dev.md": "dev\n"}, {"docs/adr/0003-hotfix.md": "m\n"})
+    _커밋한다(work, {"docs/adr/0002-ours.md": "이쪽\n"}, "이쪽")
+
+    result = _CLI를_부른다(work)
+
+    # topic 은 dev 가 나아가기 전에 땄다. dev 가 새로 쥔 0002 와 겹치고 main 에는 0002 가 없다
+    assert result.returncode == 1, result.stderr
+    assert "origin/dev ADR 0002: 이 브랜치 0002-ours.md, 그쪽 0002-dev.md" in result.stdout
+    assert "origin/main ADR 0002" not in result.stdout
+
+
+def test_dev가_기준이어도_dev에_없는_main의_번호는_main에도_있는_것으로_센다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    """dev→main 사이에 hotfix 가 낀 경우다. main 만 쥔 0003 도 이 브랜치 밖의 번호다."""
+    _, work, pusher = 저장소
+    _dev를_딴다(work, pusher, {"docs/adr/0002-dev.md": "dev\n"}, {"docs/adr/0003-hotfix.md": "m\n"})
+    _커밋한다(work, {"docs/adr/0003-ours.md": "이쪽\n"}, "이쪽")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 1, result.stderr
+    assert "origin/main ADR 0003: 이 브랜치 0003-ours.md, 그쪽 0003-hotfix.md" in result.stdout
+    assert "옮길 번호: ADR 0003 → 0004\n" in result.stdout
+
+
+def test_dev가_기준일_때_main에서_딴_열린_PR은_main이_쥔_번호를_자기_새_번호로_세지_않는다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    """hotfix PR(base 가 main)의 head 는 main 이 쥔 0003 을 품는다. 그 0003 은 PR 이 더한 것이
+    아니라 `origin/main` 줄로 이미 알린다. PR 줄에 같은 번호가 이중으로 뜨지 않는다."""
+    _, work, pusher = 저장소
+    _dev를_딴다(work, pusher, {"docs/adr/0002-dev.md": "dev\n"}, {"docs/adr/0003-hotfix.md": "m\n"})
+    pr = _PR을_민다(pusher, 5, {"docs/adr/0004-pr.md": "그쪽\n"})
+    _연다(pusher, 5, pr)
+    _커밋한다(work, {"docs/adr/0003-ours.md": "이쪽\n"}, "이쪽")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 1, result.stderr
+    assert "origin/main ADR 0003: 이 브랜치 0003-ours.md, 그쪽 0003-hotfix.md" in result.stdout
+    assert "PR #5 ADR 0003" not in result.stdout
+
+
+def test_반박_hotfix_브랜치와_열린_PR이_dev가_쥔_번호에_다른_파일을_더하면_서로_겹친다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    """PR 봇 첫 회차의 Major. 기준이 아닌 오래 사는 브랜치(dev)와 번호만 같은 PR 의 파일은 PR 이
+    새로 매긴 번호다. 번호만 보고 빼면 이 브랜치와 PR 의 겹침이 dev 줄에 가려져 사라진다."""
+    _, work, pusher = 저장소
+    _dev를_딴다(work, pusher, {"docs/adr/0003-dev.md": "dev\n"}, {"README.md": "m\n"})
+    pr = _PR을_민다(pusher, 5, {"docs/adr/0003-pr.md": "그쪽\n"})
+    _연다(pusher, 5, pr)
+    _git(work, "checkout", "-q", "-B", "hotfix/x", "origin/main")
+    _커밋한다(work, {"docs/adr/0003-ours.md": "이쪽\n"}, "이쪽")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 1, result.stderr
+    assert "PR #5 ADR 0003: 이 브랜치 0003-ours.md, 그쪽 0003-pr.md" in result.stdout
+
+
+def test_반박_기준이_아닌_브랜치에서_물려받은_ADR은_옮길_번호에_들지_않는다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    """PR 봇 첫 회차의 Major. dev 가 기준이고 main 이 이 브랜치의 조상이면 main 줄은 찍지 않는다.
+    그래도 main 에서 물려받은 0002 는 공유한 이력이라 `--move` 가 0003 과 함께 옮기지 않는다."""
+    _, work, pusher = 저장소
+    _git(pusher, "branch", "dev", "main")
+    _git(pusher, "push", "-q", "origin", "dev")
+    _커밋한다(pusher, {"docs/adr/0002-main.md": "main\n"}, "main 이 앞선다")
+    _git(pusher, "push", "-q", "origin", "main")
+    pr = _PR을_민다(pusher, 5, {"docs/adr/0003-pr.md": "그쪽\n"})
+    _연다(pusher, 5, pr)
+    _git(work, "fetch", "-q", "origin")
+    _git(work, "checkout", "-q", "-B", "topic", "origin/main")
+    _커밋한다(work, {"docs/adr/0003-ours.md": "이쪽\n"}, "이쪽")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "PR #5 ADR 0003: 이 브랜치 0003-ours.md, 그쪽 0003-pr.md" in result.stdout
+    assert "옮길 번호: ADR 0003 → 0004\n" in result.stdout
+    assert "0002 →" not in result.stdout
+
+
+def test_반박_딴_뒤_기준이_아닌_브랜치가_더_나아가도_물려받은_ADR은_옮길_번호에_들지_않는다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    """PR 봇(CodeRabbit) 첫 회차의 Major. 위 시험과 같지만 이 브랜치를 딴 뒤 main 이 한 커밋 더
+    나아가 main 의 끝이 이 브랜치의 조상이 아니다. 그래도 main 에서 물려받은 0002 는 공유한
+    이력이다."""
+    _, work, pusher = 저장소
+    _git(pusher, "branch", "dev", "main")
+    _git(pusher, "push", "-q", "origin", "dev")
+    _커밋한다(pusher, {"docs/adr/0002-main.md": "main\n"}, "main 이 앞선다")
+    _git(pusher, "push", "-q", "origin", "main")
+    pr = _PR을_민다(pusher, 5, {"docs/adr/0003-pr.md": "그쪽\n"})
+    _연다(pusher, 5, pr)
+    _git(work, "fetch", "-q", "origin")
+    _git(work, "checkout", "-q", "-B", "topic", "origin/main")
+    _커밋한다(work, {"docs/adr/0003-ours.md": "이쪽\n"}, "이쪽")
+    _커밋한다(pusher, {"README.md": "main 이 더 나아간다\n"}, "main 이 더 나아간다")
+    _git(pusher, "push", "-q", "origin", "main")
+    _git(work, "fetch", "-q", "origin")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "PR #5 ADR 0003: 이 브랜치 0003-ours.md, 그쪽 0003-pr.md" in result.stdout
+    assert "옮길 번호: ADR 0003 → 0004\n" in result.stdout
+    assert "0002 →" not in result.stdout
+
+
+def test_hotfix_브랜치는_dev가_있어도_main을_기준으로_하고_dev의_번호도_견준다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    _, work, pusher = 저장소
+    _dev를_딴다(work, pusher, {"docs/adr/0002-dev.md": "dev\n"}, {"docs/adr/0003-hotfix.md": "m\n"})
+    _git(work, "checkout", "-q", "-B", "hotfix/x", "origin/main")
+    _커밋한다(work, {"docs/adr/0002-ours.md": "이쪽\n"}, "이쪽")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 1, result.stderr
+    # 기준은 main 이라 dev 는 또 하나의 오래 사는 브랜치로 견준다. hotfix 가 나중에 dev 로 합쳐진다
+    assert "origin/dev ADR 0002: 이 브랜치 0002-ours.md, 그쪽 0002-dev.md" in result.stdout
+
+
+def test_dev의_추적_ref가_없으면_원격에_dev가_있어도_main만_대조한다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    """못 보는 것: 원격에 dev 가 있어도 이 클론이 추적 ref 를 받은 적이 없으면 main 으로 돈다."""
+    _, work, pusher = 저장소
+    _git(pusher, "checkout", "-q", "-b", "dev", "main")
+    _커밋한다(pusher, {"docs/adr/0002-dev.md": "dev\n"}, "dev 가 나아간다")
+    _git(pusher, "push", "-q", "origin", "dev")
+    _git(pusher, "checkout", "-q", "main")
+    _커밋한다(work, {"docs/adr/0002-ours.md": "이쪽\n"}, "이쪽")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "origin/dev" not in result.stdout
+
+
+def test_dev가_기준일_때_일지는_dev와의_merge_base_뒤에_더한_것이다(
+    저장소: tuple[Path, Path, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    _, work, pusher = 저장소
+    dev_일지 = {"docs/journal/2026-11-05-0900-dev.md": "dev\n"}
+    _dev를_딴다(work, pusher, dev_일지, {"README.md": "main\n"})
+    _git(work, "checkout", "-q", "-B", "topic", "origin/dev")
+    _커밋한다(work, {"docs/journal/2026-11-02-0900-ours.md": "이쪽\n"}, "일지")
+
+    code = main([str(work), "--journal"])
+
+    # main 에 견주면 dev 가 더한 더 늦은 일지가 이 브랜치의 것으로 걸린다
+    assert code == 0
+    assert capsys.readouterr().out.strip() == "docs/journal/2026-11-02-0900-ours.md"
+
+
+def test_반박_dev_가_main_보다_뒤처져도_main_에서_딴_브랜치는_main_의_번호와_겹치지_않는다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    """dev 를 기준으로 잡아도 merge-base 가 dev 끝이라, main 이 더한 번호가 이 브랜치의 새 번호로
+    읽히기 쉽다. 같은 번호에 같은 파일이면 겹침이 아니다."""
+    _, work, pusher = 저장소
+    _git(pusher, "branch", "dev", "main")
+    _git(pusher, "push", "-q", "origin", "dev")
+    _커밋한다(pusher, {"docs/adr/0002-main.md": "main\n"}, "main 이 앞선다")
+    _git(pusher, "push", "-q", "origin", "main")
+    _git(work, "fetch", "-q", "origin")
+    _git(work, "checkout", "-q", "-B", "topic", "origin/main")
+    _커밋한다(work, {"docs/adr/0003-ours.md": "이쪽\n"}, "이쪽")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_반박_이력이_갈라진_dev_를_받았어도_조용히_지나가지_않는다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    """merge-base 가 없는 dev(고아 브랜치, 얕은 클론)는 이 브랜치와 견줄 수 없다. 겹침 없음으로
+    조용히 지나가지 않고 2 로 멈춘다."""
+    _, work, pusher = 저장소
+    _git(pusher, "checkout", "-q", "--orphan", "dev")
+    _git(pusher, "rm", "-rq", "--cached", ".")
+    _커밋한다(pusher, {"docs/adr/0001-other.md": "다른 뿌리\n"}, "고아 dev")
+    _git(pusher, "push", "-q", "origin", "dev")
+    _git(work, "fetch", "-q", "origin")
+    _커밋한다(work, {"docs/adr/0002-ours.md": "이쪽\n"}, "이쪽")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 2, result.stdout + result.stderr
+
+
+def test_반박_dev_브랜치_자체에서는_새_번호가_없어_겹치지_않는다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    _, work, pusher = 저장소
+    _dev를_딴다(work, pusher, {"docs/adr/0002-dev.md": "dev\n"}, {"docs/adr/0003-hotfix.md": "m\n"})
+    _git(work, "checkout", "-q", "-B", "dev", "origin/dev")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 0, result.stdout + result.stderr

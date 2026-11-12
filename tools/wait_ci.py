@@ -330,7 +330,7 @@ def _settle(
     if review.outcome is Outcome.UNCLEAR:
         lines.append(f"  {REVIEW_CHECK} 이 한도인지 가르지 못했다: {review.detail}")
     if snapshot.conflicting:
-        return EXIT_FAILED, [*lines, "끝: 충돌. main 을 합치고 푸시한 뒤 다시 띄운다"]
+        return EXIT_FAILED, [*lines, "끝: 충돌. PR 의 기준 브랜치를 합치고 푸시한 뒤 다시 띄운다"]
     settled = not verdict.pending and not verdict.missing
     # 실패가 있으면 리뷰 요청을 기다리지 않는다. 고쳐서 다시 푸시할 헤드라 요청은 한도만 쓴다.
     if settled and verdict.failed:

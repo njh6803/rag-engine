@@ -123,6 +123,41 @@ def test_커밋이_하나_있는_저장소의_main_에서는_막는다(tmp_path:
     assert "커밋이 있는 저장소" in reason
 
 
+def test_dev_위의_커밋도_막는다(tmp_path: Path) -> None:
+    """agent-os ADR 0043: 개발 브랜치 dev 도 직접 커밋을 막는다."""
+    repo = tmp_path / "dev"
+    _저장소를_만든다(repo, "dev")
+    _빈_커밋을_만든다(repo)
+
+    reason = reason_at("git commit -m x", str(repo))
+
+    assert reason is not None
+    assert "`dev`" in reason
+    assert deny_reason("dev") is not None
+
+
+def test_병합_커밋은_dev_위에서도_막지_않는다(tmp_path: Path) -> None:
+    """못 보는 것: `git merge` 가 만드는 병합 커밋은 명령이 `git commit` 이 아니다. 핫픽스를 main 에
+    합친 세션이 main 을 dev 에 되돌려 합치는 병합(agent-os ADR 0043)이 이 훅에 걸리지 않는 것은
+    일부러 둔 길이다."""
+    repo = tmp_path / "dev"
+    _저장소를_만든다(repo, "dev")
+    _빈_커밋을_만든다(repo)
+
+    assert reason_at("git merge --no-ff origin/main", str(repo)) is None
+    assert reason_at("git merge origin/main -m 'chore: main 을 dev 에 합친다'", str(repo)) is None
+
+
+def test_충돌을_풀고_git_commit으로_끝내는_병합은_dev_위에서_막는다(tmp_path: Path) -> None:
+    """못 보는 것에 적은 반대편: 명령이 `git commit` 이면 병합을 마무리하는 커밋도 브랜치만 보고
+    막는다."""
+    repo = tmp_path / "dev"
+    _저장소를_만든다(repo, "dev")
+    _빈_커밋을_만든다(repo)
+
+    assert reason_at("git commit --no-edit", str(repo)) is not None
+
+
 def test_다른_브랜치에_커밋이_있어도_main_이_아직_커밋을_가리키지_않으면_막지_않는다(
     tmp_path: Path,
 ) -> None:
