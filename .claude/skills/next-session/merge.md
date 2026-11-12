@@ -32,7 +32,7 @@ next-session `SKILL.md` 순서 1의 본문이다. PR을 연 세션과 인계로 
 
 티켓 PR과 핫픽스는 squash로 티켓 하나가 커밋 하나인 이력을 지킨다. 출시 PR과 되돌려 합치기 PR을 squash하면 두 브랜치에 같은 변경이 서로 다른 커밋으로 남아, 다음 합치기가 같은 변경을 다시 싣고 충돌한다. 그래서 둘은 merge 커밋이다.
 
-출시 PR과 되돌려 합치기 PR은 보호 설정에 걸리면 병합하지 않고 사용자에게 넘긴다. 보호 설정은 main이 `tools/protection.json`, dev가 `tools/protection-dev.json`이고(dev는 티켓 `04-dev-branch-create`가 따고 만든다), 두 브랜치 모두 선형 이력을 강제하지 않아 merge 커밋을 받는다(ADR 0016). dev는 strict가 아니라 머리가 main인 되돌려 합치기 PR이 뒤처진 것으로 막히지 않는다. main의 strict는 출시 PR의 순서를 정하는 `05-dev-release-pr-step`이 함께 정하므로 그때까지 출시 PR은 열지 않는다. 저장소의 자동 삭제(`delete_branch_on_merge`)는 2026-11-12에 `gh api`로 읽은 값이 꺼짐(false)이라 머리(dev, main)가 지워지지 않는다. 두 파일은 모두 삭제도 막는다(`allow_deletions: false`).
+출시 PR과 되돌려 합치기 PR은 보호 설정에 걸리면 병합하지 않고 사용자에게 넘긴다. 보호 설정은 main이 `tools/protection.json`, dev가 `tools/protection-dev.json`이고(dev는 티켓 `04-dev-branch-create`가 2026-11-12에 따고 만들었다), 두 브랜치 모두 선형 이력을 강제하지 않아 merge 커밋을 받는다(ADR 0016). dev는 strict가 아니라 머리가 main인 되돌려 합치기 PR이 뒤처진 것으로 막히지 않는다. main의 strict는 출시 PR의 순서를 정하는 `05-dev-release-pr-step`이 함께 정하므로 그때까지 출시 PR은 열지 않는다. 저장소의 자동 삭제(`delete_branch_on_merge`)는 2026-11-12에 `gh api`로 읽은 값이 꺼짐(false)이라 머리(dev, main)가 지워지지 않는다. 두 파일은 모두 삭제도 막는다(`allow_deletions: false`).
 
 끝: PR이 병합됐고, 뒤로 넘긴 봇 지적의 일이 병합된 일지 "다음"이나 다음 지시문의 "이어받을 상태"에 있고, 뒷단계가 남아 있지 않다. 핫픽스였으면 "되돌려 합치기"의 끝 줄까지 찼다.
 

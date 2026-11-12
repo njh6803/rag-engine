@@ -50,3 +50,17 @@ date: 2026-11-12
 ### 2026-11-12 리뷰 봇 두 갈래의 추론과 확인할 것을 02의 결정과 CodeRabbit 문서 확인으로 맞춘다
 
 티켓 `.scratch/dev-branch/issues/03-dev-base-skills-docs.md`가 고쳤다. 본문 Consequences "리뷰 봇 두 갈래"는 그대로 두고 아래 둘을 바로잡는다. 하나는 티켓 `02-dev-review-bot-off`가 다룬 결과다. 기본 브랜치가 dev인 동안 main에서 딴 `hotfix/*`를 머리로, main을 base로 둔 핫픽스 PR이 액션의 워크플로 검증으로 건너뛰어지는 갈래는 알려진 빨강으로 둔다. 가드를 풀지 않고, 건너뛴 잡은 필수 검사가 아니라 병합을 막지 않으며, 그 PR의 리뷰는 PR 직전 리뷰와 셀프 리뷰가 대신한다. 이 갈래는 02 티켓이 액션 소스의 오류 코드와 안내 문구를 읽고 낸 추론이고 서버 쪽 비교는 보지 못했다(이 저장소에서 액션 소스를 다시 읽지 않았다). 되돌려 합치기 PR은 건너뛰지 않고 돈다. 다른 하나는 본문 끝의 "티켓 03이 확인한다"(CodeRabbit)가 닫힌 결과로, 공식 문서 `docs.coderabbit.ai/configuration/auto-review.md`를 `curl`로 내려받아 읽은 것으로 맞췄다. 문서는 자동 리뷰가 기본적으로 기본 브랜치를 base로 둔 PR만 보고(`base_branches`가 다른 base를 더하며 기본 브랜치는 늘 든다), 수동 호출은 자동 리뷰 설정과 상관없이 언제나 된다고 적는다. 이 저장소는 별이 0개(2026-11-12 `gh repo view`)라 자동 리뷰가 돌지 않고 수동 호출만 쓰므로, base가 기본 브랜치가 아닌 PR에서도 부르면 돈다고 본다. 문서가 base를 따로 가르지 않아 어림이고 그런 PR에서 불러 재 보지 않았으므로 첫 핫픽스 PR에서 본다. 자동 리뷰가 열리면 `.coderabbit.yaml`의 `auto_review.base_branches`에 `main`이 필요한지 그때 정한다. 이 판단은 운영 문서 "리뷰 파이프라인"에도 적었다.
+
+### 2026-11-12 원격 설정을 걸고 dev를 땄다
+
+티켓 `.scratch/dev-branch/issues/04-dev-branch-create.md`가 했다. 본문이 "실제 변경은 티켓 04가 사용자의 승인을 다시 받고 한다"로 적은 일이고, 본문의 결정은 바뀌지 않았다. 사용자가 같은 날 세 설정(main의 선형 이력 강제 끄기, dev 보호, 기본 브랜치 dev)을 함께 승인했고, 아래 순서로 걸었다. 값은 `gh api`의 응답으로 읽었다. 이 저장소는 `njh6803/rag-engine`이다.
+
+- main 보호(`tools/protection.json`을 PUT). 응답이 `required_linear_history` false, `strict` true, 필수 검사 `verify`, 강제 푸시와 삭제 금지, `enforce_admins` false였다. strict는 티켓 05가 정할 때까지 그대로다.
+- dev를 `origin/main`의 머리 `bcd5613`에서 땄다(`git push origin origin/main:refs/heads/dev`). `git ls-remote`로 읽은 dev와 main의 커밋이 같았다.
+- dev 보호(`tools/protection-dev.json`을 PUT). 응답이 `required_linear_history` false, `strict` false, 필수 검사 `verify`, 강제 푸시와 삭제 금지, `enforce_admins` false였다.
+- 기본 브랜치를 dev로 옮겼다(PATCH `default_branch`). 응답이 `default_branch` dev였고 `git ls-remote --symref origin HEAD`가 `refs/heads/dev`였다. `delete_branch_on_merge`는 false 그대로다.
+- 열린 PR이 없어(`gh pr list --state open`이 빈 목록, 따기 전과 옮기기 직전 두 번) base를 옮길 PR이 없었다.
+- `git remote set-head origin dev`를 쳤고 `git symbolic-ref refs/remotes/origin/HEAD`가 `refs/remotes/origin/dev`를 냈다. 워크트리는 주 체크아웃의 `.git`(`git rev-parse --git-common-dir`이 `C:/project/rag-engine/.git`)을 함께 써서 한 번으로 모든 워크트리에 미친다.
+- `EnterWorktree`의 기준. 사용자 설정과 프로젝트 설정 어디에도 `worktree.baseRef` 키가 없고, `git config`에도 없다. 임시 워크트리를 만들어 봤으나 dev와 main이 같은 커밋이라 어느 ref에서 섰는지 구분하지 못했고, 브랜치의 상류 설정과 reflog도 ref 이름을 남기지 않았다. 본문 Consequences "다른 세션"의 서술은 그대로 두고, 구분은 dev가 main보다 앞선 뒤의 첫 `EnterWorktree`에서 본다(티켓 `05-dev-release-pr-step`에 그 확인을 한 줄 적었다).
+- 필수 검사의 출처. 보호 설정을 읽으면(`.required_status_checks.checks`) main의 `verify`는 `app_id` null(출처를 가리지 않는다)이고 dev의 `verify`는 `app_id` 15368(GitHub Actions)이다. 두 JSON이 `contexts`만 보내 출처를 정하지 않으므로, main은 킥오프 때 걸린 값이 남았고 dev는 처음 걸릴 때 GitHub가 Actions로 채웠다. `verify`는 둘 다 `ci.yml`이 내서 지금 동작은 같고, 다른 출처의 `verify`를 막는 쪽은 dev뿐이다. 맞추려면 두 JSON을 `checks`(`context`와 `app_id`)로 쓰며, 티켓 05가 main 보호를 고칠 때 함께 본다.
+- 문서 맞춤. 설정이 걸려 거짓이 된 서술(`docs/constitution/operations.md`의 가드레일·기준 브랜치 규칙·병합 방법·`/security-review`, `next-session`의 `merge.md`, `CLAUDE.md`)을 현재형과 과거형으로 고쳤다. 결정은 바뀌지 않아 헌법 판은 문구 수정으로 1.2.0에서 1.2.1로 올렸다.
