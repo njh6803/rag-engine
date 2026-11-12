@@ -31,6 +31,7 @@ from typing import Final
 from uuid import UUID
 
 from rag_engine.app.default_records import DEFAULT_NAME
+from rag_engine.app.document_outcome import index_failure_code
 from rag_engine.app.live_versions import live_index_versions
 from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import (
@@ -110,6 +111,12 @@ class _Recorded:
 def ensure_within_upload_limit(size_bytes: int, max_upload_bytes: int) -> None:
     if size_bytes > max_upload_bytes:
         raise RequestError(ErrorCode.UPLOAD_TOO_LARGE, "업로드가 크기 상한을 넘었다")
+
+
+async def group_exists(unit_of_work: UnitOfWork, name: str) -> bool:
+    """이름의 그룹이 있는가. 파일을 여럿 넣는 쪽이 아무 파일도 넣기 전에 먼저 묻는다."""
+    async with unit_of_work.begin() as transaction:
+        return await transaction.catalog.get_group(name) is not None
 
 
 async def ingest_document(
@@ -508,16 +515,9 @@ async def _requeue(
 
 
 async def _index_failed(transaction: Transaction, document: Document) -> bool:
-    """앞선 색인이 실패했는가. 문서 상태가 `failed`이거나, 문서가 드는 지식베이스의 살아 있는 판
-    가운데 색인 상태가 `failed`인 판이 있다. 문서 행을 잠근 채라 작업 단위가 문서 행을 잠그고
-    쓰는 색인 상태(작업의 결과)는 이 사이에 바뀌지 않는다."""
-    if document.status is DocumentStatus.FAILED:
-        return True
-    for version in await live_index_versions(transaction, document.group_id):
-        state = await transaction.index.get_state(document.id, version.id)
-        if state is not None and state.status is IndexStateStatus.FAILED:
-            return True
-    return False
+    """앞선 색인이 실패했는가(판정은 `index_failure_code`). 문서 행을 잠근 채라 작업 단위가 문서
+    행을 잠그고 쓰는 색인 상태(작업의 결과)는 이 사이에 바뀌지 않는다."""
+    return await index_failure_code(transaction, document) is not None
 
 
 async def _schedule(

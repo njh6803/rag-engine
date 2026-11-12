@@ -107,6 +107,24 @@ class PostgresJobQueue:
         )
         return None if row is None else _job(row)
 
+    async def list_jobs(
+        self, status: JobStatus | None, limit: int, after: UUID | None
+    ) -> list[Job]:
+        query = sa.select(tables.jobs).order_by(tables.jobs.c.id.desc()).limit(limit)
+        if status is not None:
+            query = query.where(tables.jobs.c.status == status.value)
+        if after is not None:
+            query = query.where(tables.jobs.c.id < after)
+        rows = (await self._connection.execute(query)).mappings().all()
+        return [_job(row) for row in rows]
+
+    async def has_active_job(self, document_id: UUID) -> bool:
+        active = sa.select(tables.jobs.c.id).where(
+            tables.jobs.c.document_id == document_id,
+            tables.jobs.c.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
+        )
+        return bool(await self._connection.scalar(sa.select(active.exists())))
+
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:
         jobs = tables.jobs
         picked = (

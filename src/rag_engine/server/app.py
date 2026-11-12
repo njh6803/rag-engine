@@ -27,6 +27,7 @@ from rag_engine.adapters.settings import Settings
 from rag_engine.adapters.tei import TeiEmbedderPool, TeiRerankerPool
 from rag_engine.app.search import SearchDeps
 from rag_engine.domain.errors import ErrorCode, InvalidInput, RequestError
+from rag_engine.server.admin_api import build_admin_query_router
 from rag_engine.server.auth import AuthMiddleware
 from rag_engine.server.ingest_api import build_ingest_router
 from rag_engine.server.problem_response import problem_response, validation_response
@@ -158,7 +159,9 @@ def create_app(settings: Settings) -> ASGIApp:
     ingest_router = build_ingest_router(
         unit_of_work, LocalBlobStore(settings.data_dir), settings.max_upload_mb * _BYTES_PER_MB
     )
+    admin_query_router = build_admin_query_router(unit_of_work)
     app.include_router(token_router)
+    app.include_router(admin_query_router)
     app.include_router(ingest_router)
     # 하위 앱은 자기 안에 `/mcp` 경로를 둔다. "/" 마운트는 모든 경로를 받으므로 REST 경로 뒤에 둔다.
     app.mount("/", mcp_app)
@@ -166,5 +169,5 @@ def create_app(settings: Settings) -> ASGIApp:
     # 라우터가 가진 접두사 포함 경로를 따로 넘겨야 한다.
     return RequestContextMiddleware(
         AuthMiddleware(app, token_store),
-        [*app.routes, *token_router.routes, *ingest_router.routes],
+        [*app.routes, *token_router.routes, *admin_query_router.routes, *ingest_router.routes],
     )

@@ -16,7 +16,7 @@ uv run pre-commit install
 uv run rag-engine serve          # http://127.0.0.1:8000/health, MCP 는 http://127.0.0.1:8000/mcp (토큰 필요)
 ```
 
-`serve`는 환경 변수 `RAG_DATABASE_URL`, `RAG_DATA_DIR`, `RAG_ALLOWED_HOSTS` 셋이 없으면 종료 코드 1로 끝난다(`.env`에 적어도 된다). 처음에는 `rag-engine migrate`로 스키마를 올리고 `rag-engine bootstrap-token`으로 첫 admin 토큰을 받는다.
+`serve`는 환경 변수 `RAG_DATABASE_URL`, `RAG_DATA_DIR`, `RAG_ALLOWED_HOSTS` 셋이 없으면 종료 코드 1로 끝난다(`.env`에 적어도 된다). 처음에는 `rag-engine migrate`로 스키마를 올리고 `rag-engine bootstrap-token`으로 첫 admin 토큰을 받는다. 서버 없이 파일이나 폴더를 넣으려면 `rag-engine ingest <경로> [--group 이름] [--wait] [--timeout 초]`를 쓴다(`--wait`는 작업자가 따로 떠 있어야 끝난다).
 
 검증 명령은 `CLAUDE.md`의 검증 명령 칸이 원천이다. 테스트는 Docker로 띄운 PostgreSQL(`compose.test.yml`)이 필요하다. 커밋 훅의 검사 러너(`uv run python tools/run_checks.py`)가 없으면 띄우고, 손으로 `uv run pytest`를 칠 때는 먼저 띄운다.
 
@@ -47,13 +47,13 @@ docker run --rm -p 8000:8000 \
 
 ```
 src/rag_engine/
-  main.py      관리 명령(argparse). `rag-engine serve` 가 HTTP 서버를 띄우고 `rag-engine worker` 가 수집 작업자를 띄우며 `rag-engine migrate` 가 스키마를 올려 기본 레코드를 보장하며 `rag-engine bootstrap-token` 이 첫 admin 토큰을 낸다
+  main.py      관리 명령(argparse). `rag-engine serve` 가 HTTP 서버를 띄우고 `rag-engine worker` 가 수집 작업자를 띄우며 `rag-engine migrate` 가 스키마를 올려 기본 레코드를 보장하며 `rag-engine bootstrap-token` 이 첫 admin 토큰을 내며 `rag-engine ingest` 가 파일이나 폴더를 서버 없이 수집한다
   server/      FastAPI 앱(app.py)과 출력 모델. /health 와 MCP Streamable HTTP(/mcp)를 한 앱이 연다(ADR 0005).
                MCP 출력 모델(tool_models.py), 수집 API 모델(ingest_models.py), Problem Details(problems.py, problem_response.py),
-               요청 문맥 미들웨어(request_context.py: 요청 ID, 로그), 인증 미들웨어(auth.py), 토큰 관리 API(token_api.py), 수집 API(ingest_api.py)
+               요청 문맥 미들웨어(request_context.py: 요청 ID, 로그), 인증 미들웨어(auth.py), 토큰 관리 API(token_api.py), 수집 API(ingest_api.py), 작업·문서 조회 API(admin_api.py)와 그 응답 모델(admin_models.py)
   worker/      작업자. assembly.py(조립과 상시 작업자 `run_worker`), processing.py(작업 하나의 처리와 임대 연장, `run_once`), service.py(`LISTEN`·폴링·동시 처리로 도는 `serve`), signals.py(종료 신호)
-  adapters/    포트의 구현. settings.py(설정 객체), log_format.py(JSON Lines·text 로그 포매터), index_elements.py(색인 판 요소), blob_store.py(로컬 폴더 원본 저장소), tei.py(임베딩 서버 어댑터), kiwi.py(키워드 토큰과 문장 분리), chunking.py(구조 우선 청킹), utf8_offsets.py(바이트 오프셋 변환), postgres/ 에 표 정의(tables.py), alembic 첫 판(migrations/), 작업 단위와 Catalog·DocumentStore·JobQueue·VectorIndex·TokenStore 어댑터, migrate 와 bootstrap-token 의 조립(bootstrap.py)
-  app/         유스케이스. default_records.py(migrate 의 기본 레코드 보장), tokens.py(토큰 발급·인증·폐기), ingest.py(수집: 원본 저장, 문서 행과 작업 넣기)
+  adapters/    포트의 구현. settings.py(설정 객체), log_format.py(JSON Lines·text 로그 포매터), index_elements.py(색인 판 요소), blob_store.py(로컬 폴더 원본 저장소), tei.py(임베딩 서버 어댑터), kiwi.py(키워드 토큰과 문장 분리), chunking.py(구조 우선 청킹), utf8_offsets.py(바이트 오프셋 변환), postgres/ 에 표 정의(tables.py), alembic 판(migrations/. 0001 첫 판, 0002 작업 표의 진행 중 작업 색인), 작업 단위와 Catalog·DocumentStore·JobQueue·VectorIndex·TokenStore 어댑터, migrate 와 bootstrap-token 의 조립(bootstrap.py), ingest 명령의 조립(ingest_command.py)
+  app/         유스케이스. default_records.py(migrate 의 기본 레코드 보장), tokens.py(토큰 발급·인증·폐기), ingest.py(수집: 원본 저장, 문서 행과 작업 넣기), admin_queries.py(작업·문서 조회), await_documents.py(`ingest --wait`의 기다림), document_outcome.py(문서의 색인 실패 판정)
   domain/      엔티티, 포트 Protocol, 예외와 오류 코드, 파서 인터페이스, 색인에 넣는 글을 짓는 함수(index_text.py), 형식 판정(media_types.py). 서드파티는 uuid6만 쓴다(금지 목록은 pyproject.toml의 import-linter 계약)
 typings/       서드파티 타입 스텁. kiwipiepy에 py.typed가 없어 쓰는 면만 적었다(ADR 0006)
 tests/

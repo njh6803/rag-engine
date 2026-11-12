@@ -24,6 +24,8 @@ from rag_engine.domain.entities import (
     BlockKind,
     Document,
     DocumentContent,
+    DocumentQuery,
+    DocumentState,
     DocumentStatus,
 )
 from rag_engine.domain.errors import DocumentAlreadyExistsError, ErrorCode
@@ -195,6 +197,24 @@ class PostgresDocumentStore:
             )
         )
         return 0 if count is None else count
+
+    async def list_documents(self, query: DocumentQuery) -> list[Document]:
+        documents = tables.documents
+        statement = sa.select(documents).order_by(documents.c.id.desc()).limit(query.limit)
+        if query.state is DocumentState.DELETED:
+            statement = statement.where(documents.c.deleted_at.is_not(None))
+        elif query.state is not None:
+            statement = statement.where(
+                documents.c.deleted_at.is_(None), documents.c.status == query.state.value
+            )
+        if query.group_id is not None:
+            statement = statement.where(documents.c.group_id == query.group_id)
+        if query.key is not None:
+            statement = statement.where(documents.c.key == query.key)
+        if query.after is not None:
+            statement = statement.where(documents.c.id < query.after)
+        rows = (await self._connection.execute(statement)).mappings().all()
+        return [_document(row) for row in rows]
 
     async def _select_one(
         self, *conditions: sa.ColumnElement[bool], lock: bool = False
