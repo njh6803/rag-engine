@@ -19,3 +19,4 @@
 | [0013](0013-soft-delete-archive-table-and-blob-store.md) | 삭제는 소프트 삭제 뒤 보관 기간이 지나면 물리 삭제하고, 원본은 파일 저장소 포트 뒤의 볼륨에 둔다 | accepted | 2026-11-09 |
 | [0014](0014-tokens-in-database-and-required-allowed-hosts.md) | 인증 토큰은 데이터베이스에 두고 관리 API로 발급·회수하며, MCP 허용 호스트 설정은 필수다 | accepted | 2026-11-09 |
 | [0015](0015-common-conventions.md) | 공통 규약: UUIDv7 식별자, RFC 9457 에러 봉투, UTC 시각, REST 경로 접두, pydantic-settings, JSON Lines 로그, 계약의 `format_version` | accepted | 2026-11-09 |
+| [0016](0016-branch-model-follows-agent-os-adr-0043.md) | 브랜치 모델은 agent-os ADR 0043을 따르고, 이 저장소에서 다른 것만 적는다 | accepted | 2026-11-12 |

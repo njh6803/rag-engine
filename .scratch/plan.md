@@ -13,6 +13,12 @@ core 다음은 release-image와 search-eval이다. 판을 고정한 이미지가
 
 core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌고 없으면 실패하므로(`docs/constitution/tech.md` 테스트 칸), 검사 러너가 테스트 DB를 띄우는 변경은 core의 첫 티켓(core 01)이고 나머지 core 티켓은 그 티켓 뒤에 선다(설계 일지는 하네스 티켓으로 적었지만 2026-11-10 티켓 세션에서 사용자가 core 01로 골랐다. core 명세 Further Notes). 러너가 pytest를 always_run으로 돌리므로 그 변경 뒤에는 문서 PR과 하네스 chore를 포함한 모든 커밋에 테스트 PostgreSQL이 필요하다. 러너가 Docker로 띄우거나 `RAG_TEST_DATABASE_URL`이 이미 닿는 서버를 가리켜야 하므로, 둘 다 없는 클라우드 세션은 커밋할 수 없다. 이 분기는 core 01이 next-session 결정표 아래의 Docker 갈래로 더했다.
 
+## 하네스 기능
+
+하네스 기능의 기능 계획은 `**슬라이스:**` 줄이 없어 아래 표와 프론티어에 들지 않는다(`docs/agents/issue-tracker.md`의 전체 계획 절). 그래서 열린 하네스 기능을 여기 적고, 그 기능의 마지막 티켓을 닫는 커밋이 지운다. 티켓의 상태는 그 기능 폴더의 `issues/`에서 본다.
+
+- dev-branch(`.scratch/dev-branch/plan.md`, ADR 0016): 브랜치 모델을 agent-os ADR 0043으로 옮긴다. 마지막 티켓 05는 04의 병합과 함께, agent-os의 harness 티켓 `dev-release-pr-step`이 그 저장소의 `origin/dev`에 병합되기를 기다린다(05의 `**Blocked by:**`).
+
 ## 목표 배치
 
 슬라이스가 끝날 때마다 채워진다. 골격은 킥오프 7단계가 헌법(`docs/constitution/tech.md`)대로 세웠고, 현재 트리는 `README.md`다. 아래에서 슬라이스 표시가 없는 줄은 킥오프 골격에 이미 있다. 정하지 않은 배치는 그것을 정할 설계 인터뷰를 적는다.
