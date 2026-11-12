@@ -104,6 +104,18 @@ payload = { tool_name = "Bash", tool_input = { command = "git add -A && git comm
 
 [[case]]
 hook = "hook_git_main_commit.py"
+expect = "deny"
+note = "커밋이 있는 저장소의 dev 위의 커밋 — agent-os ADR 0043 의 개발 브랜치도 직접 커밋을 막는다"
+payload = { tool_name = "Bash", tool_input = { command = "git add -A && git commit -m 'feat: x'" }, cwd = "${DEV_REPO}" }
+
+[[case]]
+hook = "hook_git_main_commit.py"
+expect = "silent"
+note = "dev 위의 git merge — 되돌려 합치기의 병합 커밋은 git commit 명령이 아니라 막지 않는다"
+payload = { tool_name = "Bash", tool_input = { command = "git merge --no-ff origin/main" }, cwd = "${DEV_REPO}" }
+
+[[case]]
+hook = "hook_git_main_commit.py"
 expect = "silent"
 note = "커밋이 없는 저장소의 main 위의 첫 커밋 — KICKOFF.md 8단계의 명령"
 payload = { tool_name = "Bash", tool_input = { command = 'git add -A && git commit -m "chore: 하네스 킥오프 (헌법, CLAUDE.md, 코딩 표준, 스킬)"' }, cwd = "${EMPTY_MAIN_REPO}" }

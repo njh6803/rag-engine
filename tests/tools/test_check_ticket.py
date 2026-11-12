@@ -324,6 +324,63 @@ def test_chore_브랜치의_slug가_티켓을_빠뜨리면_막고_번호_없는_
     assert CONVENTION in out
 
 
+@pytest.mark.parametrize(
+    ("브랜치", "기대"),
+    [
+        ("hotfix/login-crash", ("hotfix", "login-crash")),
+        ("chore/login-crash", ("chore", "login-crash")),
+        ("feature/02-thing", ("feature", "02-thing")),
+        ("hotfix/Foo", None),
+        ("hotfix/a_b", None),
+        ("hotfix/", None),
+        ("hotfix/a/b", None),
+        ("hotfixes/x", None),
+    ],
+)
+def test_ticket_stem은_hotfix_브랜치를_harness_티켓_모양으로_읽는다(
+    브랜치: str, 기대: tuple[str, str] | None
+) -> None:
+    assert check_ticket.ticket_stem(브랜치) == 기대
+
+
+def test_hotfix_브랜치가_그_harness_티켓을_실으면_지난다(저장소: Repo) -> None:
+    저장소.git("switch", "-q", "-c", "hotfix/login-crash")
+    _지났다(
+        저장소.stage_commit(
+            {".scratch/harness/issues/login-crash.md": "# login-crash\n", "tools/b.py": "B = 1\n"}
+        )
+    )
+
+
+def test_hotfix_브랜치가_티켓을_빠뜨리면_막고_접두를_지키라고_든다(저장소: Repo) -> None:
+    """접두를 `chore/` 로 바꾸면 기준 브랜치가 main 에서 dev 로 바뀐다. 안내는 hotfix 접두를
+    지킨다."""
+    저장소.git("switch", "-q", "-c", "hotfix/login-crash")
+    out = _막혔다(저장소.stage_commit({"tools/b.py": "B = 1\n"}))
+    assert ".scratch/harness/issues/login-crash.md" in out
+    assert "hotfix/<slug>" in out and "main 에서 dev 로" in out
+    assert "feature/NN-<slug>" not in out and "chore/<slug>" not in out
+    # hotfix 브랜치는 기능 폴더의 티켓을 가리키지 못한다. 기능 코드를 고치는 핫픽스도 harness 자리다
+    assert ".scratch/<slug>/issues/NN-<slug>.md" not in out
+    assert BRANCH_COMMAND in out
+
+
+def test_hotfix_브랜치가_다른_이름의_티켓을_실으면_막는다(저장소: Repo) -> None:
+    저장소.git("switch", "-q", "-c", "hotfix/login-crash")
+    _막혔다(
+        저장소.stage_commit(
+            {".scratch/harness/issues/other-thing.md": "# other\n", "tools/b.py": "B = 1\n"}
+        )
+    )
+
+
+def test_chore_브랜치의_안내는_hotfix를_권하지_않는다(저장소: Repo) -> None:
+    저장소.git("switch", "-q", "-c", "chore/ci-python-runner-pin")
+    out = _막혔다(저장소.stage_commit({"tools/b.py": "B = 1\n"}))
+    assert "feature/NN-<slug> 나 chore/<slug>" in out
+    assert "hotfix/<slug>" not in out
+
+
 @pytest.mark.parametrize("이름", ["Foo", "09-x", "a_b"])
 def test_이름_규칙에_맞지_않는_chore_브랜치는_같은_이름의_파일도_티켓으로_세지_않는다(
     저장소: Repo, 이름: str
@@ -494,6 +551,48 @@ def test_분리_HEAD는_지난다(저장소: Repo) -> None:
 
 def test_main은_지난다(저장소: Repo) -> None:
     _지났다(저장소.stage_commit({"tools/b.py": "B = 1\n"}))
+
+
+def test_dev는_지난다(저장소: Repo) -> None:
+    """agent-os ADR 0043: dev 위의 커밋은 훅이 막고 이 검사는 판정하지 않는다."""
+    저장소.git("switch", "-q", "-c", "dev")
+    _지났다(저장소.stage_commit({"tools/b.py": "B = 1\n"}))
+
+
+def _origin_dev(repo: Repo, files: dict[str, str]) -> None:
+    """원격에 main 에서 딴 dev 를 두고 그 위에 `files` 를 얹은 커밋 하나를 올린다. 작업 클론은
+    받는다."""
+    assert repo.pusher is not None
+    repo.git("switch", "-q", "-c", "dev", cwd=repo.pusher)
+    repo.write(files, repo.pusher)
+    repo.git("add", "-A", cwd=repo.pusher)
+    repo.git("commit", "-q", "-m", "dev", cwd=repo.pusher)
+    repo.git("push", "-q", "origin", "dev", cwd=repo.pusher)
+    repo.git("switch", "-q", "main", cwd=repo.pusher)
+    repo.git("fetch", "-q", "origin")
+
+
+def test_origin_dev가_있으면_작업_브랜치는_dev에_견준다(저장소: Repo) -> None:
+    # dev 가 면제 밖 파일을 들고 있다. main 에 견주면 그 파일이 이 브랜치의 변경에 섞여 막힌다.
+    _origin_dev(저장소, {"tools/dev_only.py": "D = 1\n"})
+    저장소.git("switch", "-q", "-c", "docs/on-dev", "origin/dev")
+    _지났다(저장소.stage_commit({"docs/journal/2026-01-02-01-x.md": "일지\n"}))
+
+
+def test_hotfix_브랜치는_dev가_있어도_origin_main에_견준다(저장소: Repo) -> None:
+    _origin_dev(저장소, {"tools/dev_only.py": "D = 1\n"})
+    저장소.git("switch", "-q", "-c", "hotfix/01-x", "origin/dev")
+    out = _막혔다(저장소.stage_commit({"docs/journal/2026-01-02-01-x.md": "일지\n"}))
+    assert "tools/dev_only.py" in out
+
+
+def test_dev가_없으면_origin_main에_견준다(저장소: Repo) -> None:
+    # 전환 전과 dev 의 추적 ref 가 없는 클론: 이 저장소는 origin/dev 를 두지 않는다
+    assert 저장소.git("rev-parse", "--verify", "--quiet", "origin/dev", check=False) == ""
+    저장소.git("switch", "-q", "-c", "docs/on-main")
+    _지났다(저장소.stage_commit({"docs/journal/2026-01-02-01-x.md": "일지\n"}))
+    저장소.git("switch", "-q", "-c", "chore/002-no-dev")
+    _막혔다(저장소.stage_commit({"tools/b.py": "B = 1\n"}))
 
 
 def test_origin_main이_없으면_알리고_지난다(tmp_path: Path) -> None:
@@ -1009,6 +1108,17 @@ def test_CI는_머리_브랜치가_main인_PR을_지난다(저장소: Repo) -> N
     저장소.git("switch", "-q", "--detach", base)
     저장소.git("merge", "-q", "--no-ff", "--no-edit", head)
     _CI가_지났다(_CI로_친다(저장소, PR값("main", head, base)))
+
+
+@pytest.mark.parametrize("branch", ["dev", "main"])
+def test_CI는_머리_브랜치가_dev나_main인_PR을_지난다(저장소: Repo, branch: str) -> None:
+    # dev→main 출시 PR 과 main→dev 되돌려 합치기는 티켓 하나를 가리키지 않는다(agent-os ADR 0043)
+    _훅을_건너뛰고_커밋한다(저장소, {"tools/b.py": "B = 1\n"})
+    head = 저장소.git("rev-parse", "HEAD")
+    base = 저장소.git("rev-parse", "origin/main")
+    저장소.git("switch", "-q", "--detach", base)
+    저장소.git("merge", "-q", "--no-ff", "--no-edit", head)
+    _CI가_지났다(_CI로_친다(저장소, PR값(branch, head, base)))
 
 
 def test_CI는_다른_브랜치를_base로_둔_PR의_변경에_base_브랜치의_커밋을_세지_않는다(

@@ -22,16 +22,17 @@ pre-commit 이 매 커밋 돌리므로 훅 하나가 멈추면 커밋도 멈춘�
 bare 저장소를 origin 으로 두고 그 `chore/x` 끝을 머리로 둔 PR 7 의 `refs/pull/7/head`·`merge` 가
 있는 저장소), `${MAIN_REPO}`·`${WORK_REPO}`(임시 저장소 둘. 앞은 커밋이 하나 있는 main, 뒤는 커밋이
 없는 작업 브랜치다 — 이 저장소의 브랜치에 기대를 걸지 않는다), `${EMPTY_MAIN_REPO}`(커밋이 하나도
-없는 main 의 임시 저장소 — 새 프로젝트의 첫 커밋 자리), `${UNPUSHED_REPO}`(임시 bare 저장소를
-upstream 으로 두고 그 위에 푸시하지 않은 커밋이 하나 있는 작업 브랜치 저장소), `${BEHIND_REPO}`(임시
-bare 저장소를 origin 으로 두고 작업 브랜치가 origin/main 보다 한 커밋 뒤처진 저장소),
-`${NEW_TRANSCRIPT}`·`${USED_TRANSCRIPT}`(아직 없는 트랜스크립트와 assistant 기록이 있는 트랜스크립트
-— 첫 턴과 그 반례), `${MIDTURN_TRANSCRIPT}`(영어와 한국어 중간 문장 뒤의 호출이 든 트랜스크립트),
-`${KOREAN_HEREDOC_45}`(한글 45줄 heredoc), `${RUFF_PROJECT}`(ruff 설정이 있는 임시 디렉터리 — 한글
-줄이 넘친 `long.py` 와 짧은 `short.py`), `${LOOSE_PY}`(같은 한글 줄을 ruff 설정 밖에 둔 파일 — 이
-저장소의 파일에 기대를 걸지 않는다), `${RAW_SEPARATOR}`(날것 U+2028 이 든 파일 — 표에는 그 문자를 둘
-수 없다), `${INVISIBLE_DIR}`(날것 U+00A0 이 든 `nbsp.py`, 날것 U+3000 이 든 한국어 `notes.md`, 표
-안에 홀로 선 CR 이 든 `lone-cr.md`, 줄 끝이 CRLF 인 `crlf.md`),
+없는 main 의 임시 저장소 — 새 프로젝트의 첫 커밋 자리), `${DEV_REPO}`(커밋이 하나 있는 dev 의 임시
+저장소 — agent-os ADR 0043 의 개발 브랜치 위의 커밋을 막는 사례), `${UNPUSHED_REPO}`(임시 bare
+저장소를 upstream 으로 두고 그 위에 푸시하지 않은 커밋이 하나 있는 작업 브랜치 저장소),
+`${BEHIND_REPO}`(임시 bare 저장소를 origin 으로 두고 작업 브랜치가 origin/main 보다 한 커밋 뒤처진
+저장소), `${NEW_TRANSCRIPT}`·`${USED_TRANSCRIPT}`(아직 없는 트랜스크립트와 assistant 기록이 있는
+트랜스크립트 — 첫 턴과 그 반례), `${MIDTURN_TRANSCRIPT}`(영어와 한국어 중간 문장 뒤의 호출이 든
+트랜스크립트), `${KOREAN_HEREDOC_45}`(한글 45줄 heredoc), `${RUFF_PROJECT}`(ruff 설정이 있는 임시
+디렉터리 — 한글 줄이 넘친 `long.py` 와 짧은 `short.py`), `${LOOSE_PY}`(같은 한글 줄을 ruff 설정 밖에
+둔 파일 — 이 저장소의 파일에 기대를 걸지 않는다), `${RAW_SEPARATOR}`(날것 U+2028 이 든 파일 — 표에는
+그 문자를 둘 수 없다), `${INVISIBLE_DIR}`(날것 U+00A0 이 든 `nbsp.py`, 날것 U+3000 이 든 한국어
+`notes.md`, 표 안에 홀로 선 CR 이 든 `lone-cr.md`, 줄 끝이 CRLF 인 `crlf.md`),
 `${OPEN_JOURNAL}`·`${CLOSED_JOURNAL}`(쓰기 뒤의 임시 일지 — 회고 절이 없는 것과 있는 것),
 `${COMMIT_MSGS}`(commit-msg 판정을 부르는 pre-commit 설정과 그 판정
 스크립트의 사본을 둔 임시 저장소 — 제목이 72자를 넘는 `long-subject.txt` 와 맞는
@@ -531,21 +532,38 @@ def create_fixtures(scratch: Path) -> dict[str, str]:
     """
     main_repo = scratch / "on-main"
     empty_main_repo = scratch / "on-empty-main"
+    dev_repo = scratch / "on-dev"
     work_repo = scratch / "on-topic"
-    for path, branch in ((main_repo, "main"), (empty_main_repo, "main"), (work_repo, "chore/x")):
+    for path, branch in (
+        (main_repo, "main"),
+        (empty_main_repo, "main"),
+        (dev_repo, "dev"),
+        (work_repo, "chore/x"),
+    ):
         subprocess.run(
             ["git", "init", "-q", "-b", branch, str(path)],
             check=True,
             env=hook_environment(),
             timeout=DEFAULT_HOOK_TIMEOUT,
         )
-    subprocess.run(
-        ["git", "-C", str(main_repo), *_IDENTITY, "commit", "-q", "--allow-empty", "-m", "first"],
-        check=True,
-        capture_output=True,
-        env=hook_environment(),
-        timeout=DEFAULT_HOOK_TIMEOUT,
-    )
+    for committed in (main_repo, dev_repo):
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(committed),
+                *_IDENTITY,
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "first",
+            ],
+            check=True,
+            capture_output=True,
+            env=hook_environment(),
+            timeout=DEFAULT_HOOK_TIMEOUT,
+        )
     unpushed_repo = _unpushed_repository(scratch)
     used_transcript = scratch / "transcript-used.jsonl"
     used_transcript.write_text(
@@ -620,6 +638,7 @@ def create_fixtures(scratch: Path) -> dict[str, str]:
         "OPEN_PR_REPO": _open_pr_repository(scratch).as_posix(),
         "MAIN_REPO": main_repo.as_posix(),
         "EMPTY_MAIN_REPO": empty_main_repo.as_posix(),
+        "DEV_REPO": dev_repo.as_posix(),
         "WORK_REPO": work_repo.as_posix(),
         "UNPUSHED_REPO": unpushed_repo.as_posix(),
         "BEHIND_REPO": _behind_repository(scratch).as_posix(),

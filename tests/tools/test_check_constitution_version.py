@@ -252,6 +252,42 @@ def test_main_이_고친_헌법_파일은_이_가지가_고친_것으로_세지_
     assert code == 0, 출력
 
 
+def _dev_가_판을_올렸다(work: Path, pusher: Path, version: str) -> None:
+    """원격에 main 에서 딴 dev 를 두고 dev 에서 헌법 판을 올린 뒤 작업 클론이 받아 온다."""
+    _git(pusher, "checkout", "-q", "-b", "dev", "main")
+    _커밋한다(pusher, {README: _헌법(version)}, "dev 가 판을 올린다")
+    _git(pusher, "push", "-q", "origin", "dev")
+    _git(work, "fetch", "-q", "origin")
+
+
+def test_origin_dev_가_있으면_dev_가_먼저_매긴_판과_겹치면_막고_dev_를_기준으로_알린다(
+    저장소: tuple[Path, Path],
+) -> None:
+    work, pusher = 저장소
+    _dev_가_판을_올렸다(work, pusher, "1.0.1")
+    _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n", README: _헌법("1.0.1")})
+
+    code, 출력 = _판정(work)
+
+    assert code == 1
+    assert "origin/dev" in 출력
+    assert "origin/main" not in 출력
+
+
+def test_origin_dev_가_있어도_hotfix_브랜치는_main_을_기준으로_판을_견준다(
+    저장소: tuple[Path, Path],
+) -> None:
+    """같은 변경이라도 기준이 main 이면 dev 의 판과 겹치지 않아 지나간다."""
+    work, pusher = 저장소
+    _dev_가_판을_올렸다(work, pusher, "1.0.1")
+    _git(work, "checkout", "-q", "-b", "hotfix/x")
+    _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n", README: _헌법("1.0.1")})
+
+    code, 출력 = _판정(work)
+
+    assert code == 0, 출력
+
+
 def test_색인을_보고_작업_트리에서만_올린_판은_세지_않는다(저장소: tuple[Path, Path]) -> None:
     work, _ = 저장소
     _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n"})

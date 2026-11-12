@@ -9,9 +9,13 @@
 # 잡마다 timeout-minutes 를 둔다. 없으면 기본값 360분까지 매달린다. 첫 값은 지난 실행이 없어 어림이다.
 name: ci
 
+# 개발 브랜치 dev 가 서면(ADR 0016) 티켓 PR 은 dev 로, 출시 PR(dev→main)과 핫픽스는 main 으로 간다. PR 은 base 를
+# 가리지 않고 dev PR 과 main PR 이 같은 잡(python, image, ticket)과 그 결과를 모으는 verify 를 돈다. main PR 에만 도는
+# 잡이 지금 없기 때문이다(ADR 0016 "main PR 에만 도는 잡이 지금 없다"). 푸시는 main 과 dev 둘이다. 느린 검사를 main PR 에만
+# 둘지는 그 검사를 더하는 기능(search-eval, release-image)의 설계가 정하고, 그때 이 주석을 고친다.
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 permissions:

@@ -2,8 +2,10 @@
 
 커밋 직전에 대조한다(대기열 48·115).
 
-형제는 셋이다. 이미 병합된 `origin/main`, 아직 병합되지 않은 열린 PR의 head,
-아직 커밋되지 않은 같은 저장소의 다른 워크트리다. `origin/main`과 워크트리만 보던 손 대조는
+형제는 셋이다. 이미 병합된 기준 ref(`tools/base_rule.py`: `hotfix/*` 는 `origin/main`, 그 밖은
+`origin/dev` 가 있으면 그것, 없으면 `origin/main`. 기준이 아닌 쪽 오래 사는 브랜치도 형제로 함께
+견준다), 아직 병합되지 않은 열린 PR의 head, 아직 커밋되지 않은 같은 저장소의 다른 워크트리다.
+기준 ref와 워크트리만 보던 손 대조는
 아직 열린 PR이 먼저 가져간 번호와 다섯 번 부딪혔다(대기열 115). 클라우드 세션에서는 형제가
 워크트리가 아니라 다른 세션의 열린 PR이라 손 대조가 보는 것이 main뿐이다(일지 2026-10-07-09).
 
@@ -27,14 +29,14 @@ harness 티켓(`.scratch/harness/issues/<slug>.md`)은 번호가 아니다. 세�
 회고 반영 대기열(`.scratch/retro-queue/<ID>.md`)은 번호가 아니라 항목의 이름이 식별자라 번호로
 읽지 않는다. 항목 파일도 다른 파일처럼 함께 고친 파일에는 든다.
 
-"새로"는 이 브랜치와 `origin/main`의 merge-base에 없다는 뜻이다. 열린 PR과 워크트리는
-그 merge-base와 `origin/main` 어디에도 없는 번호만 그 형제의 것으로 본다. 그래서 main이
-이미 가진 번호는 main 줄에만 한 번 나온다. 이 브랜치의 새 번호에서는 main에 같은 번호·같은
+"새로"는 이 브랜치와 기준 ref의 merge-base에 없다는 뜻이다. 열린 PR과 워크트리는
+그 merge-base와 기준 ref 어디에도 없는 번호만 그 형제의 것으로 본다. 그래서 기준 ref가
+이미 가진 번호는 그 줄에만 한 번 나온다. 이 브랜치의 새 번호에서는 기준 ref에 같은 번호·같은
 파일로 이미 든 것도 뺀다. 쌓아 올린 아래 PR이 squash로 병합된 뒤 main을 들이지 않은
 브랜치에서 그 번호는 공유한 이력인데, 새 번호로 세면 main에 있는 파일을 옮기라고 한다. 헌법 판은
 내용을 가를 수 없어 빼지 않는다. 합치기를 커밋하기 전(`MERGE_HEAD` 가 있다)에는 합칠 머리(main 이
 아니어도, octopus 면 모두)의 번호를 이 브랜치 밖의 번호로 세고, 그와 같은 파일을 이 브랜치의 새
-번호에서 뺀다. merge-base 를 `git merge-base origin/main HEAD MERGE_HEAD`(`tools/check_ticket.py` 의
+번호에서 뺀다. merge-base 를 `git merge-base <기준 ref> HEAD MERGE_HEAD`(`tools/check_ticket.py` 의
 꼴)로 구하면 합칠 머리가 main 일 때 main 자체가 되어, 그 겹침과 main 이 함께 고친 파일까지 사라져
 그러지 않는다 (그 꼴로 바꾼 판에서 이 도구의 시험 둘이 빨개진 것을 손으로 봤다, harness 티켓 024).
 이 브랜치는 작업 트리(커밋하지 않은 변경과 미추적 파일)를 읽는다. merge-base에서 두 자리(ADR,
@@ -57,7 +59,7 @@ merge ref가 남아 있었다. 로컬 Windows에서는 아직 돌리지 않았�
 뒤에 고친 파일이 겹치면, 나중에 병합하는 쪽에서 글자 충돌이 날 수 있다. 이것은 종료
 코드를 바꾸지 않는다. 형제와 main의 merge-base가 이 클론에 없으면(얕은 클론) 그 형제의 고친
 파일만 "알 수 없다"로 두고 번호는 그대로 대조한다. 형제 워크트리의 고친 파일에서는 디스크 사본이
-`origin/main`과 같은 파일을 뺀다. main을 합치고 커밋하기 전인 형제의 작업 트리에는 main의 변경이
+기준 ref와 같은 파일을 뺀다. main을 합치고 커밋하기 전인 형제의 작업 트리에는 main의 변경이
 보여, 그 형제의 커밋이 바꾸지 않은 두 파일을 함께 고친 파일로 냈다(대기열 294, 일지 2026-10-16-20).
 
 열린 PR의 head는 원격에 `refs/pull/<N>/head`가 있는 것만 그 ref로 받는다. gh가 열린 PR로 읽어도
@@ -176,7 +178,8 @@ claude-review 가 짚은 것이 세 번이었다(일지 2026-10-13-01·2026-10-1
 할 일은 번호를 받는 두 스킬 가운데 `code-review` 에만 있었다(일지 2026-10-12-32·2026-10-13-61).
 
 쓰임: `uv run python tools/sibling_overlap.py [저장소 안의 경로] [--move | --journal]`. 먼저
-`origin`의 main과 열린 PR의 head를 fetch한다(`origin/main`이 움직인다). 종료 코드는 번호 겹침도,
+`origin`의 main·dev(이 클론이 dev 추적 ref를 가졌을 때)와 열린 PR의 head를 fetch한다
+(기준 ref가 움직인다). 종료 코드는 번호 겹침도,
 판을 올리지 않고 고친 헌법 파일도, 카나리아 명세를 고치지 않고 바꾼 하네스 파일도, 어디에도 없는
 일지를 가리킨 인용도 없으면 0, 있으면 1, 대조나 옮기기를 끝내지 못하면(git 실패, 원격을 읽지
 못함, 번호의 자리가 빔, 옮길 자리에 무엇이 있음, 인자가 틀림) 2다. 1이면 출력대로 고친다. 겹쳤으면
@@ -186,13 +189,15 @@ claude-review 가 짚은 것이 세 번이었다(일지 2026-10-13-01·2026-10-1
 
 `--journal` 은 대조하지 않고(fetch 도 하지 않는다) 이 브랜치의 일지 경로를 한 줄로 찍는다.
 merge-base 뒤에 더한
-일지(`git diff --merge-base origin/main --name-only --diff-filter=A -- docs/journal/`)와 커밋하지
+일지(`git diff --merge-base <기준 ref> --name-only --diff-filter=A -- docs/journal/`)와 커밋하지
 않은 새 일지(미추적 파일과 스테이지한 새 파일) 가운데 날짜·시각이 가장 늦은 것이다. 같은 날 옛
 꼴(`-12-`)과 새 꼴(`-0930-`)이 섞였으면 새 꼴이 늦다. 이름순으로 고르면 `-12-` 가 `-0930-` 보다 뒤에
 서서 옛 일지가 걸린다. 없으면 stderr 에 까닭을 싣고 1로 끝난다. main 을 합친 뒤에는 merge-base 가
 main 의 끝으로 옮겨, main 에서 들어온 남의 일지는 들지 않는다.
 
 못 보는 것:
+- 이 클론에 `origin/dev` 의 추적 ref 가 없으면 원격에 dev 가 있어도 main 만 대조한다. 받은 적 없는
+  클론은 dev 가 없는 저장소와 같다(`test_dev의_추적_ref가_없으면_…`가 고정한다).
 - merge ref로 가릴 때(`gh`를 쓰지 못할 때), 열 때부터 main과 충돌한 PR. 웹 검색 요약이
   그런 PR에는 merge ref가 없고 merge ref는 GitHub이 문서로 약속하지 않은 기능이라고 했다
   (drone 포럼 글, 원문은 이 컨테이너의 egress가 막아 열지 못했다). 재지 않았다. 재려면 이
@@ -238,7 +243,7 @@ main 의 끝으로 옮겨, main 에서 들어온 남의 일지는 들지 않는�
   `SKILL.md` 밖 파일, 훅 설정(`.claude/settings.json`)은 보지 않는다. 읽지 못한 명세(TOML 오류,
   글자가 아닌 `source`)는 원천이 없는 것으로 보아, 그 명세만 고친 하네스 파일도 알린다.
 - 함께 고친 파일의 어느 줄이 겹치는지. 파일 이름만 견준다.
-- 형제 워크트리의 미추적 파일이 `origin/main`의 같은 경로와 글자가 같은 것. 미추적 파일은 main과
+- 형제 워크트리의 미추적 파일이 기준 ref의 같은 경로와 글자가 같은 것. 미추적 파일은 main과
   견주지 않고 늘 고친 파일로 센다. main을 합치는 중에 main이 들여온 파일은 인덱스에 올라 추적
   파일이라 빠진다. 미추적으로 같은 것은 손으로 옮겨 둔 것, 합친 뒤 `git restore --staged`로 내린
   것, 형제가 새로 쓴 파일을 main이 뒤에 같은 글자로 더한 것 같은 경우다.
@@ -276,9 +281,12 @@ from pathlib import Path, PurePosixPath
 from typing import NoReturn, Protocol
 from urllib.parse import quote
 
-REMOTE = "origin"
-BRANCH = "main"
-MAIN = f"{REMOTE}/{BRANCH}"
+if __package__ in (None, ""):  # 스크립트로 부르면 저장소 루트가 import 경로에 없다
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from tools import base_rule  # noqa: E402
+
+REMOTE = base_rule.REMOTE
 JOURNAL_DIR = "docs/journal"
 ADR_DIR = "docs/adr"
 CONSTITUTION = "docs/constitution/README.md"
@@ -332,10 +340,11 @@ LOCAL_TIMEOUT = 30
 SHALLOW_HINT = "얕은 클론이면 `git fetch --unshallow origin` 뒤 다시 친다"
 
 USAGE = (
-    "이 브랜치가 새로 매긴 번호(ADR, 헌법 판)와 고친 파일을 형제(origin/main,"
+    "이 브랜치가 새로 매긴 번호(ADR, 헌법 판)와 고친 파일을 형제(기준 ref,"
     " 열린 PR, 형제 워크트리)와 대조한다. 바꾼 하네스 파일의 카나리아 명세를"
     " 고치지 않았거나, 이 브랜치가 더한 줄의 일지 인용이 어디에도 없는 일지를 가리키면 알린다."
-    " 먼저 origin 의 main 과 열린 PR 의 head 를 fetch 한다. `--journal` 은 대조하지 않고"
+    " 먼저 origin 의 오래 사는 브랜치(main, 있으면 dev)와 열린 PR 의 head 를 fetch 한다."
+    " `--journal` 은 대조하지 않고"
     " 이 브랜치의 일지 경로를 찍는다. 판정의 근거와 못 보는 것은 이 파일의 독스트링에 있다."
 )
 EXITS = (
@@ -1187,8 +1196,31 @@ def has_commit(root: Path, sha: str) -> bool:
     return result.returncode == 0
 
 
+def _has_trunk(root: Path, name: str) -> bool:
+    """`origin/<name>` 의 추적 ref 가 이 클론에 있고 커밋을 가리키는지."""
+    ref = f"refs/remotes/{REMOTE}/{name}^{{commit}}"
+    result = _git_result(root, ("rev-parse", "--verify", "--quiet", ref), LOCAL_TIMEOUT)
+    return result.returncode == 0
+
+
+def trunk_names(root: Path) -> list[str]:
+    """대조할 오래 사는 브랜치의 이름. 첫째가 이 브랜치의 기준 브랜치이고(`tools/base_rule.py`),
+    뒤는 이 클론에 추적 ref 가 있는 다른 오래 사는 브랜치다.
+
+    `origin/dev` 가 없으면 `["main"]` 하나라 기준이 main 이던 때와 같은 대조다. dev 를 기준으로
+    하면 main 이 둘째다. dev 에서 main 으로 가는 사이에 hotfix 가 끼면 main 이 dev 보다 앞서 번호를
+    가질 수 있고, 그 번호도 이 브랜치 밖의 것으로 센다. hotfix 브랜치는 반대로 dev 가 둘째다.
+    규칙의 판정(`base_rule.base_name`)만 가져다 쓰고 ref 는 이 모듈의 git 호출로 본다.
+    """
+    dev = _has_trunk(root, base_rule.DEV)
+    base = base_rule.base_name(current_branch(root), dev_exists=dev)
+    others = [name for name in (base_rule.MAIN, base_rule.DEV) if name != base]
+    return [base, *(name for name in others if _has_trunk(root, name))]
+
+
 def fetch(root: Path, remote: Remote) -> Remote:
-    """main 을 `origin/main` 으로 당기고, 열린 PR 의 head 를 ref 없이 받는다.
+    """기준 브랜치와 다른 오래 사는 브랜치(`trunk_names`)를 당기고, 열린 PR 의 head 를 ref 없이
+    받는다.
 
     gh 가 열린 PR 로 읽어도 원격에 `refs/pull/<N>/head` 가 아직 없을 수 있다. PR 을 연 지 몇 분
     안에 그 ref 를 받는 fetch 가 128로 끝나 대조 전체가 2로 멈췄다(대기열 288, 일지
@@ -1207,7 +1239,7 @@ def fetch(root: Path, remote: Remote) -> Remote:
         "--no-tags",
         "--no-write-fetch-head",
         REMOTE,
-        f"+refs/heads/{BRANCH}:refs/remotes/{MAIN}",
+        *(f"+refs/heads/{name}:refs/remotes/{REMOTE}/{name}" for name in trunk_names(root)),
         *(f"refs/pull/{number}/head" for number in present),
         timeout=NETWORK_TIMEOUT,
     )
@@ -1225,10 +1257,14 @@ def fetch(root: Path, remote: Remote) -> Remote:
 
 def survey(root: Path, remote: Remote) -> Survey:
     """fetch 가 끝난 클론에서 이 브랜치와 형제의 번호와 고친 파일을 읽는다."""
-    main_sha = git(root, "rev-parse", MAIN).strip()
+    trunks = trunk_names(root)
+    base_label = f"{REMOTE}/{trunks[0]}"
+    main_sha = git(root, "rev-parse", base_label).strip()
     base = merge_base(root, "HEAD", main_sha)
     if base is None:
-        raise SurveyError(f"이 브랜치와 {MAIN} 의 merge-base 가 이 클론에 없다. {SHALLOW_HINT}")
+        raise SurveyError(
+            f"이 브랜치와 {base_label} 의 merge-base 가 이 클론에 없다. {SHALLOW_HINT}"
+        )
     base_numbers = numbers_of(Tree(root, base))
     if missing := empty_places(base_numbers):
         raise SurveyError(f"merge-base 에서 번호의 자리가 비었다: {', '.join(missing)}")
@@ -1236,7 +1272,7 @@ def survey(root: Path, remote: Remote) -> Survey:
     main_changed = _lines(git(root, "diff", "--name-only", base, main_sha))
     main_new = fresh(main_numbers, base_numbers)
     main_sibling = Sibling(
-        label=MAIN,
+        label=base_label,
         commit=main_sha,
         numbers=main_new,
         changed=main_changed,
@@ -1244,6 +1280,11 @@ def survey(root: Path, remote: Remote) -> Survey:
     )
     others: list[Sibling] = []
     taken = [base_numbers, main_numbers]
+    # 기준이 아닌 오래 사는 브랜치(dev 가 기준이면 main)의 번호 전체. 그 브랜치를 base 로 연 PR
+    # (dev 가 기준일 때 main 에서 딴 hotfix PR)의 head 는 이 번호를 품지만 PR 이 더한 것이 아니다
+    trunk_numbers: list[Numbers] = []
+    # 이 브랜치가 이미 품은 기준이 아닌 오래 사는 브랜치의 번호
+    inherited: list[Numbers] = []
     branch = current_branch(root)
 
     def add(
@@ -1254,6 +1295,11 @@ def survey(root: Path, remote: Remote) -> Survey:
         closed: int | None = None,
     ) -> None:
         new = fresh(numbers, base_numbers, main_numbers)
+        for trunk in trunk_numbers:
+            # 번호만 같은 다른 파일은 그 형제가 새로 매긴 것이다. 같은 번호에 같은 파일일 때만 뺀다
+            new = unshared(new, trunk)
+            if new.version == trunk.version:
+                new = replace(new, version=None)
         others.append(
             Sibling(
                 label=label,
@@ -1266,6 +1312,29 @@ def survey(root: Path, remote: Remote) -> Survey:
         )
         taken.append(numbers)
 
+    for name in trunks[1:]:
+        # 기준이 아닌 오래 사는 브랜치(dev 가 기준이면 main). 이 브랜치가 이미 품은 것은 번호가 이
+        # 브랜치 안에 있어 형제가 아니다
+        label = f"{REMOTE}/{name}"
+        other = git(root, "rev-parse", label).strip()
+        other_numbers = numbers_of(Tree(root, other))
+        if is_ancestor(root, other, "HEAD"):
+            # 형제로 알리지 않는다. 그래도 이 브랜치가 그쪽에서 물려받은 번호는 이 브랜치가 새로
+            # 매긴 것이 아니라 공유한 이력이다(`--move` 가 옮기지 않게 `ours` 에서 뺀다)
+            inherited.append(other_numbers)
+            trunk_numbers.append(other_numbers)
+            taken.append(other_numbers)
+            continue
+        shared = merge_base(root, other, "HEAD")
+        if shared is not None:
+            # 이 브랜치를 딴 뒤 그쪽이 더 나아가 끝이 조상이 아니어도, 딴 시점까지 그쪽에 있던
+            # 번호는 이 브랜치가 물려받은 공유한 이력이다. 얕은 클론에서 merge-base 가 없으면 알 수
+            # 없다
+            inherited.append(numbers_of(Tree(root, shared)))
+        since = merge_base(root, other, main_sha)
+        changed = _lines(git(root, "diff", "--name-only", since, other)) if since else None
+        add(label, other, other_numbers, changed)
+        trunk_numbers.append(other_numbers)
     for number, head in remote.pulls.items():
         if head == remote.own_head or is_ancestor(root, head, "HEAD"):
             continue
@@ -1287,6 +1356,8 @@ def survey(root: Path, remote: Remote) -> Survey:
         add(f"워크트리 {path}", head, numbers, changed)
     disk = numbers_of(Disk(root))
     ours = unshared(fresh(disk, base_numbers), main_numbers)
+    for numbers in inherited:
+        ours = unshared(ours, numbers)
     if heads := merge_heads(root):
         # 합치기를 커밋하기 전이다. 합칠 머리가 main 이 아니어도 그 번호는 이 브랜치 밖의 것이다
         merged = [Tree(root, head) for head in heads]
@@ -1422,8 +1493,8 @@ def render(result: Survey, verdict: Verdict) -> str:
     lines.append(_ours_line(result.ours))
     if result.reserved:
         lines.append(
-            f"올린 판으로 센 헌법 {result.reserved}: {MAIN} 의 헌법 README 가 이 브랜치 몫으로"
-            " 비워 둔 판이고, 이 브랜치가 그 문장을 지웠다"
+            f"올린 판으로 센 헌법 {result.reserved}: {result.main.label} 의 헌법 README 가"
+            " 이 브랜치 몫으로 비워 둔 판이고, 이 브랜치가 그 문장을 지웠다"
         )
     if verdict.found:
         lines.append(f"번호 겹침 {len(verdict.found)}:")
@@ -1534,7 +1605,7 @@ def branch_journals(root: Path) -> list[str]:
         root,
         "diff",
         "--merge-base",
-        MAIN,
+        f"{REMOTE}/{trunk_names(root)[0]}",
         "--name-only",
         "--diff-filter=A",
         "--",

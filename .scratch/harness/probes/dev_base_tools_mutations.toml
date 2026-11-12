@@ -1,0 +1,127 @@
+# dev-branch 01(기준 브랜치 규칙을 도구·훅·커밋 검사에 싣는다)이 agent-os 전환 diff와 함께 얹은 시험의 변이.
+# 시험이 구현보다 먼저 초록이라(diff를 얹었다) 새 갈래를 깨어 빨강을 본다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/harness/probes/dev_base_tools_mutations.toml
+# 변이마다 그 갈래를 고정한 시험 하나만 돈다(파일 전체는 git을 시험마다 띄워 수 분이 걸린다).
+# 이 표는 agent-os의 변이 파일을 옮긴 것이 아니라 이 저장소에서 새로 지었다.
+
+[[mutation]]
+name = "base_name 이 hotfix 접두를 보지 않는다"
+tests = ["tests/tools/test_base_rule.py::test_순수_판정은_접두와_dev_추적_ref로_가른다"]
+expect = "red"
+expect_output = ["[hotfix/x-True-True]"]
+
+[[mutation.edit]]
+file = "tools/base_rule.py"
+old = '''    if branch is not None and branch.startswith(HOTFIX_PREFIX):
+        return MAIN
+    return DEV if dev_exists else MAIN'''
+new = '''    return DEV if dev_exists else MAIN'''
+
+[[mutation]]
+name = "base_name 이 dev 추적 ref 가 없어도 dev 를 낸다"
+tests = ["tests/tools/test_base_rule.py::test_순수_판정은_접두와_dev_추적_ref로_가른다"]
+expect = "red"
+expect_output = ["[feature/01-x-False-False]"]
+
+[[mutation.edit]]
+file = "tools/base_rule.py"
+old = '''    return DEV if dev_exists else MAIN
+
+
+def _succeeds'''
+new = '''    return DEV
+
+
+def _succeeds'''
+
+[[mutation]]
+name = "dev 위의 커밋을 막지 않는다"
+tests = ["tests/tools/test_hook_git_main_commit.py::test_dev_위의_커밋도_막는다"]
+expect = "red"
+expect_output = ["assert None is not None"]
+
+[[mutation.edit]]
+file = "tools/hook_git_main_commit.py"
+old = '''PROTECTED = frozenset({"main", "dev"})'''
+new = '''PROTECTED = frozenset({"main"})'''
+
+[[mutation]]
+name = "푸시 훅이 hotfix 를 main 에 견주지 않는다"
+tests = ["tests/tools/test_hook_push_behind_main.py::test_hotfix_브랜치는_dev가_있어도_main에_견준다"]
+expect = "red"
+expect_output = ["At index 0 diff: 'dev' != 'main'"]
+
+[[mutation.edit]]
+file = "tools/hook_push_behind_main.py"
+old = '''    if branch.startswith(HOTFIX_PREFIX):
+        return "main"
+    state = ref_state'''
+new = '''    state = ref_state'''
+
+[[mutation]]
+name = "푸시 훅이 dev 위에서도 잰다"
+tests = ["tests/tools/test_hook_push_behind_main.py::test_dev_위에서는_재지_않는다"]
+expect = "red"
+expect_output = ["assert ('dev', 1) is None"]
+
+[[mutation.edit]]
+file = "tools/hook_push_behind_main.py"
+old = '''PROTECTED = frozenset({"main", "dev"})'''
+new = '''PROTECTED = frozenset({"main"})'''
+
+[[mutation]]
+name = "커밋 검사가 hotfix 브랜치를 티켓 모양으로 읽지 않는다"
+tests = ["tests/tools/test_check_ticket.py::test_hotfix_브랜치가_그_harness_티켓을_실으면_지난다"]
+expect = "red"
+expect_output = ["열린 PR 이 있으면 사람에게 묻는다"]
+
+[[mutation.edit]]
+file = "tools/check_ticket.py"
+old = '''_HARNESS_KINDS = ("chore", "hotfix")'''
+new = '''_HARNESS_KINDS = ("chore",)'''
+
+[[mutation]]
+name = "커밋 검사의 hotfix 브랜치가 dev 에 견준다"
+tests = ["tests/tools/test_check_ticket.py::test_hotfix_브랜치는_dev가_있어도_origin_main에_견준다"]
+expect = "red"
+expect_output = ["assert 0 != 0"]
+
+[[mutation.edit]]
+file = "tools/check_ticket.py"
+old = '''    if branch.startswith(HOTFIX_PREFIX):
+        return BASE
+    return DEV_BASE if'''
+new = '''    return DEV_BASE if'''
+
+[[mutation]]
+name = "dev 를 체크아웃한 워크트리를 지울 후보로 읽는다"
+tests = ["tests/tools/test_tidy_checkouts.py::test_반박_dev_를_체크아웃한_워크트리는_머리가_dev_인_병합된_PR_이_있어도_지우지_않는다"]
+expect = "red"
+expect_output = ["AssertionError: 지운다"]
+
+[[mutation.edit]]
+file = "tools/tidy_checkouts.py"
+old = '''PROTECTED_BRANCHES = frozenset({"main", "master", "dev"})'''
+new = '''PROTECTED_BRANCHES = frozenset({"main", "master"})'''
+
+[[mutation]]
+name = "보호 브랜치 이름의 대소문자를 가리지 않는 견줌을 뺀다"
+tests = ["tests/tools/test_tidy_checkouts.py::test_반박_대소문자가_다른_보호_브랜치를_체크아웃한_워크트리도_지우지_않는다"]
+expect = "red"
+expect_output = ["AssertionError: 지운다"]
+
+[[mutation.edit]]
+file = "tools/tidy_checkouts.py"
+old = '''        if wt.branch.casefold() in PROTECTED_BRANCHES:'''
+new = '''        if wt.branch in PROTECTED_BRANCHES:'''
+
+[[mutation]]
+name = "형제 대조가 기준이 아닌 오래 사는 브랜치를 보지 않는다"
+tests = ["tests/tools/test_sibling_overlap.py::test_dev가_기준이어도_dev에_없는_main의_번호는_main에도_있는_것으로_센다"]
+expect = "red"
+expect_output = ["이 브랜치의 새 번호: ADR 0003"]
+
+[[mutation.edit]]
+file = "tools/sibling_overlap.py"
+old = '''    return [base, *(name for name in others if _has_trunk(root, name))]'''
+new = '''    return [base]'''

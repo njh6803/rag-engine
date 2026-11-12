@@ -72,10 +72,10 @@
 `--ref`는 그 커밋의 `.scratch/retro-queue/`를 읽는다. `git ls-tree`로 목록을 받고
 `git cat-file --batch` 한 프로세스로 내용을 받는다(항목마다 git 을 띄우지 않는다). 폴더가 없는
 커밋(이행 전)은 오류로 끝나고 옛 파일 `.scratch/retro-queue.md`로 돌아가지 않는다. 워크트리에서
-병합한 뒤에는 `git fetch origin` 뒤 `--ref origin/main`으로 다른 PR이 더한 항목까지 센다.
-`--rows`는 열린 항목마다 회차와 대상·인용을 한 줄씩 더 찍는다. 종료 0은 모두 읽었다, 1은 라벨 줄이
-빠진 항목이 있다(그 항목을 뺀 수다), 2는 인자가 틀렸거나 대기열을 읽지 못했다(폴더가 없다,
-UTF-8 이 아니다 포함).
+병합한 뒤에는 `git fetch origin` 뒤 `--ref`에 기준 ref(`hotfix/*`는 `origin/main`, 그 밖은
+`origin/dev`, 없으면 `origin/main`)를 주어 다른 PR이 더한 항목까지 센다. `--rows`는 열린 항목마다
+회차와 대상·인용을 한 줄씩 더 찍는다. 종료 0은 모두 읽었다, 1은 라벨 줄이 빠진 항목이 있다(그 항목을
+뺀 수다), 2는 인자가 틀렸거나 대기열을 읽지 못했다(폴더가 없다, UTF-8 이 아니다 포함).
 
 찾기: `uv run python tools/queue_open_rows.py [--queue <폴더> | --ref <커밋>] --search <정규식>
 [--search <정규식> ...]`. retro 5단계의 항목 찾기(새 항목을 쓰기 전에 같은 일을 다룬 항목을

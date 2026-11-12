@@ -1,14 +1,21 @@
-"""PreToolUse 훅(Bash|PowerShell). origin/main 보다 뒤처진 브랜치의 `git push` 를 막고 먼저 합치게
-한다.
+"""PreToolUse 훅(Bash|PowerShell). 기준 브랜치(`origin/main` 또는 `origin/dev`)보다 뒤처진 브랜치의
+`git push` 를 막고 먼저 합치게 한다.
+
+기준 브랜치는 ADR 0016 의 규칙이다(agent-os 의 ADR 0043 을 따른다. `tools/base_rule.py`). `hotfix/*`
+는 main 이고, 그 밖은 `origin/dev` 의 추적 ref 가 있으면 dev, 없으면 main 이다. 아래 설명의 main 은
+이 기준 브랜치로 읽는다.
 
 막는 대상은 실수로 내는 길(뒤처진 줄 모르고 푸시하는 것)이다. 일부러 뒤처진 채 푸시하는 것은
 탈출구(`PUSH_BEHIND_OK`)로 지나가고, 래퍼(`bash -c "git push"`) 같은 우회는 막지 않고 아래 못 보는
 것에 든다.
 
-왜. `tools/protection.json` 의 strict 보호라 PR 은 최신 main 위에서 돈 CI 로만 병합된다. 푸시하는
-순간에 이미 뒤처졌으면 병합 전에 어차피 main 을 합쳐야 하므로, 그대로 푸시한 CI 는 한 번 더 돈다.
-먼저 합치고 푸시하면 그 한 번이 준다. 합친 뒤의 로컬 게이트는 어느 쪽이든 돈다. CI 실행의 갈래와
-main 합치기의 수는 `.scratch/harness/probes/ci_wait/runs_per_pr.py` 가 낸다(일지 2026-10-13-38).
+왜. 푸시하는 순간에 이미 뒤처졌으면 병합 전에 기준 브랜치를 합치게 되어, 그대로 푸시한 CI 는 한 번
+더 돈다. main 은 `tools/protection.json` 의 strict 보호라 PR 이 최신 main 위에서 돈 CI 로만
+병합된다. dev 는 strict 가 아니지만(ADR 0016. 보호 설정 `tools/protection-dev.json` 은 티켓 04 가
+만든다) 사용자 수준 `git-pr` 2단계가 base 가 앞섰으면 푸시 전에 rebase 하게 하고, 이 훅도 기준
+브랜치가 dev 인 브랜치에서 같은 판정으로 막는다. 현재 동작은 이것이다. dev 가 strict 가 아니게 된
+뒤에도 그 브랜치에서 막을지는 다시 정하지 않았다. 먼저 합치고 푸시하면 CI 가 한 번 덜 돈다. 합친
+뒤의 로컬 게이트는 어느 쪽이든 돈다.
 
 왜 막는가. 계기(`additionalContext`)만 주는 PreToolUse 훅은 명령을 그대로 돌린다. 모델의 차례가
 훅과 도구 실행 사이에 없어, 알림은 푸시가 나간 뒤에야 읽힌다(훅 실행 순서에서 끌어낸 판단이고 재지
@@ -21,11 +28,13 @@ hook_git_main_commit 과 같은 정규식과 인용 자리표시자 `_`)가 있�
 `:<브랜치>`)도 도움말(`-h`, 그것이 든 짧은 옵션 묶음, `--help`·`--help-all`. `asks_help`)도 아니고,
 명령에 `PUSH_BEHIND_OK` 가 없으면 잰다. 도움말은 git 이 사용법을 내고 끝나 푸시하지 않는다. 셀프
 리뷰의 명세 축 리뷰어가 확인하려고 친 `git push -h` 를 막았다(대기열 300). 페이로드의 `cwd` 에서
-지금 브랜치를 읽고(main 이거나 detached HEAD 면 재지 않는다), `git fetch -q origin main` 으로
-origin/main 을 갱신한 뒤 `git rev-list --count HEAD..origin/main` 이 1 이상이면 막는다. git 은
-저장소를 가리키는 `GIT_*` 를 벗기고 호출마다 시간 제한을 둔다. fetch 는 출력을 버려 손자 프로세스가
-살아 있어도 제한에서 끊긴다(`quiet_git`). 셋의 합(18초)에 기동 시간을 더해도 등록의 20초 안이다.
-넘기거나 git 이 실패하면 막지 않는다(fail-open — 안전장치가 아니라 CI 한 번을 아끼는 장치다).
+지금 브랜치를 읽고(main·dev 이거나 detached HEAD 면 재지 않는다), 기준 브랜치를 고른 뒤
+`git fetch -q origin <기준>` 으로 `origin/<기준>` 을 갱신하고
+`git rev-list --count HEAD..origin/<기준>` 이 1 이상이면 막는다. git 은 저장소를 가리키는 `GIT_*` 를
+벗기고 호출마다 시간 제한을 둔다. fetch 는 출력을 버려 손자 프로세스가 살아 있어도 제한에서
+끊긴다(`quiet_git`). 로컬 호출 셋(3초씩)과 fetch 하나(8초)의 합(17초)에 기동 시간을 더해도 등록의
+20초 안이다. 넘기거나 git 이 실패하면 막지 않는다(fail-open — 안전장치가 아니라 CI 한 번을 아끼는
+장치다).
 
 못 보는 것.
 - 래퍼 뒤의 푸시(`bash -c "git push"`)와 큰따옴표 안의 치환(`"$(git push)"`).
@@ -35,7 +44,10 @@ origin/main 을 갱신한 뒤 `git rev-list --count HEAD..origin/main` 이 1 이
 - `cd <다른 저장소> && git push` 와 `git -C <다른 저장소> push`. 그 저장소가 아니라 페이로드의 `cwd`
   로 잰다(hook_git_main_commit 과 같은 한계).
 - 원격 이름이 origin 이 아니거나 기본 브랜치가 main 이 아닌 저장소. 재지 않는다.
-- fetch 가 실패하거나(오프라인, 지워진 원격) 시간을 넘기는 것. 막지 않는다.
+- dev 가 선 뒤 한 번도 fetch 하지 않아 `refs/remotes/origin/dev` 가 없는 클론. main 으로 잰다(원격에
+  물어 보지 않는다. 푸시마다 fetch 가 하나 더 든다).
+- fetch 가 실패하거나(오프라인, 지워진 원격) 시간을 넘기는 것. 막지 않는다. `origin/dev` 가 있는지
+  조회하다 시간을 넘기거나 실패한 것도 같다. 기준을 정하지 못해 재지 않는다.
 - 판정 뒤에 main 이 움직이는 것. 푸시한 CI 가 도는 동안 형제가 병합하면 여전히 한 번 더 돈다.
 - 값을 먹는 긴 옵션을 줄인 이름(`--push-opt -h`). 줄이지 않은 이름만 값을 먹는다고 보아 그 값
   `-h` 를 도움말로 읽고 지나간다(거짓 음성). git 은 줄인 이름을 받아 `-h` 를 값으로 먹고 푸시한다.
@@ -51,13 +63,18 @@ import re
 import subprocess
 import sys
 from collections.abc import Callable
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 _REPO_LOCATION_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR")
-# 로컬 git 호출 하나와 fetch 하나의 시간 제한(초).
-GIT_TIMEOUT = 5.0
+# 로컬 git 호출 하나와 fetch 하나의 시간 제한(초). 로컬 호출이 셋(브랜치, dev 의 유무, 뒤처진 수)과
+# fetch 하나라 합이 17초이고 기동 시간을 더해도 등록의 20초 안이다.
+GIT_TIMEOUT = 3.0
 FETCH_TIMEOUT = 8.0
 BYPASS = "PUSH_BEHIND_OK"
+PROTECTED = frozenset({"main", "dev"})
+HOTFIX_PREFIX = "hotfix/"
+# ref 가 있는지 물은 답. 조회 자체가 실패한 것("unknown")을 없다("absent")와 가른다.
+RefState = Literal["present", "absent", "unknown"]
 
 # hook_git_main_commit 의 _GIT_COMMIT 과 같은 모양이다(PR #91 리뷰). `git push-x` 같은 이름은 뺀다.
 _GIT_PUSH = re.compile(r"git\s+(?:(?:-C|-c)\s+\S+\s+|--no-pager\s+)*push(?![\w-])")
@@ -205,24 +222,67 @@ def quiet_git(cwd: str, timeout: float, *args: str) -> bool:
     return result.returncode == 0
 
 
-def behind_count(cwd: str) -> int | None:
-    """origin/main 을 fetch 로 갱신한 뒤 `cwd` 의 브랜치가 뒤처진 커밋 수. 재지 못하면 None.
+def ref_state(cwd: str, timeout: float, ref: str) -> RefState:
+    """`ref` 가 있으면 "present", 없으면 "absent", 가르지 못하면 "unknown".
 
-    main 이거나 detached HEAD 면 재지 않는다. 원격 추적 ref 를 옮기는 부수 효과가 있다.
+    git 을 띄우지 못하거나 시간을 넘기거나 저장소가 아니면 "unknown" 이다. `rev-parse --verify
+    --quiet` 는 ref 가 없을 때 종료 코드 1 로 끝나므로, 있고 없고는 종료 코드 0 과 1 로만 가른다.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", ref],
+            cwd=cwd,
+            env=_environment(),
+            capture_output=True,
+            check=False,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+    if result.returncode == 0:
+        return "present"
+    return "absent" if result.returncode == 1 else "unknown"
+
+
+def base_branch(cwd: str, branch: str) -> str | None:
+    """`branch` 가 견줄 기준 브랜치(`main` 또는 `dev`). 정하지 못하면 None. agent-os ADR 0043.
+
+    `hotfix/*` 는 main 이다. 그 밖은 `origin/dev` 의 추적 ref 가 이 클론에 있으면 dev, 없으면 main
+    이다 (dev 가 서기 전에는 모두 main). ref 가 있는지만 로컬 git 으로 본다. 원격에 물어 보면
+    푸시마다 fetch 하나가 더 들어 등록의 20초를 넘길 수 있다. 조회 자체가 시간을 넘기거나 실패하면
+    ref 가 없다고 읽지 않고 None 을 낸다. main 으로 재면 dev 에는 최신인 브랜치를 잘못 막는다.
+    """
+    if branch.startswith(HOTFIX_PREFIX):
+        return "main"
+    state = ref_state(cwd, GIT_TIMEOUT, "refs/remotes/origin/dev")
+    if state == "unknown":
+        return None
+    return "dev" if state == "present" else "main"
+
+
+def behind_count(cwd: str) -> tuple[str, int] | None:
+    """기준 브랜치와 `cwd` 의 브랜치가 그것보다 뒤처진 커밋 수. 재지 못하면 None.
+
+    보호 브랜치(main, dev)이거나 detached HEAD 면 재지 않는다. 기준 브랜치를 fetch 로 갱신하는
+    부수 효과가 있다(원격 추적 ref 를 옮긴다).
     """
     branch = run_git(cwd, GIT_TIMEOUT, "symbolic-ref", "--quiet", "--short", "HEAD")
-    if branch is None or branch == "main":
+    if branch is None or branch in PROTECTED:
         return None
-    if not quiet_git(cwd, FETCH_TIMEOUT, "fetch", "-q", "origin", "main"):
+    base = base_branch(cwd, branch)
+    if base is None:
         return None
-    count = run_git(cwd, GIT_TIMEOUT, "rev-list", "--count", "HEAD..origin/main")
-    return int(count) if count is not None and count.isdigit() else None
+    if not quiet_git(cwd, FETCH_TIMEOUT, "fetch", "-q", "origin", base):
+        return None
+    count = run_git(cwd, GIT_TIMEOUT, "rev-list", "--count", f"HEAD..origin/{base}")
+    return (base, int(count)) if count is not None and count.isdigit() else None
 
 
-def reason_text(count: int) -> str:
+def reason_text(count: int, base: str) -> str:
     return (
-        f"이 브랜치는 origin/main 보다 {count}커밋 뒤처졌다. strict 보호라 병합 전에 어차피 "
-        "main 을 합쳐야 해서, 지금 푸시하면 CI 가 한 번 더 돈다. `git merge origin/main` 으로 "
+        f"이 브랜치는 origin/{base} 보다 {count}커밋 뒤처졌다. 병합 전에 {base} 를 합치게 "
+        "되므로(main 은 strict 보호이고 dev 는 PR 전에 기준 브랜치에 맞추는 규약이다) "
+        f"지금 푸시하면 CI 가 한 번 더 돈다. `git merge origin/{base}` 으로 "
         "합치고(충돌이면 풀고) CLAUDE.md 의 검증 명령과 `uv run python tools/sibling_overlap.py` "
         "를 지난 뒤 다시 푸시한다. 충돌 없는 합치기에는 pre-commit 이 돌지 않는다. 일부러 뒤처진 "
         f"채 푸시하려면 Bash 에서 `{BYPASS}=1 git push …`, PowerShell 에서 "
@@ -230,12 +290,16 @@ def reason_text(count: int) -> str:
     )
 
 
-def reason_for(command: str, cwd: str, behind: Callable[[str], int | None]) -> str | None:
+def reason_for(
+    command: str, cwd: str, behind: Callable[[str], tuple[str, int] | None]
+) -> str | None:
     """막을 이유. 잴 푸시가 아니면 git 을 부르지 않는다."""
     if not checks_push(command):
         return None
-    count = behind(cwd)
-    return reason_text(count) if count else None
+    measured = behind(cwd)
+    if measured is None or not measured[1]:
+        return None
+    return reason_text(measured[1], measured[0])
 
 
 def main() -> int:

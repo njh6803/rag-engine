@@ -40,18 +40,18 @@
   <이름>/`)에 `APP_MARKER` 가 있으면 앱의 정리(`[WorktreePool]`)에 맡겨 남긴다(ADR 0032). 앱은 그
   워크트리를 새 세션에 다시 내준다. 2026-10-20 에 앱이 만든 분리 HEAD 워크트리 둘이 판정 1에서
   사람에게 넘겨졌고, 그 정리 도중에 앱이 그중 하나를 새 세션에 내주어 브랜치가 바뀌었다.
-- 판정 1, 병합됐다. 분리 HEAD 는 그 커밋이 `origin/main` 에서 닿을 때만 다음 판정으로 가고(잃는
-  것이 없다. 2026-10-15 에 모델 스윕과 옛 세션의 분리 HEAD 일곱이 넘겨진 채 남아 있었다), 아니면
-  넘긴다. 브랜치는 병합된 PR 중 머리 브랜치 이름이 같은 것의 `headRefOid` 가 브랜치 끝(그 워크트리의
-  HEAD)과 같거나, 브랜치 끝이 그 머리 가운데 하나의 조상이어야 한다(`behind_merged`. 로컬에만
-  있는 커밋이 없다). 2026-10-20 에 `chore/skill-check-and-retro-section` 의 로컬 끝이 PR #114 의
-  머리보다 커밋 넷 뒤였는데 사람에게 넘겼다. 머리 커밋이 이 저장소에 없으면(원격 브랜치가 지워진
-  뒤 받아 오지 않았다) 조상인지 알 수 없어 넘긴다. 이름이 같은 PR 이 없으면 남기고, 있는데 머리와
-  다르고 조상도 아니면 넘긴다. 이름만 보면 포크의 같은 이름 브랜치를 잡으므로 머리를 견준다.
-  squash 라 `git log` 로는 가르지 못하고, 체크아웃된 브랜치는 끝이 `origin/main` 의 조상인 것으로도
-  판정하지 않는다. 막 따고 커밋하지 않은 브랜치도 조상이다(일지 2026-10-05-05). 병합된 PR 은 `gh
-  pr list` 한 번에 최근 1000개를 읽는다. 그보다 오래된 것은 병합되지 않은 것으로 보여 남는다(안전한
-  쪽).
+- 판정 1, 병합됐다. 분리 HEAD 는 그 커밋이 오래 사는 브랜치(`TRUNK_REFS`)에서 닿을 때만 다음
+  판정으로 가고(잃는 것이 없다. 2026-10-15 에 모델 스윕과 옛 세션의 분리 HEAD 일곱이 넘겨진 채 남아
+  있었다), 아니면 넘긴다. 브랜치는 병합된 PR 중 머리 브랜치 이름이 같은 것의 `headRefOid` 가 브랜치
+  끝(그 워크트리의 HEAD)과 같거나, 브랜치 끝이 그 머리 가운데 하나의 조상이어야
+  한다(`behind_merged`. 로컬에만 있는 커밋이 없다). 2026-10-20 에
+  `chore/skill-check-and-retro-section` 의 로컬 끝이 PR #114 의 머리보다 커밋 넷 뒤였는데 사람에게
+  넘겼다. 머리 커밋이 이 저장소에 없으면(원격 브랜치가 지워진 뒤 받아 오지 않았다) 조상인지 알 수
+  없어 넘긴다. 이름이 같은 PR 이 없으면 남기고, 있는데 머리와 다르고 조상도 아니면 넘긴다. 이름만
+  보면 포크의 같은 이름 브랜치를 잡으므로 머리를 견준다. squash 라 `git log` 로는 가르지 못하고,
+  체크아웃된 브랜치는 끝이 오래 사는 브랜치의 조상인 것으로도 판정하지 않는다. 막 따고 커밋하지 않은
+  브랜치도 조상이다(agent-os 의 일지 `2026-10-05-05`). 병합된 PR 은 `gh pr list` 한 번에 최근
+  1000개를 읽는다. 그보다 오래된 것은 병합되지 않은 것으로 보여 남는다(안전한 쪽).
 - 판정 2, 깨끗하다. `status --porcelain --untracked-files=all` 의 stdout 과 stderr 가 모두 비어야
   한다. stderr 의 경고는 git 이 그 아래를 보지 못했다는 뜻이다. `status --ignored=matching` 의 `!!`
   항목은 다시 만들 수 있는 것(`RECREATABLE_*`, 루트와 같은 `.claude/settings.local.json`)뿐이어야
@@ -122,10 +122,10 @@
   새 세션의 첫 턴은 답을 기다리지 않아 아무것도 지워지지 않았다. 등록 없는 폴더는 넘기지 않는다.
   사람이 그 세션이 후보에 없다고 답하면 부르는 쪽이 `remove` 를 부른다. `remove` 의 재판정은 세션을
   보지 않고, 쥔 프로세스는 옮기기 직전에만 다시 본다(판정 4의 2).
-체크아웃되지 않은 로컬 브랜치는 판정 1을 보고, 병합된 PR 이 없어도 끝이 `origin/main` 에서 닿으면
+체크아웃되지 않은 로컬 브랜치는 판정 1을 보고, 병합된 PR 이 없어도 끝이 오래 사는 브랜치에서 닿으면
 지운다(잃는 것은 이름뿐이다. `EnterWorktree` 가 만들고 세션이 떠난 `worktree-*` 브랜치 53개가 PR
 없이 남아 있었다, 일지 2026-10-15-06). 병합된 PR 머리의 조상인 끝도 워크트리처럼 지운다.
-PR 없이 끝이 `origin/main` 에 있어도 그 브랜치의 reflog 마지막 기록이 `FRESH_SECONDS` 안이거나
+PR 없이 끝이 오래 사는 브랜치에 있어도 그 브랜치의 reflog 마지막 기록이 `FRESH_SECONDS` 안이거나
 앞날이면 막 딴 브랜치라 남긴다(`is_fresh`, 대기열 440). `judge` 는 워크트리 목록을 읽은 뒤에
 브랜치 목록을 읽어, 나란히 연 형제 세션이 그사이에 딴 브랜치(`EnterWorktree` 뒤 워크트리 안의 `git
 switch -c`·`git branch -m`, 등록보다 브랜치를 먼저 만드는 `git worktree add -b`)는 체크아웃된
@@ -250,16 +250,26 @@ main 으로 옮긴 직후의 정리가 그 브랜치를 바로 지운다. 지울
   (`origin_of`. 자리 이름에서 거꾸로 셈한 어림이고 `WORKTREES_DIR` 아래였다고 본다) 둘로 견준다.
   워크트리가 다른 자리에 있었으면 쥔 프로세스를 대지 못하고 찾지 못했다고 적는다. 지우기 자체는
   막히면 남으므로 안전한 쪽이다.
-- 체크아웃되지 않은 브랜치가 `origin/main` 에 든 것은 그 이름이 아직 쓰일 예정이었어도 reflog 의
-  마지막 기록이 창(`FRESH_SECONDS`) 밖이면 지운다. 잃는 것은 이름이고 커밋은 `origin/main` 에
+- 체크아웃되지 않은 브랜치가 오래 사는 브랜치에 든 것은 그 이름이 아직 쓰일 예정이었어도 reflog 의
+  마지막 기록이 창(`FRESH_SECONDS`) 밖이면 지운다. 잃는 것은 이름이고 커밋은 그 브랜치에
   있다.
 - reflog 가 없는 브랜치(`core.logAllRefUpdates=false` 로 딴 것, 기록이 만료된 것). 막 딴 것인지
   몰라 판정 1대로 지운다. 잃는 것은 이름이다.
 - 시계가 어긋난 PC 에서 남긴 앞날 시각의 기록. 막 딴 것으로 보아, 시계가 그 시각을 지나 창이 끝날
   때까지 정리마다 남긴다(남기는 쪽이다).
-- `origin/main` 이 없는 저장소(얕은 클론, 클라우드 세션, 원격 없는 임시 저장소)에서는 어느 커밋도
-  `origin/main` 에 닿지 않는 것으로 보여, 분리 HEAD 와 PR 없는 브랜치가 모두 남는다(안전한 쪽).
-  이유 줄은 `origin/main 에 없다` 라고만 적는다.
+- `origin/main` 도 `origin/dev` 도 없는 저장소(얕은 클론, 클라우드 세션, 원격 없는 임시
+  저장소)에서는 어느 커밋도 오래 사는 브랜치에 닿지 않는 것으로 보여, 분리 HEAD 와 PR 없는 브랜치가
+  모두 남는다 (안전한 쪽). 이유 줄은 `origin/main 이나 origin/dev 어디에도 없다` 라고 적는다.
+- 오래 사는 브랜치를 둘 다 보는 까닭(agent-os ADR 0043). dev 에 병합돼 아직 main 에 오르지 않은
+  커밋도 `origin/dev` 의 추적 ref 가 쥐고 있어, 이 이름을 지워도 이 클론에서 커밋은 남는다. 기준
+  브랜치 하나만 보면(`tools/base_rule.py`) 루트가 main 에 있을 때 dev 에만 있는 커밋의 분리 HEAD 를
+  사람에게 넘기고, dev 가 기준인 브랜치를 PR 없이 지울 수 없다. 둘 다 보면 지울 후보는 늘지만 잘못
+  지우는 길은 늘지 않는다. 지울지는 그 시점의 추적 ref 가 쥔 커밋인지로만 정하고, 그 ref 가
+  사라지면(원격 dev 를 지운 뒤 prune) `remove-branch` 가 다시 판정해 지우지 않는다. 원격에서 dev 를
+  보호할지는 agent-os ADR 0043 이 사람의 몫으로 남겨 두었으니 원격 보호를 근거로 삼지 않는다.
+  `origin/dev` 의 추적 ref 가 없으면(dev 를 따기 전, 받은 적 없는 클론) 읽히지 않아 지금처럼
+  `origin/main` 하나로 돈다. `PROTECTED_BRANCHES` 에 `dev` 가 든다: 루트가 다른 브랜치에 있을 때 dev
+  가 체크아웃되지 않은 브랜치로 보여도 지우지 않는다.
 - 휴지통 자리 이름의 역산(`origin_of`)은 이름에 `~~` 가 든 워크트리와 `~<숫자>` 로 끝나는 상대
   경로에서 어긋나 쥔 프로세스를 옛 자리로 찾지 못한다. 지우기는 그대로 막혀 남으니 안전한 쪽이다.
 - 휴지통 자리 이름(`trash_slot`)이 파일 시스템이 경로 한 토막에 허용하는 길이(이 PC 의 NTFS 에서
@@ -377,16 +387,23 @@ PROBE_SUFFIX = ".tidy-probe"
 # 표준 축 리뷰가 임시 저장소에서 봤다). 셸이 풀 수 있는 글자(`_SHELL_UNSAFE`)도 들지 않는다
 DETACHED = ".detached"
 # 지우지 않는 브랜치. 루트가 다른 브랜치에 있을 때 `main` 이 체크아웃되지 않은 브랜치로 보인다
-PROTECTED_BRANCHES = frozenset({"main", "master"})
+PROTECTED_BRANCHES = frozenset({"main", "master", "dev"})
+# 병합됐다고 보는 오래 사는 브랜치. 끝이 이 가운데 하나에서 닿으면 그 커밋은 이 브랜치를 지워도
+# 남는다. `origin/dev` 가 이 클론에 없으면 그 ref 는 읽히지 않아 `origin/main` 하나로
+# 돈다(`tools/base_rule.py`). 전체 이름으로 적는다. 짧은 `origin/dev` 는 git 이 같은 이름의 로컬
+# 브랜치(`refs/heads/origin/dev`)나 태그를 먼저 풀어, 그 브랜치가 자기 자신을 닿게 한다
+TRUNK_REFS = ("refs/remotes/origin/main", "refs/remotes/origin/dev")
+# 사람이 읽는 줄에서 오래 사는 브랜치를 가리키는 말
+TRUNK_WORDS = "origin/main 이나 origin/dev"
 MERGED_LIMIT = 1000
 # gh 와 tasklist 하나를 기다리는 초. 넘기면 부르지 못한 것으로 센다(대기열 342). git 은 두지 않는다
 # (`real_git`).
 CALL_TIMEOUT = 60
-# 막 딴 브랜치로 보는 창(초). reflog 의 마지막 기록이 이 안이면 PR 없이 끝이 `origin/main` 에 있어도
-# 남긴다(대기열 440). `judge` 가 워크트리 목록과 브랜치 목록을 따로 읽는 틈과 `git worktree add -b`
-# 가 브랜치를 먼저 따고 등록을 나중에 만드는 틈은 초 단위로 어림하고(재지 않았다), 브랜치를 먼저
-# 따고 나중에 체크아웃하는 길까지 덮게 넉넉히 고른 값이다. 떠난 세션의 브랜치는 다음
-# 정리가 지운다
+# 막 딴 브랜치로 보는 창(초). reflog 의 마지막 기록이 이 안이면 PR 없이 끝이 오래 사는 브랜치에
+# 있어도 남긴다(대기열 440). `judge` 가 워크트리 목록과 브랜치 목록을 따로 읽는 틈과
+# `git worktree add -b` 가 브랜치를 먼저 따고 등록을 나중에 만드는 틈은 초 단위로 어림하고(재지
+# 않았다), 브랜치를 먼저 따고 나중에 체크아웃하는 길까지 덮게 넉넉히 고른 값이다. 떠난 세션의
+# 브랜치는 다음 정리가 지운다
 FRESH_SECONDS = 3600
 RECREATABLE_DIRS = frozenset(
     {
@@ -452,7 +469,7 @@ _HOLDER_LABELS: dict[HolderKind, str] = {
 _RUNNING_REASON = "제목이나 브랜치가 그 브랜치인 세션이 돈다"
 # 판정 1에서 브랜치 끝이 병합된 PR 머리의 조상이라 지우는 이유
 _BEHIND_REASON = "브랜치 끝이 병합된 PR 의 머리보다 뒤다. 로컬에만 있는 커밋이 없다"
-# 판정 1에서 PR 없이 끝이 `origin/main` 에 있는데 reflog 의 마지막 기록이 창 안이라 남긴 이유
+# 판정 1에서 PR 없이 끝이 오래 사는 브랜치에 있는데 reflog 의 마지막 기록이 창 안이라 남긴 이유
 _FRESH_REASON = (
     f"막 딴 브랜치다. reflog 의 마지막 기록이 {FRESH_SECONDS // 60}분 안이거나 앞날이다"
     " (나란히 연 세션이 체크아웃하기 전일 수 있다)"
@@ -497,7 +514,7 @@ class Worktree:
 @dataclass(frozen=True)
 class Facts:
     """판정 2와 자리 판정의 재료. 자리가 어긋나면 status 를 읽지 않아 빈 값이다. `aside` 는 점유
-    탐침의 옆 이름 폴더가 있다는 뜻이고, `contained` 는 HEAD 가 `origin/main` 에서 닿는다는 뜻이다
+    탐침의 옆 이름 폴더가 있다는 뜻이고, `contained` 는 HEAD 가 오래 사는 브랜치에서 닿는다는 뜻이다
     (분리 HEAD 에서만 읽는다). `behind` 는 브랜치 끝이 이름이 같은 병합된 PR 의 머리 가운데 하나의
     조상이라는 뜻이고(끝이 머리와 같으면 읽지 않는다), `app_marker` 는 앱의 표지(`APP_MARKER`)가
     있다는 뜻이다. `tracked_links` 는 추적 파일이 든 폴더 가운데 링크인 것이다(같은 이름의 함수)."""
@@ -1425,7 +1442,7 @@ def judge(
             # 등록이 그 커밋의 마지막 참조일 수 있다. 걷으면 커밋이 매달린다(명세 축 리뷰가 폴더
             # 없는 경우를, PR 직전 버그 리뷰가 지우다 만 폴더의 경우를 임시 저장소에서 재현했다,
             # 일지 2026-10-15-06)
-            reason = "분리 HEAD 이고 그 커밋이 origin/main 에 없다. 등록을 걷지 않는다"
+            reason = f"분리 HEAD 이고 그 커밋이 {TRUNK_WORDS} 어디에도 없다. 등록을 걷지 않는다"
             return verdict("human", reason)
         if facts.exists:
             # 지우다 만 폴더다. 부르는 쪽이 등록 없는 폴더의 판정으로 내용을 가른다
@@ -1444,8 +1461,12 @@ def judge(
         return verdict("human", "HEAD 를 읽지 못했다")
     if wt.branch is None:
         if not facts.contained:
-            return verdict("human", "분리 HEAD 이고 그 커밋이 origin/main 에 없다")
+            return verdict("human", f"분리 HEAD 이고 그 커밋이 {TRUNK_WORDS} 어디에도 없다")
     else:
+        # 보호 브랜치는 체크아웃되었어도 이름을 지우지 않는다. dev→main 릴리스 PR 은 머리 브랜치가
+        # `dev` 라 `merged` 에 채워지고, 지우면 `remove` 가 로컬 `dev` 이름까지 지운다(PR 직전 리뷰)
+        if wt.branch.casefold() in PROTECTED_BRANCHES:
+            return verdict("keep", "지우지 않는 브랜치다")
         heads = merged.get(wt.branch)
         if not heads:
             return verdict("keep", "병합된 PR 이 없다")
@@ -1476,7 +1497,7 @@ def judge(
             return replace(verdict("end", reason), sessions=sessions)
         return verdict("keep", f"{described}. 그 프로세스가 끝나야 지운다")
     if wt.branch is None:
-        note = "분리 HEAD 이고 그 커밋이 origin/main 에 있다"
+        note = f"분리 HEAD 이고 그 커밋이 {TRUNK_WORDS} 에 있다"
     else:
         note = _BEHIND_REASON if facts.behind else ""
     if pid is None:
@@ -1568,19 +1589,20 @@ def _judge_branch_merged(
     behind: bool,
     fresh: bool,
 ) -> Verdict:
-    """판정 1. `contained` 는 브랜치 끝이 `origin/main` 에서 닿는다는 뜻이다. 병합된 PR 이 없어도
+    """판정 1. `contained` 는 브랜치 끝이 오래 사는 브랜치에서 닿는다는 뜻이다. 병합된 PR 이 없어도
     그러면 지운다. 잃는 것은 이름뿐이다. 다만 `fresh`(reflog 의 마지막 기록이 `FRESH_SECONDS`
     안이다)면 막 딴 브랜치라 남긴다(대기열 440). `behind` 는 끝이 병합된 PR 머리의 조상이라는
     뜻이다. 병합된 PR 로 지우는 길은 `fresh` 를 보지 않는다."""
-    if branch in PROTECTED_BRANCHES:
+    # 대소문자는 가리지 않는다. 윈도의 `for-each-ref` 는 이름의 폴더 대소문자를 바꿔 찍을 수 있다
+    if branch.casefold() in PROTECTED_BRANCHES:
         return Verdict("keep", branch, "지우지 않는 브랜치다", branch, tip)
     heads = merged.get(branch)
     if not heads:
         if contained and fresh:
             return Verdict("keep", branch, _FRESH_REASON, branch, tip)
         if contained:
-            return Verdict("delete", branch, "커밋이 모두 origin/main 에 있다", branch, tip)
-        reason = "병합된 PR 이 없고 origin/main 에 없는 커밋이 있다"
+            return Verdict("delete", branch, f"커밋이 모두 {TRUNK_WORDS} 에 있다", branch, tip)
+        reason = f"병합된 PR 이 없고 {TRUNK_WORDS} 어디에도 없는 커밋이 있다"
         return Verdict("keep", branch, reason, branch, tip)
     if tip not in heads:
         if behind:
@@ -1712,8 +1734,12 @@ def _misplaced(*, exists: bool, toplevel: str | None) -> Facts:
 
 
 def contains(root: Path, commit: str, git: GitRunner) -> bool:
-    """`commit` 이 `origin/main` 에서 닿는지. `origin/main` 이 없으면 닿지 않는 것으로 본다."""
-    return git(["merge-base", "--is-ancestor", commit, "origin/main"], root).returncode == 0
+    """`commit` 이 오래 사는 브랜치(`TRUNK_REFS`) 가운데 하나에서 닿는지. 그 ref 가 없으면 그
+    브랜치에서는 닿지 않는 것으로 본다."""
+    return any(
+        git(["merge-base", "--is-ancestor", commit, ref], root).returncode == 0
+        for ref in TRUNK_REFS
+    )
 
 
 def behind_merged(root: Path, tip: str, heads: Collection[str] | None, git: GitRunner) -> bool:
@@ -1762,7 +1788,8 @@ def _has_app_marker(path: Path, git: GitRunner) -> bool:
 
 def gather(root: Path, wt: Worktree, git: GitRunner, merged: Mapping[str, frozenset[str]]) -> Facts:
     path = Path(wt.path)
-    # 분리 HEAD 는 폴더가 없어도 본다. 등록을 걷기 전에 그 커밋이 origin/main 에 있는지 알아야 한다
+    # 분리 HEAD 는 폴더가 없어도 본다. 등록을 걷기 전에 그 커밋이 오래 사는 브랜치에 있는지 알아야
+    # 한다
     contained = wt.branch is None and wt.head is not None and contains(root, wt.head, git)
     if not path.is_dir():
         aside = os.path.lexists(path.with_name(path.name + PROBE_SUFFIX))
@@ -1995,20 +2022,23 @@ def _fresh(
     *,
     contained: bool,
 ) -> bool:
-    """판정 1의 `fresh`. 그 값을 보는 길(병합된 PR 이 없고 끝이 `origin/main` 에 있다)에서만 reflog
-    를 읽는다. `judge` 와 `remove-branch` 가 같이 쓴다."""
+    """판정 1의 `fresh`. 그 값을 보는 길(병합된 PR 이 없고 끝이 오래 사는 브랜치에 있다)에서만
+    reflog 를 읽는다. `judge` 와 `remove-branch` 가 같이 쓴다."""
     if merged.get(branch) or not contained:
         return False
     return is_fresh(branch_touched(root, branch, git), now)
 
 
 def _contained_branches(root: Path, git: GitRunner) -> frozenset[str]:
-    """끝이 `origin/main` 에서 닿는 로컬 브랜치. `origin/main` 이 없으면 빈 집합이다."""
-    args = ["for-each-ref", "--merged", "origin/main", "--format=%(refname:short)", "refs/heads"]
-    listed = git(args, root)
-    if listed.returncode != 0:
-        return frozenset()
-    return frozenset(line for line in listed.stdout.splitlines() if line)
+    """끝이 오래 사는 브랜치(`TRUNK_REFS`) 가운데 하나에서 닿는 로컬 브랜치. 그 ref 가 모두 없으면
+    빈 집합이다."""
+    found: set[str] = set()
+    for ref in TRUNK_REFS:
+        args = ["for-each-ref", "--merged", ref, "--format=%(refname:short)", "refs/heads"]
+        listed = git(args, root)
+        if listed.returncode == 0:
+            found.update(line for line in listed.stdout.splitlines() if line)
+    return frozenset(found)
 
 
 def _judge_all(

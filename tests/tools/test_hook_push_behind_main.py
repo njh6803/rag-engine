@@ -18,11 +18,13 @@ from tools.hook_push_behind_main import (
     FETCH_TIMEOUT,
     GIT_TIMEOUT,
     VALUE_LONG_OPTIONS,
+    base_branch,
     behind_count,
     checks_push,
     quiet_git,
     reason_for,
     reason_text,
+    ref_state,
     run_git,
 )
 
@@ -87,7 +89,7 @@ def test_명령_위치의_git_push는_잰다(command: str) -> None:
     ],
 )
 def test_지우는_푸시와_탈출구와_데이터로_든_문구는_재지_않는다(command: str) -> None:
-    assert not checks_push(command)
+    assert not checks_push(command), f"잴 푸시로 읽은 명령: {command}"
 
 
 def test_래퍼_뒤의_푸시와_큰따옴표_안의_치환은_놓친다() -> None:
@@ -289,20 +291,67 @@ def test_멈춘_fetch는_손자_프로세스가_살아_있어도_시간_제한�
 
 def test_원격의_main이_앞서면_뒤처진_수를_낸다(tmp_path: Path) -> None:
     repo = behind_repository(tmp_path, ahead_on_main=2)
-    assert behind_count(str(repo)) == 2
+    assert behind_count(str(repo)) == ("main", 2)
 
 
 def test_main을_합친_뒤에는_0이다(tmp_path: Path) -> None:
     repo = behind_repository(tmp_path)
     git("-C", str(repo), *IDENTITY, "merge", "-q", "--no-edit", "origin/main")
-    assert behind_count(str(repo)) == 0
+    assert behind_count(str(repo)) == ("main", 0)
+
+
+def add_dev(repo: Path, *, ahead: int) -> None:
+    """origin 에 main 에서 딴 dev 를 `ahead` 커밋 앞서게 두고 그 추적 ref 를 받는다. 브랜치는
+    `behind_repository` 가 남긴 `chore/x` 로 돌아온다."""
+    branch = "chore/x"
+    git("-C", str(repo), "switch", "-q", "main")
+    git("-C", str(repo), "switch", "-q", "-c", "dev")
+    for index in range(ahead):
+        git("-C", str(repo), *IDENTITY, "commit", "-q", "--allow-empty", "-m", f"dev {index}")
+    git("-C", str(repo), "push", "-q", "origin", "dev")
+    git("-C", str(repo), "switch", "-q", branch)
+
+
+def test_origin에_dev가_있으면_작업_브랜치는_dev에_견준다(tmp_path: Path) -> None:
+    repo = behind_repository(tmp_path, ahead_on_main=1)
+    add_dev(repo, ahead=3)
+    # chore/x 는 첫 커밋에서 갈라져, main 의 앞선 1 과 dev 의 3 을 모두 뒤처진 것으로 센다.
+    # 실패 메시지의 값은 변이 표가 이 단언의 실패만 가려내는 표지다.
+    result = behind_count(str(repo))
+    assert result == ("dev", 4), f"작업 브랜치가 견준 기준: {result}"
+
+
+def test_hotfix_브랜치는_dev가_있어도_main에_견준다(tmp_path: Path) -> None:
+    repo = behind_repository(tmp_path, ahead_on_main=1)
+    add_dev(repo, ahead=3)
+    git("-C", str(repo), "switch", "-q", "-c", "hotfix/y")
+    result = behind_count(str(repo))
+    assert result == ("main", 1), f"hotfix 브랜치가 견준 기준: {result}"
+
+
+def test_dev_위에서는_재지_않는다(tmp_path: Path) -> None:
+    repo = behind_repository(tmp_path)
+    add_dev(repo, ahead=1)
+    git("-C", str(repo), "switch", "-q", "dev")
+    git("-C", str(repo), "reset", "-q", "--hard", "HEAD~1")
+    result = behind_count(str(repo))
+    assert result is None, f"dev 위에서 잰 결과: {result}"
+
+
+def test_dev의_추적_ref가_없으면_main에_견준다(tmp_path: Path) -> None:
+    # 못 보는 것: 원격에 dev 가 있어도 이 클론이 받은 적이 없으면 main 으로 잰다.
+    repo = behind_repository(tmp_path, ahead_on_main=1)
+    add_dev(repo, ahead=3)
+    git("-C", str(repo), "update-ref", "-d", "refs/remotes/origin/dev")
+    assert behind_count(str(repo)) == ("main", 1)
 
 
 def test_main_위에서는_재지_않는다(tmp_path: Path) -> None:
     repo = behind_repository(tmp_path)
     git("-C", str(repo), "switch", "-q", "main")
     git("-C", str(repo), "reset", "-q", "--hard", "HEAD~1")
-    assert behind_count(str(repo)) is None
+    result = behind_count(str(repo))
+    assert result is None, f"main 위에서 잰 결과: {result}"
 
 
 def test_detached_HEAD에서는_재지_않는다(tmp_path: Path) -> None:
@@ -326,7 +375,27 @@ def test_fetch가_실패하면_재지_않는다(tmp_path: Path) -> None:
     # 못 보는 것: 오프라인이나 지워진 원격. 막지 않고 지나간다(fail-open).
     repo = behind_repository(tmp_path)
     git("-C", str(repo), "remote", "set-url", "origin", str(tmp_path / "gone.git"))
-    assert behind_count(str(repo)) is None
+    result = behind_count(str(repo))
+    assert result is None, f"fetch 가 실패한 뒤 잰 결과: {result}"
+
+
+def test_dev의_유무를_조회하다_시간을_넘기면_재지_않는다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 조회 실패를 dev 가 없다고 읽으면 main 으로 재서, dev 에는 최신인 브랜치를 잘못 막는다.
+    # 시간 제한을 git 이 뜨기도 전에 넘길 값으로 줄여, 조회가 반드시 시간을 넘기게 한다.
+    repo = behind_repository(tmp_path, ahead_on_main=1)
+    add_dev(repo, ahead=0)
+    monkeypatch.setattr("tools.hook_push_behind_main.GIT_TIMEOUT", 0.0001)
+    result = base_branch(str(repo), "chore/x")
+    assert result is None, f"dev 조회가 시간을 넘긴 뒤 고른 기준: {result}"
+
+
+def test_ref_state는_있음_없음_가르지_못함을_가른다(tmp_path: Path) -> None:
+    repo = behind_repository(tmp_path)
+    assert ref_state(str(repo), GIT_TIMEOUT, "refs/remotes/origin/main") == "present"
+    assert ref_state(str(repo), GIT_TIMEOUT, "refs/remotes/origin/dev") == "absent"
+    assert ref_state(str(tmp_path), GIT_TIMEOUT, "refs/remotes/origin/main") == "unknown"
 
 
 def test_git이_시간을_넘기면_실패로_센다(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -368,21 +437,33 @@ def test_저장소_밖에서는_재지_않는다(tmp_path: Path) -> None:
     assert behind_count(str(tmp_path)) is None
 
 
-def recording(count: int | None) -> tuple[Callable[[str], int | None], list[str]]:
+def recording(
+    count: int | None, base: str = "main"
+) -> tuple[Callable[[str], tuple[str, int] | None], list[str]]:
     seen: list[str] = []
 
-    def behind(cwd: str) -> int | None:
+    def behind(cwd: str) -> tuple[str, int] | None:
         seen.append(cwd)
-        return count
+        return None if count is None else (base, count)
 
     return behind, seen
 
 
+def test_뒤처진_푸시는_기준_브랜치의_이름을_든_이유로_막는다() -> None:
+    behind, _ = recording(2, "dev")
+    text = reason_for("git push", "C:/this", behind)
+    assert text == reason_text(2, "dev")
+    assert text is not None
+    assert "origin/dev 보다 2커밋" in text
+    assert "git merge origin/dev" in text
+    assert "origin/main" not in text
+
+
 def test_뒤처진_푸시는_합치는_길과_탈출구를_든_이유로_막는다() -> None:
     behind, seen = recording(3)
-    assert reason_for("git push", "C:/this", behind) == reason_text(3)
+    assert reason_for("git push", "C:/this", behind) == reason_text(3, "main")
     assert seen == ["C:/this"]
-    text = reason_text(3)
+    text = reason_text(3, "main")
     assert "3커밋" in text
     assert "git merge origin/main" in text
     assert "sibling_overlap.py" in text
@@ -393,12 +474,14 @@ def test_뒤처진_푸시는_합치는_길과_탈출구를_든_이유로_막는�
 @pytest.mark.parametrize("count", [0, None])
 def test_뒤처지지_않았거나_재지_못하면_지나간다(count: int | None) -> None:
     behind, _ = recording(count)
-    assert reason_for("git push", "C:/this", behind) is None
+    reason = reason_for("git push", "C:/this", behind)
+    assert reason is None, f"뒤처짐 {count} 일 때 낸 이유: {reason}"
 
 
 def test_푸시가_아니면_git을_부르지_않는다() -> None:
     behind, seen = recording(3)
-    assert reason_for("git commit -m x", "C:/this", behind) is None
+    reason = reason_for("git commit -m x", "C:/this", behind)
+    assert reason is None, f"푸시가 아닌 명령에서 낸 이유: {reason}"
     assert seen == []
 
 
