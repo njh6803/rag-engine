@@ -85,7 +85,17 @@ CodeRabbit CLI는 diff를 외부 서비스로 보내서 돌리지 않고 `bug-pe
 
 - `uv run ruff check .`, `uv run ruff format --check .`, `uv run lint-imports`, `uv run python tools/check_type_escapes.py`, `uv run pyright` 모두 종료 0이다(셀프 리뷰 반영 뒤. PR 직전 리뷰 반영 뒤에는 프로브 폴더의 `ruff check`·`ruff format`과 `docker compose config --quiet`가 0이다). `uv run python tools/plan_table.py`가 0이다.
 - 수정한 프로브를 `--quick --per-kind 1 --sections 2`로 다시 돌렸다(저장하지 않았다). 수집, 파싱, TEI 직접, 검색 부하가 끝까지 지났고 표준 오류가 비었다. TEI 최대 메모리 줄이 `임베딩 6923 / 6, 리랭커 5551 / 836`으로 이름을 찍는다. 같은 호출이 호스트 점유가 낮은 때(65%)에는 훨씬 빨랐다(리랭크 4개 한 호출이 6.7초, 후보 5개 `search` 단건 8.1초). 저장한 실행의 값이 호스트 부하에 얼마나 기대는지 보여 주는 손으로 본 값이다.
-- pytest와 나머지 게이트는 커밋이 부르는 pre-commit이 돌고, 결과는 병합 전에 이 절에 이어 적는다.
+- 첫 커밋(`c3162d8`)의 pre-commit은 pytest까지 통과했다(357~368초). PR #31의 첫 CI는 `python`, `image`, `ticket`, `verify` 모두 초록이었다.
+
+### PR 봇 리뷰 (첫 회차)
+
+claude-review는 지적 없음이다. CodeRabbit은 인라인 둘을 냈고 둘 다 Minor였다. 근거를 코드에서 확인한 뒤 둘 다 고쳤다.
+
+1. `one_client`의 `Client` 진입이 `try` 밖이라 연결 실패가 `asyncio.gather`를 거쳐 `main`의 설정 루프를 끊는다. 맞는 지적이다. 앞서 리랭커 컨테이너가 죽었을 때 출력을 통째로 잃은 사건과 같은 종류다. 호출 반복을 `call_search`로 떼고 `one_client`가 연결 전체를 `try`로 감싸 연결 실패를 오류 한 건으로 센다(`connect ExceptionGroup: …`). 그 수준은 지연 값 없이 오류 수만 남기고 다음 수준과 설정으로 잇는다. `summary([])`는 이미 "값 없음"을 낸다. 닫힌 포트에 클라이언트 둘을 붙여 예외 없이 오류 둘로 세는 것을 손으로 봤다(`run_level('x', ['a'], 2, 1)`, 저장하지 않았다).
+2. `--work-dir` 아래에 이미 `corpus`가 있으면 `shutil.rmtree`가 지운다. 맞는 지적이다. 사용자가 지정한 폴더 안의 것을 확인 없이 지우므로 지우지 않고 `SystemExit`으로 멈춘다. 기본 실행은 새 임시 폴더라 영향이 없다. 쓰지 않게 된 `shutil` import도 뺐다.
+
+고친 뒤 프로브 폴더의 `ruff format`과 `ruff check`가 0이다. 두 고침 모두 저장한 `probe_out.txt`가 낸 값에는 닿지 않는다(측정 경로가 아니라 실패 처리와 시작 가드다).
+- 이 고침 커밋의 pre-commit(pytest 338초 포함)이 모두 통과했다.
 
 ## 다음
 

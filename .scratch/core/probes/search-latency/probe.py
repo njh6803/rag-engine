@@ -103,7 +103,6 @@ import os
 import platform
 import random
 import re
-import shutil
 import statistics
 import subprocess
 import sys
@@ -727,30 +726,39 @@ class DockerSampler:
             return 0.0
 
 
-async def one_client(
-    token: str, queries: list[str], offset: int, calls: int
+async def call_search(
+    client: Client, queries: list[str], offset: int, calls: int
 ) -> tuple[list[float], list[str]]:
     latencies: list[float] = []
     failures: list[str] = []
-    async with httpx2.AsyncClient(
-        headers={"Authorization": f"Bearer {token}"}, timeout=3600
-    ) as http:
-        async with Client(
-            streamable_http_client(f"http://127.0.0.1:{SERVER_PORT}/mcp", http_client=http)
-        ) as client:
-            for index in range(calls):
-                query = queries[(offset + index) % len(queries)]
-                started = time.perf_counter()
-                try:
-                    result = await client.call_tool("search", {"query": query, "top_k": 10})
-                except Exception as error:  # noqa: BLE001 (오류를 세어 보고하고 재기를 잇는다)
-                    failures.append(f"{type(error).__name__}: {error}"[:100])
-                    continue
-                if result.is_error:
-                    failures.append("tool_error")
-                else:
-                    latencies.append((time.perf_counter() - started) * 1000)
+    for index in range(calls):
+        query = queries[(offset + index) % len(queries)]
+        started = time.perf_counter()
+        try:
+            result = await client.call_tool("search", {"query": query, "top_k": 10})
+        except Exception as error:  # noqa: BLE001 (오류를 세어 보고하고 재기를 잇는다)
+            failures.append(f"{type(error).__name__}: {error}"[:100])
+            continue
+        if result.is_error:
+            failures.append("tool_error")
+        else:
+            latencies.append((time.perf_counter() - started) * 1000)
     return latencies, failures
+
+
+async def one_client(
+    token: str, queries: list[str], offset: int, calls: int
+) -> tuple[list[float], list[str]]:
+    """클라이언트 하나가 `calls`번 부른다. 연결을 못 열어도 예외를 올리지 않고 오류 하나로 센다."""
+    try:
+        async with httpx2.AsyncClient(
+            headers={"Authorization": f"Bearer {token}"}, timeout=3600
+        ) as http:
+            url = f"http://127.0.0.1:{SERVER_PORT}/mcp"
+            async with Client(streamable_http_client(url, http_client=http)) as client:
+                return await call_search(client, queries, offset, calls)
+    except Exception as error:  # noqa: BLE001 (연결 실패도 오류로 세고 다음 설정으로 잇는다)
+        return [], [f"connect {type(error).__name__}: {error}"[:100]]
 
 
 async def run_level(
@@ -885,7 +893,9 @@ def main() -> None:
     report_machine()
 
     if workspace.corpus.exists():
-        shutil.rmtree(workspace.corpus)
+        raise SystemExit(
+            f"{workspace.corpus}이(가) 이미 있어 지우지 않고 멈춘다. 다른 --work-dir을 준다."
+        )
     samples = corpus.write_corpus(
         workspace.corpus, seed=args.seed, per_kind=args.per_kind, sections=args.sections
     )
