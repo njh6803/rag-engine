@@ -24,6 +24,7 @@ from rag_engine.domain.entities import (
     ChunkingConfig,
     Document,
     DocumentContent,
+    DocumentQuery,
     Group,
     IndexElements,
     IndexState,
@@ -202,6 +203,10 @@ class DocumentStore(Protocol):
         """그 지식베이스의 그룹 집합에 드는 그룹의, 지워지지 않은 문서 수. 색인 상태와 상관없다."""
         ...
 
+    async def list_documents(self, query: DocumentQuery) -> list[Document]:
+        """조건에 맞는 문서를 최근 순(ID의 내림차순)으로 낸다. 지운 문서와 묘비 행도 든다."""
+        ...
+
 
 class VectorIndex(Protocol):
     """조각, 보관 조각, 색인 상태. 색인 판마다의 HNSW 부분 색인을 맡는다. 작업 단위 안에서
@@ -291,6 +296,17 @@ class JobQueue(Protocol):
         ...
 
     async def get(self, job_id: UUID) -> Job | None: ...
+
+    async def list_jobs(
+        self, status: JobStatus | None, limit: int, after: UUID | None
+    ) -> list[Job]:
+        """작업을 최근 순(ID의 내림차순)으로 낸다. `status`를 주면 그 상태의 작업만이고, `after`는
+        마지막으로 본 작업의 ID다."""
+        ...
+
+    async def has_active_job(self, document_id: UUID) -> bool:
+        """그 문서에 대기(`queued`)나 실행 중(`running`)인 작업이 있는지 본다."""
+        ...
 
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:
         """`SKIP LOCKED`로 꺼낼 수 있는 작업 하나를 `running`으로 바꿔 낸다. 꺼내는 일과 바꾸는 일을

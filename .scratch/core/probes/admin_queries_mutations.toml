@@ -1,0 +1,248 @@
+# core 15(관리 조회와 `ingest` 명령)가 더한 시험 가운데 구현 뒤에 쓰거나 처음부터 초록이던 것의 변이.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/admin_queries_mutations.toml
+
+[[mutation]]
+name = "기다림이 지운 문서도 작업이 남은 것으로 센다"
+tests = ["tests/app/test_await_documents.py"]
+expect = "red"
+expect_output = ["WaitStatus.TIMED_OUT: 2> != <WaitStatus.FINISHED: 1>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/await_documents.py"
+old = '''    document = await transaction.documents.get(document_id)
+    if document is None or document.deleted_at is not None:
+        return False
+'''
+new = '''    document = await transaction.documents.get(document_id)
+    if document is None:
+        return False
+'''
+
+[[mutation]]
+name = "기다림이 남은 작업을 보지 않고 곧 끝난 것으로 본다"
+tests = ["tests/app/test_await_documents.py"]
+expect = "red"
+expect_output = ["Right contains one more item: 1.0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/await_documents.py"
+old = '''    return await transaction.jobs.has_active_job(document_id)
+'''
+new = '''    return False
+'''
+
+[[mutation]]
+name = "기다림의 마지막 잠이 남은 시간으로 줄지 않는다"
+tests = ["tests/app/test_await_documents.py"]
+expect = "red"
+expect_output = ["At index 2 diff: 1.0 != 0.5"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/await_documents.py"
+old = '''            pause = min(poll_seconds, remaining)
+'''
+new = '''            pause = poll_seconds
+'''
+
+[[mutation]]
+name = "제한 시간 0을 곧 시간 초과로 읽는다"
+tests = ["tests/app/test_await_documents.py"]
+expect = "red"
+expect_output = ["WaitStatus.TIMED_OUT: 2> != <WaitStatus.FINISHED: 1>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/await_documents.py"
+old = '''    deadline = None if timeout_seconds <= 0 else monotonic() + timeout_seconds
+'''
+new = '''    deadline = None if timeout_seconds < 0 else monotonic() + timeout_seconds
+'''
+
+[[mutation]]
+name = "문서 상태 failed를 실패로 세지 않는다"
+tests = ["tests/app/test_await_documents.py", "tests/app/test_admin_queries.py"]
+expect = "red"
+expect_output = ["<ErrorCode.INTERNAL_ERROR: 'internal_error'>)] != []"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/document_outcome.py"
+old = '''    if document.status is DocumentStatus.FAILED:
+'''
+new = '''    if document.status is DocumentStatus.PARSED:
+'''
+
+[[mutation]]
+name = "작업 조회의 남은 작업이 작업 자신의 상태만 본다"
+tests = ["tests/app/test_admin_queries.py"]
+expect = "red"
+expect_output = ["active_jobs_remain=False)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/admin_queries.py"
+old = '''            active_jobs_remain=await transaction.jobs.has_active_job(document.id),
+'''
+new = '''            active_jobs_remain=job.status in (JobStatus.QUEUED, JobStatus.RUNNING),
+'''
+
+[[mutation]]
+name = "건설 중인 판이 현재 판보다 앞에 온다"
+tests = ["tests/app/test_admin_queries.py"]
+expect = "red"
+expect_output = ["At index 0 diff: (<IndexVersionStatus.BUILDING: 'building'>, None)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/admin_queries.py"
+old = '''        for version in sorted(versions, key=_building_last):
+'''
+new = '''        for version in sorted(versions, key=lambda found: not _building_last(found)):
+'''
+
+[[mutation]]
+name = "지운 문서의 색인 상태를 낸다"
+tests = ["tests/app/test_admin_queries.py"]
+expect = "red"
+expect_output = ["Left contains one more item: IndexReport(knowledge_base='default'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/admin_queries.py"
+old = '''    indexes = () if document.deleted_at is not None else await _indexes(transaction, document)
+'''
+new = '''    indexes = await _indexes(transaction, document)
+'''
+
+[[mutation]]
+name = "작업 목록이 오래된 순이다"
+tests = ["tests/adapters/test_admin_list_queries.py", "tests/app/test_admin_queries.py"]
+expect = "red"
+expect_output = ["AssertionError: assert [UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''        query = sa.select(tables.jobs).order_by(tables.jobs.c.id.desc()).limit(limit)
+'''
+new = '''        query = sa.select(tables.jobs).order_by(tables.jobs.c.id).limit(limit)
+'''
+
+[[mutation]]
+name = "작업 목록의 커서가 그 작업 자신을 다시 낸다"
+tests = ["tests/adapters/test_admin_list_queries.py", "tests/app/test_admin_queries.py"]
+expect = "red"
+expect_output = ["Left contains one more item: UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''            query = query.where(tables.jobs.c.id < after)
+'''
+new = '''            query = query.where(tables.jobs.c.id <= after)
+'''
+
+[[mutation]]
+name = "남은 작업 판정이 실행 중인 작업을 센다 아니다"
+tests = ["tests/adapters/test_admin_list_queries.py", "tests/app/test_await_documents.py"]
+expect = "red"
+expect_output = ["E           assert False"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''            tables.jobs.c.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
+        )
+        return bool(await self._connection.scalar(sa.select(active.exists())))
+'''
+new = '''            tables.jobs.c.status.in_([JobStatus.QUEUED.value]),
+        )
+        return bool(await self._connection.scalar(sa.select(active.exists())))
+'''
+
+[[mutation]]
+name = "상태 필터가 지운 문서도 그 상태로 낸다"
+tests = ["tests/adapters/test_admin_list_queries.py", "tests/app/test_admin_queries.py"]
+expect = "red"
+expect_output = ["At index 0 diff: '지움' != '파싱됨'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/document_store.py"
+old = '''            statement = statement.where(
+                documents.c.deleted_at.is_(None), documents.c.status == query.state.value
+            )
+'''
+new = '''            statement = statement.where(documents.c.status == query.state.value)
+'''
+
+[[mutation]]
+name = "명령이 없는 그룹을 파일을 넣기 전에 가리지 않는다"
+tests = ["tests/test_ingest_command.py"]
+expect = "red"
+expect_output = ["거부\\ta.docx\\tgroup_not_found"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/ingest_command.py"
+old = '''    if group is not None and not await group_exists(unit_of_work, group):
+'''
+new = '''    if False and group is not None and not await group_exists(unit_of_work, group):
+'''
+
+[[mutation]]
+name = "시간 초과의 종료 코드가 실패와 같다"
+tests = ["tests/test_ingest_command.py"]
+expect = "red"
+expect_output = ["종료 코드가 1이다(시간 초과는 2)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/ingest_command.py"
+old = '''        return EXIT_TIMED_OUT
+    if rejected'''
+new = '''        return EXIT_FAILED
+    if rejected'''
+
+[[mutation]]
+name = "폴더 수집의 키가 상대 경로가 아니라 파일 이름이다"
+tests = ["tests/test_ingest_command.py"]
+expect = "red"
+expect_output = ["At index 1 diff: ('created', 'b.docx') != ('created', 'sub/b.docx')"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/ingest_command.py"
+old = '''    return [_Entry(file, file.relative_to(path).as_posix()) for file in sorted(found)]
+'''
+new = '''    return [_Entry(file, file.name) for file in sorted(found)]
+'''
+
+[[mutation]]
+name = "거부된 파일이 종료 코드에 들지 않는다"
+tests = ["tests/test_ingest_command.py"]
+expect = "red"
+expect_output = ["종료 코드가 0이다(거부된 파일이 있으면 1)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/ingest_command.py"
+old = '''    if rejected or (waited is not None and waited.failed):
+'''
+new = '''    if waited is not None and waited.failed:
+'''
+
+[[mutation]]
+name = "unchanged로 끝난 문서를 기다림 대상에서 뺀다"
+tests = ["tests/test_ingest_command.py"]
+expect = "red"
+expect_output = ["At index 0 diff: ('received',) != ('parsed',)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/ingest_command.py"
+old = '''        labels[result.document_id] = entry.label
+'''
+new = '''        if result.action.value != "unchanged":
+            labels[result.document_id] = entry.label
+'''
+
+[[mutation]]
+name = "요청 ID를 로그 문맥에 싣지 않는다"
+tests = ["tests/test_ingest_command.py"]
+expect = "red"
+expect_output = ["로그 문맥의 요청 ID가 다른 호출이 3개다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/ingest_command.py"
+old = '''    reset = request_id_var.set(request_id)
+'''
+new = '''    reset = request_id_var.set(request_id_var.get())
+'''

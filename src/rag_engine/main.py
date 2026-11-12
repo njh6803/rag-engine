@@ -1,12 +1,15 @@
 """관리 명령의 입구. `rag-engine serve` 가 HTTP 서버를 띄우고 `rag-engine migrate` 가 데이터베이스를
-올리며 `rag-engine bootstrap-token` 이 첫 관리 토큰을 낸다."""
+올리며 `rag-engine bootstrap-token` 이 첫 관리 토큰을 내고 `rag-engine ingest` 가 파일이나 폴더를
+서버 없이 수집한다."""
 
 import argparse
 import sys
 from collections.abc import Callable, Sequence
+from pathlib import Path
 
 import uvicorn
 
+from rag_engine.adapters.ingest_command import ingest_path
 from rag_engine.adapters.postgres.bootstrap import issue_bootstrap_token, migrate_database
 from rag_engine.adapters.settings import Settings, load_settings
 from rag_engine.domain.errors import ConfigurationError
@@ -22,7 +25,24 @@ def main(argv: Sequence[str] | None = None) -> None:
     commands.add_parser("migrate", help="스키마를 올리고 기본 레코드를 보장한다")
     bootstrap = commands.add_parser("bootstrap-token", help="첫 admin 토큰을 발급한다")
     bootstrap.add_argument("--name", default="bootstrap")
+    ingest = commands.add_parser("ingest", help="파일이나 폴더를 서버 없이 수집한다")
+    ingest.add_argument("path", type=Path, help="수집할 파일이나 폴더")
+    ingest.add_argument("--group", default=None, help="문서를 넣을 접근 그룹의 이름")
+    ingest.add_argument("--wait", action="store_true", help="색인이 끝날 때까지 기다린다")
+    ingest.add_argument(
+        "--timeout",
+        type=float,
+        default=0.0,
+        help="--wait와 함께 쓰는 제한 시간(초). 0 이하면 끝까지 기다린다",
+    )
     args = parser.parse_args(argv)
+    if args.command == "ingest":
+        path: Path = args.path
+        group: str | None = args.group
+        wait: bool = args.wait
+        timeout: float = args.timeout
+        _exit_unless_ok(_ingest(path, group, timeout if wait else None))
+        return
     if args.command == "migrate":
         _exit_unless_ok(_migrate())
         return
@@ -73,6 +93,13 @@ def _migrate() -> int:
     def run(settings: Settings) -> int:
         migrate_database(settings)
         return 0
+
+    return _with_settings(run)
+
+
+def _ingest(path: Path, group: str | None, wait_timeout_seconds: float | None) -> int:
+    def run(settings: Settings) -> int:
+        return ingest_path(settings, path, group=group, wait_timeout_seconds=wait_timeout_seconds)
 
     return _with_settings(run)
 
