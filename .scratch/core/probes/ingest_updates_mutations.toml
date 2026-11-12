@@ -119,9 +119,9 @@ expect = "red"
 expect_output = ["IngestAction.UNCHANGED: 'unchanged'> is <IngestAction.REQUEUED"]
 
 [[mutation.edit]]
-file = "src/rag_engine/app/ingest.py"
+file = "src/rag_engine/app/document_outcome.py"
 old = '''    if document.status is DocumentStatus.FAILED:
-        return True
+        return document.error_code or ErrorCode.INTERNAL_ERROR
 '''
 new = ''
 
@@ -129,12 +129,12 @@ new = ''
 name = "살아 있는 판의 failed 색인 상태를 색인 실패로 보지 않는다"
 tests = ["tests/app/test_ingest_group_requeue.py", "tests/contract/test_ingest_updates.py"]
 expect = "red"
-expect_output = ["pipeline.py:100: AssertionError"]
+expect_output = ["pipeline.py:185: AssertionError"]
 
 [[mutation.edit]]
-file = "src/rag_engine/app/ingest.py"
+file = "src/rag_engine/app/document_outcome.py"
 old = '''        if state is not None and state.status is IndexStateStatus.FAILED:
-            return True
+            return state.error_code or ErrorCode.INTERNAL_ERROR
 '''
 new = ''
 

@@ -230,6 +230,13 @@ jobs = sa.Table(
         unique=True,
         postgresql_where=sa.text("status = 'queued'"),
     ),
+    # 문서에 대기·실행 중인 작업이 있는지 묻는 질의(`has_active_job`)를 받는다. 술어가 질의의
+    # `IN` 목록과 같아야 플래너가 쓴다.
+    sa.Index(
+        "ix_jobs_document_id_active",
+        "document_id",
+        postgresql_where=sa.text("status IN ('queued', 'running')"),
+    ),
 )
 
 tokens = sa.Table(

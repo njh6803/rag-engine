@@ -49,6 +49,16 @@ class DocumentStatus(StrEnum):
     FAILED = "failed"
 
 
+class DocumentState(StrEnum):
+    """관리 조회가 문서에 붙이는 상태 넷(스토리 8: 받음, 파싱됨, 실패, 삭제됨). 지운 문서는 행의
+    `status`와 상관없이 `deleted`다."""
+
+    RECEIVED = "received"
+    PARSED = "parsed"
+    FAILED = "failed"
+    DELETED = "deleted"
+
+
 class IndexStateStatus(StrEnum):
     PENDING = "pending"
     INDEXED = "indexed"
@@ -178,6 +188,24 @@ class Document:
     purged_at: datetime | None
     created_at: datetime
     modified_at: datetime
+
+    @property
+    def state(self) -> DocumentState:
+        if self.deleted_at is not None:
+            return DocumentState.DELETED
+        return DocumentState(self.status.value)
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentQuery:
+    """문서 목록을 거르는 조건. 칸마다 `None`이면 그 조건은 없다. 결과는 최근 순(ID의 내림차순)이고
+    `after`는 마지막으로 본 문서의 ID다."""
+
+    state: DocumentState | None
+    group_id: UUID | None
+    key: str | None
+    limit: int
+    after: UUID | None
 
 
 @dataclass(frozen=True, slots=True)
