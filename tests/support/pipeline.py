@@ -5,6 +5,8 @@ DOCX를 넣고, 실제 파서 자식 프로세스와 실제 청커·Kiwi로 `ind
 `TeiStub`이다(명세 Testing Decisions). 시험은 이 세계에 끼어들 곳(임베딩 직전)만 바꿔 끼운다.
 """
 
+import asyncio
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
@@ -44,6 +46,8 @@ from rag_engine.domain.ports import EmbedderFor, UnitOfWork
 
 DIMENSIONS = 16
 LEASE_SECONDS = 600.0
+CLAIM_RETRY_SECONDS = 5.0
+CLAIM_RETRY_PAUSE_SECONDS = 0.02
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 BACKOFF_BASE_SECONDS = 30.0
 DEFAULT_RETRY = RetryPolicy(max_attempts=6, backoff_base_seconds=BACKOFF_BASE_SECONDS)
@@ -178,12 +182,20 @@ class Pipeline:
             )
 
     async def claim(self, worker_id: str = "worker-1", *, later: float = 0.0) -> Job:
-        """작업 하나를 꺼낸다. `later`초 뒤의 시각에서 꺼내면 임대가 끝난 작업도 꺼낸다."""
+        """작업 하나를 꺼낸다. `later`초 뒤의 시각에서 꺼내면 임대가 끝난 작업도 꺼낸다.
+
+        꺼내기는 `FOR UPDATE SKIP LOCKED`라서, 처리 중인 작업의 임대 연장 트랜잭션이 그 행을 잠근
+        순간에 부르면 행을 건너뛰어 아무것도 꺼내지 못한다. 그 순간은 짧으므로 기한 안에서 다시
+        시도한다. 꺼낼 작업이 정말 없으면 기한이 지나 실패한다."""
         when = self.clock[0] + timedelta(seconds=later)
-        async with self.unit_of_work.begin() as transaction:
-            job = await transaction.jobs.claim(worker_id, when, LEASE_SECONDS)
-        assert job is not None
-        return job
+        deadline = time.monotonic() + CLAIM_RETRY_SECONDS
+        while True:
+            async with self.unit_of_work.begin() as transaction:
+                job = await transaction.jobs.claim(worker_id, when, LEASE_SECONDS)
+            if job is not None:
+                return job
+            assert time.monotonic() < deadline, f"{CLAIM_RETRY_SECONDS}초 안에 꺼낼 작업이 없었다"
+            await asyncio.sleep(CLAIM_RETRY_PAUSE_SECONDS)
 
     async def add_building_version(self) -> IndexVersion:
         """같은 지식베이스의 건설 중인 판 하나를 더한다."""
@@ -247,6 +259,11 @@ def stub_client_for(stub: TeiStub) -> Callable[[str], httpx.AsyncClient]:
 
 
 async def build_pipeline(engine: AsyncEngine, data_dir: Path) -> Pipeline:
+    # 실제 Kiwi의 첫 호출은 모델을 읽느라 이 PC에서 2.6~5.3초(부하에 따라) 걸리고 그동안 이벤트
+    # 루프가 멈춘다.
+    # 시험이 `process_job`을 직접 부르면 이 적재가 시험의 시간 단언 안으로 들어가, 상한 5초를
+    # 단독 실행 열 번 가운데 한 번 넘겼다. 시험이 재기 전에 여기서 적재해 둔다(프로세스마다 한 번).
+    tokenize_keywords("준비")
     unit_of_work = PostgresUnitOfWork(engine)
     source, group = await seed_source_and_group(unit_of_work)
     knowledge_base = replace(

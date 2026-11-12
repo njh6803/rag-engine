@@ -1,6 +1,6 @@
-"""관리 명령의 입구. `rag-engine serve` 가 HTTP 서버를 띄우고 `rag-engine migrate` 가 데이터베이스를
-올리며 `rag-engine bootstrap-token` 이 첫 관리 토큰을 내고 `rag-engine ingest` 가 파일이나 폴더를
-서버 없이 수집한다."""
+"""관리 명령의 입구. `rag-engine serve` 가 HTTP 서버를 띄우고 `rag-engine worker` 가 수집 작업자를
+띄우며 `rag-engine migrate` 가 데이터베이스를 올리고 `rag-engine bootstrap-token` 이 첫 관리 토큰을
+내며 `rag-engine ingest` 가 파일이나 폴더를 서버 없이 수집한다."""
 
 import argparse
 import math
@@ -12,9 +12,11 @@ import uvicorn
 
 from rag_engine.adapters.ingest_command import ingest_path
 from rag_engine.adapters.postgres.bootstrap import issue_bootstrap_token, migrate_database
+from rag_engine.adapters.postgres.engine import run_in_selector_loop
 from rag_engine.adapters.settings import Settings, load_settings
 from rag_engine.domain.errors import ConfigurationError
 from rag_engine.server import create_app
+from rag_engine.worker.assembly import run_worker
 
 
 def _seconds(text: str) -> float:
@@ -35,6 +37,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
     commands.add_parser("migrate", help="스키마를 올리고 기본 레코드를 보장한다")
+    commands.add_parser("worker", help="수집 작업자를 띄운다")
     bootstrap = commands.add_parser("bootstrap-token", help="첫 admin 토큰을 발급한다")
     bootstrap.add_argument("--name", default="bootstrap")
     ingest = commands.add_parser("ingest", help="파일이나 폴더를 서버 없이 수집한다")
@@ -57,6 +60,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         return
     if args.command == "migrate":
         _exit_unless_ok(_migrate())
+        return
+    if args.command == "worker":
+        _exit_unless_ok(_worker())
         return
     if args.command == "bootstrap-token":
         name: str = args.name
@@ -97,6 +103,15 @@ def _serve(host: str, port: int) -> int:
             loop="asyncio:SelectorEventLoop",
         )
         return 0
+
+    return _with_settings(run)
+
+
+def _worker() -> int:
+    def run(settings: Settings) -> int:
+        # psycopg 비동기는 Windows의 기본 ProactorEventLoop과 맞지 않아 Selector 루프를 고른다
+        # (ADR 0011).
+        return run_in_selector_loop(run_worker(settings))
 
     return _with_settings(run)
 

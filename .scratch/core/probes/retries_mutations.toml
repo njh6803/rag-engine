@@ -208,9 +208,9 @@ expect_output = ["assert 0.0 > 0"]
 
 [[mutation.edit]]
 file = "src/rag_engine/worker/processing.py"
-old = '''        result: IndexResult = await index_document(deps, job, timer)
+old = '''        return await index_document(deps, job, timer)
 '''
-new = '''        result: IndexResult = await index_document(deps, job)
+new = '''        return await index_document(deps, job)
 '''
 
 [[mutation]]
