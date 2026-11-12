@@ -49,6 +49,17 @@ CodeRabbit CLI는 diff를 외부 서비스로 보내서 돌리지 않고, 운영
 
 반영으로 새로 쓴 사실 문장(원문): "머리가 dev나 main인 PR(출시 PR, 되돌려 합치기 PR)은 이 절을 건너뛰고 아래 "출시 PR"과 "되돌려 합치기"의 절차를 따른다."(`merge.md` 병합 전), "출시 세션은 일지를 못 남기므로 사용자에게 넘길 때는 PR 코멘트에 `사용자에게 넘김: <까닭>`을 남기고 …, 그 코멘트가 있는 열린 PR은 결정표가 고르지 않는다."(`merge.md` 이어받기).
 
+## PR 봇 리뷰 (첫 회차)
+
+PR 29(base dev)를 연 뒤 `@coderabbitai review`를 남겼다. CI는 `verify`, `python`, `image`, `ticket`, `claude-review`와 CodeRabbit이 모두 통과했다(`wait_ci` 종료 0, 헤드 `d7dbf93`). 머리가 `feature/*`인 PR이라 claude-review가 건너뛰지 않고 돌았다. CodeRabbit은 "No actionable comments"(Merge Risk Minimal)였다. claude-review의 첫 리뷰가 첫 회차이고 Critical·Major 없이 Minor 셋, Nit 하나였다.
+
+- Minor 1(`issue-tracker.md`의 끝 줄 규칙이 하네스 기능을 가리지 않고 뒷 문장이 "끝 줄이 없는 하네스 기능"이라 순환한다): → 고쳤다. 앞 문장을 "`**슬라이스:**` 줄이 있는 기능(하네스 기능은 그 줄이 없어 끝 줄을 적지 않는다)의"로 좁히고 뒷 문장을 "하네스 기능과 harness 티켓은 끝 줄이 없어 계기가 아니다"로 줄였다.
+- Minor 2(출시 계기가 `SKILL.md`, `merge.md`, `operations.md`, `issue-tracker.md`, ADR 이력 다섯 곳에 되풀이된다): → 보류. 결정표는 표만 읽고 줄을 고를 수 있어야 하므로 되돌려 합치기 줄처럼 조건을 직접 든다. `operations.md`와 `issue-tracker.md`는 `merge.md`를 원천으로 가리키고 명령은 `SKILL.md`와 `merge.md` 둘에만 있다. 규칙이 바뀌면 두 곳을 같이 고친다.
+- Minor 3(`merge.md` "병합 방법" 보호 설정 문단이 한 덩어리라 결정과 어림이 섞여 읽힌다): → 보류. agent-os 원문 모양을 따랐고 어림 표시는 문장마다 있다. 첫 출시 PR로 어림이 재어지면 그때 항목으로 나눈다.
+- Nit(출시 PR 본문 서식 넷이 `merge.md`에만 있어 도구가 판정하지 못한다): → 보류. 첫 출시 PR을 연 뒤 실제 본문과 맞는지 보고 필요하면 옮긴다. 아래 "다음"에 적었다.
+
+반영으로 새로 쓴 사실 문장(원문): "`**슬라이스:**` 줄이 있는 기능(하네스 기능은 그 줄이 없어 끝 줄을 적지 않는다)의 마지막 열린 티켓을 닫는 커밋이, 닫은 뒤 …"(`docs/agents/issue-tracker.md` 끝 줄을 적는 때).
+
 ## 회고
 
 후보 여섯. 승인 0, 기각 4, 일지에만 2, 넘김 없음. 새 훅·검사가 문턱을 지난 것이 없어 `tools/hook_report.py`는 돌리지 않았다. `uv run python tools/queue_open_rows.py`는 열린 항목 36개, 만료할 항목 없음, 회차 5 이상은 `spec-review-transition-crossing`과 `gate-pipe-read-status`로 이 세션과 무관하다.
@@ -64,12 +75,15 @@ CodeRabbit CLI는 diff를 외부 서비스로 보내서 돌리지 않고, 운영
 
 - `uv run ruff check .`와 `uv run ruff format --check .` 0, `uv run python tools/check_adr_pointers.py` 0, `uv run python tools/plan_table.py` 0, `uv run python tools/sibling_overlap.py` 0(헌법 1.3.1, 형제 최고 판 1.3.0).
 - `uv run python tools/run_checks.py`: 셀프 리뷰 반영 전의 트리는 종료 0이었다. 최종 트리(PR 직전 리뷰 반영까지)는 test-db, check-ticket, zizmor, lint-imports, check-type-escapes, check-instructions, pyright-linux, pyright, run-hooks가 Passed이고 pytest가 3823개 통과에 2개 실패(901초)였다. 실패는 `tests/adapters/test_parse_runner.py`의 멈춘 자식 시험(Windows에서 기대하는 `PARSE_FAILED` 대신 `PARSE_TIMEOUT`이 왔다)과 `tests/test_serve_command.py`의 "serve가 30초 안에 뜨지 않았다"다. 이 브랜치는 문서·스킬·티켓·ADR만 바꿔 두 시험이 닿는 코드가 없고, 두 파일을 테스트 DB 주소를 주고 단독으로 돌리자 38 passed(45초)였다. 다른 세션이 함께 도는 부하에서만 빨갰다.
+- 첫 커밋 시도의 pre-commit은 같은 `tests/adapters/test_parse_runner.py`의 멈춘 자식 시험 하나로 막혔다(3824개 통과, 1개 실패, 895초). 같은 커밋의 둘째 시도가 통과해 커밋 `d7dbf93`이 섰다. 이 시험은 앞 일지(`2026-11-12-2250-dev-branch-create`)에서도 같은 부하에서 빨갰다. 이 PR은 그 코드를 바꾸지 않았고 단독 실행이 지난다.
+- 이 PR의 CI 결과는 위 "PR 봇 리뷰 (첫 회차)"에 적었다.
 
 ## 다음
 
 - 이 PR은 base dev, 머리 `feature/05-dev-release-pr-step`이다. 병합하면 하네스 기능 `dev-branch`의 티켓 다섯이 모두 done이다. 이 PR이 병합된 뒤 main은 dev보다 `0caa20f`, `bf5a0ad`와 이 PR만큼 뒤처진다. 그 변경은 하네스·문서뿐이라 계기가 아니고 다음 기능의 출시 PR에 실려 오른다.
 - 다음 작업은 core의 마지막 티켓 `16-search-latency-probe`(`ready-for-agent`)다. core의 마지막 티켓을 닫는 커밋이 기능 계획에 `**끝:**` 줄을 적으므로, 그 PR이 dev에 병합된 뒤 `next-session` 결정표의 "출시 PR" 줄이 처음으로 실제 계기가 된다. 그 세션이 `merge.md`의 "출시 PR"을 처음 밟으므로 그 절의 명령과 판정(전제 확인의 `gh run list`, 서식, `wait_ci`의 종료 4, 병합 뒤 `ls-remote`)을 이 저장소에서 처음 보게 된다. 어긋나면 그 절과 ADR 0016 이력을 고친다. 둘째 출시 PR이 실제로 `BEHIND`로 막히는지는 그다음 출시에서 본다.
 - 사용자에게 남은 일. 루트 체크아웃(`C:\project\rag-engine`)은 main에 추적하지 않는 파일 둘(`.scratch_li.log`, `.scratch_pyr.log`)이 있어 `tidy-checkouts`가 루트를 dev로 옮기지 못한다. 두 파일을 지우거나 옮기면 주 체크아웃 세션의 `/tidy-checkouts`가 루트를 dev로 옮긴다. 그때까지 루트의 훅과 스킬이 옛 사본으로 돈다.
+- 첫 출시 PR을 연 세션은 `merge.md`의 "출시 PR" 절을 처음 밟으므로, 실제 PR 본문 서식 넷(올리는 기능, 함께 오르는 진행 중 조각, 전제, 병합)이 도구와 맞는지, `wait_ci`의 종료 코드와 건너뜀 줄이 절의 서술과 같은지, `BEHIND`가 나는지를 보고 어긋나면 그 절과 ADR 0016 이력을 고친다(claude-review Nit과 보류한 Minor 3).
 - 사용자 수준 스킬(`git-pr`, `git-pr-merge`, `git-pr-feedback`, `git-branch`)은 이 저장소가 고치지 않았다. 기본 브랜치가 dev가 되어 base를 주지 않은 `gh pr create`는 dev로 가고, 핫픽스는 `gh pr create --base main`으로 연다. 출시 PR과 base가 dev인 PR의 병합은 `git-pr-merge`를 쓰지 않고 `merge.md`의 "워크트리에서 병합할 때" 1~3으로 한다.
 - 뒤로 넘긴 것: `tools/hook_push_behind_main.py`가 dev에서도 뒤처진 푸시를 막을지는 정하지 않았다(agent-os도 같다). 첫 핫픽스 PR에서 CodeRabbit 수동 호출과 `/security-review` 범위를 재 보는 일(04 일지 "다음"의 (1))도 남는다.
 - 주 체크아웃 미갱신: 루트는 main(11f91c9). 이 세션은 주 체크아웃을 당기지 않는다.
