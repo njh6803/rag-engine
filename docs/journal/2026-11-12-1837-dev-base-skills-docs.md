@@ -32,6 +32,21 @@
 - 남긴 것: 헌법 판을 minor로 올린 것은 판단이다(절 추가가 아니라 기존 세 절에 규칙 항목을 더했다. 규칙과 정의의 추가라 minor로 두었다). 기준 브랜치 규칙이 여러 문서에 되풀이되는 것(Duplicated Code 냄새)은 각 문서가 읽는 때가 달라 두었다. 도구 쪽(`tools/base_rule.py` 등)은 01이 병합되기 전이라 문서가 앞서간다. 01이 병합된 뒤에 병합한다.
 - 다시 돌린 명령: `uv run ruff check .`와 `uv run ruff format --check .` 초록, `uv run python tools/sibling_overlap.py` 0, `uv run python tools/check_adr_pointers.py` 0, 새 헤드리스 세션(`claude -p`)에서 `next-session` 스킬을 불러 결정표 첫 줄의 판정 명령이 바뀐 것으로 나옴을 확인했다.
 
+## PR 직전 리뷰
+
+`coderabbit-review`가 CodeRabbit CLI(`coderabbit review --agent --include-untracked --base origin/main`)를 돌리려 했으나 자동 모드 분류기가 외부 서비스로 diff를 보내는 명령이라며 거절했다. 우회하지 않았고 다시 시도하지 않았다. 운영 문서 "리뷰 파이프라인"의 대체 둘을 돌렸다.
+
+- `/security-review`(내장). 코드 변경은 `tests/test_plan_status.py`의 독스트링뿐이고 나머지는 마크다운 문서라 보고할 취약점이 없었다.
+- `bug-perf-review`(기준 `e95006cc`, 21파일). 밀 주장 6건(되돌려 합치기의 `is-ancestor` 판정, `wait_ci.py`의 종료 4, `delete_branch_on_merge`가 false, 기준 브랜치 합치기 뒤 `test_plan_status` 직접 실행, `/git-pr-merge`의 가정, 결정표 첫 줄)은 코드와 실측에 맞았다고 했다. 지적 여섯(Major 1, Minor 5)은 모두 유효했다.
+  - Major. 끊긴 되돌려 합치기 PR을 이어받는 세션이 없다(결정표 첫 줄이 열린 PR을 일률로 사용자에게 넘긴 것으로 거른다). → 고쳤다. `CONFLICTING`·`BEHIND`가 아니고 넘긴다는 기록이 없는 열린 PR은 끊긴 것으로 보고 첫 줄이 고른다. 되돌려 합치기 1이 그 PR을 찾아 3부터 잇는다.
+  - Minor. `--match-head-commit`을 "언제나" 붙인다는 문장이 `/git-pr-merge` 길과 모순된다. → 고쳤다. 이 파일이 직접 치는 병합 명령에 한정하고 `/git-pr-merge` 길은 병합 길 4의 `headRefOid` 대조가 맡는다고 적었다.
+  - Minor. 되돌려 합치기 3이 `--head`를 `git rev-parse origin/main`으로 읽고 verify 줄 없는 종료 4와 2의 처리가 없다. → 고쳤다. 띄우기 직전 `gh pr view <번호> --json headRefOid`로 읽고, verify 줄이 없는 4와 2는 3을 다시 띄운다.
+  - Minor. 핫픽스가 `claude-code-review.yml`을 바꾸면 되돌려 합치기 PR에서 코멘트 0개 가드가 빨개질 수 있다. → 고쳤다. 실패가 `claude-review`뿐인 종료 1도 사용자에게 넘긴다고 적었다(필수 검사가 아니므로 병합할지는 사용자가 정한다).
+  - Minor. dev를 합친 푸시 뒤 봇 대기를 처음부터 다시 하는 비용이 크다. → 남겼다. 봇 재요청을 빼는 것은 리뷰의 범위를 좁히는 일이라 사용자가 정할 일이고, 이 PR에서는 지금 규칙(푸시마다 봇 회차)을 두었다.
+  - Minor. `tidy-checkouts`와 운영 문서가 01의 도구를 있는 것처럼 쓴다. → 남겼다. 티켓 03의 첫 수락 기준이 01 병합 뒤의 병합을 요구하고, PR 본문 맨 위에도 적는다.
+  - 비고(Minor). 운영 문서가 main의 strict를 05가 정한다고 하면서 가드레일 절에서는 현재 사실로 쓴다. → 남겼다. 05가 strict를 풀면 되돌려 합치기 필요 판정의 근거 문장도 함께 고친다.
+- 다시 돌린 명령: 반영 뒤 커밋의 pre-commit 결과는 PR 본문에 적는다.
+
 ## 회고
 
 후보 다섯. 승인 하나, 기각 셋, 일지에만 하나, 넘김 없음. 새 훅·검사가 문턱을 지난 것이 없어 `tools/hook_report.py`는 돌리지 않았다. `uv run python tools/queue_open_rows.py`의 만료할 항목은 없었다.
@@ -53,8 +68,8 @@
 
 ## 다음
 
-- 이 브랜치를 푸시하고 PR(base main, 지금은 dev가 없다)을 연다. 병합은 하지 않는다. 2026-11-12에 `git fetch origin` 뒤 `git log origin/main`에 01도 02도 없고, 02는 PR #24가 열려 있으며 01은 PR이 없다(형제 워크트리 `01-dev-base-tools`는 커밋이 없다). 티켓 03의 첫 수락 기준과 `Blocked by`가 그 뒤의 병합을 요구한다.
-- 01과 02가 병합되면 이 PR로 돌아와 병합한다. 그 전에 `git fetch origin` 뒤 `git merge-base --is-ancestor origin/main HEAD`를 보고 뒤처졌으면 main을 합쳐 푸시한다(main의 strict). 병합 뒤 `tools/tidy_checkouts.py`에 병합처 상수(`origin/dev`도 병합처로 본다)가 들어왔는지 본다. 이 PR의 `tidy-checkouts` 문장("도구는 `origin/main`과 `origin/dev`를 둘 다 병합처로 본다")이 그 도구의 01 판에 기대기 때문이다.
+- 이 브랜치를 `origin/main` 위로 리베이스해 푸시하고 PR(base main, 지금은 dev가 없다)을 연다. 병합은 하지 않는다. 2026-11-12에 `git fetch origin` 뒤 `git log origin/main`에 02(PR #24, 30c673d)는 병합됐고 01은 없다. 01은 PR이 없고 형제 워크트리 `01-dev-base-tools`에 커밋이 없다. 티켓 03의 첫 수락 기준과 `Blocked by`가 01의 병합을 요구한다.
+- 01이 병합되면 이 PR로 돌아와 병합한다. 그 전에 `git fetch origin` 뒤 `git merge-base --is-ancestor origin/main HEAD`를 보고 뒤처졌으면 main을 합쳐 푸시한다(main의 strict). 병합 뒤 `tools/tidy_checkouts.py`에 병합처 상수(`origin/dev`도 병합처로 본다)가 들어왔는지 본다. 이 PR의 `tidy-checkouts` 문장("도구는 `origin/main`과 `origin/dev`를 둘 다 병합처로 본다")이 그 도구의 01 판에 기대기 때문이다.
 - 문서가 가리키는 도구(`tools/base_rule.py`, `check_ticket`의 `base_ref`, `hook_push_behind_main`의 `base_branch`, `tidy_checkouts`의 병합처, `hook_git_main_commit`의 보호 브랜치 둘)는 01이 넣는다. 01이 병합되기 전의 main에서는 이 문서가 앞서간다.
 - 그 뒤는 04(`04-dev-branch-create`: dev를 따고 GitHub 설정을 바꾼다. 사용자의 승인을 다시 받는다)다. 05는 04와 agent-os의 `dev-release-pr-step` 병합 뒤에 한다.
 - 이어받을 상태: 대기열 `adr-body-rewrite-vs-pointer`(1회차)를 적었다. 사용자 수준 스킬(`git-pr`, `git-pr-merge`, `git-pr-feedback`, `git-branch`)의 main 박힘은 고치지 않았고 고칠지는 사용자가 정한다(티켓 끝 "결과 2").

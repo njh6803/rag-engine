@@ -19,7 +19,7 @@ next-session `SKILL.md` 순서 1의 본문이다. PR을 연 세션과 인계로 
 
 ## 병합 방법
 
-기준 브랜치의 규칙은 `docs/constitution/operations.md` 브랜치와 병합이 원천이다. 병합 명령에는 언제나 `--match-head-commit <머리 SHA>`를 붙인다. 티켓 PR과 핫픽스의 머리 SHA는 이 브랜치의 `git rev-parse HEAD`이고, 출시 PR과 되돌려 합치기 PR의 머리는 dev와 main이라 `gh pr view <번호> --json headRefOid`의 값이다. 병합 방법과 base는 PR 종류가 정하므로 표에서 사용자에게 묻지 않는다(ADR 0016이 따르는 agent-os ADR 0043). 승인을 먼저 받아야 하는 PR(ADR 승인이나 헌법 변경을 담은 것)은 위 4(병합 길)가 정한 대로 병합 전에 받는다.
+기준 브랜치의 규칙은 `docs/constitution/operations.md` 브랜치와 병합이 원천이다. 이 파일이 직접 치는 병합 명령(워크트리에서 병합할 때의 2와 되돌려 합치기 4)에는 언제나 `--match-head-commit <머리 SHA>`를 붙인다. `/git-pr-merge`는 이 옵션을 받지 않으므로 그 길의 머리 대조는 위 4(병합 길)의 `headRefOid` 대조가 맡는다. 티켓 PR과 핫픽스의 머리 SHA는 이 브랜치의 `git rev-parse HEAD`이고, 출시 PR과 되돌려 합치기 PR의 머리는 dev와 main이라 `gh pr view <번호> --json headRefOid`의 값이다. 병합 방법과 base는 PR 종류가 정하므로 표에서 사용자에게 묻지 않는다(ADR 0016이 따르는 agent-os ADR 0043). 승인을 먼저 받아야 하는 PR(ADR 승인이나 헌법 변경을 담은 것)은 위 4(병합 길)가 정한 대로 병합 전에 받는다.
 
 | PR | 머리 → base | 병합 | 병합 뒤 |
 |---|---|---|---|
@@ -57,7 +57,7 @@ next-session `SKILL.md` 순서 1의 본문이다. PR을 연 세션과 인계로 
 
 ## 되돌려 합치기
 
-핫픽스를 main에 병합한 세션이 바로 한다. 출시 PR을 병합한 세션도 같다(merge 커밋이 main에만 남는다). 결정표의 첫 줄이 가리킨 세션도 한다(병합하고 잊은 경우다). 끝낸 세션은 결정표로 돌아가 원래 줄을 고른다. 되돌려 합치지 않으면 핫픽스가 dev에 없다. 그 위에 쌓이는 dev의 변경은 핫픽스 없이 시험되고, 같은 곳을 고쳤으면 다음 출시 PR(dev→main)에서 충돌할 수 있다. 도중에 세션이 끊겨 열린 되돌려 합치기 PR만 남았으면 아래 1이 그 PR을 찾아 3부터 잇는다.
+핫픽스를 main에 병합한 세션이 바로 한다. 출시 PR을 병합한 세션도 같다(merge 커밋이 main에만 남는다). 결정표의 첫 줄이 가리킨 세션도 한다(병합하고 잊은 경우다). 끝낸 세션은 결정표로 돌아가 원래 줄을 고른다. 되돌려 합치지 않으면 핫픽스가 dev에 없다. 그 위에 쌓이는 dev의 변경은 핫픽스 없이 시험되고, 같은 곳을 고쳤으면 다음 출시 PR(dev→main)에서 충돌할 수 있다. 도중에 세션이 끊겨 열린 되돌려 합치기 PR만 남았으면 결정표의 첫 줄이 이 절로 오고, 아래 1이 그 PR을 찾아 3부터 잇는다.
 
 **PR로 한다.** 머리가 `main`이고 base가 `dev`인 PR을 열어 merge 커밋으로 병합한다. 로컬에서 합치고 `dev`로 푸시하는 길은 쓰지 않는다. `dev` 위의 커밋을 막는 훅은 `git commit`만 보므로 병합 커밋을 지나가지만(`tools/hook_git_main_commit.py` 독스트링), CI가 합친 결과를 돌려 보지 못한 채 dev의 머리가 필수 검사 없이 바뀐다(관리자 우회에 기댄다). 머리가 main인 PR은 커밋 검사(`check_ticket`)가 티켓 없이 지난다.
 
@@ -65,11 +65,11 @@ next-session `SKILL.md` 순서 1의 본문이다. PR을 연 세션과 인계로 
 
 1. **필요한지 본다.** `git fetch origin` 뒤 `git ls-remote --exit-code --heads origin refs/heads/dev`가 2로 끝나면 dev가 아직 없다. 합칠 곳이 없으니 끝이다(핫픽스가 main에 오르는 것이 곧 기준 브랜치에 오르는 것이다). dev가 있고 `git merge-base --is-ancestor origin/main origin/dev`가 1이면 main에만 있는 커밋이 있다. 0이면 main의 모든 커밋이 dev에 있어 합칠 것이 없으니 끝이다. 변경 내용(`git diff`)이 아니라 커밋 포함으로 가른다. 출시 PR의 merge 커밋은 main에만 있고 내용은 dev와 같을 수 있는데, main의 strict는 머리가 main의 끝을 포함하라고 해서 그 커밋이 dev에 없으면 다음 출시 PR이 뒤처졌다고 막힌다(ADR 0016의 main 보호 설정). `gh pr list --base dev --head main --state open`에 PR이 이미 있으면 새로 열지 않고 그것으로 3으로 간다.
 2. **연다.** `gh pr create --base dev --head main --title "chore: main을 dev에 되돌려 합친다" --body "<main에만 있는 변경의 PR 번호들과 한 줄>"`. 번호는 `git log origin/dev..origin/main --oneline`에서 읽는다. 핫픽스를 방금 병합한 세션이 아니어도 이 명령으로 알 수 있다.
-3. **기다린다.** 위 "병합 전" 2의 대기대로 `tools/wait_ci.py`를 백그라운드로 띄우고 턴을 끝낸다. 이 PR은 봇 회차를 하지 않아 CodeRabbit을 요청하지 않으므로 기본 기대 이름으로는 기다릴 수 없다고 끝난다. 그래서 `uv run python tools/wait_ci.py <번호> --head <main의 SHA> --expect verify`로 띄운다. `--head`를 빼면 이 세션의 로컬 HEAD를 기다릴 헤드로 읽어 어긋난다. `<main의 SHA>`는 `git rev-parse origin/main`이다. 끝 알림의 보고에서 `verify`가 SUCCESS면 4로 간다. 종료 코드는 0이거나, CodeRabbit이 "Review skipped" 상태를 남겼을 때의 4(`tools/wait_ci.py`가 이 상태를 요청되지 않은 리뷰로 읽고 `--expect`와 무관하게 센다)일 수 있다. 이 PR은 CodeRabbit을 요청하지 않으므로 4의 "리뷰가 요청되지 않았다" 문구는 예상한 끝이다. 종료 1(충돌이나 실패)이나 3(시간 초과)이면 병합하지 않고 보고를 사용자에게 넘긴다.
+3. **기다린다.** 위 "병합 전" 2의 대기대로 `tools/wait_ci.py`를 백그라운드로 띄우고 턴을 끝낸다. 이 PR은 봇 회차를 하지 않아 CodeRabbit을 요청하지 않으므로 기본 기대 이름으로는 기다릴 수 없다고 끝난다. 그래서 `uv run python tools/wait_ci.py <번호> --head <머리 SHA> --expect verify`로 띄운다. `--head`를 빼면 이 세션의 로컬 HEAD를 기다릴 헤드로 읽어 어긋난다. `<머리 SHA>`는 띄우기 직전에 `gh pr view <번호> --json headRefOid`로 읽는다(열린 PR로 바로 이 단계에 왔거나 그새 main이 앞섰을 수 있어 `git rev-parse origin/main`을 믿지 않는다). 끝 알림의 보고에서 `verify`가 SUCCESS면 4로 간다. 종료 코드는 0이거나, CodeRabbit이 "Review skipped" 상태를 남겼을 때의 4(`tools/wait_ci.py`가 이 상태를 요청되지 않은 리뷰로 읽고 `--expect`와 무관하게 센다)일 수 있다. 이 PR은 CodeRabbit을 요청하지 않으므로 4의 "리뷰가 요청되지 않았다" 문구는 예상한 끝이다. 보고에 `verify` 줄이 없는 4(gh 조회 실패나 헤드 불일치)와 2(인자 오류)는 새 `headRefOid`로 이 단계를 다시 띄운다. 종료 1(충돌이나 실패)이나 3(시간 초과)이면 병합하지 않고 보고를 사용자에게 넘긴다. 실패한 검사가 `claude-review`뿐인 1도 넘긴다. 핫픽스가 `claude-code-review.yml`을 바꿨다면 이 PR에서 그 워크플로의 코멘트 0개 가드가 빨개질 수 있다(티켓 `02-dev-review-bot-off`의 결정). 필수 검사가 아니므로 병합할지는 사용자가 정한다.
 4. **병합한다.** `gh pr view <번호> --json mergeable,mergeStateStatus,headRefOid`로 보고 `gh pr merge <번호> --merge --match-head-commit <headRefOid>`를 친다. 그새 main이 앞서 이 명령이 머리 SHA 불일치로 거절되면 새 `headRefOid`로 3부터 다시 한다. `--delete-branch`는 쓰지 않는다. 머리가 main이다. 아래 세 경우에는 병합하지 않고 사용자에게 넘긴다. 셋째는 위 "병합 방법"이 적은 보호 설정이다.
    - `mergeable`이 `CONFLICTING`이다. 핫픽스와 dev의 변경이 같은 곳을 고쳤으니 어느 쪽을 남길지 사람이 정한다.
    - `mergeStateStatus`가 `BEHIND`다. base(dev)에 "최신 브랜치만 병합"(strict) 보호가 걸렸을 때 나온다. dev는 strict가 아니므로(`tools/protection-dev.json`) 나오면 보호 설정이 바뀐 것이다. 머리가 main이라 dev에 늘 뒤처져 보인다. `gh pr update-branch`나 웹의 "Update branch"를 누르지 않는다. 그 동작은 dev를 main에 합친다. 관리자 우회로 병합할지는 사용자가 정한다.
    - `gh pr merge`가 보호 설정(필수 검사 미충족 등)에 거절된다. 거절 문구를 사용자에게 넘긴다.
 5. **확인한다.** `git fetch origin` 뒤 `git merge-base --is-ancestor origin/main origin/dev`가 0이다.
 
-끝: dev가 아직 없거나(1), 위 5의 판정이 0이거나, 사용자에게 넘긴 사유(`CONFLICTING`, `BEHIND`, 보호 설정의 거절 문구)를 보고와 일지에 적었다. 사용자에게 넘긴 채 끝났으면 열린 PR(`gh pr list --base dev --head main --state open`)이 남아 diff가 계속 1이다. 결정표 첫 줄은 이 열린 PR이 있으면 고르지 않는다.
+끝: dev가 아직 없거나(1), 위 5의 판정이 0이거나, 사용자에게 넘긴 사유(`CONFLICTING`, `BEHIND`, 보호 설정의 거절 문구)를 보고와 일지에 적었다. 사용자에게 넘긴 채 끝났으면 열린 PR(`gh pr list --base dev --head main --state open`)이 남아 diff가 계속 1이다. 결정표 첫 줄은 사용자에게 넘긴 이 열린 PR을 고르지 않는다. 진행하다 끊긴 열린 PR(`CONFLICTING`·`BEHIND`가 아니고 넘긴다는 기록이 없다)은 고르고, 1이 그 PR을 찾아 3부터 잇는다.
