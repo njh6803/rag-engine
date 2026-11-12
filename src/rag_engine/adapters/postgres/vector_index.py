@@ -40,6 +40,7 @@ from rag_engine.domain.entities import (
     SearchFilter,
     SearchHit,
     SearchQuery,
+    StoredChunk,
 )
 from rag_engine.domain.errors import ErrorCode
 
@@ -315,6 +316,64 @@ class PostgresVectorIndex:
             )
         )
         return 0 if count is None else count
+
+    async def list_chunks(self, document_id: UUID, index_version_id: UUID) -> list[StoredChunk]:
+        chunks = tables.chunks
+        rows = (
+            (
+                await self._connection.execute(
+                    sa.select(chunks)
+                    .where(
+                        chunks.c.document_id == document_id,
+                        chunks.c.index_version_id == index_version_id,
+                    )
+                    .order_by(chunks.c.ordinal)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        return [
+            StoredChunk(
+                ordinal=row["ordinal"],
+                text=row["text"],
+                token_count=row["token_count"],
+                location=_location(row["location"]),
+                embedding=tuple(float(value) for value in row["embedding"]),
+                source_content_hash=row["source_content_hash"],
+            )
+            for row in rows
+        ]
+
+    async def count_states(self, index_version_id: UUID) -> dict[IndexStateStatus, int]:
+        states = tables.document_index_states
+        rows = await self._connection.execute(
+            sa.select(states.c.status, sa.func.count())
+            .where(states.c.index_version_id == index_version_id)
+            .group_by(states.c.status)
+        )
+        return {IndexStateStatus(status): count for status, count in rows}
+
+    async def create_pending_states(
+        self, index_version_id: UUID, document_ids: Sequence[UUID], now: datetime
+    ) -> None:
+        if not document_ids:
+            return
+        await self._connection.execute(
+            insert(tables.document_index_states),
+            [
+                {
+                    "document_id": document_id,
+                    "index_version_id": index_version_id,
+                    "status": IndexStateStatus.PENDING.value,
+                    "chunk_count": 0,
+                    "built_content_hash": None,
+                    "error_code": None,
+                    "updated_at": now,
+                }
+                for document_id in document_ids
+            ],
+        )
 
     async def get_state(self, document_id: UUID, index_version_id: UUID) -> IndexState | None:
         states = tables.document_index_states

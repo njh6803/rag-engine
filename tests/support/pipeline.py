@@ -17,6 +17,7 @@ import httpx
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.records import NOW, make_index_version, make_knowledge_base, seed_source_and_group
+from tests.support.docx_files import docx_bytes
 from tests.support.tei_stub import TeiStub
 
 from rag_engine.adapters.blob_store import LocalBlobStore
@@ -24,16 +25,17 @@ from rag_engine.adapters.chunking import chunker_for
 from rag_engine.adapters.kiwi import tokenize_keywords
 from rag_engine.adapters.parsers.registry import ParserRegistry, discover_parser_specs
 from rag_engine.adapters.parsers.runner import SubprocessParseRunner
+from rag_engine.adapters.postgres.index_maintenance import PostgresIndexMaintenance
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.tei import TeiEmbedderPool
 from rag_engine.app.delete_document import delete_document
 from rag_engine.app.index_document import IndexDocumentDeps
 from rag_engine.app.ingest import IngestRequest, IngestResult, ingest_document
-from rag_engine.app.live_versions import live_index_versions
 from rag_engine.app.retry_policy import RetryPolicy
 from rag_engine.domain.entities import (
     Group,
     IndexState,
+    IndexStateStatus,
     IndexVersion,
     IndexVersionStatus,
     Job,
@@ -94,6 +96,7 @@ class Pipeline:
             chunker_for=chunker_for,
             tokenize_keywords=tokenize_keywords,
             now=lambda: self.clock[0],
+            maintenance=PostgresIndexMaintenance(self.engine),
         )
 
     async def ingest(
@@ -143,10 +146,11 @@ class Pipeline:
             return [JobRow(row[0], row[1], row[2], row[3]) for row in rows]
 
     async def states(self, document_id: UUID) -> dict[UUID, IndexState]:
-        """그 문서의 색인 상태를 판 ID로 묶어 낸다."""
+        """그 문서의 색인 상태를 판 ID로 묶어 낸다. 물러난 판도 든다. 건설 중인 판에 `pending`이
+        없으면 작업이 끝나는 순간 그 판이 현재 판이 되어 옛 판이 물러나기 때문이다."""
         found: dict[UUID, IndexState] = {}
         async with self.unit_of_work.begin() as transaction:
-            for version in await live_index_versions(transaction, self.group.id):
+            for version in await transaction.catalog.list_index_versions(self.knowledge_base.id):
                 state = await transaction.index.get_state(document_id, version.id)
                 if state is not None:
                     found[version.id] = state
@@ -207,6 +211,25 @@ class Pipeline:
             await transaction.catalog.add_index_version(version)
             await transaction.index.create_version_index(version)
         return version
+
+    async def keep_pending(self, version: IndexVersion) -> None:
+        """자리 표시 문서 하나를 이 판에서 계속 `pending`으로 둔다. 건설 중인 판은 `pending`이
+        없으면 전환 검사가 도는 첫 순간(색인, 삭제 등)에 현재 판이 되므로, 전환하지 않는 건설 중인
+        판이 필요한 시험이 쓴다. 자리 표시 문서의 작업은 지워 아무도 그 문서를 색인하지 않는다."""
+        held = await self.ingest(docx_bytes("자리 표시", "전환을 막는 문서다."), "자리표시.docx")
+        async with self.unit_of_work.begin() as transaction:
+            await transaction.jobs.delete_queued(held.document_id)
+            await transaction.index.save_state(
+                IndexState(
+                    document_id=held.document_id,
+                    index_version_id=version.id,
+                    status=IndexStateStatus.PENDING,
+                    chunk_count=0,
+                    built_content_hash=None,
+                    error_code=None,
+                    updated_at=self.clock[0],
+                )
+            )
 
     async def add_group(self, name: str) -> Group:
         """그룹을 더한다. 어느 지식베이스에도 들지 않은 채다."""

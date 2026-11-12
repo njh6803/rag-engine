@@ -182,6 +182,7 @@ async def test_되돌릴_조각이_없는_판이_건설_중이면_작업만_넣�
     ingested = await pipeline.ingest(휴가)
     await _work(pipeline)
     building = await pipeline.add_building_version()
+    await pipeline.keep_pending(building)
     await pipeline.delete()
 
     restored = await pipeline.ingest(휴가)

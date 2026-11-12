@@ -179,7 +179,7 @@ new = '''"40", sa.true()'''
 name = "조각을 묶음으로 나누지 않는다"
 tests = ["tests/adapters/test_vector_index_chunks.py"]
 expect = "red"
-expect_output = ['''number of parameters must be between 0 and 65535''']
+expect_output = ['''TransientFailure: 데이터베이스를 잠시 쓸 수 없다''']
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/postgres/vector_index.py"

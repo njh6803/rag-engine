@@ -68,7 +68,7 @@ def _chunking_config(chunking: ChunkingConfig) -> dict[str, object]:
     }
 
 
-def _index_version(row: sa.RowMapping) -> IndexVersion:
+def index_version_of(row: sa.RowMapping) -> IndexVersion:
     config: Mapping[str, object] = row["chunking_config"]
     strategy, max_tokens, overlap_tokens = (
         config["strategy"],
@@ -216,7 +216,22 @@ class PostgresCatalog:
             )
             .order_by(tables.index_versions.c.id)
         )
-        return [_index_version(row) for row in result.mappings()]
+        return [index_version_of(row) for row in result.mappings()]
+
+    async def get_index_version(self, version_id: UUID) -> IndexVersion | None:
+        result = await self._connection.execute(
+            sa.select(tables.index_versions).where(tables.index_versions.c.id == version_id)
+        )
+        row = result.mappings().one_or_none()
+        return None if row is None else index_version_of(row)
+
+    async def list_index_versions(self, knowledge_base_id: UUID) -> list[IndexVersion]:
+        result = await self._connection.execute(
+            sa.select(tables.index_versions)
+            .where(tables.index_versions.c.knowledge_base_id == knowledge_base_id)
+            .order_by(tables.index_versions.c.id.desc())
+        )
+        return [index_version_of(row) for row in result.mappings()]
 
     async def add_index_version(self, version: IndexVersion) -> None:
         await self._connection.execute(

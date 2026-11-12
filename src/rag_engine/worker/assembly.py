@@ -27,6 +27,7 @@ from rag_engine.adapters.log_format import configure_logging
 from rag_engine.adapters.parsers.registry import ParserRegistry, discover_parser_specs
 from rag_engine.adapters.parsers.runner import SubprocessParseRunner
 from rag_engine.adapters.postgres.engine import create_engine
+from rag_engine.adapters.postgres.index_maintenance import PostgresIndexMaintenance
 from rag_engine.adapters.postgres.notifications import JobNotificationListener
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.settings import Settings
@@ -89,6 +90,7 @@ async def _assembled(settings: Settings) -> AsyncGenerator[IndexDocumentDeps]:
     tokenize_keywords("준비")
     deps = IndexDocumentDeps(
         unit_of_work=PostgresUnitOfWork(engine),
+        maintenance=PostgresIndexMaintenance(engine),
         blob_store=LocalBlobStore(settings.data_dir),
         parse_runner=SubprocessParseRunner(
             ParserRegistry(discover_parser_specs()),

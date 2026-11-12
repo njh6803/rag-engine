@@ -135,12 +135,12 @@ old = '''                tables.jobs.c.document_id == document_id,
             )
         )
 
-    async def get('''
+    async def lock_queued_documents('''
 new = '''                tables.jobs.c.document_id == document_id,
             )
         )
 
-    async def get('''
+    async def lock_queued_documents('''
 
 [[mutation]]
 name = "다른 내용의 되살림이 내용을 가리지 않는다"

@@ -37,9 +37,9 @@ expect = "red"
 expect_output = ["가가가가가가가가가가 > 나나나나나나나나나나 > 다다다다다다다다다다"]
 
 [[mutation.edit]]
-file = "src/rag_engine/adapters/chunking.py"
-old = '''_PATH_SHARE: Final = 4'''
-new = '''_PATH_SHARE: Final = 1'''
+file = "src/rag_engine/domain/index_text.py"
+old = '''_SECTION_SHARE: Final = 4'''
+new = '''_SECTION_SHARE: Final = 1'''
 
 [[mutation]]
 name = "마지막 조각 합치기를 끈다"

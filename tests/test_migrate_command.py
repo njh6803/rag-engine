@@ -1,7 +1,8 @@
 """`rag-engine migrate` 는 스키마를 올리고 기본 레코드를 설정값으로 보장한다(명세 "관리 명령").
 
 시험은 빈 데이터베이스에서 시작한다. 판 요소의 비교로 "재색인 필요" 를 판정하는 것(관리 API의
-`reindex_needed` 표시)은 core 14의 몫이라 여기서는 요소가 현재 판과 달라지는지까지만 본다.
+`reindex_needed` 표시)은 `tests/server/test_admin_knowledge_bases.py`가 보고, 여기서는 요소가 현재
+판과 달라지는지까지만 본다.
 """
 
 import asyncio

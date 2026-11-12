@@ -9,6 +9,7 @@ UPDATE` 한 문장으로 있는 행을 다시 쓴다. 있는지 보는 일과 �
 `AttemptLostError`로, `reschedule`은 `False`로 알린다.
 """
 
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import Final
 from uuid import UUID
@@ -24,6 +25,7 @@ from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.ports import JobOutcome
 
 NOTIFY_CHANNEL: Final = "rag_jobs"
+_LOCK_BATCH: Final = 10_000
 # `ON CONFLICT`의 색인 추론 술어는 부분 색인의 술어와 글자가 같아야 한다. 값을 바인드 파라미터로
 # 보내면 psycopg가 같은 문장을 다섯 번 돌린 뒤 서버에 준비시키고, 일반 계획은 파라미터를 상수로
 # 접지 못해 색인을 찾지 못한다(`42P10`). 그래서 리터럴로 렌더링한다.
@@ -55,8 +57,8 @@ def _job(row: sa.RowMapping) -> Job:
 def _attempt_of(job: Job) -> list[sa.ColumnElement[bool]]:
     """이 시도가 쓴 작업 행만 고르는 조건. 임대가 끝나 다른 작업자가 가져간 작업(작업자 ID나 시도
     횟수가 다르다)은 고르지 않는다. 지식베이스 행을 잠금 순서에 맞게 작업 행 앞에서 잠그는 것은
-    부르는 쪽의 몫이다(다시 예약하기와 재시도 소진은 `app/job_failure.py`가 잠근다. 색인 작업 자신의
-    작업 단위가 잠그는 일은 14가 한다)."""
+    부르는 쪽의 몫이다(다시 예약하기와 재시도 소진은 `app/job_failure.py`가, 색인 작업 자신의 작업
+    단위는 `app/index_document.py`가 잠근다)."""
     return [
         tables.jobs.c.id == job.id,
         tables.jobs.c.worker_id == job.worker_id,
@@ -94,6 +96,29 @@ class PostgresJobQueue:
                 tables.jobs.c.status == JobStatus.QUEUED.value,
             )
         )
+
+    async def lock_queued_documents(self, document_ids: Sequence[UUID]) -> set[UUID]:
+        # psycopg는 한 문장에 바인드 파라미터를 65535개까지만 받으므로 `IN` 목록을 묶음으로 나눠
+        # 문장을 여러 번 보낸다. 묶음 사이의 잠금 순서는 전체 ID 순이 아니지만, 이 함수를 부르는
+        # 재색인 시작은 지식베이스 행을 먼저 잠가 같은 지식베이스의 다른 재색인과 겹치지 않고,
+        # 작업자는 잠긴 행을 건너뛰므로(`SKIP LOCKED`) 서로 기다리는 일이 없다. 그룹 하나가 든
+        # 서로 다른 두 지식베이스를 동시에 재색인하면 그 행 잠금이 둘을 직렬화하지 않으므로, 문서가
+        # 1만 개를 넘고 두 쪽의 묶음 경계가 다를 때 교착할 수 있다. 그 교착(`40P01`)은 일시 실패로
+        # 번역되어 한쪽이 끝나고 운영자가 다시 시작하면 된다.
+        jobs = tables.jobs
+        locked: set[UUID] = set()
+        for start in range(0, len(document_ids), _LOCK_BATCH):
+            rows = await self._connection.scalars(
+                sa.select(jobs.c.document_id)
+                .where(
+                    jobs.c.document_id.in_(document_ids[start : start + _LOCK_BATCH]),
+                    jobs.c.status == JobStatus.QUEUED.value,
+                )
+                .order_by(jobs.c.id)
+                .with_for_update()
+            )
+            locked.update(rows)
+        return locked
 
     async def get(self, job_id: UUID) -> Job | None:
         row = (

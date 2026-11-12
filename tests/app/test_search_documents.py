@@ -136,6 +136,7 @@ async def test_질의를_임베딩하는_사이_현재_판이_바뀌면_한_번_
     pipeline: Pipeline,
 ) -> None:
     building = await pipeline.add_building_version()
+    await pipeline.keep_pending(building)
     await _index_everything(pipeline)
 
     async def switch(call: int) -> None:
