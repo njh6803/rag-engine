@@ -87,6 +87,17 @@
 
 **밀 주장 대조**: 보고가 1(SIGTERM과 Proactor는 확인, Selector 조건은 위에서 고침), 2, 4, 5, 6, 7을 코드에서 맞다고 보았다.
 
+## PR 봇 회차
+
+PR #21을 열고 `@coderabbitai review`를 남겼다. 검사 `verify`, `python`, `image`, `ticket`은 모두 초록이었다. CodeRabbit은 무료 한도에 걸려 리뷰가 없었다(`Review rate limited`, 코멘트가 31분 뒤 다음 리뷰가 가능하다고 적었다). 한도에 걸린 푸시는 회차로 세지 않는다.
+
+**claude-review 첫 회차**(Critical·Major 없음, Minor 셋과 Nit 하나). 첫 회차의 Minor·Nit은 지적마다 판단했다.
+
+- **Minor, `process_job(lease_seconds=None)`가 두 모드를 만든다**. 보류. 위 코드 리뷰의 "남긴 것"과 같은 지적이다. 시험 약 사십 곳의 정리라 후속 일로 "다음"에 둔다.
+- **Minor, `_slot`의 `try`가 `claim`과 `process_job`을 함께 감싼다**. 보류. 틀린 지적은 아니다. `process_job`은 일시 실패를 스스로 처리하므로 `try`를 `claim` 하나로 좁힐 수 있다. 다만 변이 표의 변이 셋(10, 13, 19번)이 `_slot`의 이 근처 줄(`except TransientFailure`, `await wakeups.wait`)을 원문으로 쥐고 있어 고치면 표를 고치고 다시 돌려야 한다. 동작은 바뀌지 않는 가독성 정리라 "다음"에 둔다.
+- **Minor, `_keep_lease`의 두 `except`가 `log_event`를 되풀이한다**. 보류. 수준과 `exception`만 다르고 변이 16, 17, 22번이 그 줄을 원문으로 쥔다. 같은 이유로 "다음"에 둔다.
+- **Nit, `reschedule`만 `bool`인 이유를 `ports.py` 독스트링에도**. 해당 없음. `domain/ports.py`의 `reschedule` 독스트링이 이미 부분 유일 색인 때문에 조회와 변경을 나눌 수 없고 CQS의 의도한 예외라고 적고 있다.
+
 ## 회고
 
 낸 후보는 아홉이고 판정은 승인 0, 기각 9, 넘김 0이다. 대기열은 열린 항목이 26개이고 만료할 항목이 없었다. 후보 4는 같은 일을 다룬 항목을 `queue_open_rows.py --search`로 찾았으나 없었다. 후보 6은 닫힌 항목 `token-expiry-test-load-margin`이 맞았다.
@@ -110,4 +121,6 @@
 - 열린 일:
   - `FlakyUnitOfWork.fail_next`를 더했으나 12의 열린 일(쓰기 단계가 실패한 시도의 `write_ms` 시험)은 여전히 두 번째 `begin()`을 고르는 도우미가 필요해 하지 않았다. `fail_next`로 이제 쓸 수 있는 길이 생겼다.
   - 위 "남긴 것"의 `lease_seconds=None` 갈래와 `run_once`의 꺼내기 중복은 시험 변경이 큰 정리라 따로 둔다.
+  - PR 봇 회차에서 보류한 가독성 정리 둘. `_slot`의 `try`를 `claim` 하나로 좁히고(`_claim(...) -> Job | None`을 빼는 꼴), `_keep_lease`의 두 `lease_extension_failed` 로그를 도우미로 모은다. 동작은 그대로이고 변이 표의 원문(10, 13, 16, 17, 19, 22번)을 고쳐 다시 돌려야 한다.
+  - 어댑터(`kiwi.py`)의 "모델을 읽는 데 1초쯤" 주석은 이 PC에서 2.6~5.3초로 재어진다. 07의 주석이라 이 티켓에서 건드리지 않았다.
   - 12가 남긴 열린 일(`token_store`의 오류 번역, 지식베이스 ID 순 잠금 세 벌, `test_parse_runner`의 기한 시험과 `serve` 기동 시험의 부하 민감성)은 이 티켓의 범위가 아니라 그대로다.
