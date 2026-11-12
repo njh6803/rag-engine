@@ -37,6 +37,9 @@ DEFAULT_DIMENSIONS = 1024
 WORKER_PAUSE_SECONDS = 0.2
 WORKER_STOP_SECONDS = 60
 WAIT_ROWS_SECONDS = 60
+# 작업자 스레드가 예외로 죽으면 `--wait`가 영영 끝나지 않으므로, 기다리는 시험은 모두 기한을 준다.
+# 기한이 지나면 종료 코드 2로 시험이 실패한다.
+WAIT_LIMIT = ["--timeout", str(WAIT_ROWS_SECONDS)]
 
 
 @pytest.fixture
@@ -252,14 +255,14 @@ def test_읽을_수_없는_파일이_있어도_나머지는_넣고_종료_코드
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    read_bytes = Path.read_bytes
+    open_ = Path.open
 
-    def read_bytes_except_b(path: Path) -> bytes:
+    def open_except_b(path: Path, mode: str = "r") -> object:
         if path.name == "b.docx":
             raise PermissionError(13, "권한이 없다")
-        return read_bytes(path)
+        return open_(path, mode)
 
-    monkeypatch.setattr(Path, "read_bytes", read_bytes_except_b)
+    monkeypatch.setattr(Path, "open", open_except_b)
 
     code = _run([str(docs)])
 
@@ -268,6 +271,47 @@ def test_읽을_수_없는_파일이_있어도_나머지는_넣고_종료_코드
     assert [label for _, label in _actions(output.out)] == ["a.docx", "sub/deeper/c.pdf"]
     assert "거부\tsub/b.docx\t읽기 실패" in output.err, f"표준 오류: {output.err!r}"
     assert _query(ingest_database_url, "SELECT count(*) FROM documents") == [(2,)]
+
+
+def test_폴더_밖을_가리키는_심볼릭_링크는_수집하지_않는다(
+    ingest_database_url: str, docs: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside = tmp_path / "밖.pdf"
+    outside.write_bytes(PDF)
+    (docs / "링크.pdf").symlink_to(outside)
+
+    code = _run([str(docs)])
+
+    assert code == 0, f"종료 코드가 {code}이다(링크는 거부가 아니라 수집 대상이 아니다)"
+    labels = [label for _, label in _actions(capsys.readouterr().out)]
+    assert labels == ["a.docx", "sub/b.docx", "sub/deeper/c.pdf"], f"수집한 키: {labels}"
+    assert _query(ingest_database_url, "SELECT count(*) FROM documents") == [(3,)]
+
+
+def test_파일은_상한까지만_읽고_넘으면_거부한다(
+    ingest_database_url: str,
+    docs: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RAG_MAX_UPLOAD_MB", "1")
+    (docs / "큼.pdf").write_bytes(PDF + b"0" * (1024 * 1024))
+    read_bytes = Path.read_bytes
+
+    def read_bytes_outside_docs(path: Path) -> bytes:
+        # 전체를 읽는 호출은 stat 뒤에 파일이 커지면 상한을 넘는 바이트를 메모리에 올린다.
+        if path.is_relative_to(docs):
+            raise AssertionError(f"{path.name}을 상한 없이 통째로 읽었다")
+        return read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes_outside_docs)
+
+    code = _run([str(docs)])
+
+    assert code == 1, f"종료 코드가 {code}이다(상한을 넘는 파일이 있으면 1)"
+    output = capsys.readouterr()
+    assert "upload_too_large" in output.err
+    assert _query(ingest_database_url, "SELECT count(*) FROM documents") == [(3,)]
 
 
 def test_timeout이_숫자가_아니면_아무_파일도_넣지_않고_인자_오류로_끝난다(
@@ -300,7 +344,7 @@ def test_wait는_작업자가_색인을_마치면_종료_코드_0이다(
 ) -> None:
     (docs / "sub" / "deeper" / "c.pdf").unlink()
     with _embedding_stub(ingest_database_url), _background_worker():
-        assert _run([str(docs), "--wait"]) == 0
+        assert _run([str(docs), "--wait", *WAIT_LIMIT]) == 0
 
     output = capsys.readouterr()
     assert "작업자" in output.err
@@ -318,7 +362,7 @@ def test_wait는_색인이_실패한_문서가_있으면_종료_코드_1과_실�
     (broken / "깨진.docx").write_bytes(b"PK\x03\x04 broken")
 
     with _background_worker():
-        assert _run([str(broken), "--wait"]) == 1
+        assert _run([str(broken), "--wait", *WAIT_LIMIT]) == 1
 
     error = capsys.readouterr().err
     assert "깨진.docx" in error
@@ -352,7 +396,7 @@ def test_wait는_앞서_넣은_작업이_도는_문서가_unchanged여도_그_�
     capsys.readouterr()
 
     with _embedding_stub(ingest_database_url), _background_worker():
-        code = _run([str(docs), "--wait"])
+        code = _run([str(docs), "--wait", *WAIT_LIMIT])
         # 블록을 나가면 작업자가 남은 작업을 마저 처리하므로, 명령이 돌아온 바로 그때의 상태를
         # 읽는다.
         statuses = _query(ingest_database_url, "SELECT status FROM documents ORDER BY key")
@@ -369,7 +413,7 @@ def test_wait는_기다리는_사이_뒤_수집이_문서를_깨뜨려_색인이
     folder.mkdir()
     target = folder / "규정.docx"
     target.write_bytes(휴가)
-    waiting, codes = _run_in_thread([str(folder), "--wait"])
+    waiting, codes = _run_in_thread([str(folder), "--wait", *WAIT_LIMIT])
     _wait_until(ingest_database_url, "SELECT count(*) FROM jobs", [(1,)])
 
     target.write_bytes(b"PK\x03\x04 broken")

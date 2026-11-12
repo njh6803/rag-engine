@@ -31,6 +31,7 @@ from rag_engine.adapters.settings import Settings
 from rag_engine.app.await_documents import WaitResult, WaitStatus, wait_for_documents
 from rag_engine.app.ingest import (
     IngestRequest,
+    IngestResult,
     ensure_within_upload_limit,
     group_exists,
     ingest_document,
@@ -74,12 +75,68 @@ def ingest_path(
 def _collect(path: Path) -> list[_Entry]:
     if path.is_file():
         return [_Entry(path, None)]
+    # 폴더 밖을 가리키는 링크는 걷는 범위 밖의 파일을 이 폴더의 문서로 넣게 되므로 거른다.
+    root = path.resolve()
     found = (
         file
         for file in path.rglob("*")
-        if file.is_file() and file.suffix.lower() in SUPPORTED_EXTENSIONS
+        if file.is_file()
+        and file.suffix.lower() in SUPPORTED_EXTENSIONS
+        and file.resolve().is_relative_to(root)
     )
     return [_Entry(file, file.relative_to(path).as_posix()) for file in sorted(found)]
+
+
+def _read_within_limit(file: Path, max_bytes: int) -> bytes:
+    """상한까지만 읽는다. 크기를 잰 뒤 파일이 커져도 상한을 넘는 바이트는 메모리에 올리지 않는다."""
+    ensure_within_upload_limit(file.stat().st_size, max_bytes)
+    with file.open("rb") as stream:
+        data = stream.read(max_bytes + 1)
+    ensure_within_upload_limit(len(data), max_bytes)
+    return data
+
+
+async def _read(file: Path, max_bytes: int) -> bytes | str:
+    """읽은 바이트나 거부 사유를 낸다. 권한이 없거나 다른 프로그램이 잠갔거나 걷는 사이 사라진
+    파일의 사유 문구에는 운영체제의 메시지(경로)를 싣지 않는다."""
+    try:
+        return await asyncio.to_thread(_read_within_limit, file, max_bytes)
+    except RequestError as error:
+        return error.code.value
+    except OSError:
+        return _UNREADABLE
+
+
+async def _ingest_entry(
+    unit_of_work: UnitOfWork,
+    blob_store: LocalBlobStore,
+    entry: _Entry,
+    group: str | None,
+    request_id: UUID,
+    max_upload_bytes: int,
+) -> IngestResult | str:
+    """수집 결과를 내고, 거부하면 사유를 낸다."""
+    data = await _read(entry.file, max_upload_bytes)
+    if isinstance(data, str):
+        return data
+    try:
+        return await ingest_document(
+            unit_of_work,
+            blob_store,
+            IngestRequest(
+                filename=entry.file.name,
+                data=data,
+                key=entry.key,
+                group=group,
+                metadata=_NO_METADATA,
+                updated_at=None,
+            ),
+            request_id=request_id,
+            now=datetime.now(UTC),
+            max_upload_bytes=max_upload_bytes,
+        )
+    except RequestError as error:
+        return error.code.value
 
 
 async def _ingest(
@@ -120,37 +177,16 @@ async def _ingest_with(
     blob_store = LocalBlobStore(settings.data_dir)
     max_upload_bytes = settings.max_upload_mb * _BYTES_PER_MB
     for entry in entries:
-        try:
-            ensure_within_upload_limit(entry.file.stat().st_size, max_upload_bytes)
-            data = await asyncio.to_thread(entry.file.read_bytes)
-            result = await ingest_document(
-                unit_of_work,
-                blob_store,
-                IngestRequest(
-                    filename=entry.file.name,
-                    data=data,
-                    key=entry.key,
-                    group=group,
-                    metadata=_NO_METADATA,
-                    updated_at=None,
-                ),
-                request_id=request_id,
-                now=datetime.now(UTC),
-                max_upload_bytes=max_upload_bytes,
-            )
-        except RequestError as error:
-            print(f"거부\t{entry.label}\t{error.code.value}", file=sys.stderr)
+        outcome = await _ingest_entry(
+            unit_of_work, blob_store, entry, group, request_id, max_upload_bytes
+        )
+        if isinstance(outcome, str):
+            print(f"거부\t{entry.label}\t{outcome}", file=sys.stderr)
             rejected += 1
             continue
-        except OSError:
-            # 권한이 없거나 다른 프로그램이 잠갔거나 걷는 사이 사라진 파일이다. 사유 문구에는
-            # 운영체제의 메시지(경로)를 싣지 않고 나머지를 이어 넣는다.
-            print(f"거부\t{entry.label}\t{_UNREADABLE}", file=sys.stderr)
-            rejected += 1
-            continue
-        print(f"{result.action.value}\t{entry.label}")
-        labels[result.document_id] = entry.label
-    waited = None
+        print(f"{outcome.action.value}\t{entry.label}")
+        labels[outcome.document_id] = entry.label
+    waited: WaitResult | None = None
     if wait_timeout_seconds is not None and labels:
         waited = await _wait(unit_of_work, list(labels), wait_timeout_seconds)
         _report_failures(waited, labels)

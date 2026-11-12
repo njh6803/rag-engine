@@ -228,10 +228,10 @@ expect_output = ["At index 0 diff: ('received',) != ('parsed',)"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/ingest_command.py"
-old = '''        labels[result.document_id] = entry.label
+old = '''        labels[outcome.document_id] = entry.label
 '''
-new = '''        if result.action.value != "unchanged":
-            labels[result.document_id] = entry.label
+new = '''        if outcome.action.value != "unchanged":
+            labels[outcome.document_id] = entry.label
 '''
 
 [[mutation]]
