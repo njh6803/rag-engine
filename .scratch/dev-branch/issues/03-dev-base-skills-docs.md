@@ -20,6 +20,7 @@
 - [ ] `merge.md`에 병합 방법과 "되돌려 합치기"의 순서와 계기가 있고, `next-session` 결정표의 첫 줄이 되돌려 합칠 것이 남았는지 본다. "hotfix가 사라진다"는 옮기지 않았다
 - [ ] 출시 PR을 여는 순서는 적지 않았고 05를 가리킨다
 - [ ] CodeRabbit을 부른 리뷰가 base가 기본 브랜치가 아닌 PR에서 도는지의 확인 결과와 근거의 종류(원문을 읽었다, 어림)를 티켓 끝에 적었다
+- [ ] 02가 넘긴 결정과 위 CodeRabbit 확인 결과로 ADR 0016 Consequences "리뷰 봇 두 갈래"의 추론·확인할 것 문장을 고쳤고, ADR의 `## 이력`(없으면 만든다)에 날짜와 티켓을 적었다. 02의 PR은 기록 밖의 파일을 실을 수 없어 이 몫이 03에 있다
 - [ ] 살아 있는 문서에서 기준 브랜치를 main으로 전제한 옛 표현의 잔존이 0이다(`CLAUDE.md` 작업 규약 4의 grep. 기록과 일지 인용은 뺀다). 설계 세션이 본 예는 `docs/agents/issue-tracker.md`의 "main에 들어가는 PR", `docs/constitution/operations.md`의 "최신 main 위에서", `tests/test_plan_status.py` 머리 독스트링의 strict 문장이다. 찾는 말은 `main에`, `main으로`, `main 위`, `origin/main`, `strict`이고, 운영 브랜치를 뜻하는 main은 남긴다
 - [ ] 바꾼 스킬은 새 세션에서 불러 보았다(작업 규약 3)
 - [ ] 검사 넷이 초록이다

@@ -1,6 +1,6 @@
 # dev-branch 설계: 브랜치 모델을 agent-os ADR 0043으로 옮긴다 · 2026-11-12
 
-agent-os의 `dev-branch-create`가 낸 지시문을 사용자가 붙여 넣어 연 세션의 기록이다(Opus 5.5 / high). 시작 프롬프트는 `/grill-with-docs rag-engine을 agent-os ADR 0043의 브랜치 모델(dev 전환)로 옮긴다`이고, 브랜치는 `docs/dev-branch-model`(설계·티켓을 쓰는 면제 PR), 작업은 워크트리 `dev-branch-model`에서 했다. 준비, 사용자가 넘긴 것, 확인한 것, 물은 것과 답, 반영한 것, 셀프 리뷰, 승인, PR 직전 리뷰, 회고, 검증, 다음을 차례로 둔다.
+agent-os의 `dev-branch-create`가 낸 지시문을 사용자가 붙여 넣어 연 세션의 기록이다(Opus 5.5 / high). 시작 프롬프트는 `/grill-with-docs rag-engine을 agent-os ADR 0043의 브랜치 모델(dev 전환)로 옮긴다`이고, 브랜치는 `docs/dev-branch-model`(설계·티켓을 쓰는 면제 PR), 작업은 워크트리 `dev-branch-model`에서 했다. 준비, 사용자가 넘긴 것, 확인한 것, 물은 것과 답, 반영한 것, 셀프 리뷰, 승인, PR 직전 리뷰, 회고, 검증, PR 봇 리뷰, 다음을 차례로 둔다.
 
 ## 준비
 
@@ -177,10 +177,33 @@ status와 색인 행을 accepted로 바꿨다.
 - `uv run python tools/sibling_overlap.py`는 첫 실행에서 이 저장소에 없는 일지를 가리킨 인용 둘(ADR 0016과 이 일지의 agent-os 일지 인용)을 내고 1로 끝났다. agent-os 일지의 전체 경로를 코드 스팬으로 적은 뒤 다시 돌려 "번호 겹침 없음"으로 끝났다.
 - `uv run python tools/plan_table.py`는 `plan-head.md`를 고친 뒤 0으로 끝났고 `.scratch/plan.md`가 다시 만들어졌다.
 - 이 절과 PR 직전 리뷰의 고침을 싣는 둘째 커밋의 pre-commit 결과는 PR 본문에 적는다.
+- PR 봇 첫 회차를 싣는 커밋의 첫 시도는 pytest 2개 실패, 3660개 통과(611.3초)로 막혔다. 실패는 위와 같은 멈춘 자식 시험과 `tests/test_serve_command.py::test_serve가_뜨면_JSON_Lines만_남기고_접근_로그에_쿼리_문자열을_싣지_않는다`(serve가 30초 안에 뜨지 않았다)다. 그 실행은 run-hooks가 152.9초, pytest가 631.0초로 앞 커밋의 두 배쯤이었고, 직후 CPU 부하가 70%였다(`Win32_Processor`의 `LoadPercentage`). 두 시험을 따로 다시 돌리니 2 passed(72.83초)였다. 부하에서만 빨간 시간 시험은 받아들여 닫은 종류라 항목을 잇지 않는다(retro 5단계).
+
+## PR 봇 리뷰 (첫 회차)
+
+PR #22를 연 뒤 `@coderabbitai review`를 불렀다.
+
+> 사용자: "네, 불러 주세요"
+
+CI는 `python`, `image`, `ticket`, `verify`, `claude-review`가 모두 통과했다. 두 봇의 첫 회차라 Minor·Nit도 지적마다 고칠지 판단했다(`next-session` `merge.md`의 회차 세기).
+
+- CodeRabbit Minor(인라인, ADR 0016 17행. 처방은 티켓 04의 4단계): base를 옮겨도 CI가 다시 돌지 않아 옮긴 PR의 `verify`가 옛 base의 것이고, strict가 꺼진 dev는 그 결과로 병합을 허용한다. → 고쳤다. 사실은 GitHub 문서 둘의 원문을 내려받아 대 봤다(`events-that-trigger-workflows`의 `pull_request` 절 452행, `webhook-events-and-payloads`의 `pull_request` `edited` 절). 지금 main은 strict라(`tools/protection.json`), 옮기는 일이 뒤처진 PR의 관문을 걷는다는 점에서 봇의 서술보다 무겁다. 처방 가운데 PR을 닫았다 다시 여는 길은 받지 않고, 머리 브랜치에 dev를 합쳐 푸시하는 길을 적었다. 앱의 `set_monitor` 도구 설명대로 PR이 닫히면 그 PR에 묶인 세션이 보관될 수 있다.
+- claude-review Minor 1(티켓 03의 `Blocked by: 없음`이 병합 순서를 산문에만 담는다): → 보류. `Blocked by`는 시작할 수 있는 때를 정하고, 03은 01·02와 나란히 시작한다. 병합 순서는 03의 수락 기준 첫 항목(병합 직전에 01·02가 done이고 `origin/main`에 있는지 본다)이 지킨다. 기계가 보는 검사는 대기열 `ticket-dep-closure-check`의 몫이다. 봇이 든 근거(PR 본문이 그 항목을 근거로 풀어 썼다)는 PR 본문에 없다.
+- claude-review Minor 2(ADR이 결정 본문을 agent-os에 맡겨, 이 저장소만 읽는 사람이 출시 절차를 읽을 수 없다): → 보류. 결정 본문을 옮겨 적지 않는 것은 사용자가 넘긴 지시문의 제약이고, 정의를 운영 문서에 옮기는 것은 티켓 03이다. 봇도 같은 판단을 적었다.
+- claude-review Nit 3(추론·어림이라 밝힌 문장이 accepted ADR에 남는다): → 고쳤다. 티켓 03에는 02가 넘긴 결정과 CodeRabbit 확인으로 ADR 0016의 "리뷰 봇 두 갈래"를 고치고 `## 이력`에 적는 수락 기준을 더했다. 티켓 04에는 `EnterWorktree` 확인 결과가 다르면 "다른 세션"을 고치는 수락 기준을 더했다. 02의 PR은 리뷰 봇 가드가 기록 밖의 파일을 막아(`claude-code-review.yml` 102행의 허용 경로에 `docs/adr/`가 없다) 02가 아니라 03에 두었다.
+- claude-review Nit 4(`.claude/rules/adr.md`의 번호 겹침): → 보류. 이미 티켓 03의 몫이고 PR 본문 "남긴 위험"에 있다.
+
+반영으로 새로 쓴 사실 문장(원문, 다음 리뷰가 겨냥할 밀 주장):
+
+1. 티켓 04: "base를 옮겨도 CI는 다시 돌지 않는다. `ci.yml`의 `pull_request:`는 `types`가 없어 기본 사건(`opened`, `synchronize`, `reopened`)에만 돌고, base를 바꾸는 것은 `edited` 사건이다"
+2. 티켓 04: "지금 main은 strict라 뒤처진 PR은 main을 합쳐 다시 돌아야 병합되므로, 옮기는 일이 그 관문을 걷지 않게 한다."
+3. 티켓 04: "앱의 `set_monitor` 도구 설명대로 PR이 닫히면 그 PR에 묶인 세션이 보관될 수 있다."
+4. 티켓 03: "02의 PR은 기록 밖의 파일을 실을 수 없어 이 몫이 03에 있다"
 
 ## 다음
 
 - 둘째 커밋 뒤 이 브랜치를 푸시하고 PR(base main, `docs/` 면제 PR)을 연다. 사용자의 요청은 PR을 여는 데까지이고, 병합과 그 뒤의 지시문은 `next-session`의 `merge.md`가 정한다.
 - 병합 뒤의 다음 작업은 하네스 기능 dev-branch의 티켓 01·02·03이다. 셋은 `Blocked by`가 "없음 …"이라 나란히 열 수 있고, 03은 01과 02가 병합된 뒤에 병합한다. 04는 앞의 셋 뒤에, 05는 04와 agent-os의 `dev-release-pr-step` 병합 뒤에 한다(`.scratch/plan-head.md`의 "하네스 기능" 문단).
+- PR 봇 첫 회차에서 보류한 것은 뒤의 티켓이 받는다. 03이 ADR 0016의 위임을 운영 문서로 메우고 `.claude/rules/adr.md`의 번호 겹침을 고치며, 03의 병합 순서를 기계가 보는 검사는 대기열 `ticket-dep-closure-check`이다. 04는 옮긴 PR을 새 base의 `verify`가 초록이 된 뒤에 병합한다.
 - 다른 세션이 core 14(`feature/14-reindex-version-switch`)를 진행하고 있다. 04가 dev를 딸 때 그 PR이 main으로 열려 있으면 04의 4단계대로 base를 옮긴다.
 - 주 체크아웃 미갱신: 루트는 main(11f91c9). 이 세션은 주 체크아웃을 당기지 않는다. 다음에 여는 세션이 워크트리에 들어가기 전에 `tidy-checkouts`로 당긴다.
