@@ -21,7 +21,7 @@
 - [ ] `git remote set-head origin dev` 뒤 `git symbolic-ref refs/remotes/origin/HEAD`가 `refs/remotes/origin/dev`이고, 다른 체크아웃이 칠 두 줄을 보고와 지시문에 실었다(`set-head`와 `symbolic-ref`는 했고, 두 줄은 PR 본문과 병합 뒤 `next-session` 지시문에 싣는다)
 - [ ] dev를 기준으로 `sibling_overlap`·`check_ticket`이 돌고, dev로 연 이 티켓의 PR이 CI를 지났다
 - [ ] 5의 `EnterWorktree` 확인 결과가 ADR 0016 Consequences "다른 세션"의 서술과 다르면 그 문장을 고치고, ADR의 `## 이력`(없으면 만든다)에 날짜와 이 티켓을 적었다(이력은 적었다. 확인은 dev와 main이 같은 커밋이라 구분하지 못해 미확인이고 05에 넘겼다)
-- [ ] 검사 넷이 초록이다
+- [x] 검사 넷이 초록이다(커밋 6fbcb62의 pre-commit이 린트, 포맷, pyright, import 경계, 테스트 3825개를 지났다. 앞서 두 번 막힌 시험은 아래 7항)
 
 ## 결과 (2026-11-12)
 

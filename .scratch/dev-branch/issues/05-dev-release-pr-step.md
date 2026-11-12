@@ -3,7 +3,7 @@
 **What to build:** 출시 PR(dev→main)을 누가 언제 어떤 순서로 여는지와, main이 strict라서 둘째 출시 PR부터 뒤처짐(BEHIND)이 날 것이라는 어림을 agent-os가 harness 티켓 `dev-release-pr-step`에서 정하는 중이다(설계 세션 때 병합 전). 그 결과가 agent-os의 `origin/dev`에 병합된 뒤 그 티켓 파일과 바뀐 스킬·문서(`next-session` `merge.md`, `docs/constitution/operations.md`, 보호 설정 파일)를 읽어 이 저장소에 옮긴다. main 보호의 strict는 그 결과를 보고 사용자에게 다시 묻고 정한다. 그때까지 출시 PR은 열지 않는다(ADR 0016).
 
 - 옮긴 결정을 ADR 0016의 이력에 더하고, 이력이 본문 문장("출시 PR을 여는 순서와 main의 strict는 아직 정하지 않는다")을 거짓으로 만들면 그 문장 뒤에 포인터를 단다(`.claude/rules/adr.md`).
-- main의 strict를 바꾸면 `tools/protection.json`을 고쳐 PUT하고, 사용자의 승인을 받은 뒤에 한다.
+- main의 strict를 바꾸면 `tools/protection.json`을 고쳐 PUT하고, 사용자의 승인을 받은 뒤에 한다. 이때 필수 검사 `verify`의 출처도 함께 본다. main은 `app_id` null이고 dev는 15368(GitHub Actions)이다(04 티켓과 ADR 0016 이력 2026-11-12 "원격 설정을 걸고 dev를 땄다"). 맞추려면 두 JSON을 `checks`로 쓰고, 맞추지 않으면 그대로 둔다고 적는다.
 - 이 기능의 마지막 티켓이다. 끝 줄 시험은 `**슬라이스:**` 줄이 없는 기능 계획을 보지 않고, 하네스 기능은 티켓이 모두 done이면 끝난 것이다(`tests/test_plan_status.py` 머리 독스트링). 그래서 기능 계획에 `**끝:**` 줄을 적지 않는다. 닫는 커밋이 `.scratch/plan-head.md`의 "하네스 기능" 문단에서 dev-branch를 지우고 `uv run python tools/plan_table.py`를 돌아 결과를 같은 커밋에 싣는다.
 - 시작할 때 dev가 main보다 앞서 있으면(04가 `EnterWorktree`의 기준을 구분하지 못했다. 그때 dev와 main이 같은 커밋이었다) `EnterWorktree`로 만든 새 워크트리에서 `git fetch origin` 뒤 `git rev-parse HEAD origin/dev origin/main`을 쳐 HEAD가 `origin/dev`와 같은지(main과 다른지) 보고, ADR 0016 Consequences "다른 세션"의 서술과 다르면 이력에 적는다.
 - 첫 출시 PR을 이 티켓이 열지, 옮긴 순서를 따르는 다음 세션에 맡길지는 옮긴 순서대로 한다.
