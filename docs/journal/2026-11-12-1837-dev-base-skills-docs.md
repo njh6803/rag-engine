@@ -47,6 +47,16 @@
   - 비고(Minor). 운영 문서가 main의 strict를 05가 정한다고 하면서 가드레일 절에서는 현재 사실로 쓴다. → 남겼다. 05가 strict를 풀면 되돌려 합치기 필요 판정의 근거 문장도 함께 고친다.
 - 다시 돌린 명령: 반영 뒤 커밋의 pre-commit 결과는 PR 본문에 적는다.
 
+## PR 봇 리뷰 (첫 회차)
+
+PR #25를 연 뒤 `@coderabbitai review`를 남겼다. CI는 `python`, `image`, `ticket`, `verify`, `claude-review`가 통과했다. CodeRabbit은 무료 OSS 리뷰 한도에 걸려 리뷰를 내지 않았다(`Review rate limited`, 7분 뒤 다시 가능). 한도에 걸린 푸시는 회차로 세지 않는다(`next-session` `merge.md`의 회차 세기). claude-review의 첫 리뷰가 첫 회차라 Minor·Nit도 지적마다 판단했다.
+
+- claude-review Minor 1(운영 문서 가드레일 절이 아직 없는 `tools/protection-dev.json`을 현재형으로 가리킨다): → 고쳤다. "티켓 `04-dev-branch-create`가 만드는" 생성 주체를 밝혔다.
+- claude-review Minor 2(`tools/base_rule.py`가 이 트리에 없다): → 보류. 01 병합 뒤에 병합한다는 게이트가 PR 본문 맨 위, 티켓 03의 첫 수락 기준, 이 일지 "다음"에 있다.
+- claude-review Nit 3(`agent-os` 이름이 헌법 본문에 든다): → 보류. 원칙 III과 ADR 0016이 하네스 원천으로서의 언급이라고 선을 그었고, 낱말 검사가 생기면 그때 대기열 `client-name-in-spec-body`가 걸 자리다.
+
+반영으로 새로 쓴 사실 문장(원문): "dev(티켓 `04-dev-branch-create`가 만드는 `tools/protection-dev.json`)는 같되 strict가 아니다."
+
 ## 회고
 
 후보 다섯. 승인 하나, 기각 셋, 일지에만 하나, 넘김 없음. 새 훅·검사가 문턱을 지난 것이 없어 `tools/hook_report.py`는 돌리지 않았다. `uv run python tools/queue_open_rows.py`의 만료할 항목은 없었다.

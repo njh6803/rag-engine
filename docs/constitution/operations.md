@@ -12,7 +12,7 @@
 ## 가드레일
 - pre-commit이 커밋마다 린트, 포맷, 검사 러너(타입체크, 타입 우회 검사, 테스트, 지침 검사, 커밋 검사)를 돌고, CI가 같은 검사를 PR마다 돈다. 훅과 검사의 목록과 등록은 `.claude/settings.json`, `.pre-commit-config.yaml`, `.github/workflows/ci.yml`이 원천이다.
 - 반드시 실행되어야 하는 것은 문서가 아니라 훅이나 검사로 둔다(`CLAUDE.md` 교정 루프).
-- 보호 브랜치는 둘이다. main(설정은 `tools/protection.json`)은 필수 검사 `verify`, 최신 main 기준(strict), 강제 푸시와 삭제 금지를 건다. dev(`tools/protection-dev.json`)는 같되 strict가 아니다. 두 브랜치 모두 선형 이력을 강제하지 않는다. 출시 PR과 되돌려 합치기 PR이 merge 커밋이기 때문이다. dev가 strict가 아닌 것은, strict이면 dev에 main에 없는 커밋이 있는 동안 머리가 main인 되돌려 합치기 PR이 늘 뒤처진 것으로 막히기 때문이다. 값은 ADR 0016이 정했고, 실제 설정은 티켓 `04-dev-branch-create`가 사용자의 승인을 다시 받고 바꾼다. 그 티켓이 병합되기 전에는 dev가 없고 main에 선형 이력 강제가 남아 있다.
+- 보호 브랜치는 둘이다. main(설정은 `tools/protection.json`)은 필수 검사 `verify`, 최신 main 기준(strict), 강제 푸시와 삭제 금지를 건다. dev(티켓 `04-dev-branch-create`가 만드는 `tools/protection-dev.json`)는 같되 strict가 아니다. 두 브랜치 모두 선형 이력을 강제하지 않는다. 출시 PR과 되돌려 합치기 PR이 merge 커밋이기 때문이다. dev가 strict가 아닌 것은, strict이면 dev에 main에 없는 커밋이 있는 동안 머리가 main인 되돌려 합치기 PR이 늘 뒤처진 것으로 막히기 때문이다. 값은 ADR 0016이 정했고, 실제 설정은 티켓 `04-dev-branch-create`가 사용자의 승인을 다시 받고 바꾼다. 그 티켓이 병합되기 전에는 dev가 없고 main에 선형 이력 강제가 남아 있다.
 
 ## 브랜치와 병합
 브랜치 모델은 agent-os의 ADR 0043을 따르고, 이 저장소에서 다른 것은 ADR 0016이 적는다. 용어는 `GLOSSARY.md`가 제품의 말만 들기 때문에 이 절이 정의한다(ADR 0016).
