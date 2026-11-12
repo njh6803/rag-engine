@@ -1,6 +1,6 @@
 # dev-branch 설계: 브랜치 모델을 agent-os ADR 0043으로 옮긴다 · 2026-11-12
 
-agent-os의 `dev-branch-create`가 낸 지시문을 사용자가 붙여 넣어 연 세션의 기록이다(Opus 5.5 / high). 시작 프롬프트는 `/grill-with-docs rag-engine을 agent-os ADR 0043의 브랜치 모델(dev 전환)로 옮긴다`이고, 브랜치는 `docs/dev-branch-model`(설계·티켓을 쓰는 면제 PR), 작업은 워크트리 `dev-branch-model`에서 했다. 준비, 사용자가 넘긴 것, 확인한 것, 물은 것과 답, 반영한 것, 셀프 리뷰, 검증, 다음을 차례로 둔다.
+agent-os의 `dev-branch-create`가 낸 지시문을 사용자가 붙여 넣어 연 세션의 기록이다(Opus 5.5 / high). 시작 프롬프트는 `/grill-with-docs rag-engine을 agent-os ADR 0043의 브랜치 모델(dev 전환)로 옮긴다`이고, 브랜치는 `docs/dev-branch-model`(설계·티켓을 쓰는 면제 PR), 작업은 워크트리 `dev-branch-model`에서 했다. 준비, 사용자가 넘긴 것, 확인한 것, 물은 것과 답, 반영한 것, 셀프 리뷰, 승인, PR 직전 리뷰, 회고, 검증, 다음을 차례로 둔다.
 
 ## 준비
 
@@ -136,3 +136,51 @@ PR 직전 리뷰(`bug-perf-review`)에 밀 주장으로 넘길, 반영으로 새
 10. `plan-head.md`: "하네스 기능의 기능 계획은 `**슬라이스:**` 줄이 없어 아래 표와 프론티어에 들지 않는다"
 
 남긴 것: 표준 축 Nit 1(티켓 03, 면제 모양 밖), Nit 2(승인 뒤 이 PR에서). 다시 돌린 명령: `uv run python tools/plan_table.py`가 0으로 끝났다. 검증 명령 다섯은 커밋의 pre-commit으로 갈음하고 결과는 커밋 뒤 이 일지에 적는다.
+
+## 승인
+
+ADR 0016을 위 반영 뒤의 판으로 보이고, 합의 요약에서 달라진 셋(03은 01과 02 뒤에 병합한다, 갈래 13의 CodeRabbit 어림이 실측과 맞지 않았다, `plan-head.md`에 하네스 기능 문단을 더하고 끝 줄 요구를 뺐다)을 함께 보였다.
+
+> 사용자: "승인, PR까지"
+
+status와 색인 행을 accepted로 바꿨다.
+
+## PR 직전 리뷰
+
+`coderabbit-review`(CodeRabbit CLI)가 커밋 d076d8f에서 `review_completed`로 끝났다(파일 14개, `Seat: not assigned`, `Plan: Free`). 지적 둘은 모두 티켓 04의 3단계였고 둘 다 유효로 판정해 고쳤다.
+
+- Major. dev가 이미 있고 main의 머리와 다른 커밋이어도 절차가 멈추지 않고 (나)·(다)로 간다. 그러면 4가 base를 옮기는 근거(두 브랜치가 같은 커밋)가 깨진 채 이어진다. → 고쳤다. 다르면 멈추고 사용자에게 보이며, 해결될 때까지 (나)·(다)와 4 이후를 하지 않는다.
+- Minor. dev가 이미 있는 갈래에 `git fetch origin`이 없어 5의 `set-head`가 로컬 추적 ref 없이 칠 수 있다(리뷰어의 git 지식이고 재지 않았다). → 고쳤다. 두 갈래 모두 fetch를 먼저 친다.
+- 셀프 리뷰가 넘긴 밀 주장 열은 CLI에 넘기는 인자가 없어 넘기지 못했다(`code-review` 6단계 1). CLI가 findings를 냈으므로 대체 둘(`/security-review`, `bug-perf-review`)은 돌리지 않았다(운영 문서 "리뷰 파이프라인").
+- 반영으로 새로 쓴 문장(원문): "땄든 이미 있었든 `git ls-remote origin refs/heads/main refs/heads/dev`의 두 커밋이 같은지 본다. 다르면 여기서 멈추고 두 커밋과 그 사이의 로그를 사용자에게 보이고, 사용자가 해결할 때까지 (나)·(다)와 4 이후를 하지 않는다." PR 봇이 이 문장을 겨냥하게 PR 본문에 적는다.
+
+## 회고
+
+후보 열하나. 승인 넷(새 항목 둘, 회차 둘), 기각 여섯, 일지에만 하나, 넘김 없음. 새 훅·검사가 문턱을 지난 것이 없어 `tools/hook_report.py`는 돌리지 않았다. `uv run python tools/queue_open_rows.py`(워크트리)의 만료할 항목은 없었다.
+
+1. 승인(더하는 것, 새 항목 `harness-feature-off-plan` 1회차). 사건: 하네스 기능이 전체 계획의 표에 들지 않아 외부 조건을 기다리는 05를 다시 집을 계기가 없었다(명세 축 Major 3). 층: 손 문단보다 도구가 내는 목록이 높아 `tools/plan_table.py`로 적었다. 되돌림: PR 하나. 이 PR은 `plan-head.md`의 손 문단으로 메웠다.
+2. 승인(회차, `ticket-dep-closure-check` 2회차). 사건: 03이 02가 넘긴 것을 받는데 `Blocked by`가 02를 포함하지 않았다(명세 축 Major 2). to-tickets의 Blocked by 지침과 같은 실수이고, 그 항목이 처방한 검사가 번호를 가리킨 이 꼴을 잡는다.
+3. 승인(회차, `grilling-premise-check` 3회차). 사건: 합의 요약의 갈래 12·13이 저장소 운영 문서의 실측에 대 보지 않은 어림과, 재지 않은 추론을 사실의 꼴로 실었다(표준 축 Minor 4, 명세 축 Minor 11·12). grilling "올리기 전" 문단을 어긴 사건이다.
+4. 승인(고침, 새 항목 `harness-end-line-rule` 1회차). 사건: `docs/agents/issue-tracker.md`의 끝 줄 항목이 하네스 기능을 빼지 않아 티켓 05에 끝 줄을 요구했다(표준 축 Minor 5). 고침이라 사건 하나로 반영하지만, 이 PR은 사용자가 승인한 설계 PR이고 그 파일이 면제 모양 밖이라 harness 티켓이 하나 더 들어 다음 chore에 둔다.
+5. 기각. ADR 초안의 닫힌 주장(고친 줄이 둘뿐)이 이 일지 "확인한 것"과 어긋났다. 리뷰 브리프의 주장 검증이 잡도록 둔 기준이고 리뷰가 제 몫을 했다.
+6. 기각. 셀프 리뷰를 반영해 새로 쓴 04의 3단계를 PR 직전 리뷰가 다시 잡았다. 그 층이 맡은 일을 했고, CLI에 밀 주장을 넘기는 길이 없다는 것은 `code-review` 6단계 1이 이미 적었다.
+7. 기각. 이 저장소에 없는 일지(agent-os의 일지)를 가리킨 인용을 `tools/sibling_overlap.py`가 잡았다. 있는 검사가 그 자리에서 막았다.
+8. 기각. 주 체크아웃으로 옮기는 `cd`(회고의 "저장소 루트"를 주 체크아웃으로 읽었다), MSYS 경로 변환, 사용자 설정 파일의 Grep, `.env`에 닿는 glob을 훅이 막거나 알렸다.
+9. 기각. 압축 전에 PowerShell 비교 스크립트가 틀린 결과를 내어 Python으로 바꿨다. 한 번의 스크래치 스크립트 실수이고 검사로 옮길 꼴이 없다.
+10. 기각. agent-os의 지시문이 이 저장소의 docs PR에 harness 티켓을 싣는다고 전제했는데, 이 저장소의 CI는 docs PR의 harness 티켓에 done을 요구한다. 두 저장소의 벌어짐을 알리는 일은 agent-os의 대기열 `rag-engine-harness-drift`다.
+11. 일지에만. 첫 커밋 시도의 pre-commit에서 `tests/adapters/test_parse_runner.py`의 멈춘 자식 시험이 빨갰고 단독으로 다시 돌리니 초록이었다(아래 검증). 부하에서만 빨간 시간 시험은 받아들여 닫은 종류라 항목을 잇지 않는다(retro 5단계, core 13 일지와 같은 판단).
+
+## 검증
+
+- 첫 커밋 시도의 pre-commit은 pytest 1개 실패, 3661개 통과(475.9초)로 막혔다. 실패는 `tests/adapters/test_parse_runner.py::test_메시지를_보내다_멈춘_자식이_있어도_수신이_영영_막히지_않는다`(Windows 기대 `parse_failed`에 `parse_timeout`이 왔다)이고, 이 브랜치는 파서 쪽 파일을 바꾸지 않았다. 단독으로 다시 돌리니 1 passed(1.46초)였다. 같은 시도에서 인용 대조가 이 일지의 인용 둘(고치기 전 ADR의 문구, agent-os 일지의 문장)을 경고해 따옴표를 떼고 풀어 썼다.
+- 커밋 d076d8f의 pre-commit은 test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright-linux, pyright, run-hooks, pytest(389.1초)가 모두 Passed이고, 표·줄 구분자·변이 표·인용(경고 없음)·커밋 메시지 훅도 Passed다. ruff 둘과 헌법 판 검사는 바뀐 파일이 없어 Skipped다.
+- `uv run python tools/sibling_overlap.py`는 첫 실행에서 이 저장소에 없는 일지를 가리킨 인용 둘(ADR 0016과 이 일지의 agent-os 일지 인용)을 내고 1로 끝났다. agent-os 일지의 전체 경로를 코드 스팬으로 적은 뒤 다시 돌려 "번호 겹침 없음"으로 끝났다.
+- `uv run python tools/plan_table.py`는 `plan-head.md`를 고친 뒤 0으로 끝났고 `.scratch/plan.md`가 다시 만들어졌다.
+- 이 절과 PR 직전 리뷰의 고침을 싣는 둘째 커밋의 pre-commit 결과는 PR 본문에 적는다.
+
+## 다음
+
+- 둘째 커밋 뒤 이 브랜치를 푸시하고 PR(base main, `docs/` 면제 PR)을 연다. 사용자의 요청은 PR을 여는 데까지이고, 병합과 그 뒤의 지시문은 `next-session`의 `merge.md`가 정한다.
+- 병합 뒤의 다음 작업은 하네스 기능 dev-branch의 티켓 01·02·03이다. 셋은 `Blocked by`가 "없음 …"이라 나란히 열 수 있고, 03은 01과 02가 병합된 뒤에 병합한다. 04는 앞의 셋 뒤에, 05는 04와 agent-os의 `dev-release-pr-step` 병합 뒤에 한다(`.scratch/plan-head.md`의 "하네스 기능" 문단).
+- 다른 세션이 core 14(`feature/14-reindex-version-switch`)를 진행하고 있다. 04가 dev를 딸 때 그 PR이 main으로 열려 있으면 04의 4단계대로 base를 옮긴다.
+- 주 체크아웃 미갱신: 루트는 main(11f91c9). 이 세션은 주 체크아웃을 당기지 않는다. 다음에 여는 세션이 워크트리에 들어가기 전에 `tidy-checkouts`로 당긴다.
