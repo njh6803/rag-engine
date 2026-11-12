@@ -10,6 +10,8 @@ core 티켓 세션(2026-11-10)의 명세 검토가 넘긴 것: TEI 컨테이너 
 
 dev-branch(ADR 0016, 2026-11-12)가 넘긴 것: 단독 compose를 띄워 보는 시험처럼 느린 검사를 CI에 더하면, 그 잡을 main PR(출시 PR과 핫픽스 PR)과 main 푸시에서만 돌릴지 dev PR에서도 돌릴지 정한다. 지금은 main PR에만 도는 잡이 없어 dev PR과 main PR이 같은 잡을 돈다. 판을 어느 브랜치의 어느 사건에서 낼지도 이 기능이 정한다.
 
+search-eval 설계(ADR 0019, 2026-11-12)가 넘긴 것: search-eval이 구현되면 운영 의존성에 Anthropic SDK(`anthropic`)와 전이 의존 셋(docstring-parser, jiter, sniffio)이 더해져 이미지에 실린다. 부품 목록(SBOM)과 CVE 스캔의 대상이 그만큼 는다. 평가를 부르는 입구는 admin이 열 때까지 이미지 안에 없다.
+
 공개 시연(core, search-eval, release-image)의 한 축이다. 판을 고정한 이미지가 있어야 클라이언트가 실제 서버로 시험할 수 있다.
 
 수락: 깨끗한 VM에서 단독 compose로 띄워 관리 명령으로 표본 문서를 넣은 뒤 MCP 클라이언트로 검색할 수 있고, 그 VM에서 밖으로 열린 포트가 하나다.
