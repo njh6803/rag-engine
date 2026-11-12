@@ -175,11 +175,16 @@ async def test_임대가_1초인_작업은_1초가_지나면_다른_작업자가
     (document,) = await _seed_documents(unit_of_work)
     async with unit_of_work.begin() as transaction:
         await transaction.jobs.enqueue(document.id, new_id(), datetime.now(UTC))
+    claimed_at = datetime.now(UTC)
     async with unit_of_work.begin() as transaction:
-        first = await transaction.jobs.claim("작업자-1", datetime.now(UTC), 1.0)
+        first = await transaction.jobs.claim("작업자-1", claimed_at, 1.0)
     assert first is not None
+    # 임대 중의 거부는 실제 시각이 아니라 첫 꺼내기 시각에서 반 초 뒤로 보인다. 부하로 조회가
+    # 늦어져 실제 시각이 임대 끝을 넘어도 이 단언이 흔들리지 않게 하기 위해서다.
     async with unit_of_work.begin() as transaction:
-        during_lease = await transaction.jobs.claim("작업자-2", datetime.now(UTC), 1.0)
+        during_lease = await transaction.jobs.claim(
+            "작업자-2", claimed_at + timedelta(seconds=0.5), 1.0
+        )
 
     await asyncio.sleep(1.2)
     async with unit_of_work.begin() as transaction:

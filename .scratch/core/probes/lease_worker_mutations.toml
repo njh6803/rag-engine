@@ -257,7 +257,8 @@ old = '''        except TransientFailure:
                 logger,
                 "lease_extension_failed",
 '''
-new = '''        except KeyError:
+new = '''        except TransientFailure:
+            return
             log_event(
                 logger,
                 "lease_extension_failed",

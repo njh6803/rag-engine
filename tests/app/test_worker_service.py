@@ -27,8 +27,9 @@ from rag_engine.worker.service import JobListener, WorkerConfig, serve
 
 휴가 = docx_bytes("제1조 휴가", "연차휴가는 입사 일 년 뒤부터 발생한다.")
 출장 = docx_bytes("제2조 출장", "출장비는 실비로 정산한다.")
-LONG_POLL_SECONDS = 60.0
 WAIT_SECONDS = 60.0
+# 알림으로 깨어나는 시험이 폴링으로 지나가지 않도록 대기 기한보다 훨씬 길게 둔다.
+LONG_POLL_SECONDS = 5 * WAIT_SECONDS
 
 
 class _ObservedListener:
@@ -152,8 +153,13 @@ def _events(caplog: pytest.LogCaptureFixture) -> list[str]:
 async def test_알림이_오면_폴링을_기다리지_않고_깨어나_작업을_처리한다(
     pipeline: Pipeline, start_worker: Callable[..., _Running]
 ) -> None:
-    worker = start_worker()
+    watched = WatchedUnitOfWork(pipeline.unit_of_work)
+    worker = start_worker(pipeline.deps(unit_of_work=watched))
     await worker.wait_until_listening()
+    # 첫 꺼내기가 수집 뒤에 시작하면 알림이 고장 나도 그 꺼내기가 작업을 가져가 시험이 통과한다.
+    # 첫 꺼내기가 빈손으로 끝난 뒤에 수집해야 폴링이 아니라 알림으로 깨어난 것을 가려낸다.
+    async with asyncio.timeout(WAIT_SECONDS):
+        await watched.ended.wait()
 
     ingested = await pipeline.ingest(휴가)
     await _wait_for_statuses(pipeline, ingested.document_id, ["succeeded"])
