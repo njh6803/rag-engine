@@ -1,0 +1,43 @@
+# 검색 지연 프로브(probe.py)가 쓰는 TEI 컨테이너 둘. 이미지는 CPU 판 1.9.4(ADR 0010, 프로브
+# facts/tei_images_and_models.py 가 레이어 합 239.3MB 로 쟀다)이고 모델은 첫 기동에 허깅페이스에서
+# 받아 볼륨에 둔다(임베딩 BAAI/bge-m3, 리랭커 BAAI/bge-reranker-v2-m3). 테스트 PostgreSQL 은
+# 저장소 루트의 compose.test.yml 이 띄운다(127.0.0.1:55432).
+#   docker compose -f compose.test.yml up -d --wait
+#   docker compose -f .scratch/core/probes/search-latency/compose.yml up -d embedding
+#   (임베딩이 /health 200 을 낸 뒤) docker compose -f <이 파일> up -d reranker
+# 둘을 한꺼번에 처음 띄우면 안 된다. Docker VM 메모리가 15.6GiB 인 기계에서 둘이 같이 워밍업하다 임베딩
+# 컨테이너가 OOM(종료 코드 137)으로 죽었다(2026-11-13 이 기계에서 `docker inspect` 의 OOMKilled 로
+# 손으로 봤다). 하나씩 올린다.
+# 옵션은 TEI 기본값(--max-client-batch-size 32)이고 하나만 낮췄다. --max-batch-tokens 는 기본 16384 이고
+# 그 값에서 임베딩 컨테이너 하나가 워밍업 뒤에도 13.25GiB 를 점유해(docker stats 로 손으로 봤다) 15.6GiB
+# VM 에 리랭커가 들어가지 않았다. 그래서 둘 다 4096 으로 둔다. 16GB 최소 구성(명세 Out of Scope 의
+# release-image 항목)에서 TEI 둘이 같이 뜨려면 이 값을 낮춰야 한다는 뜻이다.
+name: rag-latency-probe
+
+x-tei: &tei
+  image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
+  healthcheck:
+    test: ["CMD-SHELL", "curl -sf http://127.0.0.1:80/health || exit 1"]
+    interval: 5s
+    timeout: 3s
+    retries: 240
+    start_period: 10s
+
+services:
+  embedding:
+    <<: *tei
+    command: ["--model-id", "BAAI/bge-m3", "--port", "80", "--max-batch-tokens", "4096"]
+    ports:
+      - "127.0.0.1:18081:80"
+    volumes:
+      - tei-data:/data
+  reranker:
+    <<: *tei
+    command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--port", "80", "--max-batch-tokens", "4096"]
+    ports:
+      - "127.0.0.1:18082:80"
+    volumes:
+      - tei-data:/data
+
+volumes:
+  tei-data:
