@@ -304,7 +304,7 @@ LLM으로 판정하는 길은 호출 6과 호출 8에서 따로 물었다.
 - `uv run pyright`: `0 errors, 0 warnings, 0 informations`
 - `uv run lint-imports`: `Contracts: 2 kept, 0 broken.`
 - 문서 검사: `tools/check_adr_pointers.py`, `tools/plan_table.py --check`, `tools/check_md_tables.py`, `tools/check_line_separators.py`는 출력 없이 끝났다. `tools/check_quotes.py --all-lines`는 바뀐 문서 스물다섯을 보고 경고가 없었다. 셀프 리뷰 전에 처음 돌렸을 때는 이 일지의 두 자리를 냈다. 따옴표 안의 글이 원문과 글자 그대로가 아니었고, 따옴표를 떼고 풀어 썼다.
-- `uv run python tools/sibling_overlap.py`: 번호 겹침이 없다. 이 실행에서 origin/main이 3cf02f1에서 bcd5613으로 나아간 것을 봤다. PR #25(dev-branch 03)가 병합된 것이고, 그 커밋이 이 브랜치와 함께 고친 파일은 둘이다(ADR 0016, 헌법 README). 이 브랜치의 변경은 아직 3cf02f1 위에 있다(다음 절).
+- `uv run python tools/sibling_overlap.py`: 번호 겹침이 없다. 이 실행에서 origin/main이 3cf02f1에서 bcd5613으로 나아간 것을 봤다. PR #25(dev-branch 03)가 병합된 것이고, 그 커밋이 이 브랜치와 함께 고친 파일은 둘이다(ADR 0016, 헌법 README). 이 검사를 돌린 때에는 이 브랜치의 변경이 아직 3cf02f1 위에 있었다. 커밋한 뒤에 기준 브랜치를 합쳤다(커밋과 기준 브랜치 합치기 절).
 
 ## 셀프 리뷰
 
@@ -400,16 +400,49 @@ LLM으로 판정하는 길은 호출 6과 호출 8에서 따로 물었다.
 - `tools/rewrap_comments.py`가 프로브 독스트링의 명령 줄들을 한 문단으로 보고 넘친 꼬리를 다음 명령 줄로 넘겼다. 도구의 독스트링이 적은 동작이고(머리가 같은 줄은 한 문단이다), 명령마다 한 줄에 들게 자리 표시를 써서 고쳤다.
 - 다음 절을 셀프 리뷰 전에 써서 회고의 계기가 리뷰 도중에 들어왔다. 잃은 것은 없고 순서만 어긋났다. 다음 절은 리뷰와 회고를 마친 뒤에 다시 고쳤다.
 
+## 커밋과 기준 브랜치 합치기
+
+사용자가 커밋을 요청해 커밋했고, 이어서 PR을 요청해 기준 브랜치를 합쳤다.
+
+- **커밋 372065d.** `docs: search-eval 설계 ADR 0017~0019와 PRD·헌법·용어집 반영`이고 파일 34개다. pre-commit의 검사 러너에서 test-db, zizmor, check-ticket, lint-imports, check-instructions, check-type-escapes, pyright, pyright-linux, run-hooks, pytest(755.0초)가 모두 Passed였고, ruff 둘과 표, 줄 구분자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지 훅도 Passed였다. 셀프 리뷰를 반영한 뒤의 전체 테스트는 이 pre-commit이 처음 돌린 것이다(검증 절의 전체 테스트는 반영 전의 것이다).
+- **기준 브랜치.** 이 세션 도중에 원격에 dev가 생겼다. `git fetch origin` 뒤에 origin/main과 origin/dev가 모두 bcd5613이었다(`git rev-parse origin/main origin/dev`). 이 브랜치는 `docs/*`이고 이 클론에 origin/dev의 추적 ref가 있으므로 기준 브랜치는 origin/dev이고 PR의 base는 dev다(`docs/constitution/operations.md` 브랜치와 병합).
+- **병합 커밋 9da0c96.** `git merge --no-commit --no-ff origin/dev`가 `docs/constitution/README.md`의 판 줄에서 충돌했다. 판 줄을 1.3.0으로 두고, 1.2.0을 형제 브랜치 몫으로 비워 둔 문장을 지웠다. PR #25가 1.2.0을 가져갔기 때문이다. `git diff origin/dev`로 본 그 파일의 차이는 판 줄뿐이다. ADR 0016은 자동으로 합쳐졌다. dev 쪽의 포인터 둘과 `## 이력` 절이 들어왔고, 이 브랜치의 포인터(느린 검사 문장 뒤의 ADR 0018)는 그대로다. 합친 뒤에 `tools/check_adr_pointers.py`와 `tools/plan_table.py --check`는 출력 없이 끝났다. 병합 커밋의 pre-commit에서는 검사 러너의 열이 모두 Passed였다(pytest 613.3초). 병합 커밋에서는 pre-commit이 충돌했던 파일만 훅에 넘겨(`Checking merge-conflict files only`) ruff 둘은 볼 파일이 없어 Skipped였다.
+- 합친 커밋은 `code-review`, `retro`, `next-session`의 스킬 글과 `CLAUDE.md`, `docs/constitution/operations.md`도 고쳤으므로, 합친 뒤의 절차(PR 직전 리뷰, PR, 병합)는 새 글을 따른다.
+
+## PR 직전 리뷰
+
+병합 커밋 9da0c96에서 `coderabbit-review` 서브에이전트를 돌렸다. CodeRabbit CLI 0.7.5가 `coderabbit review --agent --include-untracked --base origin/dev`를 `review_completed`로 마쳤다. `--base origin/dev`는 본 세션이 브리프에 더한 인자다. 원격의 기본 브랜치와 이 브랜치의 기준 브랜치가 다를 수 있는데 CLI가 기준을 어떻게 잡는지 몰라서 붙였다(`coderabbit review --help`에 있는 옵션이다). CLI가 본 파일은 34개이고 `git diff --name-only origin/dev HEAD`의 34개와 목록이 같았다. 좌석은 `Plan: Free`, `Seat: not assigned`였다. CLI가 돌았으므로 대체 둘(`/security-review`, `bug-perf-review`)은 돌리지 않았다. CLI에는 주장을 넘기는 인자가 없어 셀프 리뷰 절의 고친 것 목록은 이 리뷰에 넘기지 못했고, PR 본문의 리뷰어 참고로 넘긴다.
+
+지적은 둘이다. 서브에이전트가 둘 다 유효로 보고 Minor로 내렸다(CLI의 표시는 둘 다 major였다). 오탐은 없다.
+
+1. Minor. `docs/adr/0018-search-evaluation-in-app-and-baseline-gate.md` 13행(적중의 단위). 공공 문서 묶음의 적중 조건이 조각 글에 글귀가 들어 있는지뿐이고, 그 조각이 기대 근거의 문서에서 나온 것이어야 한다는 조건이 없다. 다른 문서의 조각에 같은 글귀(법령 조문에서 되풀이되는 문구)가 있으면 적중으로 읽힐 수 있고, 명세와 구현이 그대로 옮기면 지표가 부푼다. 고쳤다. 기대 근거는 문서와 글귀의 쌍이므로(`GLOSSARY.md`의 기대 근거, 물은 것과 답 절의 사용자가 고른 설명) 그 문서의 조각이라는 말을 넣었다. 결정을 바꾼 것이 아니라 이미 정한 단위를 문장에 드러낸 것으로 봤다.
+2. Minor. `docs/adr/0019-llm-relevance-judging-behind-a-port.md` 15행(도는 곳과 결정성). 저장한 판정이 질의의 글이 바뀐 것을 알아채는지 정하지 않았다. 식별자는 그대로이고 글만 바뀌면 옛 판정이 새 글에 다시 쓰이고, 판정 없음의 비율에도 잡히지 않는다. 조각 쪽은 Consequences가 조각 글에서 낸 값이라고 정했는데 질의 쪽에는 같은 줄이 없다. 고쳤다. Consequences의 그 줄에 질의를 가리키는 값을 명세가 정한다는 것과 지켜야 할 조건을 더했다. 조회 키에 글의 해시를 넣으라는 제안은 수단이라 명세에 맡겼다.
+
+### PR 직전 리뷰에서 고친 것
+
+새로 쓴 문장의 원문이다. 둘 다 사용자가 승인한 초안에 없던 글이라 PR 본문과 최종 보고에서 알린다.
+
+- ADR 0018 적중의 단위 항목: 공공 문서 묶음은 문서와 원문 글귀로 적고, 그 문서의 조각 글에 그 글귀가 들어 있으면 적중이다.
+- ADR 0019 Consequences: 질의를 가리키는 값도 명세가 정한다. 질의의 글이 바뀌면 그 질의의 옛 판정은 새 글에 다시 쓰지 않고 판정 없음으로 세어야 한다.
+
+### PR 직전 리뷰에서 남긴 것
+
+없다.
+
+### PR 직전 리뷰 뒤에 다시 돌린 것
+
+손으로 치는 다섯(테스트, 린트, 포맷 검사, 타입체크, import 경계)은 이 반영을 싣는 커밋의 pre-commit으로 갈음하고, 결과는 PR 본문의 확인 방법에 적는다. 문서 검사는 커밋 전에 손으로 돌렸다. `tools/check_adr_pointers.py`, `tools/check_md_tables.py`, `tools/check_line_separators.py`는 출력 없이 끝났고 `tools/check_quotes.py --all-lines`는 경고가 없었다.
+
 ## 다음
 
-이 브랜치의 변경은 아직 커밋하지 않았다. 커밋, PR, 병합은 사용자가 요청할 때 한다. 병합 뒤의 다음 단계는 search-eval의 명세다(`to-spec`).
+이 브랜치의 변경은 커밋했고(372065d) origin/dev를 합쳤다(9da0c96). 사용자가 요청해 base가 dev인 PR을 연다. 병합은 사용자가 요청할 때 한다. base가 dev인 PR이므로 `/git-pr-merge`가 아니라 `next-session` `merge.md`의 워크트리에서 병합할 때 1~3으로 병합한다(`docs/constitution/operations.md` 브랜치와 병합). 병합 뒤의 다음 단계는 search-eval의 명세다(`to-spec`).
 
 명세가 정할 것은 다섯 묶음이다.
 
 - **게이트.** 하락폭의 값(첫 측정에서 실행마다 흔들리는 정도를 본 뒤), 빠른 게이트의 소요 시간 한도(core 16의 측정으로), 빠른 게이트를 돌릴 경로의 목록, 평가 전용 compose와 CI의 모델 캐시. dev 전환(ADR 0016) 전에 구현되면 전체 게이트는 수동 실행으로만 둔다. 셀프 리뷰가 더한 것이 넷이다. 기준 보고서의 어느 줄을 어느 실행의 값으로 갱신하는지와 첫 기준 보고서를 만드는 절차, 전체 게이트를 main 푸시에서도 돌릴지, dev 전환 뒤 전체 게이트를 main PR의 잡으로 켜는 일을 받는 티켓, 빠른 게이트를 건너뛴 PR이 `verify`를 통과하게 하는 방법이다(지금 `verify`는 건너뛴 잡을 빨강으로 센다).
 - **재료.** 공공 문서 묶음의 용량 상한, 문서 수와 질문 수, 후보 목록(에이전트가 내고 사용자가 확정한다), 문서마다 적는 목록의 칸(출처, 이용 조건, 내려받은 날짜, 해시).
 - **형식.** 평가 세트의 형식(판 칸, 기대 근거의 두 단위, 질의 목록, 놓친 까닭의 유형 표지, 공개 데이터셋의 그림 유형 문항 표시, 질의에 적는 필터 칸)과 보고서의 형식(JSON과 Markdown, 질의 목록마다 네 줄, 유형별 숫자. 기준 보고서는 커밋하고 CI의 보고서는 산출물로 올린다).
-- **코드.** 진단용 메서드와 판정기 포트의 이름과 모양, 명령줄 도구의 자리, 판정 파일의 형식과 조각을 가리키는 값, 지시문의 판. 판정 모델이 바뀌었을 때 옛 판정을 어떻게 다루는지와, 끊긴 실행을 이어 갈 때 이미 판정한 조합을 건너뛰는 규칙도 명세가 정한다(ADR 0019 Consequences).
+- **코드.** 진단용 메서드와 판정기 포트의 이름과 모양, 명령줄 도구의 자리, 판정 파일의 형식과 조각을 가리키는 값, 질의를 가리키는 값(질의의 글이 바뀌면 옛 판정을 다시 쓰지 않는다. PR 직전 리뷰가 더했다), 지시문의 판. 판정 모델이 바뀌었을 때 옛 판정을 어떻게 다루는지와, 끊긴 실행을 이어 갈 때 이미 판정한 조합을 건너뛰는 규칙도 명세가 정한다(ADR 0019 Consequences).
 - **순서.** 설정 실험(조각 크기와 겹침, 리랭커 켬·끔과 후보 수)은 로컬에서 수동으로 돌리고 결과를 프로브로 커밋하며, 기본값의 변경은 사용자 승인 뒤에 한다. 최소 점수는 분포를 재는 티켓, 사용자 승인, 구현 티켓의 순서다. 구현 티켓은 승인 뒤에 쓰는 것이 기본이고, 승인을 어디에 적는지는 명세가 정한다(ADR 0017 Consequences). 그 구현 티켓이 입력 인자를 처음 더하므로 계약 시험에 도구 목록의 inputSchema를 보는 시험도 그 티켓이 더한다(ADR 0015 이력). 기본값이 있는 지식베이스에서 리랭커를 빼는 설정 변경을 어떻게 다룰지도 명세가 정한다.
 
 합의 요약의 가정 가운데 ADR에 적지 않고 명세로 넘긴 것은 3, 4, 11, 12이고 위 형식과 순서 묶음에 들어 있다. 가정 3 가운데 기본값의 변경은 사용자 승인 뒤에 한다는 조건은 셀프 리뷰 뒤에 ADR 0018의 범위 항목에도 적었다.
@@ -418,8 +451,8 @@ LLM으로 판정하는 길은 호출 6과 호출 8에서 따로 물었다.
 
 면제 PR이 고칠 수 없어 구현 티켓으로 넘긴 파일은 넷이다. `pyproject.toml`의 import 금지 목록(`anthropic`을 더해 열일곱)과 `CLAUDE.md`의 레이어 절이 적은 수는 판정기 포트를 넣는 티켓이 고친다. `docs/constitution/operations.md`의 CI 절(적중률이 기준치 아래로 떨어질 때라는 문장)과 `.github/workflows/ci.yml`의 머리 주석(느린 검사를 main PR에만 둘지를 설계에 미룬 문장)은 게이트를 넣는 티켓이 고친다.
 
-PR 직전 리뷰에 밀 주장은 셀프 리뷰 절의 고친 것 목록이다.
+PR 직전 리뷰는 CodeRabbit CLI로 돌았고 결과는 PR 직전 리뷰 절에 있다. 셀프 리뷰 절의 고친 것 목록은 CLI에 넘기는 길이 없어 PR 본문의 리뷰어 참고에 적어 PR의 리뷰에 넘긴다.
 
-커밋할 때 볼 것: PR #25(`feature/03-dev-base-skills-docs`)가 이 세션 도중에 병합되어 origin/main이 bcd5613이 됐다. 그 커밋이 ADR 0016과 헌법 README를 고쳤고 이 브랜치도 같은 두 파일을 고쳤다. 커밋 전의 변경이 그 두 파일에 있어 origin/main을 아직 합치지 않았다. 커밋한 뒤에 origin/main을 합친다. 그때 헌법 README의 판 줄은 1.3.0으로 두고, 1.2.0을 형제 브랜치 몫으로 비워 둔 문장은 지운다. ADR 0016은 두 변경이 서로 다른 문장이면 둘 다 남긴다. 그 커밋은 `code-review`, `retro`, `next-session`의 스킬 글과 `CLAUDE.md`, `docs/constitution/operations.md`도 고쳤으므로 합친 뒤의 절차는 새 글을 따른다.
+병합할 때 볼 것: PR #25(`feature/03-dev-base-skills-docs`)가 고친 ADR 0016과 헌법 README는 이 브랜치도 고친 파일이고, 합친 경위는 커밋과 기준 브랜치 합치기 절에 있다. 병합이 늦어져 그사이 dev가 나아갔으면, 병합 직전에 `git fetch origin` 뒤 origin/dev를 다시 합치고 저장소 상태 시험(`tests/test_plan_status.py`)을 직접 돈다(`docs/constitution/operations.md` 브랜치와 병합). 그때 다른 브랜치가 헌법 판을 올렸으면 판 줄이 다시 충돌한다. PR 직전 리뷰를 반영한 커밋 앞에서 돌린 `uv run python tools/sibling_overlap.py`는 번호 겹침이 없다고 냈고, 형제 워크트리 `04-dev-branch-create`가 헌법 판 1.2.1을 쓰며 `.scratch/plan.md`, ADR 0016, 헌법 README를 함께 고치고 있다고 냈다. 1.3.0이 더 높아 판은 겹치지 않지만, 나중에 병합하는 쪽에서 이 세 파일의 글자 충돌이 날 수 있다.
 
 곁가지(이 설계의 범위 밖): 프로브의 대조군에서 MCP SDK가 인자 검증에 실패했을 때 낸 오류 글이 입력 값을 그대로 실었다(`input_value='많이'`). 프로브는 최소 서버로 잰 것이다. 셀프 리뷰의 표준 축 리뷰어가 이 저장소의 `register_search_tool`로 등록한 실제 도구에서도 같다고 보고했고, 일회용 스크립트로 다시 봤다(손으로 봤다. 스크래치패드의 스크립트라 커밋하지 않았다). `top_k`에 문자열 `'x'`를 주면 도구 호출이 `ToolError`로 끝났고 그 글에 `input_value='x'`가 실렸다. 서버의 로그에 그 글이 남는지는 보지 않았다. 원칙 V와 ADR 0015의 에러 봉투 항목(오류의 `detail`에 질문 내용을 넣지 않는다)에 닿을 수 있어 따로 확인할 일로 사용자에게 알린다. 세션 카드로 올리려 했으나 이 저장소의 훅이 에이전트가 스스로 내는 카드를 막아 여기에 적는다.
