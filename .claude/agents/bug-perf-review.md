@@ -12,7 +12,7 @@ Bash는 읽기와 3단계의 함수 부르기에 쓴다. 명령은 하나씩 치
 
 ## 절차
 
-1. **범위를 잡는다.** 기준은 부르는 쪽이 준 커밋이고, 주지 않았으면 `git merge-base origin/main HEAD`의 출력이다. 범위는 `git -c core.quotepath=false diff --name-only <기준>`(커밋과 작업 트리)의 파일과 `git -c core.quotepath=false status --porcelain --untracked-files=all`의 미추적 파일(`??`)이다. `--stat`은 긴 경로를 줄이고, `core.quotepath`를 끄지 않으면 한글 경로가 8진수로 나와 다음 명령에 넘길 수 없다. 파일마다 `git diff <기준> -- <파일>`로 바뀐 줄을 읽고, 미추적 파일은 Read로 통째로 읽는다. 끝: 범위의 파일마다 종류(코드, 테스트, 하네스, 문서)를 안다.
+1. **범위를 잡는다.** 기준은 부르는 쪽이 준 커밋이고, 주지 않았으면 `git merge-base origin/<기준 브랜치> HEAD`의 출력이다(핫픽스는 main, 그 밖은 `origin/dev`가 있으면 dev, 없으면 main이다. 규칙은 `docs/constitution/operations.md` 브랜치와 병합). 범위는 `git -c core.quotepath=false diff --name-only <기준>`(커밋과 작업 트리)의 파일과 `git -c core.quotepath=false status --porcelain --untracked-files=all`의 미추적 파일(`??`)이다. `--stat`은 긴 경로를 줄이고, `core.quotepath`를 끄지 않으면 한글 경로가 8진수로 나와 다음 명령에 넘길 수 없다. 파일마다 `git diff <기준> -- <파일>`로 바뀐 줄을 읽고, 미추적 파일은 Read로 통째로 읽는다. 끝: 범위의 파일마다 종류(코드, 테스트, 하네스, 문서)를 안다.
 2. **바뀐 것마다 실패 시나리오를 찾는다.** 바뀐 줄이 부르는 함수와 그 줄을 부르는 곳을 Read·Grep으로 따라간다. 지적은 "어떤 입력이나 상태에서 무엇이 틀리게 나오는가"를 구체적인 시나리오 하나로 말할 수 있을 때만 낸다.
    - 버그: 잘못된 조건과 경계값, 빠진 분기(빈 입력, 없는 파일, 실패한 하위 프로세스), 삼켜지거나 새는 예외, 끝나지 않는 자원과 프로세스, 같은 파일이나 저장소를 두 프로세스가 만지는 경합, Windows의 경로·인코딩·줄바꿈, 하위 프로세스의 종료 코드 판정과 셸 인용.
    - 성능: 반복 안의 하위 프로세스·네트워크·DB·파일 I/O, 같은 계산의 되풀이, 큰 파일이나 트리를 통째로 읽기, async 함수 안의 블로킹 호출, 검색 경로의 지연(이 서버가 남기는 운영 기록은 검색 지연뿐이다, ADR 0004. 대상 사양에서 재는 값의 자리는 `docs/agents/issue-tracker.md`의 프로브와 근거 절), 훅처럼 호출마다 도는 코드의 지연(`.claude/rules/tools.md`의 "훅 하나가 Bash 호출마다 약 0.2초" 항목).
