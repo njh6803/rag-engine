@@ -35,6 +35,9 @@ EXPECTED_TABLES = {
     "tokens",
 }
 
+# 마이그레이션 판을 더하면 이 값이 마지막 판을 따라간다.
+HEAD_REVISION = "0002"
+
 NOW = datetime(2026, 11, 10, 9, 30, tzinfo=UTC)
 
 
@@ -163,7 +166,7 @@ def test_첫_판은_표_열둘과_alembic_판_표를_만든다(migrated_url: str
         version = connection.execute("SELECT version_num FROM alembic_version").fetchall()
 
     assert {name for (name,) in rows} == EXPECTED_TABLES | {"alembic_version"}
-    assert version == [("0001",)]
+    assert version == [(HEAD_REVISION,)]
 
 
 def test_이미_오른_데이터베이스에_다시_올려도_오류가_없다(migrated_url: str) -> None:
@@ -171,8 +174,22 @@ def test_이미_오른_데이터베이스에_다시_올려도_오류가_없다(m
 
     with _connect(migrated_url) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchall() == [
-            ("0001",)
+            (HEAD_REVISION,)
         ]
+
+
+def test_작업_표는_문서별_진행_중_작업만_담는_부분_색인을_가진다(migrated_url: str) -> None:
+    with _connect(migrated_url) as connection:
+        definition = connection.execute(
+            "SELECT indexdef FROM pg_indexes WHERE indexname = 'ix_jobs_document_id_active'"
+        ).fetchone()
+
+    assert definition is not None, "ix_jobs_document_id_active 색인이 없다"
+    assert "(document_id)" in definition[0], f"색인 열이 document_id가 아니다: {definition[0]}"
+    assert "queued" in definition[0] and "running" in definition[0], (
+        f"술어가 대기·실행 중 작업이 아니다: {definition[0]}"
+    )
+    assert "succeeded" not in definition[0], f"끝난 작업까지 담는다: {definition[0]}"
 
 
 def test_같은_원천에_같은_키의_문서는_둘_수_없다(migrated_url: str) -> None:
@@ -359,7 +376,7 @@ async def test_실행_중인_이벤트_루프_안에서는_부를_수_없고_스
 
     with _connect(empty_database_url) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchall() == [
-            ("0001",)
+            (HEAD_REVISION,)
         ]
 
 

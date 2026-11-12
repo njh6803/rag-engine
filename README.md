@@ -52,7 +52,7 @@ src/rag_engine/
                MCP 출력 모델(tool_models.py), 수집 API 모델(ingest_models.py), Problem Details(problems.py, problem_response.py),
                요청 문맥 미들웨어(request_context.py: 요청 ID, 로그), 인증 미들웨어(auth.py), 토큰 관리 API(token_api.py), 수집 API(ingest_api.py), 작업·문서 조회 API(admin_api.py)와 그 응답 모델(admin_models.py)
   worker/      작업자 조립(슬라이스 1이 채운다)
-  adapters/    포트의 구현. settings.py(설정 객체), log_format.py(JSON Lines·text 로그 포매터), index_elements.py(색인 판 요소), blob_store.py(로컬 폴더 원본 저장소), tei.py(임베딩 서버 어댑터), kiwi.py(키워드 토큰과 문장 분리), chunking.py(구조 우선 청킹), utf8_offsets.py(바이트 오프셋 변환), postgres/ 에 표 정의(tables.py), alembic 첫 판(migrations/), 작업 단위와 Catalog·DocumentStore·JobQueue·VectorIndex·TokenStore 어댑터, migrate 와 bootstrap-token 의 조립(bootstrap.py), ingest 명령의 조립(ingest_command.py)
+  adapters/    포트의 구현. settings.py(설정 객체), log_format.py(JSON Lines·text 로그 포매터), index_elements.py(색인 판 요소), blob_store.py(로컬 폴더 원본 저장소), tei.py(임베딩 서버 어댑터), kiwi.py(키워드 토큰과 문장 분리), chunking.py(구조 우선 청킹), utf8_offsets.py(바이트 오프셋 변환), postgres/ 에 표 정의(tables.py), alembic 판(migrations/. 0001 첫 판, 0002 작업 표의 진행 중 작업 색인), 작업 단위와 Catalog·DocumentStore·JobQueue·VectorIndex·TokenStore 어댑터, migrate 와 bootstrap-token 의 조립(bootstrap.py), ingest 명령의 조립(ingest_command.py)
   app/         유스케이스. default_records.py(migrate 의 기본 레코드 보장), tokens.py(토큰 발급·인증·폐기), ingest.py(수집: 원본 저장, 문서 행과 작업 넣기), admin_queries.py(작업·문서 조회), await_documents.py(`ingest --wait`의 기다림), document_outcome.py(문서의 색인 실패 판정)
   domain/      엔티티, 포트 Protocol, 예외와 오류 코드, 파서 인터페이스, 색인에 넣는 글을 짓는 함수(index_text.py), 형식 판정(media_types.py). 서드파티는 uuid6만 쓴다(금지 목록은 pyproject.toml의 import-linter 계약)
 typings/       서드파티 타입 스텁. kiwipiepy에 py.typed가 없어 쓰는 면만 적었다(ADR 0006)

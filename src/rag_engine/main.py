@@ -3,6 +3,7 @@
 서버 없이 수집한다."""
 
 import argparse
+import math
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -14,6 +15,17 @@ from rag_engine.adapters.postgres.bootstrap import issue_bootstrap_token, migrat
 from rag_engine.adapters.settings import Settings, load_settings
 from rag_engine.domain.errors import ConfigurationError
 from rag_engine.server import create_app
+
+
+def _seconds(text: str) -> float:
+    """`nan`은 모든 비교가 거짓이라 제한 시간이 영영 오지 않으므로 인자 단계에서 거른다."""
+    try:
+        seconds = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"초를 숫자로 적는다: {text}") from None
+    if math.isnan(seconds):
+        raise argparse.ArgumentTypeError(f"초를 숫자로 적는다: {text}")
+    return seconds
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -31,7 +43,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     ingest.add_argument("--wait", action="store_true", help="색인이 끝날 때까지 기다린다")
     ingest.add_argument(
         "--timeout",
-        type=float,
+        type=_seconds,
         default=0.0,
         help="--wait와 함께 쓰는 제한 시간(초). 0 이하면 끝까지 기다린다",
     )

@@ -246,6 +246,40 @@ def test_지원하지_않는_형식의_파일_하나는_종료_코드_1과_거�
     assert _query(ingest_database_url, "SELECT count(*) FROM documents") == [(0,)]
 
 
+def test_읽을_수_없는_파일이_있어도_나머지는_넣고_종료_코드_1과_읽기_실패를_낸다(
+    ingest_database_url: str,
+    docs: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    read_bytes = Path.read_bytes
+
+    def read_bytes_except_b(path: Path) -> bytes:
+        if path.name == "b.docx":
+            raise PermissionError(13, "권한이 없다")
+        return read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes_except_b)
+
+    code = _run([str(docs)])
+
+    assert code == 1, f"종료 코드가 {code}이다(읽지 못한 파일이 있으면 1)"
+    output = capsys.readouterr()
+    assert [label for _, label in _actions(output.out)] == ["a.docx", "sub/deeper/c.pdf"]
+    assert "거부\tsub/b.docx\t읽기 실패" in output.err, f"표준 오류: {output.err!r}"
+    assert _query(ingest_database_url, "SELECT count(*) FROM documents") == [(2,)]
+
+
+def test_timeout이_숫자가_아니면_아무_파일도_넣지_않고_인자_오류로_끝난다(
+    ingest_database_url: str, docs: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = _run([str(docs), "--wait", "--timeout", "nan"])
+
+    assert code == 2, f"종료 코드가 {code}이다(인자 오류는 argparse의 2)"
+    assert "nan" in capsys.readouterr().err
+    assert _query(ingest_database_url, "SELECT count(*) FROM documents") == [(0,)]
+
+
 def test_한_번의_실행이_넣은_작업은_UUIDv7_요청_ID_하나를_쓰고_실행마다_다르다(
     ingest_database_url: str, docs: Path
 ) -> None:

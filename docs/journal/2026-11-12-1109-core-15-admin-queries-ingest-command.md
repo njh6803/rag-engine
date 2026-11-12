@@ -72,6 +72,33 @@
 - `ruff check .`, `ruff format --check .`, `pyright`, `lint-imports`, `check_type_escapes.py`가 통과이고(반영 전후 모두), 새 표의 열여덟 변이와 옮긴 변이 둘이 기대대로 빨강이다. 반영 뒤 변이 표 열두 개 전부의 `--check`도 통과다.
 - 반영 뒤 `uv run python tools/run_checks.py`가 `test-db`, `zizmor`, `check-ticket`, `lint-imports`, `check-instructions`, `check-type-escapes`, `pyright-linux`, `pyright`, `run-hooks`, `pytest`(285.9초) 모두 통과다. 일지, 회고 대기열 항목, 티켓의 마지막 체크는 그 실행이 시작된 뒤에 썼으므로 커밋이 부르는 pre-commit이 그 파일들을 다시 본다.
 
+## PR 직전 리뷰
+
+커밋 `1ff131e` 위에서 내장 보안 리뷰와 `bug-perf-review` 에이전트를 돌렸다. 보안 축은 취약점이 없다. SQL은 모두 SQLAlchemy 표현식으로 바인딩되고, 새 라우터는 인증 미들웨어 안쪽이라 `reader`는 403이며, `ingest`의 경로는 명령줄 인자(신뢰된 입력)다. 버그·성능 축은 Critical 없이 Major 하나와 Minor 다섯이다. 근거는 내가 코드에서 다시 열어 확인했다.
+
+**고친 것**
+
+- Major: `jobs.document_id`에 `has_active_job`(`document_id = ? AND status IN ('queued', 'running')`)을 받는 색인이 없었다. 0001의 부분 유일 색인은 `status = 'queued'`일 때만 쓰인다. 프로브(`.scratch/core/probes/jobs_active_index_plan.py`)로 쟀다. head에서는 `Index Scan using ix_jobs_document_id_active`가 나오고, 그 색인을 지우면 `enable_seqscan = off`여도 `Seq Scan`에 `Disabled: true`뿐이다(대안 계획이 없다). 새 판 `0002`로 `ix_jobs_document_id_active`를 더했다(술어는 질의의 `IN` 목록과 같고 `tables.py`에도 같은 색인을 적어 `compare_metadata` 시험이 0 차이를 본다). 칸과 제약은 바꾸지 않는다. 마이그레이션 시험은 head 판을 상수 `HEAD_REVISION`으로 보고 색인의 열과 술어를 재는 시험을 더했다.
+- Minor: 파일을 읽다가 `OSError`(권한, 잠금, 사라진 파일)가 나면 루프가 트레이스백으로 죽어 앞서 넣은 문서를 기다리지도 못했다. `OSError`를 `거부<탭>키<탭>읽기 실패`로 세고 나머지를 이어 넣는다. 사유 문구에 운영체제의 메시지(경로)를 싣지 않는다. 시험을 먼저 썼고 빨강을 본 뒤 고쳤다.
+- Minor: `--timeout nan`은 모든 비교가 거짓이라 제한 시간이 오지 않았다(보고가 `False 1.0 False`를 재 보았다). argparse의 `type`(`_seconds`)이 `nan`을 거부해 아무 파일도 넣지 않고 인자 오류(종료 코드 2)로 끝난다.
+- Minor: 시간 초과(2)가 거부된 파일(1)을 가리는 우선순위를 `ingest_command.py` 독스트링에 적었다.
+
+**PR 봇에 밀 주장**(이번 반영이 새로 쓴 사실 문장)
+
+- `0002_jobs_active_document_index.py` 독스트링: 0001의 부분 유일 색인은 `status = 'queued'`일 때만 쓰여 `IN ('queued', 'running')` 질의를 받지 못하고, 외래 키 열에는 색인이 자동으로 생기지 않아 작업 표를 처음부터 끝까지 읽는다. 새 색인은 진행 중인 작업만 담으므로 끝난 작업이 쌓여도 커지지 않는다.
+- `adapters/ingest_command.py` 독스트링: 읽지 못한 파일은 사유 `읽기 실패`와 키를 표준 오류에 적고 나머지를 이어 넣으며 종료 코드 1이다. 거부된 파일과 시간 초과가 겹치면 2가 앞선다.
+- `main.py` `_seconds`: `nan`은 모든 비교가 거짓이라 제한 시간이 영영 오지 않으므로 인자 단계에서 거른다.
+
+**남긴 것과 이유**
+
+- 문서 목록이 문서마다 질의를 약 아홉 번 내는 N+1(`limit=200`이면 1800번 안팎)이다. 관리자 전용이고 한 트랜잭션 안의 읽기이며 지연을 재지 않았다. 같은 그룹의 원천·그룹·지식베이스·판을 한 호출 안에서 메모하면 줄지만, 변이 표 18개의 원문이 바뀌고 이 티켓의 요구가 아니라서 두었다.
+- `wait_for_documents`가 폴링마다 끝나지 않은 문서 수만큼 질의를 낸다. `has_active_job`에 색인이 생겼으므로 한 바퀴 비용은 질의 수에 비례할 뿐이다. 묶은 질의(`document_id = ANY(:ids)`)는 문서가 수천을 넘을 때 하자.
+- `documents`에 `key` 단독, `group_id`, `deleted_at`, `status` 색인이 없어 맞는 행이 드문 필터(`status=deleted`, 없는 `key`)는 표를 끝까지 훑을 수 있다. `ORDER BY id DESC LIMIT n`이라 맞는 행이 최근에 있으면 빨리 끝난다. 규모를 보고 정할 일이라 알려진 한계로 둔다.
+
+**다시 돌린 명령**
+
+- `ruff check .`, `ruff format`, `pyright`가 통과이고, 마이그레이션·`ingest` 명령·unit of work 시험 48개가 통과이며, 변이 표 둘의 `--check`도 통과다. 전체 검사는 커밋 직전 pre-commit이 다시 돈다.
+
 ## 회고
 
 후보 여섯을 냈고 승인 하나, 기각 다섯, 넘김 없음이다.
@@ -92,4 +119,6 @@
 - 열린 일:
   - 명세 관리 명령 절에 거부된 파일, 빈 폴더, 없는 경로, 목록 한도의 결정을 적을지는 사용자 승인이 필요하다.
   - 삭제 키의 422를 명세의 수집 API 절에 적는 것도 11이 넘긴 대로 사용자 승인이 필요하다.
+  - `읽기 실패`로 거부된 파일도 명세에 적히지 않은 결정이다(앞의 넷과 같이 종료 코드 1이고 나머지를 이어 넣는다). 승인을 PR 본문에서 묻는다.
+  - 마이그레이션 `0002`는 첫 후속 판이다. 색인만 더하고 칸과 제약은 바꾸지 않아 이 PR에서 더했으나, 판 규약(색인 형식에 판을 붙인다)에 닿는 첫 사례이므로 PR 본문에서 사용자가 확인한다. 13의 작업자 워크트리는 같은 `job_queue.py`를 고치므로 그쪽이 마이그레이션을 더하면 판 번호가 겹칠 수 있다.
   - 로그 줄이 표준 출력에 섞이는 것을 막으려면 로그 핸들러의 스트림을 고르는 길이 필요하다. 이 명령의 요구가 아니라 남겼다.

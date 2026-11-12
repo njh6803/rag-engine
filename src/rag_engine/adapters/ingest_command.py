@@ -3,13 +3,15 @@
 서버 없이 파일 하나나 폴더를 수집한다. 폴더면 지원 확장자의 파일을 재귀로 걷고 키는 폴더 기준 상대
 경로(POSIX 구분자)이며, 파일 하나면 키를 주지 않아 파일 이름이 키가 된다. 파일마다 수집 유스케이스를
 직접 불러 `action`을 한 줄씩(`action<탭>키`) 표준 출력에 찍는다. 거부된 파일(`upload_too_large`,
-`unsupported_media_type`)은 표준 오류에 코드와 키를 적고 나머지를 이어 넣으며 종료 코드 1로 끝낸다.
+`unsupported_media_type`)과 읽지 못한 파일(`읽기 실패`)은 표준 오류에 사유와 키를 적고 나머지를
+이어 넣으며 종료 코드 1로 끝낸다.
 
 실행마다 UUIDv7 요청 ID 하나를 만들어 그 실행의 로그(`request_id_var`)와 넣은 작업에 쓴다.
 `--wait`면 넣은 문서마다 작업이 없어질 때까지 기다리고 색인이 실패한 문서를 표준 오류에 낸다.
 `--timeout`은 `--wait`와 함께 쓰고(없으면 무시한다) 0 이하면 끝날 때까지 기다린다. 종료 코드는
 0(문제 없음. 수집할 파일이 없는 폴더도 안내만 하고 0), 1(없는 경로·없는 그룹·거부된 파일·색인이
-실패한 문서), 2(`--timeout`이 지남)다. 기다림은 작업자가 따로 떠 있어야 끝난다.
+실패한 문서), 2(`--timeout`이 지남)다. 거부된 파일과 시간 초과가 겹치면 2가 앞선다. 거부는 표준
+오류에 이미 적혔기 때문이다. 기다림은 작업자가 따로 떠 있어야 끝난다.
 """
 
 import asyncio
@@ -44,6 +46,7 @@ EXIT_FAILED: Final = 1
 EXIT_TIMED_OUT: Final = 2
 POLL_SECONDS: Final = 1.0
 _BYTES_PER_MB: Final = 1024 * 1024
+_UNREADABLE: Final = "읽기 실패"
 _NO_METADATA: Final[dict[str, JsonValue]] = {}
 
 
@@ -137,6 +140,12 @@ async def _ingest_with(
             )
         except RequestError as error:
             print(f"거부\t{entry.label}\t{error.code.value}", file=sys.stderr)
+            rejected += 1
+            continue
+        except OSError:
+            # 권한이 없거나 다른 프로그램이 잠갔거나 걷는 사이 사라진 파일이다. 사유 문구에는
+            # 운영체제의 메시지(경로)를 싣지 않고 나머지를 이어 넣는다.
+            print(f"거부\t{entry.label}\t{_UNREADABLE}", file=sys.stderr)
             rejected += 1
             continue
         print(f"{result.action.value}\t{entry.label}")
