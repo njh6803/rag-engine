@@ -469,9 +469,19 @@ claude-review(코멘트 하나에 지적 넷).
 
 PR 직전 리뷰와 이 회차를 반영하며 ADR 0018과 0019에 더한 문장은 넷이다(PR 직전 리뷰에서 고친 것의 둘과 위의 둘). 사용자가 승인한 초안에 없던 글이므로 병합 전에 사용자의 승인을 받는다(`next-session` `merge.md`의 병합 길). PR을 연 턴의 보고에서 앞의 둘을 보이고 병합 여부를 물었고, 이 회차의 둘도 보고에서 보인다.
 
+## 기준 브랜치를 다시 합치기와 봇 둘째 회차
+
+- **커밋 8dc8a2a.** 다시 시도한 커밋은 pre-commit의 검사 러너에서 열이 모두 Passed였다(pytest 937.3초). 다시 시도하기 전에 CPU 부하를 20초마다 읽어 세 번 잇달아 40% 아래가 될 때까지 기다렸다(`Win32_Processor`의 `LoadPercentage`를 읽는 일회용 명령이고 커밋하지 않았다. 끝났을 때의 값은 11%였다). PR 본문을 먼저 고친 뒤 푸시했고 `@coderabbitai review`를 남겼다.
+- **CodeRabbit 둘째 회차.** 15472a5에서 8dc8a2a까지를 봤다. 파일 넷을 골랐고 하나는 앞의 변경과 비슷하다며 건너뛰었다. 요약 코멘트가 `No actionable comments were generated in the recent review.`라고 적었고, 새 리뷰와 새 인라인 코멘트는 없다(`gh api`로 요약 코멘트, 리뷰 목록, 인라인 코멘트 목록을 읽었다).
+- **충돌.** `uv run python tools/wait_ci.py 27`이 `끝: 충돌`로 끝났다(종료 1). 커밋을 다시 시도하는 사이에 PR #28이 dev에 병합되어 origin/dev가 0caa20f가 됐고, PR #27이 `CONFLICTING`이 됐다. 커밋을 다시 시도하기 전의 `git fetch origin`에서는 origin/dev가 bcd5613이었다. 충돌한 헤드 8dc8a2a에는 CodeRabbit의 검사만 붙었고 `python`, `image`, `ticket`, `verify`, claude-review는 붙지 않았다(`gh pr checks 27`).
+- **origin/dev 0caa20f를 합쳤다.** `git merge --no-commit --no-ff origin/dev`가 `docs/constitution/README.md`의 판 줄에서 충돌했다(이 브랜치는 1.3.0, dev는 1.2.1). 판 줄을 1.3.0으로 뒀다. dev의 1.2.1 위에 이 브랜치의 minor(스택 표의 행)를 얹은 값이다. `.scratch/plan.md`와 ADR 0016은 자동으로 합쳐졌다. `git diff origin/dev`로 본 세 파일의 차이는 README의 판 줄, 전체 계획의 search-eval 행, ADR 0016의 포인터(느린 검사 문장 뒤의 ADR 0018)뿐이다.
+- **합친 뒤에 돌린 것.** `tools/plan_table.py --check`와 `tools/check_adr_pointers.py`는 출력 없이 끝났다. `uv run pytest tests/test_plan_status.py -q -p no:cacheprovider`는 `13 passed in 1.03s`였다. `uv run python tools/sibling_overlap.py`는 번호 겹침이 없다고 냈다(형제가 쓴 가장 높은 헌법 판은 origin/dev의 1.2.1이다). 병합 커밋의 pre-commit 결과는 PR 본문의 확인 방법에 적는다.
+- 합친 커밋이 고친 절차 문서 셋(`next-session` `merge.md`, `CLAUDE.md`, `docs/constitution/operations.md`)의 diff를 읽었다. 티켓 `04-dev-branch-create`가 2026-11-12에 dev를 따고 기본 브랜치를 dev로 옮겼다는 사실을 적은 것이고, 이 PR이 따르는 병합 절차는 그대로다.
+- claude-review의 둘째 회차는 병합 커밋을 푸시한 뒤에 돈다. 둘째 회차라 Critical과 Major만 고치고, 나머지는 지적마다 보류 이유를 PR 코멘트에 남긴다(`next-session` `merge.md`의 병합 전).
+
 ## 다음
 
-이 브랜치의 변경은 커밋했고(372065d) origin/dev를 합쳤다(9da0c96). 사용자가 요청해 PR #27을 base dev로 열었다. 병합은 ADR에 더한 문장 넷을 사용자가 승인한 뒤에 한다(PR 봇 리뷰 절의 병합에 앞서 받을 승인). base가 dev인 PR이므로 `/git-pr-merge`가 아니라 `next-session` `merge.md`의 워크트리에서 병합할 때 1~3으로 병합한다(`docs/constitution/operations.md` 브랜치와 병합). 병합 뒤의 다음 단계는 search-eval의 명세다(`to-spec`).
+이 브랜치의 변경은 커밋했고(372065d) origin/dev를 두 번 합쳤다(bcd5613을 합친 9da0c96과, PR #28이 병합된 뒤의 0caa20f를 합친 병합 커밋). 사용자가 요청해 PR #27을 base dev로 열었다. 병합은 ADR에 더한 문장 넷을 사용자가 승인한 뒤에 한다(PR 봇 리뷰 절의 병합에 앞서 받을 승인). base가 dev인 PR이므로 `/git-pr-merge`가 아니라 `next-session` `merge.md`의 워크트리에서 병합할 때 1~3으로 병합한다(`docs/constitution/operations.md` 브랜치와 병합). 병합 뒤의 다음 단계는 search-eval의 명세다(`to-spec`).
 
 명세가 정할 것은 다섯 묶음이다.
 
@@ -491,6 +501,6 @@ PR 봇 첫 회차에서 남겨 사용자가 정할 것이 하나다. `docs/const
 
 PR 직전 리뷰는 CodeRabbit CLI로 돌았고 결과는 PR 직전 리뷰 절에 있다. 셀프 리뷰 절의 고친 것 목록은 CLI에 넘기는 길이 없어 PR 본문의 리뷰어 참고에 적어 PR의 리뷰에 넘긴다.
 
-병합할 때 볼 것: PR #25(`feature/03-dev-base-skills-docs`)가 고친 ADR 0016과 헌법 README는 이 브랜치도 고친 파일이고, 합친 경위는 커밋과 기준 브랜치 합치기 절에 있다. 병합이 늦어져 그사이 dev가 나아갔으면, 병합 직전에 `git fetch origin` 뒤 origin/dev를 다시 합치고 저장소 상태 시험(`tests/test_plan_status.py`)을 직접 돈다(`docs/constitution/operations.md` 브랜치와 병합). 그때 다른 브랜치가 헌법 판을 올렸으면 판 줄이 다시 충돌한다. PR 직전 리뷰를 반영한 커밋 앞에서 돌린 `uv run python tools/sibling_overlap.py`는 번호 겹침이 없다고 냈고, 형제 워크트리 `04-dev-branch-create`가 헌법 판 1.2.1을 쓰며 `.scratch/plan.md`, ADR 0016, 헌법 README를 함께 고치고 있다고 냈다. 1.3.0이 더 높아 판은 겹치지 않지만, 나중에 병합하는 쪽에서 이 세 파일의 글자 충돌이 날 수 있다.
+병합할 때 볼 것: PR #25(`feature/03-dev-base-skills-docs`)가 고친 ADR 0016과 헌법 README는 이 브랜치도 고친 파일이고, 합친 경위는 커밋과 기준 브랜치 합치기 절에 있다. 병합이 늦어져 그사이 dev가 나아갔으면, 병합 직전에 `git fetch origin` 뒤 origin/dev를 다시 합치고 저장소 상태 시험(`tests/test_plan_status.py`)을 직접 돈다(`docs/constitution/operations.md` 브랜치와 병합). 그때 다른 브랜치가 헌법 판을 올렸으면 판 줄이 다시 충돌한다. PR 직전 리뷰를 반영한 커밋 앞에서 돌린 `uv run python tools/sibling_overlap.py`는 번호 겹침이 없다고 냈고, 형제 워크트리 `04-dev-branch-create`가 헌법 판 1.2.1을 쓰며 `.scratch/plan.md`, ADR 0016, 헌법 README를 함께 고치고 있다고 냈다. 1.3.0이 더 높아 판은 겹치지 않지만, 나중에 병합하는 쪽에서 이 세 파일의 글자 충돌이 날 수 있다. 그 PR #28이 먼저 병합되어 헌법 README의 판 줄이 실제로 충돌했고, 푼 경위는 기준 브랜치를 다시 합치기와 봇 둘째 회차 절에 있다.
 
 곁가지(이 설계의 범위 밖): 프로브의 대조군에서 MCP SDK가 인자 검증에 실패했을 때 낸 오류 글이 입력 값을 그대로 실었다(`input_value='많이'`). 프로브는 최소 서버로 잰 것이다. 셀프 리뷰의 표준 축 리뷰어가 이 저장소의 `register_search_tool`로 등록한 실제 도구에서도 같다고 보고했고, 일회용 스크립트로 다시 봤다(손으로 봤다. 스크래치패드의 스크립트라 커밋하지 않았다). `top_k`에 문자열 `'x'`를 주면 도구 호출이 `ToolError`로 끝났고 그 글에 `input_value='x'`가 실렸다. 서버의 로그에 그 글이 남는지는 보지 않았다. 원칙 V와 ADR 0015의 에러 봉투 항목(오류의 `detail`에 질문 내용을 넣지 않는다)에 닿을 수 있어 따로 확인할 일로 사용자에게 알린다. 세션 카드로 올리려 했으나 이 저장소의 훅이 에이전트가 스스로 내는 카드를 막아 여기에 적는다.
