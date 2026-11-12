@@ -1,0 +1,66 @@
+
+===== docstring-parser 0.18.0 =====
+version: 0.18.0
+license: MIT
+license_expression: None
+classifier: License :: OSI Approved :: MIT License
+wheel: docstring_parser-0.18.0-py3-none-any.whl
+METADATA: Version: 0.18.0
+METADATA: License: MIT
+METADATA: License-File: LICENSE.md
+라이선스 파일: docstring_parser-0.18.0.dist-info/licenses/LICENSE.md
+   | The MIT License (MIT)
+   | 
+   | Copyright (c) 2018 Marcin Kurczewski
+   | 
+   | Permission is hereby granted, free of charge, to any person obtaining a copy
+   | of this software and associated documentation files (the "Software"), to deal
+
+===== jiter 0.19.0 =====
+version: 0.19.0
+license: None
+license_expression: MIT
+wheel: jiter-0.19.0-cp311-cp311-macosx_10_12_x86_64.whl
+METADATA: Version: 0.19.0
+METADATA: License-File: LICENSE
+METADATA: License-Expression: MIT
+라이선스 파일: jiter-0.19.0.dist-info/licenses/LICENSE
+   | The MIT License (MIT)
+   | 
+   | Copyright (c) 2022 to present Samuel Colvin
+   | 
+   | Permission is hereby granted, free of charge, to any person obtaining a copy
+   | of this software and associated documentation files (the "Software"), to deal
+
+===== sniffio 1.3.1 =====
+version: 1.3.1
+license: MIT OR Apache-2.0
+license_expression: None
+classifier: License :: OSI Approved :: Apache Software License
+classifier: License :: OSI Approved :: MIT License
+wheel: sniffio-1.3.1-py3-none-any.whl
+라이선스 파일: sniffio-1.3.1.dist-info/LICENSE
+   | This software is made available under the terms of *either* of the
+   | licenses found in LICENSE.APACHE2 or LICENSE.MIT. Contributions to are
+   | made under the terms of *both* these licenses.
+라이선스 파일: sniffio-1.3.1.dist-info/LICENSE.APACHE2
+   | 
+   |                                  Apache License
+   |                            Version 2.0, January 2004
+   |                         http://www.apache.org/licenses/
+   | 
+   |    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+라이선스 파일: sniffio-1.3.1.dist-info/LICENSE.MIT
+   | The MIT License (MIT)
+   | 
+   | Permission is hereby granted, free of charge, to any person obtaining
+   | a copy of this software and associated documentation files (the
+   | "Software"), to deal in the Software without restriction, including
+   | without limitation the rights to use, copy, modify, merge, publish,
+METADATA: Version: 1.3.1
+METADATA: License: MIT OR Apache-2.0
+METADATA: License-File: LICENSE
+METADATA: License-File: LICENSE.APACHE2
+METADATA: License-File: LICENSE.MIT
+
+===== 끝 =====

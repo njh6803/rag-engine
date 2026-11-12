@@ -1,0 +1,42 @@
+mcp 2.3.0 | pydantic 2.14.3 | httpx2 2.16.0
+
+===== 1: 도구 목록의 inputSchema =====
+negotiated protocol_version: 2026-07-28
+inputSchema: {"type": "object", "$defs": {"FilterInput": {"properties": {"groups": {"anyOf": [{"items": {"type": "string"}, "type": "array"}, {"type": "null"}], "default": null, "title": "Groups"}, "updated_after": {"anyOf": [{"type": "string"}, {"type": "null"}], "default": null, "title": "Updated After"}}, "title": "FilterInput", "type": "object"}}, "properties": {"query": {"title": "Query", "type": "string"}, "top_k": {"anyOf": [{"type": "integer"}, {"type": "null"}], "default": null, "title": "Top K"}, "filter": {"anyOf": [{"$ref": "#/$defs/FilterInput"}, {"type": "null"}], "default": null}}, "required": ["query"], "title": "searchArguments"}
+최상위 additionalProperties: (없음)
+FilterInput additionalProperties: (없음)
+
+===== 2~4: SDK 클라이언트로 부르기 =====
+선언한 인자만 -> is_error=False structured_content={'echoed_query': 'q', 'echoed_top_k': 3, 'echoed_groups': None} text={
+  "echoed_query": "q",
+  "echoed_top_k": 3,
+  "echoed_groups": null
+}
+모르는 최상위 인자 min_score -> is_error=False structured_content={'echoed_query': 'q', 'echoed_top_k': 3, 'echoed_groups': None} text={
+  "echoed_query": "q",
+  "echoed_top_k": 3,
+  "echoed_groups": null
+}
+중첩 filter 안의 모르는 키 -> is_error=False structured_content={'echoed_query': 'q', 'echoed_top_k': None, 'echoed_groups': ['g1']} text={
+  "echoed_query": "q",
+  "echoed_top_k": null,
+  "echoed_groups": [
+    "g1"
+  ]
+}
+대조군: top_k 타입 틀림 -> is_error=True structured_content=None text=Error executing tool search: 1 validation error for searchArguments
+top_k
+  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='많이', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/int_parsing
+대조군: 필수 인자 query 빠짐 -> is_error=True structured_content=None text=Error executing tool search: 1 validation error for searchArguments
+query
+  Field required [type=missing, input_value={'top_k': 3}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+
+===== 5: raw httpx2 로 같은 요청(stateless + JSON 응답) =====
+모르는 최상위 인자 min_score -> status: 200 content-type: application/json
+body: {"jsonrpc":"2.0","id":1,"result":{"content":[{"text":"{\n  \"echoed_query\": \"q\",\n  \"echoed_top_k\": 3,\n  \"echoed_groups\": null\n}","type":"text"}],"isError":false,"resultType":"complete","structuredContent":{"echoed_query":"q","echoed_top_k":3,"echoed_groups":null},"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"probe","version":""}}}}
+중첩 filter 안의 모르는 키 -> status: 200 content-type: application/json
+body: {"jsonrpc":"2.0","id":2,"result":{"content":[{"text":"{\n  \"echoed_query\": \"q\",\n  \"echoed_top_k\": null,\n  \"echoed_groups\": [\n    \"g1\"\n  ]\n}","type":"text"}],"isError":false,"resultType":"complete","structuredContent":{"echoed_query":"q","echoed_top_k":null,"echoed_groups":["g1"]},"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"probe","version":""}}}}
+
+===== 끝 =====
