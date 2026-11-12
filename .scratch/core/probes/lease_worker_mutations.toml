@@ -1,0 +1,331 @@
+# core 13(임대 연장, 임대 인수, 상시 작업자 프로세스)이 더한 시험 가운데 처음부터 초록이던 것의 변이.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/lease_worker_mutations.toml
+
+[[mutation]]
+name = "임대를 거의 연장하지 않는다"
+tests = ["tests/app/test_job_lease.py"]
+expect = "red"
+expect_output = ["datetime.datetime("]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''_EXTENSIONS_PER_LEASE: Final = 3
+'''
+new = '''_EXTENSIONS_PER_LEASE: Final = 0.001
+'''
+
+[[mutation]]
+name = "임대를 잃은 것이 드러나도 처리를 취소하지 않는다"
+tests = ["tests/app/test_job_lease.py"]
+expect = "red"
+expect_output = ["<built-in function monotonic>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''        keeper.result()
+        raise AttemptLostError
+'''
+new = '''        keeper.result()
+        return await work
+'''
+
+[[mutation]]
+name = "시도를 다 쓴 작업의 판정이 한 번 이르다"
+tests = ["tests/app/test_job_lease.py"]
+expect = "red"
+expect_output = ["'worker_lost'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/retry_policy.py"
+old = '''        return attempts > self.max_attempts
+'''
+new = '''        return attempts >= self.max_attempts
+'''
+
+[[mutation]]
+name = "시도를 다 쓴 작업을 worker_lost가 아니라 internal_error로 끝낸다"
+tests = ["tests/app/test_job_lease.py"]
+expect = "red"
+expect_output = ["'worker_lost'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''        return await _settle(deps, job, timer, ErrorCode.WORKER_LOST, exhaust)
+'''
+new = '''        return await _settle(deps, job, timer, ErrorCode.INTERNAL_ERROR, exhaust)
+'''
+
+[[mutation]]
+name = "끝내기가 쓰지 못했어도 결과를 그대로 남긴다"
+tests = ["tests/app/test_job_lease.py"]
+expect = "red"
+expect_output = ["('lost', None)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''    except AttemptLostError:
+        return None
+    return outcome
+'''
+new = '''    except AttemptLostError:
+        return outcome
+    return outcome
+'''
+
+[[mutation]]
+name = "임대 연장이 작업 행 조건을 보지 않는다"
+tests = ["tests/adapters/test_job_queue_lease.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''            .where(*_attempt_of(job))
+            .values(leased_until=leased_until)
+'''
+new = '''            .where(tables.jobs.c.id == job.id)
+            .values(leased_until=leased_until)
+'''
+
+[[mutation]]
+name = "끝내기가 쓰지 못했어도 알리지 않는다"
+tests = ["tests/adapters/test_job_queue_lease.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''        if finished.first() is None:
+            raise AttemptLostError
+'''
+new = '''        if finished.first() is None:
+            return
+'''
+
+[[mutation]]
+name = "연장이 쓰지 못했어도 알리지 않는다"
+tests = ["tests/adapters/test_job_queue_lease.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''        if extended.first() is None:
+            raise AttemptLostError
+'''
+new = '''        if extended.first() is None:
+            return
+'''
+
+[[mutation]]
+name = "다시 붙은 직후에 깨우지 않는다"
+tests = ["tests/adapters/test_job_notifications.py"]
+expect = "red"
+expect_output = ["TimeoutError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/notifications.py"
+old = '''            if wake_on_start:
+                on_notify()
+'''
+new = '''            if False:
+                on_notify()
+'''
+
+[[mutation]]
+name = "꺼내기의 일시 실패에 작업자가 멈춘다"
+tests = ["tests/app/test_worker_service.py"]
+expect = "red"
+expect_output = ["TimeoutError"]
+timeout = 300
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/service.py"
+old = '''        except TransientFailure as failure:
+'''
+new = '''        except KeyError as failure:
+'''
+
+[[mutation]]
+name = "슬롯이 하나뿐이다"
+tests = ["tests/app/test_worker_service.py::test_동시_처리_수만큼_작업을_함께_처리한다"]
+expect = "red"
+expect_output = ["TimeoutError"]
+timeout = 300
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/service.py"
+old = '''            for _ in range(config.concurrency):
+'''
+new = '''            for _ in range(1):
+'''
+
+[[mutation]]
+name = "종료 신호가 쉬는 슬롯을 깨우지 않는다"
+tests = ["tests/app/test_worker_service.py::test_쉬는_작업자는_종료_신호에_폴링을_기다리지_않고_나간다"]
+expect = "red"
+expect_output = ["TimeoutError"]
+timeout = 300
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/service.py"
+old = '''    await stop.wait()
+    wakeups.poke()
+'''
+new = '''    await stop.wait()
+'''
+
+[[mutation]]
+name = "종료 신호가 와도 다음 작업을 꺼낸다"
+tests = ["tests/app/test_worker_service.py::test_종료_신호를_받으면_진행_중인_작업은_끝내고_새_작업은_꺼내지_않는다"]
+expect = "red"
+expect_output = ["['succeeded'] == ['queued']"]
+timeout = 300
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/service.py"
+old = '''    while not stop.is_set():
+        seen = wakeups.sequence
+'''
+new = '''    while True:
+        seen = wakeups.sequence
+'''
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/service.py"
+old = '''        await wakeups.wait(seen, config.poll_seconds)
+'''
+new = '''        if stop.is_set():
+            return
+        await wakeups.wait(seen, config.poll_seconds)
+'''
+
+[[mutation]]
+name = "신호가 와도 이벤트 루프를 깨우지 않는다"
+tests = ["tests/app/test_worker_signals.py"]
+expect = "red"
+expect_output = ["TimeoutError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/signals.py"
+old = '''    previous_fd = signal.set_wakeup_fd(writer.fileno(), warn_on_full_buffer=False)
+'''
+new = '''    previous_fd = signal.set_wakeup_fd(-1)
+'''
+
+[[mutation]]
+name = "임대를 늘리는 간격이 삼분의 일이 아니라 절반이다"
+tests = ["tests/app/test_job_lease.py::test_임대를_늘리는_간격은_임대_기간의_삼분의_일이다"]
+expect = "red"
+expect_output = ["450.0 =="]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''    return lease_seconds / _EXTENSIONS_PER_LEASE
+'''
+new = '''    return lease_seconds / 2
+'''
+
+[[mutation]]
+name = "연장이 임대를 잃었다고 알려도 연장을 멈추지 않는다"
+tests = ["tests/app/test_job_lease.py::test_임대를_잃은_것이_드러나면_처리를_멈추고_문서에도_작업_행에도_쓰지_않는다"]
+expect = "red"
+expect_output = ["<built-in function monotonic>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''        except AttemptLostError:
+            return
+        except TransientFailure:
+'''
+new = '''        except AttemptLostError:
+            continue
+        except TransientFailure:
+'''
+
+[[mutation]]
+name = "연장의 일시 실패에 연장 작업이 멈춘다"
+tests = ["tests/app/test_job_lease.py::test_임대_연장이_일시_실패해도_다음_간격에_다시_늘린다"]
+expect = "red"
+expect_output = ["where 0 = <built-in method count of list object"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''        except TransientFailure:
+            log_event(
+                logger,
+                "lease_extension_failed",
+'''
+new = '''        except KeyError:
+            log_event(
+                logger,
+                "lease_extension_failed",
+'''
+
+[[mutation]]
+name = "듣기가 서기를 기다리는 동안 종료 신호를 보지 않는다"
+tests = ["tests/app/test_worker_service.py::test_듣기가_서기_전에_종료_신호를_받으면_폴링_간격을_기다리지_않고_나간다"]
+expect = "red"
+expect_output = ["TimeoutError"]
+timeout = 300
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/service.py"
+old = '''                await _until_any(ready, stop)
+'''
+new = '''                await ready.wait()
+'''
+
+[[mutation]]
+name = "알림이 없을 때 폴링 간격을 기다리지 않고 영영 잔다"
+tests = ["tests/app/test_worker_service.py::test_알림이_없어도_폴링_간격마다_다시_꺼내_작업을_처리한다"]
+expect = "red"
+expect_output = ["TimeoutError"]
+timeout = 300
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/service.py"
+old = '''        await wakeups.wait(seen, config.poll_seconds)
+'''
+new = '''        await wakeups.wait(seen, config.poll_seconds * 1_000_000)
+'''
+
+[[mutation]]
+name = "듣기가 죽은 것을 알리지 않는다"
+tests = ["tests/app/test_worker_service.py::test_듣기가_예기치_않은_예외로_죽어도_폴링으로_계속_처리하고_알린다"]
+expect = "red"
+expect_output = ["where 0 = <built-in method count of list object"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/service.py"
+old = '''    listening.add_done_callback(_log_listener_failure)
+'''
+new = '''    listening.add_done_callback(lambda _: None)
+'''
+
+[[mutation]]
+name = "연결 풀의 상한을 넓히지 않는다"
+tests = ["tests/adapters/test_postgres_engine.py"]
+expect = "red"
+expect_output = ["TimeoutError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/engine.py"
+old = '''        max_overflow=max(_MAX_OVERFLOW, at_least_connections - _POOL_SIZE),
+'''
+new = '''        max_overflow=_MAX_OVERFLOW,
+'''
+
+[[mutation]]
+name = "연장의 예기치 않은 오류가 연장 작업을 죽이고 작업을 실패로 끝낸다"
+tests = ["tests/app/test_job_lease.py::test_임대_연장이_예기치_않게_실패해도_작업을_실패로_끝내지_않고_다음_간격에_다시_늘린다"]
+expect = "red"
+expect_output = ["'job_crashed'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''        except Exception as error:  # 연장의 예기치 않은 오류가 처리 중인 작업을 죽이지 않게 한다
+'''
+new = '''        except ZeroDivisionError as error:
+'''

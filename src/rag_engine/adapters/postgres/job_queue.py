@@ -4,7 +4,9 @@
 UPDATE` 한 문장으로 있는 행을 다시 쓴다. 있는지 보는 일과 넣는 일이 한 문장이어야 같은 문서에 동시에
 넣어도 대기 작업이 둘이 되지 않는다. 알림(`NOTIFY rag_jobs`)은 PostgreSQL이 커밋 때 보낸다.
 
-임대 연장(13)은 이 어댑터에 아직 없다.
+임대를 쓰는 문장(`finish`, `extend_lease`, `reschedule`)은 모두 작업 행 조건(`_attempt_of`)을 걸어,
+임대가 끝나 다른 작업자가 가져간 작업 행은 쓰지 않는다. 쓰지 않았음을 `finish`와 `extend_lease`는
+`AttemptLostError`로, `reschedule`은 `False`로 알린다.
 """
 
 from datetime import datetime, timedelta
@@ -17,12 +19,11 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from rag_engine.adapters.postgres import tables
 from rag_engine.domain.entities import Job, JobKind, JobStatus
-from rag_engine.domain.errors import ErrorCode
+from rag_engine.domain.errors import AttemptLostError, ErrorCode
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.ports import JobOutcome
 
 NOTIFY_CHANNEL: Final = "rag_jobs"
-_NOT_YET: Final = "이 어댑터에 아직 없다"
 # `ON CONFLICT`의 색인 추론 술어는 부분 색인의 술어와 글자가 같아야 한다. 값을 바인드 파라미터로
 # 보내면 psycopg가 같은 문장을 다섯 번 돌린 뒤 서버에 준비시키고, 일반 계획은 파라미터를 상수로
 # 접지 못해 색인을 찾지 못한다(`42P10`). 그래서 리터럴로 렌더링한다.
@@ -149,7 +150,7 @@ class PostgresJobQueue:
         )
 
     async def finish(self, job: Job, outcome: JobOutcome, now: datetime) -> None:
-        await self._connection.execute(
+        finished = await self._connection.execute(
             sa.update(tables.jobs)
             .where(*_attempt_of(job))
             .values(
@@ -158,7 +159,10 @@ class PostgresJobQueue:
                 finished_at=now,
                 leased_until=None,
             )
+            .returning(tables.jobs.c.id)
         )
+        if finished.first() is None:
+            raise AttemptLostError
 
     async def reschedule(self, job: Job, run_after: datetime, error_code: ErrorCode) -> bool:
         jobs = tables.jobs
@@ -203,4 +207,11 @@ class PostgresJobQueue:
         return found.first() is not None
 
     async def extend_lease(self, job: Job, leased_until: datetime) -> None:
-        raise NotImplementedError(_NOT_YET)
+        extended = await self._connection.execute(
+            sa.update(tables.jobs)
+            .where(*_attempt_of(job))
+            .values(leased_until=leased_until)
+            .returning(tables.jobs.c.id)
+        )
+        if extended.first() is None:
+            raise AttemptLostError

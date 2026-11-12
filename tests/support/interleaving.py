@@ -6,8 +6,8 @@
 """
 
 import asyncio
-from collections.abc import Awaitable, Callable, Collection, Sequence
-from contextlib import AbstractAsyncContextManager
+from collections.abc import AsyncGenerator, Awaitable, Callable, Collection, Sequence
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pathlib import Path
 from uuid import UUID
 
@@ -60,12 +60,41 @@ class FlakyUnitOfWork:
     def __init__(self, inner: UnitOfWork, failures: int = 1) -> None:
         self._inner = inner
         self._remaining = failures
+        self._error: Exception | None = None
+
+    def fail_next(self, count: int = 1, *, error: Exception | None = None) -> None:
+        """앞으로의 `begin()` `count`번을 터뜨린다. `error`가 없으면 일시 실패이고, 있으면 그 예외다
+        (일시 실패 갈래에 들지 않는 예기치 않은 예외를 흉내 낸다). 처리 도중에 끼어들어 다음 작업
+        단위만 실패시킬 때 쓴다."""
+        self._remaining = count
+        self._error = error
 
     def begin(self) -> AbstractAsyncContextManager[Transaction]:
         if self._remaining > 0:
             self._remaining -= 1
-            raise TransientFailure(ErrorCode.DATABASE_UNAVAILABLE, "시험용 일시 실패")
+            raise self._error or TransientFailure(
+                ErrorCode.DATABASE_UNAVAILABLE, "시험용 일시 실패"
+            )
         return self._inner.begin()
+
+
+class WatchedUnitOfWork:
+    """실제 작업 단위에 맡기되, 작업 단위 하나가 끝난 것을 시험이 볼 수 있게 `ended`를 세운다.
+    상시 작업자의 슬롯은 꺼내기의 작업 단위가 끝나면 멈추는 지점 없이 쉬는 자리로 들어가므로,
+    일이 없는 작업자가 첫 꺼내기를 마친 순간은 슬롯이 쉬고 있는 순간이다."""
+
+    def __init__(self, inner: UnitOfWork) -> None:
+        self._inner = inner
+        self.ended = asyncio.Event()
+
+    def begin(self) -> AbstractAsyncContextManager[Transaction]:
+        return self._begin()
+
+    @asynccontextmanager
+    async def _begin(self) -> AsyncGenerator[Transaction]:
+        async with self._inner.begin() as transaction:
+            yield transaction
+        self.ended.set()
 
 
 class RejectingEmbedder:

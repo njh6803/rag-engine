@@ -307,7 +307,11 @@ class JobQueue(Protocol):
         """이번 시도가 첫째 단계에서 올린 문서의 세대를 작업 행에 적는다."""
         ...
 
-    async def finish(self, job: Job, outcome: JobOutcome, now: datetime) -> None: ...
+    async def finish(self, job: Job, outcome: JobOutcome, now: datetime) -> None:
+        """작업을 끝낸 상태로 쓴다. 이 시도가 쓴 작업 행이 아니면(임대가 끝나 다른 작업자가
+        가져갔다) 아무것도 쓰지 않고 `AttemptLostError`를 올린다. 부른 쪽이 끝난 줄 알고 지나가지
+        못하게 반환값이 아니라 예외로 알린다."""
+        ...
 
     async def reschedule(self, job: Job, run_after: datetime, error_code: ErrorCode) -> bool:
         """일시 실패한 시도의 작업을 `queued`로 되돌려 `run_after`와 마지막 오류 코드를 두고 임대와
@@ -323,7 +327,11 @@ class JobQueue(Protocol):
         빈 작업이다. 올린 세대가 채워진 실행 중 작업은 세지 않는다(재시도 소진의 판정)."""
         ...
 
-    async def extend_lease(self, job: Job, leased_until: datetime) -> None: ...
+    async def extend_lease(self, job: Job, leased_until: datetime) -> None:
+        """임대 만료를 `leased_until`로 늘린다. 작업 행 조건을 지날 때만 쓰고, 아니면 임대가 끝나
+        다른 작업자가 가져간 것이라 아무것도 쓰지 않고 `AttemptLostError`를 올린다(부른 쪽은 그
+        시도를 버린다). 문서 행을 잠그지 않고 작업 행 하나만 쓰므로 잠금 순서를 거스르지 않는다."""
+        ...
 
 
 class TokenStore(Protocol):

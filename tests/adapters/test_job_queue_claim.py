@@ -8,12 +8,13 @@
 from dataclasses import replace
 from datetime import timedelta
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.records import NOW, make_document, seed_source_and_group
 
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.domain.entities import Document, JobStatus
-from rag_engine.domain.errors import ErrorCode
+from rag_engine.domain.errors import AttemptLostError, ErrorCode
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.ports import JobOutcome
 
@@ -156,8 +157,9 @@ async def test_임대를_잃은_시도가_끝내려_해도_작업_행은_그대�
         taken = await transaction.jobs.claim("작업자-2", later, LEASE_SECONDS)
     assert taken is not None
 
-    async with unit_of_work.begin() as transaction:
-        await transaction.jobs.finish(lost, JobOutcome(JobStatus.SUCCEEDED, None), later)
+    with pytest.raises(AttemptLostError):
+        async with unit_of_work.begin() as transaction:
+            await transaction.jobs.finish(lost, JobOutcome(JobStatus.SUCCEEDED, None), later)
     async with unit_of_work.begin() as transaction:
         reread = await transaction.jobs.get(taken.id)
 
