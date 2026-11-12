@@ -57,6 +57,18 @@ PR #25를 연 뒤 `@coderabbitai review`를 남겼다. CI는 `python`, `image`, 
 
 반영으로 새로 쓴 사실 문장(원문): "dev(티켓 `04-dev-branch-create`가 만드는 `tools/protection-dev.json`)는 같되 strict가 아니다."
 
+## PR 봇 리뷰 (01 병합 뒤 main을 합친 푸시 1366ea7)
+
+01(PR #26)이 `origin/main`에 병합된 것을 확인하고 main을 합쳐 푸시한 뒤 `@coderabbitai review`를 남겼다. CI는 `python`, `image`, `ticket`, `verify`, `claude-review`가 모두 통과했다. CodeRabbit은 이 PR에서 처음으로 리뷰를 냈다(첫 회차, Minor 셋). claude-review는 819aa62와 1366ea7 푸시의 둘째·셋째 회차라 Critical·Major만 고치는데, 둘 다 Minor와 Nit뿐이다.
+
+- CodeRabbit 1(PR 템플릿의 보안 리뷰 안내에 핫픽스의 `/security-review` 범위 제한이 없다): → 고쳤다. 운영 문서 "리뷰 파이프라인"은 이미 `git merge-base origin/main HEAD` 이후로 좁히라고 적었고 템플릿만 빠져 있었다.
+- CodeRabbit 2(ADR 0016 본문 "리뷰 봇 두 갈래"의 앞쪽 묶음에 이력 포인터가 없다): → 고쳤다. "티켓 02가 이것을 다룬다." 뒤에 같은 이력의 포인터를 달았다(`.claude/rules/adr.md`: 바뀐 본문 문장 바로 뒤).
+- CodeRabbit 3(ADR 0016 이력이 main을 머리로 둔 핫픽스 PR이라고 적은 것): → 고쳤다. 핫픽스 PR의 머리는 main에서 딴 `hotfix/*`이고 base가 main이다. 이력 문장만 고쳤다. 본문 Consequences의 같은 표현은 본문이라 두었다(`adr.md`: 본문의 다른 글자는 고치지 않는다).
+- claude-review 셋째 회차 Minor 셋과 Nit 하나: → 보류. `tools/base_rule.py` 부재는 01 병합으로 풀렸다(병합 후 트리에서 Glob으로 확인했다). `merge.md` 되돌려 합치기 4의 `BEHIND` 문장 연결은 읽는 사람이 더 쉽게 고치는 문구 문제라 병합을 미룰 이유가 아니다. 운영 문서와 ADR 0016 이력에 같은 사실 문장이 이중으로 있는 것은 뒤로 넘긴다(아래 "다음"). `merge.md` 병합 길 4가 긴 문단인 것은 Nit이다.
+- claude-review 둘째 회차 Minor 둘과 Nit 하나: → 보류. 04·05의 결정에 기댄 헌법 문장은 PR 본문 "남긴 위험"에 적혀 있고 리뷰도 후속 허용이라 했다(뒤로 넘긴다, 아래 "다음"). `adr.md`의 예시 문장이 길다는 Nit은 보류한다.
+
+반영으로 새로 쓴 사실 문장(원문): "기준 브랜치가 main인 핫픽스에서는 기본 브랜치가 dev인 동안 `origin/HEAD` 범위에 dev의 커밋이 섞이므로 `git merge-base origin/main HEAD` 이후로 손으로 좁힌다."(PR 템플릿)와 "기본 브랜치가 dev인 동안 main에서 딴 `hotfix/*`를 머리로, main을 base로 둔 핫픽스 PR이"(ADR 0016 이력).
+
 ## 회고
 
 후보 다섯. 승인 하나, 기각 셋, 일지에만 하나, 넘김 없음. 새 훅·검사가 문턱을 지난 것이 없어 `tools/hook_report.py`는 돌리지 않았다. `uv run python tools/queue_open_rows.py`의 만료할 항목은 없었다.
@@ -75,12 +87,14 @@ PR #25를 연 뒤 `@coderabbitai review`를 남겼다. CI는 `python`, `image`, 
 - 새 헤드리스 세션(`claude -p`)이 `next-session` 스킬을 불러 결정표의 첫 줄이 `git merge-base --is-ancestor origin/main origin/dev`임을 답했다. 바뀐 스킬이 새 세션에 실린다.
 - 첫 커밋 시도의 pre-commit은 pytest 1개 실패, 3730개 통과(555.7초)로 막혔다. 실패는 앞 일지에도 난 `tests/adapters/test_parse_runner.py`의 멈춘 자식 시험(Windows 기대 `parse_failed`에 `parse_timeout`이 왔다)이고 이 브랜치는 파서 쪽 파일을 바꾸지 않았다. 단독으로 다시 돌리니 1 passed(1.76초)였다. 부하에서만 빨간 시간 시험은 받아들여 닫은 종류라 항목을 잇지 않는다(retro 5단계). 같은 시도의 인용 대조 경고 둘은 따옴표를 떼고 풀어 썼다.
 - 둘째 시도의 pre-commit 결과는 PR 본문에 적는다.
+- 봇 회차를 반영한 커밋의 첫 pre-commit도 같은 시험 `tests/adapters/test_parse_runner.py`의 멈춘 자식 시험 하나가 빨갛게 막았다(3824개 통과, 1개 실패, 422.5초). 단독으로 다시 돌리니 1 passed(1.46초)였다. 이 커밋은 문서 세 개만 바꿨고 파서 쪽은 건드리지 않았다. 부하에서만 빨간 같은 시간 시험이라 위의 판단을 따랐다.
 
 ## 다음
 
-- 이 브랜치를 `origin/main` 위로 리베이스해 푸시하고 PR(base main, 지금은 dev가 없다)을 연다. 병합은 하지 않는다. 2026-11-12에 `git fetch origin` 뒤 `git log origin/main`에 02(PR #24, 30c673d)는 병합됐고 01은 없다. 01은 PR이 없고 형제 워크트리 `01-dev-base-tools`에 커밋이 없다. 티켓 03의 첫 수락 기준과 `Blocked by`가 01의 병합을 요구한다.
-- 01이 병합되면 이 PR로 돌아와 병합한다. 그 전에 `git fetch origin` 뒤 `git merge-base --is-ancestor origin/main HEAD`를 보고 뒤처졌으면 main을 합쳐 푸시한다(main의 strict). 병합 뒤 `tools/tidy_checkouts.py`에 병합처 상수(`origin/dev`도 병합처로 본다)가 들어왔는지 본다. 이 PR의 `tidy-checkouts` 문장("도구는 `origin/main`과 `origin/dev`를 둘 다 병합처로 본다")이 그 도구의 01 판에 기대기 때문이다.
-- 문서가 가리키는 도구(`tools/base_rule.py`, `check_ticket`의 `base_ref`, `hook_push_behind_main`의 `base_branch`, `tidy_checkouts`의 병합처, `hook_git_main_commit`의 보호 브랜치 둘)는 01이 넣는다. 01이 병합되기 전의 main에서는 이 문서가 앞서간다.
+- PR #25(base main, 지금은 dev가 없다)는 02(PR #24, 30c673d)에 이어 01(PR #26, 3cf02f1)이 `origin/main`에 병합되고 `Status: done`인 것을 확인한 뒤, 병합을 이어받은 세션이 main을 이 브랜치에 합쳐(main의 strict) 봇 회차를 거쳐 병합한다. 티켓 03의 첫 수락 기준과 `Blocked by`가 요구한 01의 병합은 채워졌다.
+- 병합 뒤 `tools/tidy_checkouts.py`에 병합처 상수 `TRUNK_REFS`(`origin/main`과 `origin/dev`)가 들어온 것을 확인했다. 이 PR의 `tidy-checkouts` 문장("도구는 `origin/main`과 `origin/dev`를 둘 다 병합처로 본다")이 기대는 01 판이 main에 있다.
+- 문서가 가리키는 도구(`tools/base_rule.py`, `check_ticket`의 `base_ref`, `hook_push_behind_main`의 `base_branch`, `tidy_checkouts`의 병합처, `hook_git_main_commit`의 보호 브랜치 둘)는 01이 넣었다. 이 PR이 병합되면 문서와 도구가 같은 main에 있다.
+- 뒤로 넘긴 봇 지적 둘. (1) 첫 핫픽스 PR에서 CodeRabbit의 수동 호출(base가 기본 브랜치가 아닐 때)과 `/security-review`의 `origin/HEAD...` 범위를 재 보고, `docs/constitution/operations.md` 리뷰 파이프라인과 ADR 0016 이력 2026-11-12의 같은 사실 문장을 한 곳에서만 고치고 다른 쪽은 그곳을 가리키게 한다(claude-review Minor, 셋째 회차). (2) 04·05가 보호 설정이나 strict의 결정을 바꾸면 `operations.md` 가드레일 절과 되돌려 합치기의 필요 판정 근거 문장을 같이 고쳐 판을 올린다(claude-review Minor, 둘째 회차).
 - 그 뒤는 04(`04-dev-branch-create`: dev를 따고 GitHub 설정을 바꾼다. 사용자의 승인을 다시 받는다)다. 05는 04와 agent-os의 `dev-release-pr-step` 병합 뒤에 한다.
 - 이어받을 상태: 대기열 `adr-body-rewrite-vs-pointer`(1회차)를 적었다. 사용자 수준 스킬(`git-pr`, `git-pr-merge`, `git-pr-feedback`, `git-branch`)의 main 박힘은 고치지 않았고 고칠지는 사용자가 정한다(티켓 끝 "결과 2").
 - 주 체크아웃 미갱신: 루트는 main(11f91c9). 이 세션은 주 체크아웃을 당기지 않는다.

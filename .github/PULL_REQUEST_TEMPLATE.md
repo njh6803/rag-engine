@@ -49,7 +49,7 @@
 - [ ] `uv run lint-imports`
 - [ ] `uv run pytest -q` (계약 시험 `tests/contract/`도 여기서 돈다)
 - [ ] 커밋 전 `/code-review`로 셀프 리뷰하고 Critical·Major를 반영했다. 보류한 지적은 별도 티켓이나 회고 후보로 뺐고, 다른 층·티켓에 넘긴 것은 받는 쪽에 적었다
-- [ ] PR 직전 `coderabbit-review` 서브에이전트를 돌렸다(보안·버그·성능 축). **`coderabbit auth status`의 `Seat:` 줄은 보고에 옮기는 값이고, CLI 축인지는 리뷰가 실제로 끝까지 도는지로 가른다 — agent-os에서 `Seat: not assigned`에서도 리뷰가 돌았다.** CLI가 돌지 못하면(미설치, 로그인 없음, 좌석 거절, 한도 초과) 내장 `/security-review`(보안, 작업을 커밋하고 origin/<기준 브랜치>를 합친 뒤에)와 `bug-perf-review` 서브에이전트(버그·성능)를 대신 돌리고, 무엇이 돌았는지와 결과를 적는다. **문서만 바뀐 PR도 면제가 아니다** — 설계 문서의 침묵이 곧 구현의 침묵이다(agent-os에서 코드 0줄인 PR 넷에서 CWE 넷). 한도와 좌석은 `.claude/agents/coderabbit-review.md`
+- [ ] PR 직전 `coderabbit-review` 서브에이전트를 돌렸다(보안·버그·성능 축). **`coderabbit auth status`의 `Seat:` 줄은 보고에 옮기는 값이고, CLI 축인지는 리뷰가 실제로 끝까지 도는지로 가른다 — agent-os에서 `Seat: not assigned`에서도 리뷰가 돌았다.** CLI가 돌지 못하면(미설치, 로그인 없음, 좌석 거절, 한도 초과) 내장 `/security-review`(보안, 작업을 커밋하고 origin/<기준 브랜치>를 합친 뒤에. 기준 브랜치가 main인 핫픽스에서는 기본 브랜치가 dev인 동안 `origin/HEAD` 범위에 dev의 커밋이 섞이므로 `git merge-base origin/main HEAD` 이후로 손으로 좁힌다. `docs/constitution/operations.md` 리뷰 파이프라인)와 `bug-perf-review` 서브에이전트(버그·성능)를 대신 돌리고, 무엇이 돌았는지와 결과를 적는다. **문서만 바뀐 PR도 면제가 아니다** — 설계 문서의 침묵이 곧 구현의 침묵이다(agent-os에서 코드 0줄인 PR 넷에서 CWE 넷). 한도와 좌석은 `.claude/agents/coderabbit-review.md`
 - [ ] 결정을 바꿨다면 그것을 참조하는 스킬·훅·rules·명세도 같이 고쳤다
 - [ ] 새 환경 변수는 `.env.example`에 있다
 
