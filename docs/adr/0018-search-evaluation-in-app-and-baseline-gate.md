@@ -40,4 +40,5 @@ date: 2026-11-12
 - 빠른 게이트를 돌릴 경로의 목록을 관리해야 하고, 목록에서 빠진 경로의 변경은 전체 게이트에서야 잡힌다.
 - 평가 전용 compose(PostgreSQL, 임베딩 TEI, 리랭커 TEI)가 release-image와 독립으로 서고, CI는 모델을 캐시한다. 빠른 게이트의 소요 시간이 한도를 넘으면 다시 묻는다.
 - `docs/constitution/operations.md`의 CI 절과 `.github/workflows/ci.yml`의 머리 주석(느린 검사를 main PR에만 둘지를 설계에 미룬 문장)은 게이트를 넣는 티켓이 고친다. `verify`는 지금 건너뛴 잡을 빨강으로 센다(`.github/workflows/ci.yml`의 verify 주석을 읽었다). 그래서 빠른 게이트를 건너뛴 PR이 통과하게 하는 방법도 그 티켓이 정한다.
+- 진단용 메서드와 `search_candidates`가 같은 SQL 뼈대를 쓴다는 조건을 어떻게 지키는지는 명세가 정한다. 두 메서드의 SQL이 따로 고쳐져 갈라지면 평가가 실제 검색과 다른 것을 재게 된다.
 - 게이트는 CI 전용이고 pre-commit 러너에는 넣지 않는다.

@@ -433,16 +433,52 @@ LLM으로 판정하는 길은 호출 6과 호출 8에서 따로 물었다.
 
 손으로 치는 다섯(테스트, 린트, 포맷 검사, 타입체크, import 경계)은 이 반영을 싣는 커밋의 pre-commit으로 갈음하고, 결과는 PR 본문의 확인 방법에 적는다. 문서 검사는 커밋 전에 손으로 돌렸다. `tools/check_adr_pointers.py`, `tools/check_md_tables.py`, `tools/check_line_separators.py`는 출력 없이 끝났고 `tools/check_quotes.py --all-lines`는 경고가 없었다.
 
+## PR 봇 리뷰 (첫 회차)
+
+PR #27(base dev)을 커밋 15472a5에서 열었다. `@coderabbitai review`를 남기고 상태를 한 번 읽었을 때 `python`이 pending이어서 `uv run python tools/wait_ci.py 27`을 백그라운드로 띄웠고, 그 끝 줄은 모두 통과였다(CodeRabbit, claude-review, image, python, ticket, verify가 SUCCESS). CodeRabbit과 claude-review 모두 이 PR의 첫 회차다. Critical과 Major는 없다. 첫 회차라 Minor와 Nit을 지적마다 판정했다.
+
+CodeRabbit(인라인 하나. 리뷰 범위는 bcd5613에서 15472a5까지이고 파일 34개다).
+
+1. Minor. `.scratch/admin/plan.md` 9행. 평가 화면, 관리 API, 저장 표, 제품 이미지의 평가 입구를 admin의 몫으로 적었는데 admin의 `Blocked by`에는 source-sync만 있고 수락에도 평가 항목이 없다. search-eval은 core에 막혀 있어 admin보다 늦게 끝날 수 있다. 고쳤다. 다만 제안대로 `Blocked by`에 search-eval을 더하지는 않았다. 기능 사이의 순서를 바꾸는 일이라, admin의 설계 인터뷰가 정할 것의 첫째로 적었다.
+
+claude-review(코멘트 하나에 지적 넷).
+
+2. Minor. ADR 0019의 판정기 포트가 ADR 0003의 플러그인 자리 셋 밖에서 갈아 끼우는 자리로 읽힌다. 구현 티켓이 이 포트를 플러그인 인터페이스처럼 판을 붙여 열지 않도록 한 줄을 적으라는 것이다. 고쳤다. ADR 0003(플러그인 자리는 커넥터, 변환, 파서 셋이고 그 인터페이스에 판을 붙인다)과 ADR 0007(포트는 `domain`의 Protocol이다)을 열어 보고 구조 항목에 적었다.
+3. Minor. ADR 0018의 진단용 메서드가 실제 검색과 같은 SQL 뼈대를 쓴다는 조건이 두 메서드의 중복 위험을 만드는데, 명세가 함께 쓰는 방식을 정한다는 넘김이 Consequences에 없다. 고쳤다. Consequences에 넘김 한 줄을 더했다. 같은 지적의 앞쪽(PR 본문의 계약 영향 절에 이 메서드가 없다)은 남겼다. `VectorIndex`는 `domain`의 포트이고, 원칙 VII이 판을 붙이는 계약 넷에 들지 않는다.
+4. Minor. ADR 0015 이력이 원칙 VII의 글(칸을 더하는 것은 같은 판에서)을 ADR로 다시 읽는데 헌법 본문은 그대로이므로, 헌법 README나 원칙 VII 아래에 그 해석을 가리키는 포인터를 두라는 것이다. 남겼다. 칸 추가를 minor로 읽은 것은 이 PR이 아니라 ADR 0015의 본문이고(b81534a, PR #2), 이 이력은 그 읽기를 입력 인자로 넓혔다. `docs/constitution/principles.md`에 포인터를 다는 것은 헌법의 개정이라 사용자가 정한다(헌법 거버넌스). 다음 절에 적었다.
+5. Nit. ADR 0019의 SDK 항목이 한 문단에 프로브 경로 셋과 명령 하나, 수치를 이어 적어 읽기 어려우니 결론과 README 가리킴만 두라는 것이다. 남겼다. 근거를 드는 자리가 프로브를 파일 이름으로 가리키고 근거의 종류를 밝히는 것이 이 저장소의 규약이다(`docs/agents/issue-tracker.md` 프로브와 근거 절).
+
+### 첫 회차에서 고친 것
+
+새로 쓴 문장의 원문이다. ADR의 두 문장은 사용자가 승인한 초안에 없던 글이라 PR 본문과 보고에서 알린다.
+
+- `.scratch/admin/plan.md`: 평가 화면과 그 관리 API는 search-eval의 평가 유스케이스가 구현된 뒤에야 만들 수 있는데, 지금 이 기능의 `Blocked by`에는 search-eval이 없고 수락에도 평가 항목이 없다.
+- ADR 0019 구조 항목: 이 포트는 ADR 0007의 `domain` 포트이고 ADR 0003의 플러그인 자리 셋(커넥터, 변환, 파서)에 들지 않는다. 판을 붙여 밖에 여는 인터페이스가 아니며, 다른 제공자의 구현도 이 저장소의 `adapters`에 더한다.
+- ADR 0018 Consequences: 진단용 메서드와 `search_candidates`가 같은 SQL 뼈대를 쓴다는 조건을 어떻게 지키는지는 명세가 정한다. 두 메서드의 SQL이 따로 고쳐져 갈라지면 평가가 실제 검색과 다른 것을 재게 된다.
+
+### 첫 회차 반영 커밋의 첫 시도
+
+이 반영을 싣는 커밋의 첫 시도는 pre-commit에서 멈춰 커밋이 만들어지지 않았다. 검사 러너의 pytest가 `1 failed, 3824 passed in 1316.30s (0:21:56)`였다. 러너의 나머지 열(test-db, check-ticket, zizmor, check-instructions, lint-imports, check-type-escapes, pyright, pyright-linux, run-hooks)과 표, 줄 구분자, 변이 표, 인용 대조 훅은 Passed였다. 실패한 시험은 `tests/adapters/test_parse_runner.py`의 `test_메시지를_보내다_멈춘_자식이_있어도_수신이_영영_막히지_않는다`다. 윈도에서 기대하는 오류 코드는 `parse_failed`인데 `parse_timeout`이 나왔다(그 시험이 러너에 준 제한 시간은 2초다).
+
+- 그 파일만 따로 돌린 `uv run pytest tests/adapters/test_parse_runner.py -q -p no:cacheprovider`는 `36 passed in 199.27s (0:03:19)`였다.
+- 같은 때에 다른 세션들의 pre-commit 검사 러너와 pytest가 돌고 있었다. 프로세스 목록을 손으로 봤고(`Get-CimInstance Win32_Process`), `C:\project\agent`의 워크트리 셋과 이 저장소의 형제 워크트리 `04-dev-branch-create`의 실행이었다. 검사 러너의 pytest 열은 이 시도에서 1350.3초였다(커밋 372065d는 755.0초, 병합 커밋 9da0c96은 613.3초였다).
+- 이 브랜치의 변경은 문서뿐이고 파서 쪽 코드를 바꾸지 않았다. 시험은 고치지 않았다(원칙 I). 부하가 가라앉은 뒤에 같은 커밋을 다시 시도하고, 그 pre-commit의 결과는 PR 본문의 확인 방법에 적는다.
+- 부하에서만 빨간 시간 시험이라 일지에만 적는다(retro 5단계의 끝이 열린 결함 종류). PR #22의 본문도 같은 시험이 부하 속에서 두 번 빨갰다가 따로 돌리면 초록이었다고 적었다. 대기열에서 이 시험을 다룬 항목은 찾지 못했다. `tools/queue_open_rows.py --search`로 `test_parse_runner`, `parse_timeout`, `부하`, `시간.시험`, `flaky`를 찾았고, 맞은 것은 다른 시험의 닫힌 항목 `token-expiry-test-load-margin` 하나다.
+
+### 병합에 앞서 받을 승인
+
+PR 직전 리뷰와 이 회차를 반영하며 ADR 0018과 0019에 더한 문장은 넷이다(PR 직전 리뷰에서 고친 것의 둘과 위의 둘). 사용자가 승인한 초안에 없던 글이므로 병합 전에 사용자의 승인을 받는다(`next-session` `merge.md`의 병합 길). PR을 연 턴의 보고에서 앞의 둘을 보이고 병합 여부를 물었고, 이 회차의 둘도 보고에서 보인다.
+
 ## 다음
 
-이 브랜치의 변경은 커밋했고(372065d) origin/dev를 합쳤다(9da0c96). 사용자가 요청해 base가 dev인 PR을 연다. 병합은 사용자가 요청할 때 한다. base가 dev인 PR이므로 `/git-pr-merge`가 아니라 `next-session` `merge.md`의 워크트리에서 병합할 때 1~3으로 병합한다(`docs/constitution/operations.md` 브랜치와 병합). 병합 뒤의 다음 단계는 search-eval의 명세다(`to-spec`).
+이 브랜치의 변경은 커밋했고(372065d) origin/dev를 합쳤다(9da0c96). 사용자가 요청해 PR #27을 base dev로 열었다. 병합은 ADR에 더한 문장 넷을 사용자가 승인한 뒤에 한다(PR 봇 리뷰 절의 병합에 앞서 받을 승인). base가 dev인 PR이므로 `/git-pr-merge`가 아니라 `next-session` `merge.md`의 워크트리에서 병합할 때 1~3으로 병합한다(`docs/constitution/operations.md` 브랜치와 병합). 병합 뒤의 다음 단계는 search-eval의 명세다(`to-spec`).
 
 명세가 정할 것은 다섯 묶음이다.
 
 - **게이트.** 하락폭의 값(첫 측정에서 실행마다 흔들리는 정도를 본 뒤), 빠른 게이트의 소요 시간 한도(core 16의 측정으로), 빠른 게이트를 돌릴 경로의 목록, 평가 전용 compose와 CI의 모델 캐시. dev 전환(ADR 0016) 전에 구현되면 전체 게이트는 수동 실행으로만 둔다. 셀프 리뷰가 더한 것이 넷이다. 기준 보고서의 어느 줄을 어느 실행의 값으로 갱신하는지와 첫 기준 보고서를 만드는 절차, 전체 게이트를 main 푸시에서도 돌릴지, dev 전환 뒤 전체 게이트를 main PR의 잡으로 켜는 일을 받는 티켓, 빠른 게이트를 건너뛴 PR이 `verify`를 통과하게 하는 방법이다(지금 `verify`는 건너뛴 잡을 빨강으로 센다).
 - **재료.** 공공 문서 묶음의 용량 상한, 문서 수와 질문 수, 후보 목록(에이전트가 내고 사용자가 확정한다), 문서마다 적는 목록의 칸(출처, 이용 조건, 내려받은 날짜, 해시).
 - **형식.** 평가 세트의 형식(판 칸, 기대 근거의 두 단위, 질의 목록, 놓친 까닭의 유형 표지, 공개 데이터셋의 그림 유형 문항 표시, 질의에 적는 필터 칸)과 보고서의 형식(JSON과 Markdown, 질의 목록마다 네 줄, 유형별 숫자. 기준 보고서는 커밋하고 CI의 보고서는 산출물로 올린다).
-- **코드.** 진단용 메서드와 판정기 포트의 이름과 모양, 명령줄 도구의 자리, 판정 파일의 형식과 조각을 가리키는 값, 질의를 가리키는 값(질의의 글이 바뀌면 옛 판정을 다시 쓰지 않는다. PR 직전 리뷰가 더했다), 지시문의 판. 판정 모델이 바뀌었을 때 옛 판정을 어떻게 다루는지와, 끊긴 실행을 이어 갈 때 이미 판정한 조합을 건너뛰는 규칙도 명세가 정한다(ADR 0019 Consequences).
+- **코드.** 진단용 메서드와 판정기 포트의 이름과 모양, 진단용 메서드와 `search_candidates`가 SQL 뼈대를 함께 쓰는 방식(PR 봇 첫 회차가 더했다. ADR 0018 Consequences), 명령줄 도구의 자리, 판정 파일의 형식과 조각을 가리키는 값, 질의를 가리키는 값(질의의 글이 바뀌면 옛 판정을 다시 쓰지 않는다. PR 직전 리뷰가 더했다), 지시문의 판. 판정 모델이 바뀌었을 때 옛 판정을 어떻게 다루는지와, 끊긴 실행을 이어 갈 때 이미 판정한 조합을 건너뛰는 규칙도 명세가 정한다(ADR 0019 Consequences).
 - **순서.** 설정 실험(조각 크기와 겹침, 리랭커 켬·끔과 후보 수)은 로컬에서 수동으로 돌리고 결과를 프로브로 커밋하며, 기본값의 변경은 사용자 승인 뒤에 한다. 최소 점수는 분포를 재는 티켓, 사용자 승인, 구현 티켓의 순서다. 구현 티켓은 승인 뒤에 쓰는 것이 기본이고, 승인을 어디에 적는지는 명세가 정한다(ADR 0017 Consequences). 그 구현 티켓이 입력 인자를 처음 더하므로 계약 시험에 도구 목록의 inputSchema를 보는 시험도 그 티켓이 더한다(ADR 0015 이력). 기본값이 있는 지식베이스에서 리랭커를 빼는 설정 변경을 어떻게 다룰지도 명세가 정한다.
 
 합의 요약의 가정 가운데 ADR에 적지 않고 명세로 넘긴 것은 3, 4, 11, 12이고 위 형식과 순서 묶음에 들어 있다. 가정 3 가운데 기본값의 변경은 사용자 승인 뒤에 한다는 조건은 셀프 리뷰 뒤에 ADR 0018의 범위 항목에도 적었다.
@@ -450,6 +486,8 @@ LLM으로 판정하는 길은 호출 6과 호출 8에서 따로 물었다.
 첫 구현 티켓이 잴 것(ADR 0019 Consequences): 실제 호출이다. 요청과 응답이 실제 API에서 어댑터 프로브의 꼴대로 도는지를 재고, 호출은 예상 건수와 비용을 보이고 사용자가 승인한 뒤에 한다. 전이 의존 셋의 라이선스와 어댑터 꼴의 타입 검사는 셀프 리뷰 뒤에 프로브로 쟀다(확인한 것 절).
 
 면제 PR이 고칠 수 없어 구현 티켓으로 넘긴 파일은 넷이다. `pyproject.toml`의 import 금지 목록(`anthropic`을 더해 열일곱)과 `CLAUDE.md`의 레이어 절이 적은 수는 판정기 포트를 넣는 티켓이 고친다. `docs/constitution/operations.md`의 CI 절(적중률이 기준치 아래로 떨어질 때라는 문장)과 `.github/workflows/ci.yml`의 머리 주석(느린 검사를 main PR에만 둘지를 설계에 미룬 문장)은 게이트를 넣는 티켓이 고친다.
+
+PR 봇 첫 회차에서 남겨 사용자가 정할 것이 하나다. `docs/constitution/principles.md`의 원칙 VII 아래나 헌법 README에 ADR 0015의 판 해석(칸과 입력 인자의 추가는 minor)을 가리키는 포인터를 둘지다. 헌법의 개정이라 이 PR에서 하지 않았다(PR 봇 리뷰 절의 4). admin의 설계 인터뷰가 먼저 정할 순서(search-eval을 admin의 `Blocked by`에 더할지, 평가 화면을 뒤로 뗄지)는 `.scratch/admin/plan.md`에 적었다.
 
 PR 직전 리뷰는 CodeRabbit CLI로 돌았고 결과는 PR 직전 리뷰 절에 있다. 셀프 리뷰 절의 고친 것 목록은 CLI에 넘기는 길이 없어 PR 본문의 리뷰어 참고에 적어 PR의 리뷰에 넘긴다.
 
