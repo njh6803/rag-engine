@@ -9,6 +9,8 @@
 3. 살아 있는 판을 대상 판으로 읽어 판마다 청킹, 토큰 세기, 임베딩, 키워드 토큰화를 한 뒤, 작업 단위
    하나에서 문서 행을 다시 잠그고 세대를 대조한다. 같을 때만 그 (문서, 판)의 옛 조각을 지우고 새
    조각과 색인 상태 `indexed`를 쓴다. 이 한 번의 작업 단위가 문서 단위 원자 교체(ADR 0008)다.
+   토크나이저 판만 다른 건설 중인 판은 청킹과 임베딩 대신 현재 판의 조각을 복사하고 키워드만
+   다시 만든다(`keyword_copy`). 건설 중인 판에 쓰면 같은 작업 단위에서 전환 검사를 부른다.
 4. 작업을 `succeeded`로 끝낸다. 끝내는 일은 호출한 쪽(작업자)이 한다.
 
 문서에 쓰는 작업 단위는 모두 문서 행을 먼저, 작업 행을 마지막에 잠근다. 작업 행 조건이 어긋나면
@@ -34,6 +36,7 @@ from uuid import UUID
 
 from rag_engine.app.index_failure import mark_version_failed
 from rag_engine.app.job_attempt import hold_attempt
+from rag_engine.app.keyword_copy import read_copy_sources, rebuild_keywords
 from rag_engine.app.live_versions import live_index_versions
 from rag_engine.app.retry_policy import RetryPolicy
 from rag_engine.app.version_switch import check_version_switch
@@ -49,6 +52,7 @@ from rag_engine.domain.entities import (
     IndexVersionStatus,
     Job,
     JobStatus,
+    StoredChunk,
 )
 from rag_engine.domain.errors import ErrorCode, PermanentFailure
 from rag_engine.domain.identifiers import new_id
@@ -57,8 +61,10 @@ from rag_engine.domain.ports import (
     BlobStore,
     ChunkerFor,
     EmbedderFor,
+    IndexMaintenance,
     JobOutcome,
     KeywordTokenizer,
+    LockMode,
     UnitOfWork,
 )
 
@@ -67,7 +73,8 @@ _MS_PER_SECOND = 1000.0
 
 @dataclass(frozen=True, slots=True)
 class IndexDocumentDeps:
-    """유스케이스가 부르는 포트와 시계. `now`는 시각 칸에 쓸 지금이다."""
+    """유스케이스가 부르는 포트와 시계. `now`는 시각 칸에 쓸 지금이다. `maintenance`는 이
+    유스케이스가 아니라 작업을 마친 뒤 물러난 판을 정리하는 작업자(`process_job`)가 쓴다."""
 
     unit_of_work: UnitOfWork
     blob_store: BlobStore
@@ -77,6 +84,7 @@ class IndexDocumentDeps:
     tokenize_keywords: KeywordTokenizer
     now: Callable[[], datetime]
     retry: RetryPolicy
+    maintenance: IndexMaintenance
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,6 +248,15 @@ async def _record_permanent_failure(
     끝난다."""
     async with deps.unit_of_work.begin() as transaction:
         document = await transaction.documents.lock(job.document_id)
+        versions = await live_index_versions(transaction, claim.group_id)
+        # 건설 중인 판에 쓰면 `mark_version_failed`가 전환 검사로 그 지식베이스 행을 `FOR UPDATE`로
+        # 잠그므로, 잠금 순서(문서 행, 지식베이스 행, 작업 행)를 지키려고 건설 중인 판이 든
+        # 지식베이스만 작업 행 앞에서 ID 순으로 잠근다. 읽은 뒤에 판이 바뀌어도 전환 검사가
+        # 잠근 채로 판을 다시 읽으므로 이 목록으로 충분하다.
+        building = sorted(
+            {v.knowledge_base_id for v in versions if v.status is IndexVersionStatus.BUILDING}
+        )
+        await transaction.catalog.lock_knowledge_bases(building, LockMode.UPDATE)
         await hold_attempt(transaction, job)
         if document is None or document.generation != claim.generation:
             return
@@ -251,7 +268,7 @@ async def _record_permanent_failure(
                 modified_at=deps.now(),
             )
         )
-        for version in await live_index_versions(transaction, claim.group_id):
+        for version in versions:
             await mark_version_failed(transaction, document.id, version, failure.code, deps.now())
 
 
@@ -278,23 +295,35 @@ async def _replace_chunks(
     예외가 올라가 시도 전체가 일시 실패다."""
     async with deps.unit_of_work.begin() as transaction:
         versions = await live_index_versions(transaction, claim.group_id)
+        copies = await read_copy_sources(transaction, versions, job.document_id, claim.content_hash)
     started = time.perf_counter()
     prepared: list[_Prepared] = []
     rejected: list[tuple[IndexVersion, ErrorCode]] = []
     try:
         for version in versions:
             try:
-                prepared.append(await _prepare(deps, version, content.blocks))
+                prepared.append(
+                    await _prepare(deps, version, content.blocks, copies.get(version.id))
+                )
             except PermanentFailure as failure:
                 rejected.append((version, failure.code))
     finally:
         timer.embedding_ms += _elapsed_ms(started)
     failure_code = rejected[-1][1] if rejected else None
+    building = {
+        version.knowledge_base_id
+        for version in [material.version for material in prepared] + [v for v, _ in rejected]
+        if version.status is IndexVersionStatus.BUILDING
+    }
 
     started = time.perf_counter()
     try:
         async with deps.unit_of_work.begin() as transaction:
             document = await transaction.documents.lock(job.document_id)
+            # 건설 중인 판에 쓰면 전환 검사가 그 지식베이스 행을 `FOR UPDATE`로 잠그므로, 작업 행
+            # 앞에서 먼저 잠근다(잠금 순서는 문서 행, 지식베이스 행, 작업 행이다). 건설 중인 판이
+            # 없으면 잠그지 않아 평소의 색인 쓰기가 지식베이스 행에서 줄을 서지 않는다.
+            await transaction.catalog.lock_knowledge_bases(sorted(building), LockMode.UPDATE)
             await hold_attempt(transaction, job)
             if document is None or document.generation != claim.generation:
                 return failure_code
@@ -349,12 +378,19 @@ async def _replace_chunks(
 
 
 async def _prepare(
-    deps: IndexDocumentDeps, version: IndexVersion, blocks: Sequence[Block]
+    deps: IndexDocumentDeps,
+    version: IndexVersion,
+    blocks: Sequence[Block],
+    copied: Sequence[StoredChunk] | None,
 ) -> _Prepared:
     """판에 적힌 청킹 설정으로 자르고, 판에 적힌 끝점·모델·차원으로 임베딩한다. 임베딩과 키워드에는
-    청커가 지은 `index_text`를 그대로 쓴다(절 경로가 상한을 넘어 줄었으면 `location`으로 되지을 수
-    없다)."""
+    청커가 지은 `index_text`를 그대로 쓴다(줄인 절 경로는 토큰 수로 정해져 `location`만으로는 되짓지
+    못한다). 현재 판에서 복사해 올 조각이 있으면(토크나이저 판만 다른 건설 중인 판) 청킹과 임베딩을
+    하지 않고 키워드만 다시 만든다."""
     embedder = deps.embedder_for(version)
+    if copied is not None:
+        material = await rebuild_keywords(embedder, deps.tokenize_keywords, version, copied)
+        return _Prepared(version, material.drafts, material.embeddings, material.keyword_texts)
     drafts = await deps.chunker_for(version.chunking.strategy).chunk(
         blocks, version.chunking, embedder
     )

@@ -28,6 +28,7 @@ from rag_engine.domain.entities import (
     Group,
     IndexElements,
     IndexState,
+    IndexStateStatus,
     IndexVersion,
     Job,
     JobStatus,
@@ -35,6 +36,7 @@ from rag_engine.domain.entities import (
     SearchCandidates,
     SearchQuery,
     Source,
+    StoredChunk,
     Token,
 )
 from rag_engine.domain.errors import ErrorCode
@@ -162,6 +164,12 @@ class Catalog(Protocol):
         """현재 판과 건설 중인 판을 낸다."""
         ...
 
+    async def get_index_version(self, version_id: UUID) -> IndexVersion | None: ...
+
+    async def list_index_versions(self, knowledge_base_id: UUID) -> list[IndexVersion]:
+        """물러난 판까지 모든 판을 만든 순서의 역순(ID의 내림차순)으로 낸다."""
+        ...
+
     async def add_index_version(self, version: IndexVersion) -> None: ...
 
     async def update_index_version_endpoint(self, version_id: UUID, endpoint: str) -> None:
@@ -201,6 +209,11 @@ class DocumentStore(Protocol):
 
     async def count_live_documents(self, knowledge_base_id: UUID) -> int:
         """그 지식베이스의 그룹 집합에 드는 그룹의, 지워지지 않은 문서 수. 색인 상태와 상관없다."""
+        ...
+
+    async def list_live_document_ids(self, knowledge_base_id: UUID) -> list[UUID]:
+        """`count_live_documents`가 세는 문서의 ID를 낸다. 재색인 시작이 문서마다 `pending`을
+        쓴다."""
         ...
 
     async def list_documents(self, query: DocumentQuery) -> list[Document]:
@@ -254,6 +267,21 @@ class VectorIndex(Protocol):
         """그 (문서, 판)의 조각 수."""
         ...
 
+    async def list_chunks(self, document_id: UUID, index_version_id: UUID) -> list[StoredChunk]:
+        """그 (문서, 판)의 조각을 순번 순으로 낸다(토크나이저 판만 다른 판이 복사해 갈 재료)."""
+        ...
+
+    async def count_states(self, index_version_id: UUID) -> dict[IndexStateStatus, int]:
+        """그 판의 색인 상태를 상태마다 센다. 행이 없는 상태는 키로 들지 않는다(재색인의 진행과
+        전환 검사)."""
+        ...
+
+    async def create_pending_states(
+        self, index_version_id: UUID, document_ids: Sequence[UUID], now: datetime
+    ) -> None:
+        """그 판에 문서마다 색인 상태 `pending`을 쓴다(재색인 시작)."""
+        ...
+
     async def get_state(self, document_id: UUID, index_version_id: UUID) -> IndexState | None: ...
 
     async def save_state(self, state: IndexState) -> None:
@@ -293,6 +321,13 @@ class JobQueue(Protocol):
 
     async def delete_queued(self, document_id: UUID) -> None:
         """그 문서의 대기(`queued`) 작업을 지운다. 실행 중인 작업과 끝난 작업은 건드리지 않는다."""
+        ...
+
+    async def lock_queued_documents(self, document_ids: Sequence[UUID]) -> set[UUID]:
+        """`document_ids` 가운데 대기 작업이 있는 문서의 대기 작업 행을 `FOR UPDATE`로 잠그고 그
+        문서들을 낸다(재색인 시작이 잠근 문서에는 새 작업을 넣지 않는다). 작업자가 꺼낼 때의
+        `SKIP LOCKED`는 잠긴 행을 건너뛴다. 작업자가 막 꺼내 `running`이 된 행은 잠금을 기다린 뒤
+        조건에 맞지 않아 들지 않는다."""
         ...
 
     async def get(self, job_id: UUID) -> Job | None: ...
@@ -347,6 +382,28 @@ class JobQueue(Protocol):
         """임대 만료를 `leased_until`로 늘린다. 작업 행 조건을 지날 때만 쓰고, 아니면 임대가 끝나
         다른 작업자가 가져간 것이라 아무것도 쓰지 않고 `AttemptLostError`를 올린다(부른 쪽은 그
         시도를 버린다). 문서 행을 잠그지 않고 작업 행 하나만 쓰므로 잠금 순서를 거스르지 않는다."""
+        ...
+
+
+class IndexMaintenance(Protocol):
+    """물러난 판의 정리. 작업 단위 밖에서 부른다. `DROP INDEX CONCURRENTLY`는 트랜잭션 안에서 부를
+    수 없고(`25001`), 조각은 묶음마다 별도 트랜잭션에서 지워 큰 지식베이스에서도 한 트랜잭션을 길게
+    하지 않는다(명세 "수집 파이프라인과 작업"의 판 전환 항목). 정리는 여러 작업자가 겹쳐 돌아도
+    안전하다."""
+
+    async def list_versions_to_clean(
+        self, knowledge_base_id: UUID | None = None
+    ) -> list[IndexVersion]:
+        """물러난 판 가운데 HNSW 색인이나 조각이 남은 것. 지식베이스를 주면 그 지식베이스의
+        것만이다."""
+        ...
+
+    async def drop_version_index(self, index_version_id: UUID) -> None:
+        """판의 HNSW 부분 색인을 `DROP INDEX CONCURRENTLY IF EXISTS`로 지운다."""
+        ...
+
+    async def delete_version_chunks(self, index_version_id: UUID, limit: int) -> int:
+        """판의 조각을 최대 `limit`개 지우고 지운 수를 낸다. 한 번이 한 트랜잭션이다."""
         ...
 
 

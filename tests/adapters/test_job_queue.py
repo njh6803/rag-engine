@@ -168,3 +168,20 @@ async def test_대기_작업을_지우면_그_문서의_대기_작업만_사라�
 
     assert [row[1] for row in _rows(empty_database_url, document.id)] == ["running"]
     assert [row[1] for row in _rows(empty_database_url, other.id)] == ["queued"]
+
+
+async def test_대기_작업을_잠글_문서가_바인드_파라미터_한도를_넘어도_대기_문서만_잠근다(
+    engine: AsyncEngine,
+) -> None:
+    unit_of_work = PostgresUnitOfWork(engine)
+    queued = await _seed_document(unit_of_work)
+    async with unit_of_work.begin() as transaction:
+        await transaction.jobs.enqueue(queued.id, new_id(), NOW)
+    unknown = [new_id() for _ in range(70_000)]
+
+    async with unit_of_work.begin() as transaction:
+        locked = await transaction.jobs.lock_queued_documents(
+            [*unknown[:35_000], queued.id, *unknown[35_000:]]
+        )
+
+    assert locked == {queued.id}, f"잠긴 문서가 {len(locked)}개로 나왔다"

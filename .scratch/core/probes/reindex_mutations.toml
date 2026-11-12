@@ -1,0 +1,301 @@
+# core 14(재색인과 판 전환)가 더한 시험의 변이. 시험을 코드 뒤에 썼거나 한 줄이 여러 시험에 걸려 있어서
+# 실제 빨강을 확인한다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/core/probes/reindex_mutations.toml
+
+[[mutation]]
+name = "전환 검사가 pending이 남아도 전환한다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["pending이 있는데 시작하자마자 전환했다: {UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/version_switch.py"
+old = '''    if counts.get(IndexStateStatus.PENDING, 0) > 0:
+        return
+'''
+new = '''    if counts.get(IndexStateStatus.PENDING, 0) < 0:
+        return
+'''
+
+[[mutation]]
+name = "전환 검사가 잠근 뒤 판 상태를 다시 보지 않는다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["옛 상태의 검사가 판을 바꿨다: {UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/version_switch.py"
+old = '''    if locked is None or locked.status is not IndexVersionStatus.BUILDING:
+        return
+'''
+new = '''    if locked is None:
+        return
+'''
+
+[[mutation]]
+name = "전환 검사가 지식베이스 행을 잠그지 않는다"
+tests = ["tests/adapters/test_reindex_locking.py"]
+expect = "red"
+expect_output = ["잠금을 기다리지 않고 끝났다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/version_switch.py"
+old = '''    await transaction.catalog.lock_knowledge_bases([version.knowledge_base_id], LockMode.UPDATE)
+'''
+new = '''    _ = LockMode.UPDATE
+'''
+
+[[mutation]]
+name = "재색인 시작이 건설 중인 판이 있어도 막지 않는다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE RequestError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/reindex.py"
+old = '''        if any(version.status is IndexVersionStatus.BUILDING for version in live):
+'''
+new = '''        if False and any(version.status is IndexVersionStatus.BUILDING for version in live):
+'''
+
+[[mutation]]
+name = "재색인 시작이 대기 작업이 있는 문서에도 작업을 더 넣는다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["대기 작업이 있는데 작업을 1개 더 넣었다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/reindex.py"
+old = '''        queued = await transaction.jobs.lock_queued_documents(document_ids)
+'''
+new = '''        queued: set[UUID] = set()
+'''
+
+[[mutation]]
+name = "재색인 시작이 시작 전에 물러난 판을 정리하지 않는다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["다시 시작한 뒤에도 물러난 판에 조각 1개가 남았다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/reindex.py"
+old = '''    await clean_retired_versions(maintenance, found.id)
+'''
+new = '''    _ = maintenance
+'''
+
+[[mutation]]
+name = "정리가 첫 묶음만 지운다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["묶음 정리가 지운 조각 [1]개, 저장된 조각 2개"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/retire_cleanup.py"
+old = '''        while batch := await maintenance.delete_version_chunks(version.id, batch_chunks):
+'''
+new = '''        if batch := await maintenance.delete_version_chunks(version.id, batch_chunks):
+'''
+
+[[mutation]]
+name = "정리가 HNSW 색인을 지우지 않는다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["정리한 뒤에도 물러난 판의 HNSW 색인이 남았다: True"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/retire_cleanup.py"
+old = '''        await maintenance.drop_version_index(version.id)
+'''
+new = '''        pass
+'''
+
+[[mutation]]
+name = "복사 조건에 청킹 해시 일치가 없다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["새 판의 조각이 더 많지 않다: 옛 판 1개, 새 판 1개"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/keyword_copy.py"
+old = '''            and source.chunking_hash == version.chunking_hash
+'''
+new = ''''''
+
+[[mutation]]
+name = "복사가 기억한 내용 해시를 보지 않는다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["임베딩 호출이 1번 늘어 기대한 2번과 다르다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/keyword_copy.py"
+old = '''        usable = [chunk for chunk in stored if chunk.source_content_hash == content_hash]
+'''
+new = '''        usable = list(stored)
+'''
+
+[[mutation]]
+name = "절 경로 상한 비교가 경계를 포함하지 않는다"
+tests = ["tests/domain/test_index_text.py"]
+expect = "red"
+expect_output = ["At index 0 diff: '정의' != '제3조'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/domain/index_text.py"
+old = '''        if line_tokens[section_line(candidate)] <= limit or start == len(full) - 1:
+'''
+new = '''        if line_tokens[section_line(candidate)] < limit or start == len(full) - 1:
+'''
+
+[[mutation]]
+name = "색인 작업이 건설 중인 판의 지식베이스 행을 잠그지 않는다"
+tests = ["tests/adapters/test_reindex_locking.py"]
+expect = "red"
+expect_output = ["작업 행이 비었나: False"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''            await transaction.catalog.lock_knowledge_bases(sorted(building), LockMode.UPDATE)
+'''
+new = '''            _ = building
+'''
+
+[[mutation]]
+name = "색인 작업이 건설 중인 판에 쓴 뒤 전환 검사를 하지 않는다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["마지막 색인 뒤에도 현재 판이 옛 판이다: {UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''                if material.version.status is IndexVersionStatus.BUILDING:
+                    await check_version_switch(transaction, material.version)
+'''
+new = ''''''
+
+[[mutation]]
+name = "재색인 필요 표시가 현재 판이 있으면 늘 거짓이다"
+tests = ["tests/server/test_admin_knowledge_bases.py"]
+expect = "red"
+expect_output = ["설정을 바꿨는데 재색인 필요가 False로 나왔다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/admin_knowledge_bases.py"
+old = '''        reindex_needed=current is None or current.elements != wanted,
+'''
+new = '''        reindex_needed=current is None,
+'''
+
+[[mutation]]
+name = "대기 작업 잠금이 문서 ID를 묶음으로 나누지 않고 한 문장에 보낸다"
+tests = ["tests/adapters/test_job_queue.py"]
+expect = "red"
+expect_output = ["TransientFailure: 데이터베이스를 잠시 쓸 수 없다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''                    jobs.c.document_id.in_(document_ids[start : start + _LOCK_BATCH]),
+'''
+new = '''                    jobs.c.document_id.in_(document_ids),
+'''
+
+[[mutation]]
+name = "복사 조건에 건설 중인 판이라는 검사가 없다"
+tests = ["tests/app/test_keyword_copy.py"]
+expect = "red"
+expect_output = ["current 판이 복사 원본"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/keyword_copy.py"
+old = '''    if version.status is not IndexVersionStatus.BUILDING:
+        return None
+'''
+new = ''''''
+
+[[mutation]]
+name = "복사 조건에 원본이 현재 판이라는 검사가 없다"
+tests = ["tests/app/test_keyword_copy.py"]
+expect = "red"
+expect_output = ["schema_version가 달라도 복사 원본이"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/keyword_copy.py"
+old = '''            source.status is IndexVersionStatus.CURRENT
+            and source.knowledge_base_id == version.knowledge_base_id
+'''
+new = '''            source.knowledge_base_id == version.knowledge_base_id
+'''
+
+[[mutation]]
+name = "복사 조건에 같은 지식베이스라는 검사가 없다"
+tests = ["tests/app/test_keyword_copy.py"]
+expect = "red"
+expect_output = ["knowledge_base_id가 달라도 복사 원본이"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/keyword_copy.py"
+old = '''            and source.knowledge_base_id == version.knowledge_base_id
+'''
+new = ''''''
+
+[[mutation]]
+name = "복사 조건에 판 스키마 일치가 없다"
+tests = ["tests/app/test_keyword_copy.py"]
+expect = "red"
+expect_output = ["schema_version가 달라도 복사 원본이"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/keyword_copy.py"
+old = '''            and source.schema_version == version.schema_version
+'''
+new = ''''''
+
+[[mutation]]
+name = "복사 조건에 임베딩 모델 일치가 없다"
+tests = ["tests/app/test_keyword_copy.py"]
+expect = "red"
+expect_output = ["embedding_model가 달라도 복사 원본이"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/keyword_copy.py"
+old = '''            and source.embedding_model == version.embedding_model
+'''
+new = ''''''
+
+[[mutation]]
+name = "복사 조건에 임베딩 차원 일치가 없다"
+tests = ["tests/app/test_keyword_copy.py"]
+expect = "red"
+expect_output = ["embedding_dimensions가 달라도 복사 원본이"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/keyword_copy.py"
+old = '''            and source.embedding_dimensions == version.embedding_dimensions
+'''
+new = ''''''
+
+[[mutation]]
+name = "되지은 키워드 글이 절 경로를 상한 안으로 줄이지 않는다"
+tests = ["tests/app/test_keyword_copy.py"]
+expect = "red"
+expect_output = ["긴제목긴제목긴제목 > 중간제목 > 안쪽 본문"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/keyword_copy.py"
+old = '''                fit_section(chunk.location.section, version.chunking.max_tokens, line_tokens),
+'''
+new = '''                chunk.location.section,
+'''
+
+[[mutation]]
+name = "색인 지우기가 IF EXISTS 없이 두 번 불리면 실패한다"
+tests = ["tests/app/test_reindex.py"]
+expect = "red"
+expect_output = ["does not exist"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/index_maintenance.py"
+old = '''DROP INDEX CONCURRENTLY IF EXISTS "{name}"'''
+new = '''DROP INDEX CONCURRENTLY "{name}"'''

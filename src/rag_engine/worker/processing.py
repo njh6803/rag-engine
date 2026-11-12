@@ -11,7 +11,9 @@
 다만 인수마다 시도 횟수가 오르므로, 임대보다 오래 루프를 막는 문서는 인수가 되풀이되다
 `worker_lost`로 끝날 수 있다.
 
-작업 하나는 `job_started`와 `job_finished` 이벤트를 남긴다. 요청 ID는 작업 행이 든 수집 요청의 ID다.
+작업 하나는 `job_started`와 `job_finished` 이벤트를 남기고, 끝낸 뒤 물러난 판에 남은 것을 정리하면
+`retired_version_cleaned`(판 ID, 지식베이스 ID, 지운 조각 수)를, 정리가 실패하면
+`retired_cleanup_failed`를 남긴다. 요청 ID는 작업 행이 든 수집 요청의 ID다.
 싣는 칸은 작업 ID, 종류, 문서 ID, 시도 횟수, 결과, 오류 코드, 파싱·임베딩·쓰기 지연이고 문서의 키와
 제목은 싣지 않는다(원칙 V). 결과는 작업이 시도 뒤에 놓인 상태다. 성공은 `succeeded`, 영구 실패는
 `failed`, 다시 예약한 일시 실패는 `queued`, 임대를 잃은 시도는 `lost`이고, 오류 코드는 실패한 시도의
@@ -41,6 +43,7 @@ from rag_engine.app.index_document import (
     index_document,
 )
 from rag_engine.app.job_failure import exhaust, settle_transient_failure
+from rag_engine.app.retire_cleanup import clean_retired_versions
 from rag_engine.domain.entities import Job, JobStatus
 from rag_engine.domain.errors import AttemptLostError, ErrorCode, RagEngineError, TransientFailure
 from rag_engine.domain.ports import JobOutcome
@@ -121,6 +124,34 @@ async def process_job(
         embedding_ms=timings.embedding_ms,
         write_ms=timings.write_ms,
     )
+    await _clean_retired_versions(deps, job)
+
+
+async def _clean_retired_versions(deps: IndexDocumentDeps, job: Job) -> None:
+    """작업을 마친 뒤 물러난 판에 남은 색인과 조각을 트랜잭션 밖에서 정리한다(판 전환을 커밋한
+    작업자가 한다. 전환은 어느 작업이 마지막 `pending`을 끝냈는가에 달려 있어 이 작업이 전환했는지는
+    묻지 않고, 남은 것이 있는지만 본다). 정리가 실패해도 작업의 결과는 그대로이고 다음 정리가 다시
+    지운다."""
+    try:
+        cleaned = await clean_retired_versions(deps.maintenance)
+    except Exception as error:  # 정리의 실패가 이미 끝난 작업을 되돌리지 않는다
+        log_event(
+            logger,
+            "retired_cleanup_failed",
+            level=logging.ERROR,
+            request_id=job.request_id,
+            exception=error,
+        )
+        return
+    for version in cleaned:
+        log_event(
+            logger,
+            "retired_version_cleaned",
+            request_id=job.request_id,
+            index_version_id=str(version.index_version_id),
+            knowledge_base_id=str(version.knowledge_base_id),
+            chunks_deleted=version.chunks_deleted,
+        )
 
 
 async def _finish(deps: IndexDocumentDeps, job: Job, outcome: JobOutcome) -> JobOutcome | None:

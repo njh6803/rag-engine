@@ -23,7 +23,13 @@ from rag_engine.adapters.index_elements import STRUCTURE_FIRST_VERSION
 from rag_engine.adapters.kiwi import split_sentences
 from rag_engine.domain.entities import Block, BlockKind, ChunkDraft, ChunkingConfig, ChunkLocation
 from rag_engine.domain.errors import ConfigurationError
-from rag_engine.domain.index_text import compose_index_text, section_line
+from rag_engine.domain.index_text import (
+    compose_index_text,
+    fit_section,
+    section_candidates,
+    section_line,
+    section_token_limit,
+)
 from rag_engine.domain.ports import Chunker, TokenMeter
 
 STRATEGY_NAME: Final = "structure_first"
@@ -32,9 +38,6 @@ STRATEGY_NAME: Final = "structure_first"
 _PIECE_JOINER: Final = " "
 _BLOCK_JOINER: Final = "\n\n"
 _LIST_JOINER: Final = "\n"
-
-# 절 경로 줄은 상한의 4분의 1 안이다(규칙 일곱).
-_PATH_SHARE: Final = 4
 
 # 절의 마지막 조각이 상한의 10% 아래면 앞 조각에 합친다(규칙 여섯).
 _TAIL_SHARE: Final = 10
@@ -162,7 +165,7 @@ class _ChunkingRun:
     ) -> list[_Section]:
         """제목 블록으로 절을 가른다. 글 하나가 상한의 4분의 1을 넘는 제목 블록은 제목으로 보지 않고
         문단 블록으로 본문에 둔다(규칙 일곱)."""
-        limit = self._max_tokens // _PATH_SHARE
+        limit = section_token_limit(self._max_tokens)
         sections: list[_Section] = []
         stack: list[tuple[int, str]] = []
         path: tuple[str, ...] = ()
@@ -187,29 +190,21 @@ class _ChunkingRun:
 
     async def _path_tokens(self, sections: Sequence[_Section]) -> dict[str, int]:
         """모든 절의 절 경로 후보 줄을 한 번에 세어 둔다."""
-        lines = {
-            section_line(section.path[start:])
-            for section in sections
-            for start in range(len(section.path))
-        }
+        lines = {line for section in sections for line in section_candidates(section.path)}
         ordered = sorted(lines)
         counts = await self._tokens.count_tokens(ordered)
         return dict(zip(ordered, counts, strict=True))
 
     def _fit_path(self, full: tuple[str, ...], path_tokens: Mapping[str, int]) -> _SectionPath:
-        """절 경로 줄이 상한의 4분의 1 안이 될 때까지 바깥 제목부터 뺀다. 안쪽 제목 하나는 늘
-        남는다."""
-        limit = self._max_tokens // _PATH_SHARE
+        """절 경로 줄을 상한 안으로 줄인다(`fit_section`)."""
         if not full:
             return _SectionPath(full, (), self._special)
-        for start in range(len(full)):
-            candidate = full[start:]
-            tokens = path_tokens[section_line(candidate)]
-            if tokens <= limit or start == len(full) - 1:
-                return _SectionPath(
-                    full, candidate, self._special + tokens + self._joiner_cost[_BLOCK_JOINER]
-                )
-        raise AssertionError("절 경로 후보가 하나도 없다")
+        trimmed = fit_section(full, self._max_tokens, path_tokens)
+        return _SectionPath(
+            full,
+            trimmed,
+            self._special + path_tokens[section_line(trimmed)] + self._joiner_cost[_BLOCK_JOINER],
+        )
 
     async def _chunk_section(self, section: _Section, path: _SectionPath) -> list[_Draft]:
         budget = self._max_tokens - path.base

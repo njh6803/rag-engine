@@ -516,7 +516,8 @@ async def _requeue(
 
 async def _index_failed(transaction: Transaction, document: Document) -> bool:
     """앞선 색인이 실패했는가(판정은 `index_failure_code`). 문서 행을 잠근 채라 작업 단위가 문서
-    행을 잠그고 쓰는 색인 상태(작업의 결과)는 이 사이에 바뀌지 않는다."""
+    행을 잠그고 쓰는 색인 상태(작업의 결과)는 이 사이에 바뀌지 않는다. 재색인 시작은 문서 행을
+    잠그지 않고 건설 중인 판에 `pending`만 쓰는데, 판정은 `failed`만 보므로 영향이 없다."""
     return await index_failure_code(transaction, document) is not None
 
 

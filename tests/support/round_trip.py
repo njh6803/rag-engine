@@ -153,6 +153,32 @@ class RoundTrip:
                     [knowledge_base, group],
                 )
 
+    def point_knowledge_bases_at_stub(self) -> None:
+        """모든 지식베이스 행의 임베딩 끝점을 스텁 주소로 맞춘다. 재색인이 만드는 새 판은 지식베이스
+        행의 끝점을 쓰는데, `wire_stubs`는 옛 판의 끝점만 고쳐 두기 때문이다."""
+        with psycopg.connect(self.server.settings.database_url, autocommit=True) as connection:
+            connection.execute(
+                "UPDATE knowledge_bases SET embedding_endpoint = %s", [self.embedding_endpoint]
+            )
+
+    def change_settings(self, chunk_tokens: int = 64) -> None:
+        """모든 지식베이스 설정의 청킹 크기를 고쳐 "재색인 필요"를 만든다. 끝점도 스텁 주소로
+        맞춘다."""
+        with psycopg.connect(self.server.settings.database_url, autocommit=True) as connection:
+            connection.execute(
+                "UPDATE knowledge_bases SET chunk_tokens = %s, chunk_overlap_tokens = 8",
+                [chunk_tokens],
+            )
+        self.point_knowledge_bases_at_stub()
+
+    async def reindex(self, name: str = "default") -> httpx.Response:
+        """관리 API의 재색인 시작."""
+        async with httpx.AsyncClient() as http:
+            return await http.post(
+                self.server.base_url + f"/api/v1/admin/knowledge-bases/{name}/reindex",
+                headers=self.auth(),
+            )
+
     def drop_reranker(self) -> None:
         """기본 지식베이스에서 리랭커 설정을 지운다. 검색은 RRF 점수로 나간다."""
         with psycopg.connect(self.server.settings.database_url, autocommit=True) as connection:

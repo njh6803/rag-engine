@@ -97,6 +97,32 @@ class WatchedUnitOfWork:
         self.ended.set()
 
 
+class PausingUnitOfWork:
+    """`pause_on`번째 `begin()`의 작업 단위를 본문을 마친 뒤 커밋하기 직전에 멈춘다. 그 작업 단위는
+    쓰기를 마치고 잠금을 쥔 채 `release`가 서기를 기다리므로, 연결 둘로 "한쪽 작업 단위를 열어 둔
+    채 다른 쪽을 돌리는" 시험을 쓸 수 있다. 멈춘 순간 `paused`가 선다."""
+
+    def __init__(self, inner: UnitOfWork, pause_on: int) -> None:
+        self._inner = inner
+        self._pause_on = pause_on
+        self._begun = 0
+        self.paused = asyncio.Event()
+        self.release = asyncio.Event()
+
+    def begin(self) -> AbstractAsyncContextManager[Transaction]:
+        return self._begin()
+
+    @asynccontextmanager
+    async def _begin(self) -> AsyncGenerator[Transaction]:
+        self._begun += 1
+        mine = self._begun
+        async with self._inner.begin() as transaction:
+            yield transaction
+            if mine == self._pause_on:
+                self.paused.set()
+                await self.release.wait()
+
+
 class RejectingEmbedder:
     """임베딩만 영구 실패로 거부하는 임베더. 토큰 세기는 실제 임베더에 맡긴다."""
 

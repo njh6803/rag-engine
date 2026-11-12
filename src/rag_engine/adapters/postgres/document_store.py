@@ -184,19 +184,33 @@ class PostgresDocumentStore:
             insertion.on_conflict_do_update(index_elements=["document_id"], set_=values)
         )
 
-    async def count_live_documents(self, knowledge_base_id: UUID) -> int:
+    @staticmethod
+    def _live_in(knowledge_base_id: UUID) -> list[sa.ColumnElement[bool]]:
+        """그 지식베이스의 그룹 집합에 드는 그룹의, 지워지지 않은 문서를 고르는 조건."""
         documents = tables.documents
         groups_of_knowledge_base = sa.select(tables.knowledge_base_groups.c.group_id).where(
             tables.knowledge_base_groups.c.knowledge_base_id == knowledge_base_id
         )
+        return [
+            documents.c.deleted_at.is_(None),
+            documents.c.group_id.in_(groups_of_knowledge_base),
+        ]
+
+    async def count_live_documents(self, knowledge_base_id: UUID) -> int:
         count = await self._connection.scalar(
             sa.select(sa.func.count())
-            .select_from(documents)
-            .where(
-                documents.c.deleted_at.is_(None), documents.c.group_id.in_(groups_of_knowledge_base)
-            )
+            .select_from(tables.documents)
+            .where(*self._live_in(knowledge_base_id))
         )
         return 0 if count is None else count
+
+    async def list_live_document_ids(self, knowledge_base_id: UUID) -> list[UUID]:
+        rows = await self._connection.scalars(
+            sa.select(tables.documents.c.id)
+            .where(*self._live_in(knowledge_base_id))
+            .order_by(tables.documents.c.id)
+        )
+        return list(rows)
 
     async def list_documents(self, query: DocumentQuery) -> list[Document]:
         documents = tables.documents

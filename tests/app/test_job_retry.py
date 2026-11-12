@@ -405,6 +405,12 @@ async def test_재시도_소진은_지금_내용으로_색인된_판의_조각�
     indexed_chunks = await pipeline.chunk_texts(document_id)
     building = await pipeline.add_building_version()
     await _save_pending(pipeline, document_id, building.id)
+    # 건설 중인 판에 pending이 이 문서 하나뿐이면 소진이 failed를 쓰는 순간 판이 전환되고 옛 판의
+    # 조각이 정리된다. 소진 자체가 조각을 건드리지 않는지 보려고 pending을 하나 더 남긴다.
+    other = (await pipeline.ingest(출장, "출장.docx")).document_id
+    async with pipeline.unit_of_work.begin() as transaction:
+        await transaction.jobs.delete_queued(other)
+    await _save_pending(pipeline, other, building.id)
     async with pipeline.unit_of_work.begin() as transaction:
         await transaction.jobs.enqueue(document_id, new_id(), pipeline.clock[0])
     job = await pipeline.claim()

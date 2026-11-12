@@ -300,6 +300,20 @@ class Chunk:
 
 
 @dataclass(frozen=True, slots=True)
+class StoredChunk:
+    """저장한 조각에서 읽은 칸. 키워드는 `tsvector`로 저장돼 만든 글이 없으므로 `Chunk`와 다르다.
+    토크나이저 판만 다른 판이 임베딩을 그대로 복사하고 키워드만 다시 만들 때 쓴다.
+    `source_content_hash`는 조각을 만든 원본의 내용 해시다."""
+
+    ordinal: int
+    text: str
+    token_count: int
+    location: ChunkLocation
+    embedding: tuple[float, ...]
+    source_content_hash: str
+
+
+@dataclass(frozen=True, slots=True)
 class IndexState:
     """문서 하나가 색인 판 하나에 반영됐는지 적은 값. `built_content_hash`는 `indexed`일 때만
     있다."""
