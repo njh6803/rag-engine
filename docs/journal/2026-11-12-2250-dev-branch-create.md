@@ -46,6 +46,16 @@ CodeRabbit CLI는 diff를 외부 서비스로 보내서 돌리지 않고, 운영
 - Nit. `Status: done`인데 체크박스 셋이 비었다. → 남겼다. CI와 검사 둘은 이 PR이 돈 뒤에, 지시문 몫은 병합 뒤에 닫힌다.
 - 보류 하나는 main용 JSON을 다시 PUT해 멱등을 보는 것이다. GET만 쓰는 리뷰어가 못 했고, 이 세션이 같은 JSON을 PUT한 응답이 GET과 같았다.
 
+## PR 봇 리뷰 (첫 회차)
+
+PR 28(base dev)을 연 뒤 `@coderabbitai review`를 남겼다. CI는 `verify`, `python`(8분 58초), `image`, `ticket`, `claude-review`가 모두 통과했다. `ticket` 잡이 base가 dev인 PR에서 지난 것이 티켓 04 6단계의 확인이다. CodeRabbit은 `Review rate limited`로 리뷰를 내지 않았다(한도에 걸린 푸시는 회차로 세지 않는다). claude-review의 첫 리뷰가 첫 회차이고 Critical·Major 없이 Nit 셋이었다.
+
+- claude-review Nit 1(`tools/hook_push_behind_main.py`의 "dev 가 strict 가 아니게 된 뒤에도 …"가 미래형 전제로 남았다): → 고쳤다. "dev 가 strict 가 아닌 지금도"로 맞췄다. 일지를 싣는 푸시가 어차피 한 번 더 필요해 같은 푸시에 실었다.
+- claude-review Nit 2(티켓 04가 `Status: done`인데 체크박스 둘이 열려 있다): → 보류. 지시문 몫과 EnterWorktree 확인은 병합 뒤에야 닫히고 사유를 괄호로 적었다. CI 칸은 이번에 채웠다.
+- claude-review Nit 3(헌법 1.2.1이 형제의 1.3.0보다 낮다): → 보류. 먼저 병합되는 쪽에 따라 판을 옮기는 절차를 아래 "다음"에 적었다.
+
+반영으로 새로 쓴 사실 문장(원문): "dev 가 strict 가 아닌 지금도 그 브랜치에서 막을지는 다시 정하지 않았다."(`tools/hook_push_behind_main.py` 독스트링)
+
 ## 회고
 
 후보 다섯. 승인 0, 기각 3, 일지에만 2, 넘김 없음. 새 훅·검사가 문턱을 지난 것이 없어 `tools/hook_report.py`는 돌리지 않았다. `uv run python tools/queue_open_rows.py`의 만료할 항목은 없었다(열린 항목 34개, 회차 5 이상은 `spec-review-transition-crossing`과 `gate-pipe-read-status`로 이 세션과 무관하다).
@@ -61,7 +71,7 @@ CodeRabbit CLI는 diff를 외부 서비스로 보내서 돌리지 않고, 운영
 - `uv run ruff check .`와 `uv run ruff format --check .`는 초록이었다. `uv run python tools/check_adr_pointers.py` 0, `uv run python tools/sibling_overlap.py` 0(헌법 1.2.1, 형제 최고 판 1.3.0), `uv run python tools/plan_table.py` 0.
 - `uv run python tools/run_checks.py`(편집 중간의 트리): test-db, zizmor, lint-imports, check-ticket, check-instructions, check-type-escapes, pyright, pyright-linux, run-hooks가 Passed, pytest는 3824개 통과에 1개 실패(`tests/adapters/test_parse_runner.py`의 멈춘 자식 시험, 단독으로 1 passed).
 - 첫 커밋 시도의 pre-commit은 `tests/app/test_job_lease.py`의 5초 제한 시험 하나로 막혔다(3824개 통과, 1개 실패, 628초). 테스트 DB 주소를 준 단독 실행은 12 passed(67.6초)였다. 파서 쪽도 임대 쪽도 이 브랜치가 바꾸지 않은 코드다. 같은 커밋의 둘째 시도가 통과해 커밋 `6fbcb62`가 섰다.
-- 이 PR의 CI 결과와 병합 뒤 확인은 아래 "PR 봇 리뷰"와 "다음"에 적는다.
+- 이 PR의 CI 결과는 위 "PR 봇 리뷰", 병합 뒤 확인은 아래 "다음"에 적었다.
 
 ## 다음
 

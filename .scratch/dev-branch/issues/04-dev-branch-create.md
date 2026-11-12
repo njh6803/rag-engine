@@ -19,7 +19,7 @@
 - [x] `origin/dev`가 `origin/main`의 머리에서 섰고, `git ls-remote`로 읽은 두 브랜치의 커밋이 같다
 - [x] dev를 딴 순간 base가 main이던 열린 PR 가운데 `hotfix/*`가 아닌 것이, 두 브랜치가 아직 같은 커밋임을 다시 본 뒤 dev로 옮겨졌고(없었으면 없었다고), 옮긴 PR마다 새 base에서 다시 돈 `verify`의 결과를 적었으며, 그 전에 병합된 옮긴 PR이 없다
 - [ ] `git remote set-head origin dev` 뒤 `git symbolic-ref refs/remotes/origin/HEAD`가 `refs/remotes/origin/dev`이고, 다른 체크아웃이 칠 두 줄을 보고와 지시문에 실었다(`set-head`와 `symbolic-ref`는 했고, 두 줄은 PR 본문과 병합 뒤 `next-session` 지시문에 싣는다)
-- [ ] dev를 기준으로 `sibling_overlap`·`check_ticket`이 돌고, dev로 연 이 티켓의 PR이 CI를 지났다
+- [x] dev를 기준으로 `sibling_overlap`·`check_ticket`이 돌고, dev로 연 이 티켓의 PR이 CI를 지났다(PR 28의 `verify`, `python`, `image`, `ticket`, `claude-review`가 SUCCESS, CodeRabbit은 한도로 리뷰 없음)
 - [ ] 5의 `EnterWorktree` 확인 결과가 ADR 0016 Consequences "다른 세션"의 서술과 다르면 그 문장을 고치고, ADR의 `## 이력`(없으면 만든다)에 날짜와 이 티켓을 적었다(이력은 적었다. 확인은 dev와 main이 같은 커밋이라 구분하지 못해 미확인이고 05에 넘겼다)
 - [x] 검사 넷이 초록이다(커밋 6fbcb62의 pre-commit이 린트, 포맷, pyright, import 경계, 테스트 3825개를 지났다. 앞서 두 번 막힌 시험은 아래 7항)
 
