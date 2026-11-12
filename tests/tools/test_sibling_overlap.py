@@ -2602,6 +2602,34 @@ def test_반박_기준이_아닌_브랜치에서_물려받은_ADR은_옮길_번�
     assert "0002 →" not in result.stdout
 
 
+def test_반박_딴_뒤_기준이_아닌_브랜치가_더_나아가도_물려받은_ADR은_옮길_번호에_들지_않는다(
+    저장소: tuple[Path, Path, Path],
+) -> None:
+    """PR 봇(CodeRabbit) 첫 회차의 Major. 위 시험과 같지만 이 브랜치를 딴 뒤 main 이 한 커밋 더
+    나아가 main 의 끝이 이 브랜치의 조상이 아니다. 그래도 main 에서 물려받은 0002 는 공유한
+    이력이다."""
+    _, work, pusher = 저장소
+    _git(pusher, "branch", "dev", "main")
+    _git(pusher, "push", "-q", "origin", "dev")
+    _커밋한다(pusher, {"docs/adr/0002-main.md": "main\n"}, "main 이 앞선다")
+    _git(pusher, "push", "-q", "origin", "main")
+    pr = _PR을_민다(pusher, 5, {"docs/adr/0003-pr.md": "그쪽\n"})
+    _연다(pusher, 5, pr)
+    _git(work, "fetch", "-q", "origin")
+    _git(work, "checkout", "-q", "-B", "topic", "origin/main")
+    _커밋한다(work, {"docs/adr/0003-ours.md": "이쪽\n"}, "이쪽")
+    _커밋한다(pusher, {"README.md": "main 이 더 나아간다\n"}, "main 이 더 나아간다")
+    _git(pusher, "push", "-q", "origin", "main")
+    _git(work, "fetch", "-q", "origin")
+
+    result = _CLI를_부른다(work)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "PR #5 ADR 0003: 이 브랜치 0003-ours.md, 그쪽 0003-pr.md" in result.stdout
+    assert "옮길 번호: ADR 0003 → 0004\n" in result.stdout
+    assert "0002 →" not in result.stdout
+
+
 def test_hotfix_브랜치는_dev가_있어도_main을_기준으로_하고_dev의_번호도_견준다(
     저장소: tuple[Path, Path, Path],
 ) -> None:

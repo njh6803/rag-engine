@@ -1325,6 +1325,12 @@ def survey(root: Path, remote: Remote) -> Survey:
             trunk_numbers.append(other_numbers)
             taken.append(other_numbers)
             continue
+        shared = merge_base(root, other, "HEAD")
+        if shared is not None:
+            # 이 브랜치를 딴 뒤 그쪽이 더 나아가 끝이 조상이 아니어도, 딴 시점까지 그쪽에 있던
+            # 번호는 이 브랜치가 물려받은 공유한 이력이다. 얕은 클론에서 merge-base 가 없으면 알 수
+            # 없다
+            inherited.append(numbers_of(Tree(root, shared)))
         since = merge_base(root, other, main_sha)
         changed = _lines(git(root, "diff", "--name-only", since, other)) if since else None
         add(label, other, other_numbers, changed)
