@@ -16,7 +16,7 @@ core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌�
 
 하네스 기능의 기능 계획은 `**슬라이스:**` 줄이 없어 아래 표와 프론티어에 들지 않는다(`docs/agents/issue-tracker.md`의 전체 계획 절). 그래서 열린 하네스 기능을 여기 적고, 그 기능의 마지막 티켓을 닫는 커밋이 지운다. 티켓의 상태는 그 기능 폴더의 `issues/`에서 본다.
 
-- dev-branch(`.scratch/dev-branch/plan.md`, ADR 0016): 브랜치 모델을 agent-os ADR 0043으로 옮긴다. 마지막 티켓 05는 04의 병합과 함께, agent-os의 harness 티켓 `dev-release-pr-step`이 그 저장소의 `origin/dev`에 병합되기를 기다린다(05의 `**Blocked by:**`).
+- dev-branch(`.scratch/dev-branch/plan.md`, ADR 0016): 브랜치 모델을 agent-os ADR 0043으로 옮긴다. 마지막 티켓 05는 04의 병합을 기다린다. agent-os의 harness 티켓 `dev-release-pr-step`이 그 저장소의 `origin/dev`에 병합돼 있어야 한다는 다른 조건은 2026-11-12에 찼다(05의 `**Blocked by:**`).
 
 ## 목표 배치
 
