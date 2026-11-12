@@ -24,18 +24,25 @@ pre-commit 에서 HEAD 는 아직 병합 전이라, HEAD 만으로 구하면 C �
 
 판정. 아래 차례로 처음 맞는 것이다.
 
-1. 분리 HEAD 이거나 브랜치가 main 이면 지난다. main 위의 커밋은 `tools/hook_git_main_commit.py` 가
-   막는다.
-2. `origin/main` 을 찾지 못하면 한 줄을 알리고 지난다. 원격 없이 연습하는 클론이다. 그 클론이 연
-   PR 은 CI 가 같은 판정을 한다. HEAD 가 아직 커밋을 가리키지 않아도(고아 브랜치의 첫 커밋) 한 줄을
-   알리고 지난다. 딴 자리가 없어 전환을 가르지 못한다.
+1. 분리 HEAD 이거나 브랜치가 main 이나 dev 이면 지난다. 그 위의 커밋은
+   `tools/hook_git_main_commit.py` 가 막는다.
+2. 기준 ref 를 찾지 못하면 한 줄을 알리고 지난다. 로컬 판정의 기준 ref 는 agent-os ADR 0043 의
+   규칙이다. `hotfix/*` 는 `origin/main`, 그 밖은 `origin/dev` 가 있으면 그것, 없으면 `origin/main`
+   이다(dev 가 서기 전이나 이 클론이 받은 적이 없는 때도 main 으로 돈다). 아래 설명의 `origin/main`
+   은 이 기준 ref 로 읽는다. CI 의 판정은 받은 base 커밋이 기준이라 이 규칙을 쓰지 않는다. 원격 없이
+   연습하는 클론이다. 그 클론이 연 PR 은 CI 가 같은 판정을 한다. HEAD 가 아직 커밋을 가리키지
+   않아도(고아 브랜치의 첫 커밋) 한 줄을 알리고 지난다. 딴 자리가 없어 전환을 가르지 못한다.
 3. 규약 전에 연 브랜치면 한 줄을 알리고 지난다(아래 전환).
 4. C 가 비었거나 모두 면제 모양이면 지난다.
 5. 티켓 모양 브랜치는 그 티켓이 C 에 있고 색인에 남아 있어야 지난다. `feature/NN-<slug>` 는
    `.scratch/<어느 slug>/issues/NN-<slug>.md` 다. `chore/` 뒤의 글자는 그대로 stem 이고 티켓은
    `.scratch/harness/issues/<stem>.md` 다. 새 꼴 `chore/<slug>` 와 옛 꼴
-   `chore/045-ci-python-runner-pin` 이 같은 규칙 하나로 맞는다. 지운 티켓은 가리키지 않은 것으로
-   본다.
+   `chore/045-ci-python-runner-pin` 이 같은 규칙 하나로 맞는다. 핫픽스 브랜치 `hotfix/<slug>` 도
+   `chore/` 와 같은 자리의 티켓 `.scratch/harness/issues/<slug>.md` 를 가리킨다(agent-os ADR 0043).
+   핫픽스는 기준 브랜치가 main 이라(`base_ref`) 접두를 `chore/` 로 바꾸지 못해 접두가 따로 선다.
+   핫픽스가 고치는 것이 기능의 동작이어도 티켓은 harness 폴더에 둔다(ADR 0016 이 agent-os 와 같이
+   정했다. `docs/agents/issue-tracker.md` 의 "기능 밖에서 제품 코드를 고치는 일" 항목은 기능
+   디렉터리의 티켓을 말해 핫픽스와 다르다). 지운 티켓은 가리키지 않은 것으로 본다.
 6. `docs/<slug>` 브랜치는 C 에 harness 티켓(`.scratch/harness/issues/<slug>.md`, 옛 꼴
    `NNN-<slug>.md`)이 하나라도 있으면 지난다. slug 는 영어 소문자로 시작하는 이름(대기열 항목과
    같은 규칙)이다. 더한 것이든 고친 것이든 세고, 지운 것은 세지 않는다. 회고가 고침을 반영해 같은
@@ -95,8 +102,11 @@ CI. `--ci` 로 부르면 PR 의 값을 환경 변수로 받아 PR 단위로 같�
   열기 전에 done 이다(명세 "쓰는 때와 상태").
 - 판정 전에 받은 세 값과 체크아웃한 병합 커밋의 첫 부모를 stdout 에 한 줄 찍는다. base 값이 그 첫
   부모와 같은지 실제 실행에서 견주기 위해서다.
-- `PR_HEAD_REF` 가 비면(PR 이 아닌 실행, main 의 push) 한 줄을 찍고 지난다. 필수 검사 `verify` 가
-  건너뛴 잡을 빨강으로 보므로 이 잡은 push 에서도 돌고 곧바로 끝난다. 다만 러너가 주는 이벤트
+- 머리 브랜치가 main 이나 dev 인 PR 은 판정 1 로 지난다. dev→main 출시 PR 과 main→dev 되돌려
+  합치기는 티켓 하나를 가리키지 않는다(agent-os ADR 0043 Consequences "티켓 검사와 봇"). 그 안의
+  티켓 PR 은 dev 로 들어갈 때 이미 판정을 받았다.
+- `PR_HEAD_REF` 가 비면(PR 이 아닌 실행, main·dev 의 push) 한 줄을 찍고 지난다. 필수 검사 `verify`
+  가 건너뛴 잡을 빨강으로 보므로 이 잡은 push 에서도 돌고 곧바로 끝난다. 다만 러너가 주는 이벤트
   이름(`GITHUB_EVENT_NAME`, GitHub 문서 Variables reference 의 기본 환경 변수 표. 2026-10-22 에
   본문을 내려받아 대 봤다)이 `pull_request` 인데 비면 git 실패(종료 2)다. 워크플로의 env 이름이
   어긋나거나 식이 빈 것이고, 지나면 모든 PR 이 판정 없이 초록이다.
@@ -145,16 +155,17 @@ done 으로 고쳐 커밋하고 다시 푸시하라는 것이다(이미 done 이
   않아 커밋과 손으로 친 러너에서 보이지 않고, 이 검사를 바로 칠 때와 CI 잡의 로그에서 보인다.
 - 검사가 main 에 들어온 뒤에도 그 전의 main 에서 딴 브랜치(가져오지 않은 `origin/main` 에서 딴 것)는
   딴 자리의 트리에 이 파일이 없어, 커밋 검사와 CI 모두에서 끝까지 지난다.
-- CI 에서 머리 브랜치가 main 인 PR(포크의 main 에서 연 것)은 판정 1 로 지난다. main 위 커밋을
-  막는 훅(`tools/hook_git_main_commit.py`)은 이 저장소의 Claude 세션 훅이라, 포크의 main 에서 친
-  커밋이 그 훅을 거쳤다고 볼 수 없다.
+- CI 에서 머리 브랜치가 main 이나 dev 인 PR(포크의 main·dev 에서 연 것)은 판정 1 로 지난다. main·dev
+  위 커밋을 막는 훅(`tools/hook_git_main_commit.py`)은 이 저장소의 Claude 세션 훅이라, 포크의
+  main·dev 에서 친 커밋이 그 훅을 거쳤다고 볼 수 없다.
 - 다른 브랜치 위에 쌓은 브랜치의 커밋은 커밋 검사가 `origin/main` 에 견줘 base 브랜치의 변경까지
   센다. 그래서 면제 모양만 고친 커밋도 base 브랜치가 든 면제 밖 파일 때문에 막힌다(거짓 양성).
   커밋 검사는 그 브랜치가 PR 에서 무엇을 base 로 둘지 모른다. 그 PR 은 CI 가 base 커밋에 견줘
   지난다. 다만 base 브랜치가 squash 로 병합되어 PR 의 base 가 main 으로 바뀐 뒤에는, base 브랜치의
   커밋이 main 에 없어 CI 도 그 변경을 이 PR 의 것으로 세어 막는다(거짓 양성). 막는 글의 할 일(티켓
   쓰기, 브랜치 이름 바꾸기)은 이 경우의 길이 아니다.
-  `git rebase --onto origin/main <옛 base 브랜치>` 로 이 브랜치의 커밋만 옮겨 강제 푸시
+  `git rebase --onto origin/main <옛 base 브랜치>`(PR 의 새 base 가 dev 이면 `origin/dev`)로 이
+  브랜치의 커밋만 옮겨 강제 푸시
   (`git push --force-with-lease`)하면 지난다. 이미 푸시한 커밋을 고쳐 쓴 것이라 빨리 감기가 아니다.
   옛 base 브랜치를 이미 지웠으면 그 이름 대신 옛 base 의 끝 커밋을 준다. base 만 바꾸는 것은
   워크플로의 `pull_request` 기본 계기(opened, synchronize, reopened)가 아니라서 CI 가 다시 돌지
@@ -176,6 +187,11 @@ from typing import TextIO
 
 CHECK_PATH = "tools/check_ticket.py"
 BASE = "refs/remotes/origin/main"
+DEV_BASE = "refs/remotes/origin/dev"
+# 보호 브랜치. 이 브랜치 위의 커밋은 `tools/hook_git_main_commit.py` 가 막고, CI 의 머리 브랜치가
+# 이것이면 티켓 하나를 가리키지 않는 PR(dev→main 출시 PR, main→dev 되돌려 합치기)이라 지난다.
+PROTECTED_BRANCHES = frozenset({"main", "dev"})
+HOTFIX_PREFIX = "hotfix/"
 GIT_TIMEOUT = 60.0
 SHOWN = 10
 PREFIX = "check-ticket: "
@@ -205,6 +221,10 @@ _NOT_FEATURES = frozenset({"harness", _QUEUE_FOLDER})
 _STATUS_HEADS = ("Status:", "**Status:**")
 # 새 꼴은 대기열 항목의 slug 규칙(영어 소문자로 시작)이고, 옛 꼴은 세 자리 번호와 하이픈이다
 _HARNESS_STEM = re.compile(r"[a-z][a-z0-9-]*|\d{3}-.+")
+# 티켓이 `.scratch/harness/issues/<stem>.md` 인 브랜치 접두. `hotfix/<slug>` 는 기준 브랜치가 main
+# 이라 (`base_ref`) 접두를 `chore` 로 바꾸면 기준이 dev 로 바뀐다. 그래서 같은 티켓 자리를 쓰는
+# 별개의 갈래다
+_HARNESS_KINDS = ("chore", "hotfix")
 
 
 class GitError(Exception):
@@ -295,14 +315,14 @@ def exempt(path: str) -> bool:
 
 
 def ticket_stem(branch: str) -> tuple[str, str] | None:
-    """티켓 모양 브랜치면 (갈래, stem). 갈래는 `feature` 나 `chore` 다. `chore/` 뒤의 글자는 그대로
-    harness 티켓의 stem 이라 옛 꼴(`chore/045-ci-python-runner-pin`)과 새 꼴(`chore/<slug>`)이 같은
-    규칙이다. 그 규칙(`_HARNESS_STEM`)에 맞지 않는 이름(`chore/Foo`, `chore/09-x`)은 티켓 모양이
-    아니다."""
+    """티켓 모양 브랜치면 (갈래, stem). 갈래는 `feature`, `chore`, `hotfix` 다. `chore/` 와
+    `hotfix/` 뒤의 글자는 그대로 harness 티켓의 stem 이라 옛 꼴(`chore/045-ci-python-runner-pin`)과
+    새 꼴 (`chore/<slug>`, `hotfix/<slug>`)이 같은 규칙이다. 그 규칙(`_HARNESS_STEM`)에 맞지 않는
+    이름(`chore/Foo`, `chore/09-x`, `hotfix/Foo`)은 티켓 모양이 아니다."""
     kind, _, stem = branch.partition("/")
-    if kind not in ("feature", "chore") or not stem or "/" in stem:
+    if kind not in ("feature", *_HARNESS_KINDS) or not stem or "/" in stem:
         return None
-    if kind == "chore":
+    if kind in _HARNESS_KINDS:
         return (kind, stem) if _HARNESS_STEM.fullmatch(stem) else None
     number, dash, slug = stem.partition("-")
     if len(number) != 2 or not (number.isascii() and number.isdigit()) or not dash or not slug:
@@ -325,7 +345,7 @@ def is_harness_ticket(path: str) -> bool:
 
 def points_at(kind: str, stem: str, path: str) -> bool:
     """이 경로가 그 브랜치가 가리키는 티켓인가."""
-    if kind == "chore":
+    if kind in _HARNESS_KINDS:
         return path == f"{_HARNESS_ISSUES}{stem}.md"
     parts = path.split("/")
     return (
@@ -353,7 +373,7 @@ def tickets_on_disk(root: Path, branch: str) -> list[str]:
     if stem is None:
         return []
     kind, name = stem
-    pattern = f"harness/issues/{name}.md" if kind == "chore" else f"*/issues/{name}.md"
+    pattern = f"harness/issues/{name}.md" if kind in _HARNESS_KINDS else f"*/issues/{name}.md"
     found = sorted((root / ".scratch").glob(pattern))
     return [p.relative_to(root).as_posix() for p in found if p.is_file()]
 
@@ -482,6 +502,18 @@ PR_WORDING = Wording(
 )
 
 
+def _rename_choices(branch: str) -> str:
+    """판정 7 의 막는 글이 권하는 새 브랜치 이름의 꼴. `hotfix/*` 는 기준 브랜치가 main
+    이라(`base_ref`) 접두를 `feature/` 나 `chore/` 로 바꾸면 PR 의 base 가 dev 로 바뀐다. hotfix 는
+    접두를 지킨다."""
+    if branch.startswith(HOTFIX_PREFIX):
+        return (
+            "hotfix/<slug>. 접두를 바꾸면 origin/dev 가 있을 때"
+            " 기준 브랜치가 main 에서 dev 로 바뀐다"
+        )
+    return "feature/NN-<slug> 나 chore/<slug>"
+
+
 def _blocked(branch: str, outside: list[str], found: list[str], wording: Wording) -> str:
     """판정 7 의 막는 글. `found` 는 그 브랜치가 가리키는데 C 에 들지 않은 티켓이다."""
     lines = [f"브랜치 {branch} 의 변경이 티켓을 가리키지 않아 {wording.blocked}."]
@@ -494,18 +526,26 @@ def _blocked(branch: str, outside: list[str], found: list[str], wording: Wording
         kind, name = stem
         expected = (
             f"{_HARNESS_ISSUES}{name}.md"
-            if kind == "chore"
+            if kind in _HARNESS_KINDS
             else f".scratch/<slug>/issues/{name}.md"
         )
         lines.append(f"이 브랜치가 가리키는 티켓: {', '.join(found) or expected}")
         lines += [wording.unstaged.format(path=path) for path in found]
+    if branch.startswith(HOTFIX_PREFIX):
+        # hotfix 브랜치는 기능 폴더의 티켓을 가리키지 못한다(`ticket_stem`). 기능 코드를 고치는
+        # 핫픽스도 harness 자리를 쓴다
+        write_ticket = "티켓을 쓴다. 핫픽스의 티켓은 .scratch/harness/issues/<slug>.md 다."
+    else:
+        write_ticket = (
+            "티켓을 쓴다. 기능의 일이면 그 기능 폴더 .scratch/<slug>/issues/NN-<slug>.md, 그 밖의"
+            " 하네스 일과 작은 문서 고침이면 .scratch/harness/issues/<slug>.md 다."
+        )
     lines += [
         "할 일:",
-        "  1. 티켓을 쓴다. 기능의 일이면 그 기능 폴더 .scratch/<slug>/issues/NN-<slug>.md, 그 밖의"
-        " 하네스 일과 작은 문서 고침이면 .scratch/harness/issues/<slug>.md 다. 하네스 티켓의"
+        f"  1. {write_ticket} 하네스 티켓의"
         " <slug> 는 번호 없이 영어 소문자로 시작하고 소문자·숫자·하이픈만 쓰는 이름을 직접 짓는다.",
         "  2. 브랜치 이름을 티켓 파일 이름의 stem 에 맞춘다: `git branch -m <새 이름>`"
-        "(feature/NN-<slug> 나 chore/<slug>). 이미 푸시했으면 새 이름으로 푸시하고 옛 원격"
+        f"({_rename_choices(branch)}). 이미 푸시했으면 새 이름으로 푸시하고 옛 원격"
         " 브랜치를 지운다. 열린 PR 이 있으면 사람에게 묻는다.",
         CONVENTION,
     ]
@@ -545,6 +585,20 @@ def current_branch(cwd: Path) -> str | None:
     return _text(result.stdout)
 
 
+def base_ref(cwd: Path, branch: str) -> str:
+    """로컬 판정이 견주는 기준 ref. agent-os ADR 0043 의 규칙이다. `hotfix/*` 는 `origin/main`, 그
+    밖은 `origin/dev` 가 있으면 그것, 없으면(dev 가 서기 전이나 이 클론이 받은 적이 없다)
+    `origin/main`."""
+    if branch.startswith(HOTFIX_PREFIX):
+        return BASE
+    return DEV_BASE if _commit(cwd, DEV_BASE) is not None else BASE
+
+
+def _short(reference: str) -> str:
+    """`refs/remotes/origin/dev` → `origin/dev`."""
+    return reference.removeprefix("refs/remotes/")
+
+
 def _outside(changed: list[Change]) -> list[str]:
     return [c.path for c in changed if not exempt(c.path)]
 
@@ -554,21 +608,22 @@ def _present(changed: list[Change]) -> list[str]:
 
 
 def judge(cwd: Path) -> Verdict:
-    """커밋 검사. 지금 브랜치와 색인을 `origin/main` 에 견줘 판정 1~7 을 한다."""
+    """커밋 검사. 지금 브랜치와 색인을 `base_ref` 가 고른 기준 ref 에 견줘 판정 1~7 을 한다."""
     branch = current_branch(cwd)
-    if branch is None or branch == "main":
+    if branch is None or branch in PROTECTED_BRANCHES:
         return _PASS
-    if _commit(cwd, BASE) is None:
-        return _note("origin/main 을 찾지 못해 판정하지 않고 지난다.")
+    reference = base_ref(cwd, branch)
+    if _commit(cwd, reference) is None:
+        return _note(f"{_short(reference)} 을 찾지 못해 판정하지 않고 지난다.")
     if _commit(cwd, "HEAD") is None:
         return _note("HEAD 가 아직 없어(첫 커밋) 판정하지 않고 지난다.")
-    if before_convention(cwd, "HEAD", BASE):
+    if before_convention(cwd, "HEAD", reference):
         return _transition(branch)
     heads = ["HEAD"]
     merging = merge_head(cwd)
     if merging is not None:
         heads.append(merging)
-    base = merge_base(cwd, BASE, heads)
+    base = merge_base(cwd, reference, heads)
     if base is None:
         return _SHALLOW
     changed = staged_changes(cwd, base)
@@ -593,7 +648,7 @@ def _received(cwd: Path, name: str, value: str) -> str:
 def judge_pr(cwd: Path, pr: PullRequest) -> Verdict:
     """CI 의 판정. 머리 브랜치와 머리 커밋을 base 커밋에 견줘 판정 1~7 을 하고, 판정 5·6 으로
     지나면 가리키는 티켓이 done 인지 본다."""
-    if pr.branch == "main":
+    if pr.branch in PROTECTED_BRANCHES:
         return _PASS
     head = _received(cwd, PR_HEAD_SHA, pr.head)
     base = _received(cwd, PR_BASE_SHA, pr.base)
@@ -634,7 +689,7 @@ def pull_request(environ: Mapping[str, str]) -> PullRequest | None:
 def judge_ci(cwd: Path, pr: PullRequest | None) -> Verdict:
     """`--ci` 의 판정. PR 이 아닌 실행은 한 줄을 알리고 지난다."""
     if pr is None:
-        return _note("PR 이 아닌 실행(main 의 push)이라 판정하지 않고 지난다.")
+        return _note("PR 이 아닌 실행(main·dev 의 push)이라 판정하지 않고 지난다.")
     return judge_pr(cwd, pr)
 
 

@@ -715,8 +715,11 @@ def test_main_저장소_둘은_커밋의_유무로_갈린다(tmp_path: Path) -> 
 
     for name in ("MAIN_REPO", "EMPTY_MAIN_REPO"):
         assert git(name, "branch", "--show-current").stdout.strip() == "main"
-    assert git("MAIN_REPO", "rev-parse", "--verify", "HEAD").returncode == 0
-    assert git("EMPTY_MAIN_REPO", "rev-parse", "--verify", "HEAD").returncode != 0
+    # 실패 메시지의 값은 변이 표가 이 단언의 실패만 가려내는 표지다.
+    head = git("MAIN_REPO", "rev-parse", "--verify", "HEAD")
+    assert head.returncode == 0, f"커밋 있는 main 의 HEAD 조회 종료 코드: {head.returncode}"
+    empty_head = git("EMPTY_MAIN_REPO", "rev-parse", "--verify", "HEAD")
+    assert empty_head.returncode != 0, f"빈 main 의 HEAD 조회 종료 코드: {empty_head.returncode}"
 
 
 def test_등록된_이벤트와_다른_훅은_실제로_돌려도_어긋남이다(tmp_path: Path) -> None:

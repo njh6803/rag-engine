@@ -9,18 +9,19 @@
       체크아웃)
 
 판정. 커밋에 들 판(색인)의 헌법 파일(`principles.md`·`tech.md`·`operations.md`) 가운데 이 가지가
-고친 것이 있으면, 색인의 헌법 README(`docs/constitution/README.md`)의 판이 `origin/main` 의 판과도
-merge-base 의 판과도 달라야 한다. 이 가지가 고친 파일은 merge-base 와 다르고 `origin/main` 과도 다른
-것이다. main 과 같은 파일은 main 이 들여온 것이라, main 을 합치는 커밋이 main 의 변경을 이 가지의
-것으로 세지 않는다(거르는 규칙은 `tools/sibling_overlap.py` 의 `_own_changes` 와 같고, 그 도구는
-작업 트리와 추적하지 않는 파일을, 이 검사는 색인을 견준다). 판 줄이 main 이나
-merge-base 의 것이어도, 판 줄이 main 의 판 줄과 같고 main 의 헌법 README 가 이 가지 몫으로 비워 둔
-판의 문장을 이 가지가 지웠으면 그 판으로 올린 것이다(대기열 279, retro-queue-per-item 06,
-`reserved_version`). 판은 가지마다 한 번 올리면 되어, 앞 커밋에서
+고친 것이 있으면, 색인의 헌법 README(`docs/constitution/README.md`)의 판이 기준 ref 의 판과도
+merge-base 의 판과도 달라야 한다. 기준 ref 는 `tools/base_rule.py` 의 기준 브랜치 규칙이 고른다
+(`hotfix/*` 는 `origin/main`, 그 밖은 `origin/dev` 가 있으면 그것, 없으면 `origin/main`). 이 가지가
+고친 파일은 merge-base 와 다르고 기준 ref 와도 다른 것이다. main 과 같은 파일은 main 이 들여온
+것이라, main 을 합치는 커밋이 main 의 변경을 이 가지의 것으로 세지 않는다(거르는 규칙은
+`tools/sibling_overlap.py` 의 `_own_changes` 와 같고, 그 도구는 작업 트리와 추적하지 않는 파일을, 이
+검사는 색인을 견준다). 판 줄이 main 이나 merge-base 의 것이어도, 판 줄이 main 의 판 줄과 같고 main
+의 헌법 README 가 이 가지 몫으로 비워 둔 판의 문장을 이 가지가 지웠으면 그 판으로 올린 것이다(대기열
+279, retro-queue-per-item 06, `reserved_version`). 판은 가지마다 한 번 올리면 되어, 앞 커밋에서
 올렸으면 다른 헌법 파일만 고친 뒤 커밋도 지나간다. 형제 가지와 번호가 겹치는지는 보지 않는다. 그것은
 `tools/sibling_overlap.py` 가 본다.
 
-종료 코드: 지나가면 0, 판을 올리지 않았으면 1, 판정하지 못했으면(git 저장소 밖, `origin/main` 이
+종료 코드: 지나가면 0, 판을 올리지 않았으면 1, 판정하지 못했으면(git 저장소 밖, 기준 ref 가
 없다, merge-base 가 없는 얕은 클론) 2. pre-commit 에서는 셋째도 막는다. 건너뛰려면
 `SKIP=check-constitution-version` 이다.
 
@@ -32,8 +33,8 @@ merge-base 의 것이어도, 판 줄이 main 의 판 줄과 같고 main 의 헌�
 커밋은 pre-commit 이 지운 파일을 훅의 `files` 거르기에 넘기지 않아 이 검사가 돌지 않는다(놓친다.
 도구를 바로 부르면 막는다). 모든 커밋에 띄우면(`always_run`) 커밋마다 수 초에서 십수 초(이 PC 에서
 `uv run` 의 시작까지 손으로 본 값이 4.5~17초, 다른 세션이 함께 돌 때)가 더 들어 두지 않았다.
-`origin/main` 은 로컬의 것이라, 받지 않은 main 이 같은 판을 먼저 매겼어도 모른다(놓친다. 합칠 때 판
-줄이 겹치고, 형제 번호는 `tools/sibling_overlap.py` 가 본다). 비워 둔 판은 브랜치 이름으로 찾아,
+기준 ref 는 로컬의 것이라, 받지 않은 main 이나 dev 가 같은 판을 먼저 매겼어도 모른다(놓친다. 합칠 때
+판 줄이 겹치고, 형제 번호는 `tools/sibling_overlap.py` 가 본다). 비워 둔 판은 브랜치 이름으로 찾아,
 분리 HEAD 에서 비워 둔 판을 쓴 커밋은 막힌다(잘못 막는다. `git rebase --continue` 가 커밋을 옮길
 때는 pre-commit 이 돌지 않아, 손으로 분리 HEAD 에서 `git commit` 을 칠 때만 난다).
 """
@@ -49,7 +50,6 @@ from pathlib import Path
 from tools.sibling_overlap import (
     CONSTITUTION,
     CONSTITUTION_TEXTS,
-    MAIN,
     VERSION,
     SurveyError,
     Tree,
@@ -57,6 +57,7 @@ from tools.sibling_overlap import (
     git,
     merge_base,
     reserved_version,
+    trunk_names,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -68,9 +69,10 @@ class Judged:
 
     changed: list[str]  # 이 가지가 고친 헌법 파일(색인 기준)
     ours: str | None  # 색인의 판
-    main: str | None  # origin/main 의 판
+    main: str | None  # 기준 ref 의 판
     base: str | None  # merge-base 의 판
     reserved: str | None  # main 이 이 가지 몫으로 비워 둔 판 가운데 이 가지가 문장을 지운 것
+    base_label: str = "origin/main"  # `main` 의 판을 읽은 기준 ref(`tools/base_rule.py`)
 
     @property
     def passes(self) -> bool:
@@ -102,19 +104,22 @@ def _staged_against(root: Path, commit: str) -> frozenset[str]:
 
 
 def judge(root: Path) -> Judged:
-    """`root` 의 색인을 `origin/main` 과 merge-base 에 견준다. 판정하지 못하면 `SurveyError`."""
+    """`root` 의 색인을 기준 ref 와 merge-base 에 견준다. 판정하지 못하면 `SurveyError`."""
     try:
         git(root, "rev-parse", "--git-dir")
     except SurveyError as error:
         raise SurveyError(f"{root} 가 git 저장소 안이 아니다 ({error})") from error
+    base_label = f"origin/{trunk_names(root)[0]}"
     try:
-        main_sha = git(root, "rev-parse", "--verify", "--quiet", f"{MAIN}^{{commit}}").strip()
+        main_sha = git(root, "rev-parse", "--verify", "--quiet", f"{base_label}^{{commit}}").strip()
     except SurveyError as error:
-        raise SurveyError(f"{MAIN} 이 없다. `git fetch origin` 으로 받는다 ({error})") from error
+        raise SurveyError(
+            f"{base_label} 이 없다. `git fetch origin` 으로 받는다 ({error})"
+        ) from error
     base = merge_base(root, "HEAD", main_sha)
     if base is None:
         raise SurveyError(
-            f"HEAD 와 {MAIN} 의 merge-base 가 없다."
+            f"HEAD 와 {base_label} 의 merge-base 가 없다."
             " 얕은 클론이면 `git fetch --unshallow origin` 으로 이력을 모두 받는다"
         )
     changed = sorted(_staged_against(root, base) & _staged_against(root, main_sha))
@@ -126,6 +131,7 @@ def judge(root: Path) -> Judged:
         _version(main_text),
         _version(Tree(root, base).text(CONSTITUTION)),
         None,
+        base_label,
     )
     if judged.passes:
         return judged
@@ -141,12 +147,12 @@ def _report(judged: Judged, out: Callable[[str], None]) -> None:
         reserved = f", 비워 둔 판 {judged.reserved}" if judged.reserved is not None else ""
         out(
             f"헌법 판: 이 가지가 고친 헌법 파일 {len(judged.changed)}, 판 {judged.ours}"
-            f" ({MAIN} {judged.main}{reserved})"
+            f" ({judged.base_label} {judged.main}{reserved})"
         )
         return
     out(f"!! 헌법 파일을 고쳤는데 판을 올리지 않았다: {', '.join(judged.changed)}")
     ours = "판 줄이 없다" if judged.ours is None else f"판 {judged.ours}"
-    out(f"   {ours} — {MAIN} 의 판 {judged.main}, merge-base 의 판 {judged.base}")
+    out(f"   {ours} — {judged.base_label} 의 판 {judged.main}, merge-base 의 판 {judged.base}")
     out(
         f"   {CONSTITUTION} 의 판 줄을 같은 커밋에서 올린다(principles.md 거버넌스의 semver)."
         " 판을 올린 까닭은 이 변경의 ADR 이력이나 일지에 적고 README 에는 적지 않는다."
