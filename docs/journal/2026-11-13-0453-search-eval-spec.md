@@ -180,7 +180,7 @@ next-session 지시문으로 연 세션의 기록이다(Fable 5.2). `to-spec`으
 
 ### 다시 돌린 것
 
-반영 뒤의 다섯(테스트, 린트, 포맷 검사, 타입체크, import 경계)은 커밋의 pre-commit으로 갈음한다. 결과는 커밋 뒤에 적는다.
+반영 뒤의 다섯(테스트, 린트, 포맷 검사, 타입체크, import 경계)은 커밋의 pre-commit으로 갈음한다. 결과는 아래 "커밋" 절에 적었다(커밋 d6bf762에서 다섯 모두 Passed).
 
 ## core 16의 병합과 다시 맞춘 것
 
@@ -204,7 +204,7 @@ next-session 지시문으로 연 세션의 기록이다(Fable 5.2). `to-spec`으
 
 ## PR 직전 리뷰(`bug-perf-review`, 기준 f7dd215)
 
-CodeRabbit CLI 대신 `bug-perf-review`를 돌렸다. 까닭은 둘이다. CodeRabbit의 포함 한도가 시간당 리뷰 1회라(`docs/constitution/operations.md` 리뷰 파이프라인의 실측) CLI로 먼저 쓰면 PR에서 부르는 리뷰가 한도에 걸릴 수 있고, CLI에는 밀 주장을 넘기는 인자가 없다. 이 PR은 문서가 중심이라 새로 쓴 사실 문장을 근거와 대 보는 것이 주된 검토다. 내장 `/security-review`는 돌리지 않았다. 비밀이 없고 실행하는 코드는 로컬 TEI에 붙는 측정 스크립트 둘뿐이다. 위 두 목록의 밀 주장과 볼 것 여섯(문서 사이의 어긋남, core 16이 열려 있음을 전제한 잔존, 절차의 갈래, 표시 수, 포인터, 프로브의 버그)을 넘겼다.
+CodeRabbit CLI 대신 `bug-perf-review`를 돌렸다. 까닭은 둘이다. CodeRabbit의 포함 한도가 시간당 리뷰 1회라(`docs/constitution/operations.md` 리뷰 파이프라인의 실측) CLI로 먼저 쓰면 PR에서 부르는 리뷰가 한도에 걸릴 수 있고, CLI에는 밀 주장을 넘기는 인자가 없다. 이 PR은 문서가 중심이라 새로 쓴 사실 문장을 근거와 대 보는 것이 주된 검토다. 내장 `/security-review`는 이때 돌리지 않았다. 비밀이 없고 실행하는 코드는 로컬 TEI에 붙는 측정 스크립트 둘뿐이라고 보았기 때문인데, 그 판단은 규칙과 어긋나서 커밋 뒤에 돌렸다(아래 "보안 리뷰"). 위 두 목록의 밀 주장과 볼 것 여섯(문서 사이의 어긋남, core 16이 열려 있음을 전제한 잔존, 절차의 갈래, 표시 수, 포인터, 프로브의 버그)을 넘겼다.
 
 보고의 첫 줄은 "기준 f7dd215, 범위 파일 18개(문서·프로브·일지), 마지막 [호출 26]"이다. Critical과 Major는 없고 Minor가 다섯(유효 셋, 보류 둘)이다. 밀 주장은 계산한 수, 표시 수, ADR 포인터까지 모두 근거와 맞았다고 보고했다(대조한 값의 목록은 보고의 "확인한 것"). 대조하지 못했다고 적은 것은 둘이다. 일지가 세션 기록으로 확인한 `docker stats`의 CPU 156%와 `OOMKilled`는 저장소에 근거 파일이 없고, 서버 로그 셋은 줄 단위로 대 보지 않았다.
 
@@ -216,4 +216,78 @@ CodeRabbit CLI 대신 `bug-perf-review`를 돌렸다. 까닭은 둘이다. CodeR
 4. Minor, 유효, 고쳤다. `rerank_throughput.py`의 독스트링이 임베딩 프로브와 "같은 조건"이라 적었으나 코어를 묶는 방법이 다르고(`--cpus=4`와 `--cpuset-cpus=4-7`) 리랭크 쪽은 첫 배치를 버리지 않는다. → 독스트링과 프로브 README의 행을 고쳤다. 측정 절차와 출력은 그대로다.
 5. Minor, 보류로 온 것을 확인해 오탐으로 닫았다. `.scratch/search-eval/plan.md`의 `**Blocked by:** core`가 그대로다. → `tools/plan_table.py`의 독스트링은 프론티어를 "done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능"으로 정하고, 생성된 `.scratch/plan.md`의 프론티어 줄이 `search-eval`을 든다. 그 줄은 의존의 기록이라 고치지 않는다.
 
-이 반영에서 새로 쓴 사실 문장은 넷이다(PR 봇이 볼 것). 명세 "추론 기록"의 "`write`도 기록에 이미 있는 열쇠의 값은 다시 계산하지 않고 그대로 옮기며"는 사실이 아니라 이 명세가 정한 동작이다. 명세 "CI 게이트와 기준 보고서"의 "같은 브랜치에 푸시가 이어지면 `ci.yml`의 `concurrency`(`cancel-in-progress: true`. 그 파일을 읽었다)가 앞 실행을 취소하므로"는 `ci.yml` 24~26행을 읽었다. 명세 "전체 게이트와 리랭커"의 "수동 실행의 계기(`workflow_dispatch`)는 지금 `ci.yml`의 `on:`에 없다"는 같은 파일 16~19행을 읽었고, "GitHub는 워크플로 파일이 기본 브랜치에 있어야 이 이벤트가 실행을 띄우고, 한 번 돈 워크플로는 API나 CLI로 다른 브랜치를 가리켜 띄울 수 있다고 적는다"는 내려받은 문서의 두 문장("This event will only trigger a workflow run if the workflow file exists on the default branch."와 "Once a workflow has run at least once, you can dispatch it against any branch or tag via the GitHub API or GitHub CLI.")을 옮긴 것이다.
+이 반영에서 새로 쓴 사실 문장은 넷이다(PR 봇이 볼 것). 명세 "추론 기록"의 "`write`도 기록에 이미 있는 열쇠의 값은 다시 계산하지 않고 그대로 옮기며"는 사실이 아니라 이 명세가 정한 동작이다. 명세 "CI 게이트와 기준 보고서"의 "같은 브랜치에 푸시가 이어지면 `ci.yml`의 `concurrency`(`cancel-in-progress: true`. 그 파일을 읽었다)가 앞 실행을 취소하므로"는 `ci.yml` 24~26행을 읽었다. 명세 "전체 게이트와 리랭커"의 "수동 실행의 계기(`workflow_dispatch`)는 지금 `ci.yml`의 `on:`에 없다"는 같은 파일 16~19행을 읽었고, "GitHub는 워크플로 파일이 기본 브랜치에 있어야 이 이벤트가 실행을 띄우고, 한 번 돈 워크플로는 API나 CLI로 다른 브랜치를 가리켜 띄울 수 있다고 적는다"는 내려받은 문서의 두 문장을 옮긴 것이다. 원문은 아래와 같다.
+
+> This event will only trigger a workflow run if the workflow file exists on the default branch.
+>
+> Once a workflow has run at least once, you can dispatch it against any branch or tag via the GitHub API or GitHub CLI.
+
+## 커밋
+
+- 첫 시도는 커밋을 만들지 못했다. pre-commit이 도는 동안 위 리뷰의 반영을 스테이징된 파일에 덧썼고, 검사 러너의 훅이 `files were modified by this hook`으로 끝났다. 그때도 검사 러너의 열(test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright, pyright-linux, run-hooks, pytest)은 모두 Passed였다(pytest 406.7초).
+- 반영분을 스테이징한 뒤 표시 수, `uv run python tools/check_adr_pointers.py`(종료 0), 고친 프로브의 `ruff check`와 `ruff format --check`, `uv run python tools/sibling_overlap.py`(번호 겹침 없음, 함께 고친 파일 없음. origin/dev는 f7dd215 그대로)를 다시 보고 커밋했다. 커밋 d6bf762의 pre-commit은 검사 러너의 열이 모두 Passed이고(pytest 572.6초) ruff 둘, 표, 줄 구분자, 변이 표, 커밋 메시지 훅도 Passed다. 헌법 판 검사는 헌법 파일을 고치지 않아 Skipped다. 도는 동안에는 추적 파일을 고치지 않았다.
+- 인용 대조 훅은 경고 48건을 냈다(막지 않는 훅이다). 하나씩 봤고 모두 저장소 밖의 글을 옮긴 줄이다. `AskUserQuestion`의 질문과 선택지, 사용자의 메시지 하나, 서브에이전트 보고의 첫 줄, GitHub 문서의 원문 두 문장, 리뷰를 반영하며 없앤 옛 문구 셋이다.
+
+## 보안 리뷰(내장 `/security-review`, 커밋 d6bf762)
+
+PR 직전 리뷰 때 돌리지 않기로 한 판단을 바로잡았다. PR 서식의 체크리스트와 `docs/constitution/operations.md` 리뷰 파이프라인은 CLI가 돌지 않을 때 보안 축을 내장 `/security-review`가 본다고 정하고, 서식은 문서만 바뀐 PR도 면제가 아니라고 적는다. 커밋 뒤에 돌렸다. `git rev-parse --abbrev-ref origin/HEAD`가 `origin/dev`이고 `git merge-base --is-ancestor origin/dev HEAD`가 0이라 범위는 커밋 하나다.
+
+그 명령은 문서 파일의 지적을 내지 않게 되어 있다(제외 목록). 그래서 취약점을 찾는 하위 작업에 갈래 둘을 맡겼다. 갈래 A는 그 명령의 기준 그대로의 취약점이고, 갈래 B는 명세를 글자 그대로 구현하면 취약점이 되는 설계의 공백이다. 하위 작업은 Read, Grep, Glob만 썼고 호출은 67번이었다. 보고는 바뀐 파일 14개를 작업 트리에서 끝까지 읽었다고 적는다.
+
+갈래 A는 없다. 서버 로그 셋, 스크립트 출력 둘, 이 일지를 줄 단위로 읽어 토큰, 키, 비밀번호, 이메일, 내부 주소가 없다고 보고했고, 프로브 스크립트 둘은 표준 라이브러리로 CLI 인자의 주소에 요청을 보내 응답을 JSON으로 읽을 뿐이라고 보고했다. 본 세션도 같은 패턴을 Grep으로 찾았고 일치가 없었다. 그 명령의 둘째 단계(취약점마다 거짓 양성을 거르는 하위 작업)는 거를 것이 없어 띄우지 않았다.
+
+갈래 B의 지적과 판정은 다음과 같다. 보고가 든 코드는 본 세션이 다시 열어 확인했다.
+
+1. Major, 유효, 고쳤다. 평가 도구가 평가용이 아닌 데이터베이스에 붙는 것을 막는 장치가 현재 판의 요소 비교뿐이다. 명세가 데이터베이스 주소의 이름을 가르지 않고 `migrate`와 같은 코드를 쓰라고만 해서, 제품의 설정 객체를 그대로 쓰면 개발자의 `.env`가 가리키는 데이터베이스에 붙는다. 그러면 기본 지식베이스의 끝점과 리랭커 설정이 덮이고, `judge`가 묶음 밖 문서의 조각을 바깥의 LLM에 보내며, `index --records write`가 그 조각의 벡터를 공개 저장소에 커밋할 파일에 쓴다. → 명세 "자리와 층"에 "평가 전용 데이터베이스" 항목을 더했다. 평가 전용 이름 넷(`RAG_EVAL_DATABASE_URL`, `RAG_EVAL_DATA_DIR`, `RAG_EVAL_EMBEDDING_URL`, `RAG_EVAL_RERANKER_URL`)으로만 받고 제품의 이름과 `.env`는 읽지 않으며, `index`·`run`·`judge`는 묶음의 문서 목록에 없는 키의 문서가 하나라도 있으면 아무것도 쓰지도 부르지도 않고 종료 코드 1을 낸다. 판정은 스키마를 올리기 전에 한다. 보고가 권한 조건 가운데 기본 지식베이스의 끝점과 리랭커 설정이 같아야 한다는 것은 넣지 않았다. 빠른 실행 뒤에 리랭커 끝점을 주고 다시 도는 정상 경로를 막고, 그 조건이 지키려던 것(빈 운영 데이터베이스)은 전용 이름이 막는다. Testing Decisions의 표면 시험에 둘을 더했다.
+2. Minor, 유효, 고쳤다. 묶음의 머리와 문서 목록의 경로 칸에 폴더 밖을 가리키지 못하게 하는 규칙이 없다. 지금은 넘는 경계가 없으나 이 형식을 읽는 코드는 `adapters`에 있어 admin이 설치처의 묶음에 다시 쓸 수 있다. → 명세 "평가 세트의 형식"의 `validate` 항목에 경로의 판정을 더했고(절대 경로, `..`, 밖을 가리키는 링크를 읽기 전에 거부하고 `index`도 같다) Testing Decisions의 거부 목록에 더했다.
+3. Minor, 유효, 남겼다. 추론 기록을 손으로 고친 변조를 게이트가 보지 못한다. 기록은 묶음의 내용 해시에 들지 않고 기록만 맞추는 커밋은 승인 대상이 아니다. 보고가 권한 길은 둘이다(보고서에 기록 파일의 해시를 싣고 `compare`가 기준 갱신과 같은 승인을 받게 하기, 빠른 게이트가 기록의 임베딩 일부를 다시 계산해 대 보기). 앞의 길은 기록을 다시 만드는 PR마다 사용자의 승인을 늘리고 그 PR의 하락을 자동 판정이 아니라 사람이 보게 하며, 뒤의 길은 게이트의 시간을 늘린다. 승인 절차가 걸린 결정이라 이 세션이 정하지 않았다. → 명세 Further Notes에 한계와 두 길을 적었고, 티켓으로 쪼개는 세션이 빠른 게이트의 티켓을 쓰기 전에 사용자에게 묻는다(아래 "다음").
+
+보고의 "확인한 것" 가운데 하나를 더 반영했다. 판정기의 실패가 SDK의 예외와 서버의 오류 글을 메시지로 옮기면 `judge`의 표준 오류에 응답 본문이 실릴 수 있다. 명세 "LLM 관련성 판정"의 포트 항목에 TEI 어댑터의 선례대로 옮기지 않는다고 적고, 판정의 시험에 표준 오류를 더했다. 나머지 "확인한 것"(역직렬화가 JSON과 날 float32뿐이다, 판정 파일과 보고서에 글이 없다, CI가 `pull_request_target`도 비밀도 요구하지 않는다, `workflow_dispatch`에 입력이 없다, 진단용 검색을 MCP로 열지 않는다)은 고칠 것이 없다.
+
+보고가 대조하지 못했다고 적은 것은 넷이다. 저장된 diff 파일은 Grep으로만 대 봤다(파일 14개는 작업 트리에서 읽었다). 커밋의 작성자 표기는 Bash 없이 볼 수 없었다(본 세션이 `git log --format=%ae`로 봤고 앞선 PR 브랜치의 커밋과 같다). Anthropic SDK의 예외 메시지가 무엇을 싣는지는 SDK가 `.venv`에 없어 읽지 못했다. 포크 PR의 캐시가 기준 브랜치의 캐시를 더럽히지 못한다는 것은 원문으로 확인하지 않은 기억이라고 적었다. 뒤의 둘은 구현 티켓의 일이다(아래 "다음").
+
+표시 수는 `[정함]`이 77에서 78로 바뀌었고(더한 항목 하나) 합은 113이다.
+
+이 반영에서 새로 쓴 사실 문장은 다음과 같다(PR 봇이 볼 것). 모두 그 파일을 열어 확인했다.
+
+- 명세 "자리와 층": "제품의 설정 객체는 환경의 `RAG_*`와 작업 폴더의 `.env`를 읽으므로(`src/rag_engine/adapters/settings.py`를 읽었다)". 그 파일 26~33행의 `env_prefix`와 `env_file`이다.
+- 같은 항목: "시험이 전용 이름 `RAG_TEST_DATABASE_URL`을 쓰고 그 값을 `compose.test.yml`의 머리 주석이 적는 것과 같은 방식이며". `tests/conftest.py`의 `_apply_command_environment`와 `compose.test.yml` 2~4행이다.
+- 같은 항목: "`migrate`와 같은 코드는 스키마를 먼저 올리고 기본 지식베이스의 끝점과 리랭커 설정을 설정값으로 덮어쓰므로". `src/rag_engine/adapters/postgres/bootstrap.py`의 `migrate_database`와 `src/rag_engine/app/default_records.py`의 `_with_settings`다.
+- 같은 항목: "평가 세트를 공개 문서 묶음으로만 만든다는 것은 `docs/constitution/operations.md`의 설치처 정보 절이 정한다". 그 절의 첫 항목이다.
+- 명세 "평가 세트의 형식": "선례는 `ingest` 명령이 폴더 밖을 가리키는 링크를 거르는 것이다". `src/rag_engine/adapters/ingest_command.py`의 `_collect`다.
+- 명세 "LLM 관련성 판정": "선례는 TEI 어댑터다(`src/rag_engine/adapters/tei.py`의 머리 독스트링을 읽었다)". 그 독스트링 7~8행이다.
+
+## 회고
+
+`retro`를 이 일지의 다음 절을 쓴 때의 계기로 돌렸다. 후보는 열하나이고 승인 여섯, 기각 다섯, 넘김 0이다. 승인한 여섯 가운데 넷은 열린 항목에 회차를 더했고 둘은 새 항목이다. 여섯 모두 더하는 것이라 이 세션에서 반영한 것은 없다. 만료할 항목도 없었다(`uv run python tools/queue_open_rows.py`와, `git fetch origin` 뒤에 `--ref origin/dev`를 붙인 실행이 같은 출력을 냈다).
+
+승인(회차).
+
+1. **근거 문장이 프로브가 잰 것과 어긋났다.** 사건: 셀프 리뷰의 근거 표기 지적과 PR 직전 리뷰의 지적 4. 471토큰은 임베딩 프로브만 잰 값인데 리랭크 쪽 문장도 잰 값처럼 적었고, 토큰화 23~238ms가 임베딩 요청 안의 값임을 적지 않았으며, 프로브 README가 리랭크의 배치를 임베딩 컨테이너와 같은 때에 돌았다고 적었으나 그 컨테이너가 죽은 뒤에 돌았다. `rerank_throughput.py`의 독스트링은 임베딩 프로브와 조건이 같다고 적었으나 코어를 묶는 방법과 첫 배치를 버리는지가 달랐다. 조건: 열린 항목이 이미 처방한 사건이다. 간 자리: 대기열 measured-claim-beyond-probe, 5회차. 다섯 번째라 반영할 문턱에 닿았다. 이 PR은 명세를 싣는 면제 PR이고, 그 항목의 본문이 처방을 to-spec 밖(구현의 독스트링, 설계 인터뷰의 산출물)으로 넓힐지를 반영하는 chore가 정한다고 적어 두었으므로 이 세션에서 반영하지 않고 chore에 둔다. 회차 5 이상인 열린 항목은 이것까지 셋이다(spec-review-transition-crossing 8회차, gate-pipe-read-status 5회차).
+2. **리뷰의 보고를 받은 턴에 일지로 옮기지 않았다.** 사건: 위 "셀프 리뷰"의 머리 문단. 두 축의 보고를 받은 뒤 컨텍스트가 압축되어 지적을 축별이 아니라 합친 요지로 옮겼다. 잃은 판정은 없다. PR 직전 리뷰와 보안 리뷰는 지적마다 판정을 이 일지에 적었다. 조건: `code-review` 6단계 끝의 지침을 어겼고 열린 항목이 처방했다. 간 자리: 대기열 review-report-journal-lag, 4회차.
+3. **넘길 것을 받는 쪽에 적지 않았다.** 사건: 셀프 리뷰의 Minor. 이 명세가 admin에 넘기는 규칙(최소 점수의 기본값이 있는 지식베이스에서 리랭커를 빼는 변경을 관리 API가 422로 거부한다)이 받는 쪽인 `.scratch/admin/plan.md`의 본문에 없었고, 반영에서 적었다. 조건: 열린 항목과 같은 종류의 사건이다. 간 자리: 대기열 out-of-scope-receiver-unwritten, 4회차.
+4. **그대로 옮긴 글을 산문 줄의 따옴표에 두어 인용 대조 경고가 났다.** 사건: 위 "커밋"의 경고 48건. 내려받은 GitHub 문서의 두 문장은 이 회고에서 `>` 인용 줄로 옮겼다. 나머지의 대부분은 `AskUserQuestion`의 질문과 선택지를 글자 그대로 옮긴 목록 줄이고 그대로 두었다. 조건: 열린 항목이 이미 처방한 사건이다. 간 자리: 대기열 check-quotes-verbatim-paste, 3회차.
+5. **문서만 바뀐 PR이라며 보안 축을 건너뛰었다.** 사건: 위 "PR 직전 리뷰"와 "보안 리뷰". `bug-perf-review`만 돌리고 내장 `/security-review`는 돌리지 않기로 했다가, PR 본문의 체크리스트를 채우다 알고 첫 커밋 뒤에 돌렸다. 그 리뷰의 Major 하나와 Minor 하나를 반영하느라 커밋이 하나 늘었다. 그 명령은 문서 파일의 지적을 제외 목록으로 빼므로, 이 세션이 하위 작업에 맡긴 둘째 갈래(명세를 글자 그대로 구현하면 취약점이 되는 공백)가 없었으면 문서만 바뀐 이 PR에서는 낼 것이 없었다. 조건: PR 서식과 `docs/constitution/operations.md` 리뷰 파이프라인의 지침을 어겼고 PR 서식의 체크리스트가 잡았다. 같은 일을 다룬 항목이 없어(`tools/queue_open_rows.py --search`로 찾았다) 새 항목이다. 처방은 `bug-perf-review`의 보고 끝에 한 줄을 더하는 것이라 다섯 번째에 반영한다. 처방을 `docs/constitution/operations.md`에 두는 길은 헌법 파일을 고치는 일이라 고르지 않았다. 간 자리: 대기열 security-review-skipped-on-docs-pr, 1회차.
+6. **커밋이 도는 동안 스테이징된 파일을 고쳤다.** 사건: 위 "커밋"의 첫 시도. `git commit`을 백그라운드로 돌려 두고 PR 직전 리뷰의 반영을 스테이징된 파일에 덧써서, 검사 러너의 열이 모두 Passed인데도(pytest 406.7초) 훅이 `files were modified by this hook`으로 끝났고, 다시 돌린 커밋의 pytest가 572.6초였다. 잃은 작업은 없다. 조건: 사건이 있고, 검사 러너가 도는 동안의 편집에 알리는 계기 훅으로 고칠 수 있으며, PR 하나로 되돌릴 수 있다. pre-commit이 막기는 했으나 검사가 모두 끝난 뒤라 그 자리에서 막은 것으로 보지 않았다. 같은 일을 다룬 항목이 없어 새 항목이다. 더하는 것이라 다섯 번째에 반영한다. 간 자리: 대기열 edit-during-precommit, 1회차.
+
+기각(일지에만 남긴다).
+
+- 명세 서두의 "명세 안에서만 쓰는 말 여섯"은 수가 틀렸고, "단계"와 "묶음"을 그 서두가 정한 뜻과 다른 뜻으로도 썼다. 셀프 리뷰가 잡았다. 수를 세어 닫는 주장은 `code-review`의 브리프가 리뷰에 맡긴 기준이라 리뷰가 제 몫을 한 것이고, 같은 낱말의 다른 뜻은 글자로 가릴 수 없어 검사로 옮길 수 없다. glossary-avoid-check의 처방은 용어집의 _Avoid_ 낱말을 보는 것이라 이 사건에 닿지 않아 회차를 더하지 않았다.
+- 이 명세와 core 16이 같은 결정(리랭커의 CPU 속도)을 서로에게 넘기고 있었다. `tools/sibling_overlap.py`가 커밋 직전에 origin/dev와 함께 고친 파일을 알려 그 자리에서 드러났다. 이미 있는 검사가 알렸다.
+- 워크트리 가드가 복합 git 명령을 거부했고, WebFetch의 요약을 근거로 쓰는 것은 훅이 걸렀다. 이미 있는 훅이 그 자리에서 막거나 알렸다.
+- 명세의 표시 수를 변경마다 손으로 다시 셌다. 어긋난 사건이 없어 사건 조건이 서지 않는다. spec-marker-count-check에 회차를 더하지 않았다.
+- 처리량 측정이 다른 세션의 작업과 CPU를 나눠 썼다. 값에 자릿수를 보는 어림이라는 표지를 달았고, 하네스에서 고칠 자리가 서지 않는다.
+
+## 다음
+
+- **다음 단계는 티켓 쪼개기(`to-tickets`)다.** 그 앞에 `spec-reviewer`가 명세를 본다. core가 끝났으므로 이 기능을 막는 다른 기능은 없다.
+- **티켓을 쓰기 전에 사용자에게 물을 것.** 추론 기록의 변조를 막는 길 둘 가운데 무엇을 둘지다(위 "보안 리뷰"의 3, 명세 Further Notes). 빠른 게이트의 티켓을 쓰기 전에 묻는다.
+- **사용자의 일.** NVIDIA 드라이버를 올리는 일이다. 리랭크 기록을 만드는 티켓은 그 뒤에 집을 수 있고, 전체 게이트, 점수 분포, 리랭커 켬·끔의 실험이 그 티켓 뒤다.
+- **리랭커의 CPU 속도와 기본의 결정**은 리랭커 켬·끔의 실험 티켓이 그 보고서와 core 16의 지연을 함께 보이며 사용자에게 묻는다(명세 "전체 게이트와 리랭커").
+- **게이트를 넣는 티켓이 실제 실행으로 볼 것.** 평가 전용 compose의 임베딩 TEI가 `--max-batch-tokens 4096`으로 러너에서 뜨는지, 빠른 게이트의 CI 시간(15분), 실행 사이의 흔들림, 수동 실행(`workflow_dispatch`)에서 다른 잡과 `verify`가 어떻게 끝나는지, 취소된 실행이 `verify`를 어떻게 끝내는지, 포크 PR이 모델 캐시를 더럽힐 수 있는지(GitHub 문서의 원문으로 확인한다)다.
+- **판정기를 넣는 티켓이 볼 것.** Anthropic SDK의 예외 메시지와 디버그 로그가 요청·응답의 본문이나 키를 싣는지를 설치한 판의 소스로 확인한다.
+- **면제 PR이 고칠 수 없어 구현 티켓이 고치는 파일**은 명세 Further Notes에 있다(`pyproject.toml`, `CLAUDE.md`, `docs/constitution/operations.md`, `.github/workflows/ci.yml`).
+- **PR #27 봇 첫 회차에서 남겨 사용자가 정할 것**(원칙 VII 아래나 헌법 README에 ADR 0015의 판 해석을 가리키는 포인터를 둘지)은 그대로 남아 있다.
+- **회차 5 이상인 열린 대기열 항목이 셋이다**(spec-review-transition-crossing 8회차, gate-pipe-read-status 5회차, 이 세션에서 5회차가 된 measured-claim-beyond-probe). chore를 어디에 둘지는 `next-session`의 결정표로 판단한다.
+- **출시 PR은 다른 세션이 이미 병합했다.** core의 `**끝:**` 줄을 적은 커밋(#31)을 main에 올리는 출시 PR #32가 병합되어 origin/main이 8712b83이고, `git log origin/main..origin/dev`가 비어 있다. main을 dev에 되돌려 합치는 PR #33이 열려 있다(둘째 커밋 직전에 `gh pr list --state open`과 `git log`로 봤다). 이 PR은 `**끝:**` 줄을 더하지 않으므로 새 계기를 세우지 않는다. #33이 먼저 병합되면 이 브랜치에 origin/dev를 합친 뒤에 병합한다.
+- **이 세션이 Docker에 남긴 것.** 이미지 `ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4`와 `turing-1.9.4`, 볼륨 `search-eval-tei-probe-data`다. 리랭크 기록을 만드는 티켓이 다시 쓴다.
