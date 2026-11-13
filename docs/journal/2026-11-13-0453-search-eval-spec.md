@@ -278,10 +278,28 @@ PR 직전 리뷰 때 돌리지 않기로 한 판단을 바로잡았다. PR 서�
 - 명세의 표시 수를 변경마다 손으로 다시 셌다. 어긋난 사건이 없어 사건 조건이 서지 않는다. spec-marker-count-check에 회차를 더하지 않았다.
 - 처리량 측정이 다른 세션의 작업과 CPU를 나눠 썼다. 값에 자릿수를 보는 어림이라는 표지를 달았고, 하네스에서 고칠 자리가 서지 않는다.
 
+## PR과 봇 첫 회차(PR #34)
+
+- 둘째 커밋 1555faa가 보안 리뷰의 반영과 회고를 실었다. pre-commit은 검사 러너의 열이 모두 Passed이고(pytest 1156.3초) 표, 줄 구분자, 변이 표, 인용 대조(경고 없음), 커밋 메시지 훅도 Passed다. ruff 둘과 헌법 판 검사는 해당 파일이 없어 Skipped다.
+- 푸시 직전에 `git merge-base --is-ancestor origin/dev HEAD`가 1이었다. 다른 세션이 출시 PR #32와 되돌려 합치는 PR #33을 병합해 origin/dev가 defc690으로 앞서 있었다(파일 내용의 차이는 없다). `git merge --no-edit origin/dev`로 합쳤고(병합 커밋 32b4f77), `uv run pytest tests/test_plan_status.py -q`가 13 passed였으며, 다시 본 판정이 0이었다.
+- PR #34를 dev로 열었다. `@coderabbitai review` 코멘트를 남기고 `uv run python tools/wait_ci.py 34`로 기다렸다. 종료 0이고 CodeRabbit, claude-review, image, python, ticket, verify가 모두 SUCCESS다.
+- 두 봇 모두 이 PR에서 첫 회차다. 지적은 여섯이고(CodeRabbit의 Major 셋과 Minor 둘, claude-review의 Nit 하나) 지적마다 근거를 열어 판정했다.
+  1. CodeRabbit Major, 평가 전용 데이터베이스. 문서의 키만 대 보면 같은 키에 다른 내용이 든 데이터베이스가 지나간다는 지적이다. 맞다. 고쳤다. `index`, `run`, `judge`가 키와 함께 문서의 내용 해시를 문서 목록의 `sha256`과 대 본다. 봇이 제안한 표지(데이터베이스에 묶음의 이름과 해시를 적는 표)는 받지 않았다. 제품의 스키마에 평가만 쓰는 표가 들어가고, 밖으로 나가는 것은 문서의 내용이라 내용 해시가 직접 가른다. `validate`의 글귀 검사를 세 명령의 시작 조건으로 두자는 제안도 받지 않았다. 그 검사는 세트가 맞는지를 보는 것이고 게이트의 잡이 `run` 앞에서 돌린다. 문서가 하나도 없는 데이터베이스는 이 판정으로 가를 수 없다는 한계를 명세에 적었다.
+  2. CodeRabbit Minor, nDCG를 1에서 자르는 것. 정의는 그대로 두고 까닭을 적었다. 분모를 조각의 여러 이득으로 다시 정하면 이상적인 순위가 조각 구성에 달려 청킹을 바꾼 실행끼리 견줄 수 없다. 가려지는 양이 보이도록 보고서의 줄마다 잘린 질의의 수를 싣게 했다.
+  3. CodeRabbit Minor, 키워드 토큰이 없는 질의의 낱말 겹침. 분모가 0인 경우가 정해져 있지 않았다. 고쳤다. 값이 없는 놓친 질의는 `null`로 싣고 겹침이 0인 수에 넣지 않는다. 쪽으로 적은 기대 근거의 질의도 같은 규칙에 넣었다.
+  4. CodeRabbit Major, 추론 기록의 열쇠. TEI 어댑터의 요청이나 응답 처리가 바뀌어도 옛 기록이 읽힌다는 지적이다. 맞다. 요청 쪽은 고쳤다. 끝점의 경로와 요청 매개변수의 해시(요청 지문)를 `records.json`에 적고 `validate`가 어댑터의 것과 대 보며, `write`는 지문이 다른 기록의 옛 값을 옮기지 않는다. 기록을 다시 만드는 조건에 어댑터의 추론 동작을 더했다. 응답 쪽(받은 값을 다루는 코드)은 요청 지문이 보지 못한다고 명세에 적었고, 그것까지 기계가 보게 하는 길 셋을 적어 사용자에게 넘겼다.
+  5. CodeRabbit Major, ADR 0018 이력의 "전체 게이트는 리랭크 점수를 기록에서만 읽어 CI가 리랭커를 띄우지 않는다". 리랭커 어댑터의 회귀를 보는 경로를 정하라는 지적이다. ADR은 고치지 않았다. 사용자가 승인한 이력이고 결정은 그대로다. 경로는 명세가 정했다(4의 요청 지문, 다시 만드는 조건, 어댑터의 시험). CI에 리랭커를 띄워 표본을 다시 계산하는 길은 그 이력의 결정을 바꾸므로 정하지 않고 사용자가 고를 선택지에 넣었다.
+  6. claude-review Nit, `RelevanceJudge`가 ADR 0003의 플러그인 자리가 아니라는 한 줄. 명세의 포트 항목에 더했다. 같은 표현이 있는 ADR 0007 이력은 사용자가 승인한 글이라 고치지 않았다.
+- 고치며 새로 쓴 사실 문장과 근거. 문서의 내용 해시가 원본 바이트의 sha256을 16진 소문자로 적은 글이라는 것은 `src/rag_engine/app/ingest.py`의 `hashlib.sha256(request.data).hexdigest()`를 읽었다. TEI 어댑터가 추론 요청에 싣는 경로와 칸은 `src/rag_engine/adapters/tei.py`의 `embed`와 `rerank`를 읽었다. 어댑터의 시험이 요청 본문과 입력 순서를 본다는 것은 `tests/adapters/test_tei_reranker.py`의 요청 본문 단언과 두 시험 파일의 시험 이름을 읽었다. nDCG에서 잘리는 것이 이상적인 순위보다 좋은 결과뿐이라는 것은 정의에서 나온다(값이 1을 넘는다는 것이 곧 그 뜻이다). 리랭커의 CPU 처리량은 이 세션의 프로브가 잰 값이다.
+- 명세의 표시 수는 17·7·79·3·8이다(`[정함]`이 하나 늘었다). `uv run python tools/check_adr_pointers.py`는 종료 0이다. 명세 안에서만 쓰는 말에 "요청 지문"을 더했다.
+- 반영 커밋의 첫 시도는 커밋을 만들지 못했다. 검사 러너의 pytest가 `2 failed, 3823 passed in 1053.85s`였고 나머지 열은 Passed였다. 빨간 시험은 `tests/adapters/test_parse_runner.py`의 `test_메시지를_보내다_멈춘_자식이_있어도_수신이_영영_막히지_않는다`(윈도에서 기대한 `parse_failed` 대신 `parse_timeout`이 나왔다. 제한 2초)와 `tests/test_serve_command.py`의 `test_serve가_뜨면_JSON_Lines만_남기고_접근_로그에_쿼리_문자열을_싣지_않는다`(`serve`가 30초 안에 뜨지 않았다)다. 이 커밋은 마크다운 파일 둘만 바꾼다. 두 시험만 따로 돌리자 `2 passed in 164.18s`였다. 그 직후 CPU 부하가 99%였고 검사 러너가 이 저장소의 다른 워크트리 하나(`code-review-transition-crossing`)와 다른 저장소(agent-os)의 워크트리 셋에서 함께 돌고 있었다(손으로 봤다. `Get-CimInstance`의 `Win32_Processor`와 `Win32_Process`). 부하에서만 빨간 시간 시험의 새 사례 둘이다. 그 종류는 대기열 token-expiry-test-load-margin이 받아들여 닫았으므로 대기열에 잇지 않고 여기에만 적는다(retro 5단계의 끝이 열린 결함 종류). 다시 열지는 사용자가 정한다. 시험과 코드는 고치지 않았고, 부하가 내려간 뒤 같은 커밋을 다시 시도한다.
+- 같은 시도에서 인용 대조 훅이 이 절의 인용 하나를 알렸다. ADR 0018 이력의 문장을 줄여서 따옴표 안에 넣은 것이었고 원문대로 고쳤다.
+- 이 반영 커밋의 pre-commit 결과와 그 뒤 회차는 PR #34의 코멘트에 적는다.
+
 ## 다음
 
 - **다음 단계는 티켓 쪼개기(`to-tickets`)다.** 그 앞에 `spec-reviewer`가 명세를 본다. core가 끝났으므로 이 기능을 막는 다른 기능은 없다.
-- **티켓을 쓰기 전에 사용자에게 물을 것.** 추론 기록의 변조를 막는 길 둘 가운데 무엇을 둘지다(위 "보안 리뷰"의 3, 명세 Further Notes). 빠른 게이트의 티켓을 쓰기 전에 묻는다.
+- **티켓을 쓰기 전에 사용자에게 물을 것.** CI가 추론 기록의 값을 다시 계산하지 않아 남는 한계 둘(기록의 변조, TEI 어댑터가 받은 값을 다루는 코드의 회귀)을 무엇으로 막을지다. 선택지는 명세 Further Notes의 둘과 추론 기록 절의 셋이다(위 "보안 리뷰"의 3, "PR과 봇 첫 회차"의 4와 5). 그 가운데 전체 게이트가 CI에 리랭커를 띄우는 길은 ADR 0018 이력 2026-11-13의 결정을 바꾼다. 빠른 게이트의 티켓을 쓰기 전에 묻는다.
 - **사용자의 일.** NVIDIA 드라이버를 올리는 일이다. 리랭크 기록을 만드는 티켓은 그 뒤에 집을 수 있고, 전체 게이트, 점수 분포, 리랭커 켬·끔의 실험이 그 티켓 뒤다.
 - **리랭커의 CPU 속도와 기본의 결정**은 리랭커 켬·끔의 실험 티켓이 그 보고서와 core 16의 지연을 함께 보이며 사용자에게 묻는다(명세 "전체 게이트와 리랭커").
 - **게이트를 넣는 티켓이 실제 실행으로 볼 것.** 평가 전용 compose의 임베딩 TEI가 `--max-batch-tokens 4096`으로 러너에서 뜨는지, 빠른 게이트의 CI 시간(15분), 실행 사이의 흔들림, 수동 실행(`workflow_dispatch`)에서 다른 잡과 `verify`가 어떻게 끝나는지, 취소된 실행이 `verify`를 어떻게 끝내는지, 포크 PR이 모델 캐시를 더럽힐 수 있는지(GitHub 문서의 원문으로 확인한다)다.
@@ -289,5 +307,7 @@ PR 직전 리뷰 때 돌리지 않기로 한 판단을 바로잡았다. PR 서�
 - **면제 PR이 고칠 수 없어 구현 티켓이 고치는 파일**은 명세 Further Notes에 있다(`pyproject.toml`, `CLAUDE.md`, `docs/constitution/operations.md`, `.github/workflows/ci.yml`).
 - **PR #27 봇 첫 회차에서 남겨 사용자가 정할 것**(원칙 VII 아래나 헌법 README에 ADR 0015의 판 해석을 가리키는 포인터를 둘지)은 그대로 남아 있다.
 - **회차 5 이상인 열린 대기열 항목이 셋이다**(spec-review-transition-crossing 8회차, gate-pipe-read-status 5회차, 이 세션에서 5회차가 된 measured-claim-beyond-probe). chore를 어디에 둘지는 `next-session`의 결정표로 판단한다.
-- **출시 PR은 다른 세션이 이미 병합했다.** core의 `**끝:**` 줄을 적은 커밋(#31)을 main에 올리는 출시 PR #32가 병합되어 origin/main이 8712b83이고, `git log origin/main..origin/dev`가 비어 있다. main을 dev에 되돌려 합치는 PR #33이 열려 있다(둘째 커밋 직전에 `gh pr list --state open`과 `git log`로 봤다). 이 PR은 `**끝:**` 줄을 더하지 않으므로 새 계기를 세우지 않는다. #33이 먼저 병합되면 이 브랜치에 origin/dev를 합친 뒤에 병합한다.
+- **출시 PR은 다른 세션이 이미 병합했다.** core의 `**끝:**` 줄을 적은 커밋(#31)을 main에 올리는 출시 PR #32가 병합되어 origin/main이 8712b83이고, `git log origin/main..origin/dev`가 비어 있다. main을 dev에 되돌려 합치는 PR #33도 그 뒤 병합되어 origin/dev가 defc690이 되었고, 이 브랜치에 합쳤다(위 "PR과 봇 첫 회차"). 이 PR은 `**끝:**` 줄을 더하지 않으므로 새 계기를 세우지 않는다.
+- **주 체크아웃 미갱신: 루트는 main.** 이 세션은 워크트리 세션이라 루트를 당기지 않았다(`git worktree list`의 첫 줄을 반영 커밋 앞에 봤다). 다음 세션이 워크트리에 들어가기 전에 `tidy-checkouts`로 당긴다.
+- **원격 브랜치 `docs/search-eval`이 남아 있다.** 앞 세션에서 분류기가 삭제를 거부했고 이 세션도 건드리지 않았다.
 - **이 세션이 Docker에 남긴 것.** 이미지 `ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4`와 `turing-1.9.4`, 볼륨 `search-eval-tei-probe-data`다. 리랭크 기록을 만드는 티켓이 다시 쓴다.
