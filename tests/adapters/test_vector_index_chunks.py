@@ -15,6 +15,7 @@ from uuid import UUID
 
 import psycopg
 import pytest
+import sqlalchemy as sa
 from sqlalchemy import Connection, event
 from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.records import (
@@ -26,6 +27,7 @@ from tests.records import (
 )
 
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
+from rag_engine.adapters.postgres.vector_index import PostgresVectorIndex
 from rag_engine.domain.entities import (
     Block,
     BlockKind,
@@ -935,3 +937,37 @@ async def test_진단용_검색도_질의한_판이_전환되면_is_current가_�
         )
 
     assert (before.is_current, after.is_current) == (True, False)
+
+
+def _index_scans(database_url: str, version: IndexVersion) -> int:
+    """판의 HNSW 부분 색인이 지금까지 스캔된 횟수(통계 보기)."""
+    with psycopg.connect(database_url, autocommit=True) as connection:
+        row = connection.execute(
+            "SELECT idx_scan FROM pg_stat_user_indexes WHERE indexrelname = %s",
+            [f"ix_chunks_hnsw_{version.id.hex}"],
+        ).fetchone()
+    assert row is not None
+    return row[0]
+
+
+async def test_같은_연결에서_두_계획을_열_번_넘게_번갈아_불러도_정확_스캔만_색인을_타지_않는다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    # psycopg는 같은 문장을 다섯 번 돌리면 서버에 준비시키고 서버는 그 뒤 일반 계획을 쓴다. 일반
+    # 계획은 `enable_indexscan` 설정이 바뀌어도 다시 짜지 않으므로, 두 계획이 같은 문장 글을 쓰면
+    # 한쪽 계획이 다른 쪽 호출에 눌러앉는다.
+    world = await _twenty_chunks(engine)
+    query = world.query((1.0, 0.0, 0.0), ())
+    before = _index_scans(empty_database_url, world.version)
+    rounds = 8
+
+    async with engine.connect() as connection, connection.begin():
+        index = PostgresVectorIndex(connection)
+        for _ in range(rounds):
+            await index.diagnose_candidates(query, scan=CandidateScan.INDEX)
+            await index.diagnose_candidates(query, scan=CandidateScan.EXACT)
+        await connection.execute(sa.text("SELECT pg_stat_force_next_flush()"))
+
+    # 색인을 탄 것은 `INDEX` 호출뿐이어야 한다.
+    scans = _index_scans(empty_database_url, world.version) - before
+    assert scans == rounds, f"색인 스캔 {scans}회, 기대 {rounds}회"

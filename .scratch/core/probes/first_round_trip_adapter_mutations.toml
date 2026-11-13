@@ -176,6 +176,17 @@ old = '''"hnsw.ef_search", str(query.candidates))'''
 new = '''"hnsw.ef_search", "40")'''
 
 [[mutation]]
+name = "진단용 문장 글이 계획마다 같다"
+tests = ["tests/adapters/test_vector_index_chunks.py"]
+expect = "red"
+expect_output = ['''색인 스캔 11회, 기대 8회''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''f"/* scan={scan.value} */ WITH {', '.join([*parts.ctes, scored, fused])}"'''
+new = '''f"WITH {', '.join([*parts.ctes, scored, fused])}"'''
+
+[[mutation]]
 name = "조각을 묶음으로 나누지 않는다"
 tests = ["tests/adapters/test_vector_index_chunks.py"]
 expect = "red"

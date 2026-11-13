@@ -156,10 +156,16 @@ def search_sql(query: SearchQuery) -> str:
     )
 
 
-def diagnosis_sql(query: SearchQuery) -> str:
+def diagnosis_sql(query: SearchQuery, scan: CandidateScan) -> str:
     """진단용 문장. 벡터와 키워드 후보의 합집합을 자르지 않고 단계마다의 순위를 싣는다. 점수가 같은
     줄은 `search_sql`과 같은 규칙(조각 id 순)으로 끊어 `fused_rank`를 매긴다. 매개변수는
-    `search_sql`과 같다."""
+    `search_sql`과 같다.
+
+    글 앞에 `scan`을 적은 주석을 붙인다. 계획을 고르는 `enable_indexscan`은 `SET LOCAL`이라 문장
+    글에 나타나지 않는다. psycopg는 같은 문장을 다섯 번 넘게 돌리면 서버에 준비시키고 서버는 그 뒤
+    일반 계획을 쓰는데, 일반 계획은 그 설정이 바뀌어도 다시 짜지 않는다. 두 계획이 같은 글을 쓰면
+    한쪽 계획이 다른 쪽 호출에 눌러앉아 `EXACT`가 색인을 탄다(같은 연결에서 번갈아 불러 재현했다).
+    주석이 다르면 서버가 다른 문장으로 준비시켜 계획이 `scan`마다 따로 굳는다."""
     parts = _candidate_parts(query)
     scored = (
         f"scored AS (SELECT {parts.chunk_id} AS id, ({parts.score})::float8 AS score,"
@@ -169,10 +175,13 @@ def diagnosis_sql(query: SearchQuery) -> str:
         "fused AS (SELECT id, score, vector_rank, keyword_rank,"
         " row_number() OVER (ORDER BY score DESC, id) AS fused_rank FROM scored)"
     )
-    return f"WITH {', '.join([*parts.ctes, scored, fused])}" + _final_select(
-        query,
-        ", c.ordinal, f.vector_rank, f.keyword_rank, f.fused_rank",
-        "f.fused_rank NULLS LAST, c.id",
+    return (
+        f"/* scan={scan.value} */ WITH {', '.join([*parts.ctes, scored, fused])}"
+        + _final_select(
+            query,
+            ", c.ordinal, f.vector_rank, f.keyword_rank, f.fused_rank",
+            "f.fused_rank NULLS LAST, c.id",
+        )
     )
 
 
@@ -531,7 +540,7 @@ class PostgresVectorIndex:
         await self._apply_search_settings(query)
         async with self._scan_plan(scan):
             result = await self._connection.execute(
-                sa.text(diagnosis_sql(query)), _search_parameters(query)
+                sa.text(diagnosis_sql(query, scan)), _search_parameters(query)
             )
             rows = result.mappings().all()
         is_current: bool = rows[0]["is_current"] is True
@@ -548,7 +557,7 @@ class PostgresVectorIndex:
             await self._connection.execute(sa.text("SET LOCAL enable_seqscan = off"))
         async with self._scan_plan(scan):
             rows = await self._connection.execute(
-                sa.text("EXPLAIN " + diagnosis_sql(query)), _search_parameters(query)
+                sa.text("EXPLAIN " + diagnosis_sql(query, scan)), _search_parameters(query)
             )
             plan = "\n".join(row[0] for row in rows)
         return plan
