@@ -296,15 +296,22 @@ async def test_받는_크기_상한을_넘는_메시지는_끝까지_읽지_않�
 
 
 async def test_메시지를_보내다_멈춘_자식이_있어도_수신이_영영_막히지_않는다() -> None:
-    runner = _runner(_registry("StallingMidMessageParser"), timeout_seconds=2)
+    # 리눅스의 연결은 길이를 알린 뒤 멈추면 읽는 쪽이 기다리고, 윈도의 연결은 한 번의 쓰기가 온전한
+    # 메시지라 잘린 JSON이 `parse_failed`로 간다(`StallingMidMessageParser`의 독스트링). 러너의
+    # 기한은 자식을 띄운 때부터 세므로 자식의 기동도 그 안에 든다. 윈도의 기대는 자식이 기한 안에
+    # 잘린 메시지를 보내야 서서, 기한이 짧으면 부하에서 기동이 늘어난 자식을 타이머가 먼저 죽여
+    # `parse_timeout`이 난다. 윈도는 메시지를 받으면 바로 돌아오니 기한을 넉넉히 주고, 리눅스는
+    # 기한까지 기다려야 끝나니 짧게 준다.
+    on_windows = sys.platform == "win32"
+    deadline = 30 if on_windows else 2
+    slack = 15  # 기한이 지난 뒤 자식을 거두는 대기(최대 5초씩 둘)와 부하를 덮는 여유
+    runner = _runner(_registry("StallingMidMessageParser"), timeout_seconds=deadline)
     started = time.monotonic()
 
     code = await _failure_code(runner)
 
-    # 리눅스의 연결은 길이를 알린 뒤 멈추면 읽는 쪽이 기다리고, 윈도의 연결은 한 번의 쓰기가 온전한
-    # 메시지라 잘린 JSON이 `parse_failed`로 간다(`StallingMidMessageParser`의 독스트링).
-    expected = ErrorCode.PARSE_FAILED if sys.platform == "win32" else ErrorCode.PARSE_TIMEOUT
-    assert [code, time.monotonic() - started < 30] == [expected, True]
+    expected = ErrorCode.PARSE_FAILED if on_windows else ErrorCode.PARSE_TIMEOUT
+    assert [code, time.monotonic() - started < deadline + slack] == [expected, True]
 
 
 async def test_자식이_기동하기_전에_기한이_지나도_수신이_풀리고_parse_timeout이다() -> None:
