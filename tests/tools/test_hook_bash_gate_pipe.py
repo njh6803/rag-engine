@@ -172,6 +172,18 @@ def test_and_뒤의_dollar_question_은_게이트가_실패하면_건너뛰어�
     assert on_failure == []
 
 
+def test_백그라운드_ampersand_뒤의_dollar_question_도_읽은_것이_아니다() -> None:
+    """PR 봇 1회차(CodeRabbit·claude-review): `pytest & echo $?` 의 `$?` 는 백그라운드 기동의
+    0이라 게이트의 결과가 아니다. 옛 판은 이 입력을 경고했다. 읽힌 것으로 세는 경계는 `;`·개행·
+    `||` 뿐이다."""
+    background = warnings_for("uv run pytest -q & echo $?; echo done; echo $?")
+    newline = warnings_for("uv run pytest -q\necho $?\necho done\necho $?")
+
+    assert len(background) == 1
+    assert "pytest" in background[0]
+    assert newline == []
+
+
 def test_게이트_다음_조각의_dollar_question_은_쓰는지_보지_않고_읽은_것으로_센다() -> None:
     """독스트링의 못 보는 것(거짓 음성)을 고정한다."""
     assert warnings_for("uv run pytest -q; true $?; other; echo $?") == []
