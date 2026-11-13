@@ -293,3 +293,14 @@ expect_output = ["링크를 풀면 묶음 폴더 밖을 가리킨다"]
 file = "src/rag_engine/adapters/bundle_paths.py"
 old = '''scope = "묶음 폴더" if under is None else f"{under}/"'''
 new = '''scope = "묶음 폴더"'''
+
+[[mutation]]
+name = "링크 순환의 RuntimeError를 BundlePathError로 바꾸지 않는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["Symlink loop from"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/bundle_paths.py"
+old = '''        except RuntimeError:'''
+new = '''        except ZeroDivisionError:'''

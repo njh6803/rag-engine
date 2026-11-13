@@ -579,6 +579,20 @@ def test_records_폴더가_밖을_가리키는_링크이면_읽지_않는_파일
     _rejected(bundle, capsys, "records", "밖")
 
 
+def test_서로를_가리키는_링크_폴더는_순환으로_거부한다(
+    bundle: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # `records`와 `loop`가 서로를 가리킨다. 링크는 대상이 있어야 만들어지는 플랫폼(윈도 junction)이
+    # 있어 `loop`를 실제 폴더로 먼저 만들고 `records`를 잇고 나서 `loop`를 지워 다시 잇는다.
+    loop = bundle / "loop"
+    loop.mkdir()
+    make_folder_link(bundle / "records", loop)
+    loop.rmdir()
+    make_folder_link(loop, bundle / "records")
+
+    _rejected(bundle, capsys, "records", "링크가 순환한다")
+
+
 def test_묶음_안을_가리키는_링크_폴더는_받는다(bundle: Path) -> None:
     # 거르는 것은 풀린 경로가 묶음 밖인 링크다. 안으로 가는 링크는 같은 파일을 가리킬 뿐이다.
     make_folder_link(bundle / "records", bundle / "documents")

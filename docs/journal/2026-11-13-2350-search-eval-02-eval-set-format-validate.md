@@ -16,8 +16,8 @@
 - `adapters/eval_bundle_files.py`: 문서 파일의 존재·sha256(소문자 16진, 글자 그대로)·합 30MB 초과(정확히 30MB는 통과)·`documents/`의 목록에 없는 파일과 링크, 머리가 가리키는 파일 모두와 `records/`의 경로 판정. `os.scandir`로 직접 걷고 링크와 junction은 내려가지 않는다.
 - `adapters/eval_validate.py`: 읽기 오류면 그 오류만, 아니면 두 판정을 합친다. `tools/search_eval.py`: argparse 하위 명령 `validate <묶음 폴더>`, 종료 코드 0·1·2.
 - `README.md`의 트리, `.scratch/plan-head.md`의 목표 배치(와 생성 파일 `.scratch/plan.md`)에 새 모듈과 `tools/search_eval.py`를 더했다.
-- 시험(78개): `tests/tools/test_search_eval.py`(54, `main(argv)`로 규칙마다 종료 코드와 까닭 문구를 본다. 윈도 junction과 리눅스 심볼릭 링크로 링크 시험을 짓고 skip하지 않는다), `tests/adapters/test_eval_set_reader.py`(8), `tests/app/test_check_eval_set.py`(16), 지원 `tests/support/eval_bundle.py`.
-- 변이 표 `.scratch/search-eval/probes/eval_set_validate_mutations.toml`(26). 구현과 함께 써서 빨강을 본 적 없는 경계 시험을 겨눈다.
+- 시험(79개): `tests/tools/test_search_eval.py`(55, `main(argv)`로 규칙마다 종료 코드와 까닭 문구를 본다. 윈도 junction과 리눅스 심볼릭 링크로 링크 시험을 짓고 skip하지 않는다), `tests/adapters/test_eval_set_reader.py`(8), `tests/app/test_check_eval_set.py`(16), 지원 `tests/support/eval_bundle.py`.
+- 변이 표 `.scratch/search-eval/probes/eval_set_validate_mutations.toml`(27). 구현과 함께 써서 빨강을 본 적 없는 경계 시험을 겨눈다.
 
 ## 정한 것
 
@@ -46,6 +46,17 @@ CodeRabbit CLI가 한 번 돌았고(`--include-untracked`, 미추적 열네 파�
 - 이 반영이 새로 쓴 사실 문장(PR 봇이 겨냥할 것): `bundle_paths.py` 독스트링의 장치 이름·`:` 서술(윈도에서 열면 읽기가 돌아오지 않거나 장치로 간다는 말, "하드 링크는 …가르지 못한다", "파일 아닌 것(폴더, POSIX의 FIFO)은 … 읽는 쪽이 연 파일인지 보고 거른다"), `_parse_lines` 독스트링("`splitlines()`는 U+2028 같은 문자도 줄 경계로 읽어 …"), `_VERSION_FORM` 주석(4300자리를 넘는 수는 `int()`가 오류로 죽는다는 말), 티켓 02 `## Comments` 넷째~여섯째 항목.
 - 다시 돌린 것: 변이 표 전체 26개가 기대대로 빨강, 변경한 시험 셋 78 passed.
 
+## 봇 회차
+
+PR #40, 첫 푸시 fba09c2. 두 봇 모두 첫 회차다(CodeRabbit은 `@coderabbitai review` 뒤에 리뷰했다. 검사 여섯은 모두 초록).
+
+- 고친 것(CodeRabbit Minor): 링크가 서로를 가리키면 `Path.resolve()`가 `RuntimeError`를 내고 `BundlePaths.resolve`가 잡지 못해 `validate`가 오류 보고 없이 traceback으로 끝난다는 지적이다. 윈도 junction 순환(`a`→`b`→`a`)으로 재현했고(Python 3.12.10에서 `Path.resolve()`와 `BundlePaths.resolve()` 모두 `RuntimeError: Symlink loop`), 리눅스도 같은 길로 읽힌다(3.12.10의 `pathlib.py`를 읽었다. `resolve()`는 비엄격 모드에서도 끝에 `stat()`을 불러 `ELOOP`이면 `RuntimeError`를 낸다. 리눅스에서는 돌려 보지 않았다). `resolve`가 `RuntimeError`를 `BundlePathError`(`링크가 순환한다`)로 바꾸고 시험 `test_서로를_가리키는_링크_폴더는_순환으로_거부한다`와 변이 27을 더했다. 변이를 넣으면 그 시험 하나만 빨강이었다(기준선 55 passed).
+- 보류(Critical, 검증되지 않음 표시, CodeRabbit): 오류의 메시지와 위치에서도 입력 내용을 제거하라는 지적이다. PR 직전 리뷰에서 같은 지적을 재현해 오탐으로 판정했다. 입력한 값(정수 칸에 넣은 문자열, 깨진 JSON의 글, 뒤에 붙은 글)은 실리지 않고, 모르는 칸의 이름과 판별 태그 값만 실린다. 그것은 묶음의 주인이 쓴 칸 이름이고 질문·글귀·연결 정보가 아니라는 판정은 그대로다.
+- 보류(Minor, CodeRabbit): 변이 표의 절대 경로 변이 표지(역슬래시 오류 문구)가 리눅스에서는 나오지 않는다는 지적이다. 맞다. 절대 경로 검사를 끄면 리눅스에서는 푼 경로 판정의 문구가 나온다. 변이 표는 개발 기계(윈도)에서 돌리는 도구라 지금은 고치지 않는다. 두 플랫폼 모두에서 나오는 문구를 고르려면 리눅스에서 변이를 돌려 봐야 한다.
+- 보류(Minor, claude-review): `_read_text`의 `raise _fail(...)`가 `try` 안에 있다는 지적이다. `_fail`이 내는 `EvalSetFormatError`는 아래 `except OSError`에 잡히지 않아 동작은 맞다. 밖으로 빼면 변이 24가 겨누는 한 줄(`if path.exists() and not path.is_file():`)의 흐름이 바뀐다. 스타일 문제라 같은 파일을 다시 넓힐 때 정리한다.
+- 보류(Minor, claude-review) 둘: `_read_miss_reviews`·`_read_text`·`_check_document`가 같은 모양의 실패 분기를 되풀이한다는 것과, `BundlePaths`·`eval_bundle_files`의 어댑터 단위 시험이 없다는 것이다. 둘 다 이 PR 본문이 남긴 위험으로 밝혔고 아래 "다음"에 있다.
+- 보류(Nit, claude-review): `bytes` 칸이 내장 `bytes`를 가린다는 지적이다. `bytes`는 명세 "공공 문서 묶음"이 정한 `documents.json`의 칸 이름이고 형식의 일부라 바꾸지 않는다.
+
 ## 검증
 
 - 손으로 친 것: `uv run ruff check .`(0), `uv run ruff format --check .`(0), `uv run pyright`(0 errors, 반영 전), `uv run lint-imports`(2 kept), `uv run python tools/run_checks.py`(반영 전 전체가 종료 코드 0), `tools/mutate.py`로 변이 26 모두 기대대로 빨강(처음 16 가운데 어긋난 둘은 짐작한 표지가 틀린 것이고 시험은 빨강이었다), `tools/sibling_overlap.py`(번호·파일 겹침 없음).
@@ -71,6 +82,7 @@ CodeRabbit CLI가 한 번 돌았고(`--include-untracked`, 미추적 열네 파�
 
 - 이 PR이 병합되면 티켓 02는 끝이고 03(`index`)이 열린다. 03은 `adapters/eval_set_reader.py`의 `kst_midnight`와 `read_eval_set`을 쓴다(티켓 02 `## Comments`).
 - 07과 12가 묶음에 쓸 때는 `BundlePaths.resolve`를 지난 경로만 연다(티켓 02 `## Comments`).
-- Minor로 남긴 것(상수 중복, 오류 위치 이름 하드코딩, `_review_problems`의 선형 탐색, `tests/adapters/`의 `BundlePaths`·`eval_bundle_files` 단위 시험)은 같은 파일을 다시 넓힐 때 정리한다.
+- Minor로 남긴 것(상수 중복, 오류 위치 이름 하드코딩, `_review_problems`의 선형 탐색, `tests/adapters/`의 `BundlePaths`·`eval_bundle_files` 단위 시험, `_read_miss_reviews`·`_read_text`·`_check_document`의 되풀이되는 실패 분기, `_read_text`의 `try` 안 `raise`)은 같은 파일을 다시 넓힐 때 정리한다.
+- 변이 표의 표지 둘(절대 경로 변이의 역슬래시 문구 등)이 윈도에서 본 출력이라 리눅스에서 그 변이를 돌리면 표지가 다를 수 있다. 리눅스에서 변이를 돌려 두 플랫폼 모두에서 나오는 문구로 고친다(PR 봇 회차의 CodeRabbit Minor).
 - 주 체크아웃 미갱신: 루트는 `dev`(97f9914)이고 커밋하지 않은 로그 둘(`.scratch_li.log`, `.scratch_pyr.log`)이 있어 당기지 못했다. 병합 뒤 `tidy-checkouts`는 다음 새 세션이 돈다.
 - 사람에게 넘긴 정리: 워크트리 `14-reindex-version-switch`와 `.claude/worktrees/.tidy-trash/`의 `.venv` 넷(다음 정리가 다시 본다).

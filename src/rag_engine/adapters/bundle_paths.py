@@ -8,7 +8,8 @@
 (`CON`, `NUL`, `COM1`과 확장자가 붙은 꼴)이 든 경로는 파일을 열기 전에 글자만 보고 거부한다.
 장치 이름은 운영체제와 무관하게 거부한다. 윈도에서 열면 읽기가 돌아오지 않거나 장치로 가기 때문이다.
 통과한 경로는 링크를 푼 결과가 기준 폴더 안인지 본다. 폴더가 링크인 경우도 같다. 안을 가리키는
-링크는 같은 묶음 안의 파일을 가리킬 뿐이라 받는다.
+링크는 같은 묶음 안의 파일을 가리킬 뿐이라 받는다. 링크가 서로를 가리켜 풀리지 않는 경로도
+거부한다.
 
 선례는 `ingest` 명령이 폴더 밖을 가리키는 링크를 거르는 것(`ingest_command._collect`)과
 `LocalBlobStore` 가 키를 푼 경로가 데이터 폴더 밖이면 읽지도 쓰지도 않는 것이다. 그 둘은 둘째
@@ -57,7 +58,12 @@ class BundlePaths:
         # `under` 폴더가 링크라서 묶음 밖이면 여기서 거부한다.
         base = self._root if under is None else self.resolve(under)
         _check_text(relative)
-        resolved = (base / relative).resolve()
+        try:
+            resolved = (base / relative).resolve()
+        except RuntimeError:
+            # 링크가 서로를 가리키면 `Path.resolve()`가 `RuntimeError`를 낸다(윈도 junction과 POSIX
+            # 심볼릭 링크 모두).
+            raise BundlePathError(f"{relative}은(는) 링크가 순환한다") from None
         if not resolved.is_relative_to(base):
             scope = "묶음 폴더" if under is None else f"{under}/"
             raise BundlePathError(f"{relative}은(는) 링크를 풀면 {scope} 밖을 가리킨다")
