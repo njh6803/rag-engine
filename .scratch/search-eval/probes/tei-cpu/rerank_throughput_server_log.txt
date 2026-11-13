@@ -1,0 +1,21 @@
+2026-11-12T17:13:50.991884Z  INFO text_embeddings_router: router/src/lib.rs:284: Starting model backend
+2026-11-12T17:13:51.249794Z  INFO text_embeddings_backend: backends/src/lib.rs:783: Downloading `onnx/model.onnx`
+2026-11-12T17:13:51.452388Z  WARN text_embeddings_backend: backends/src/lib.rs:787: Could not download `onnx/model.onnx`: request error: HTTP status client error (404 Not Found) for url (https://huggingface.co/BAAI/bge-reranker-v2-m3/resolve/main/onnx/model.onnx)
+2026-11-12T17:13:51.452435Z  INFO text_embeddings_backend: backends/src/lib.rs:788: Downloading `model.onnx`
+2026-11-12T17:13:51.660802Z  WARN text_embeddings_backend: backends/src/lib.rs:792: Could not download `model.onnx`: request error: HTTP status client error (404 Not Found) for url (https://huggingface.co/BAAI/bge-reranker-v2-m3/resolve/main/model.onnx)
+2026-11-12T17:13:51.660863Z  INFO text_embeddings_backend: backends/src/lib.rs:797: Downloading `onnx/model.onnx_data`
+2026-11-12T17:13:51.875829Z  WARN text_embeddings_backend: backends/src/lib.rs:801: Could not download `onnx/model.onnx_data`: request error: HTTP status client error (404 Not Found) for url (https://huggingface.co/BAAI/bge-reranker-v2-m3/resolve/main/onnx/model.onnx_data)
+2026-11-12T17:13:51.875873Z  INFO text_embeddings_backend: backends/src/lib.rs:802: Downloading `model.onnx_data`
+2026-11-12T17:13:52.104714Z  WARN text_embeddings_backend: backends/src/lib.rs:806: Could not download `model.onnx_data`: request error: HTTP status client error (404 Not Found) for url (https://huggingface.co/BAAI/bge-reranker-v2-m3/resolve/main/model.onnx_data)
+2026-11-12T17:13:52.104768Z ERROR text_embeddings_backend: backends/src/lib.rs:465: Model ONNX files not found in the repository. You can easily create ONNX files using the following scripts: https://gist.github.com/tomaarsen/4b00b0e3be8884efa64cfab9230b161f, or use this Space: https://huggingface.co/spaces/sentence-transformers
+2026-11-12T17:13:52.104775Z  INFO text_embeddings_backend: backends/src/lib.rs:476: Downloading `tokenizer_config.json`
+2026-11-12T17:13:52.546663Z ERROR text_embeddings_backend: backends/src/lib.rs:489: Could not start ORT backend: Could not start backend: File at `/data/models--BAAI--bge-reranker-v2-m3/snapshots/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e/onnx/model.onnx` does not exist
+2026-11-12T17:13:52.547318Z  INFO text_embeddings_backend: backends/src/lib.rs:672: Downloading `model.safetensors`
+2026-11-12T17:25:56.697340Z  INFO text_embeddings_backend: backends/src/lib.rs:507: Model weights downloaded in 724.399291265s
+2026-11-12T17:25:56.700886Z  INFO download_dense_modules: text_embeddings_backend: backends/src/lib.rs:843: Downloading `modules.json`
+2026-11-12T17:25:57.178803Z  INFO text_embeddings_backend: backends/src/lib.rs:519: Dense modules downloaded in 479.226892ms
+2026-11-12T17:25:57.185529Z  WARN text_embeddings_backend_candle: backends/candle/src/lib.rs:229: The `config.json` contains `hidden_act=gelu` and GeLU + tanh approximation will be used instead of exact GeLU (aka. GeLU erf), which might lead to subtle differences with Transformers or Sentence Transformers outputs which use exact
+2026-11-12T17:25:57.233159Z  INFO text_embeddings_backend_candle: backends/candle/src/lib.rs:311: Starting Bert model on Cpu
+2026-11-12T17:41:15.701809Z  INFO rerank{total_time="297.405773074s" tokenization_time="600.526227ms" queue_time="124.362971022s" inference_time="33.3338868s"}
+2026-11-12T17:46:03.102039Z  INFO rerank{total_time="287.164468318s" tokenization_time="809.125528ms" queue_time="152.558491281s" inference_time="31.305462089s"}
+2026-11-12T17:49:23.729430Z  INFO rerank{total_time="200.598582439s" tokenization_time="218.784302ms" queue_time="96.059861462s" inference_time="23.124214888s"}
