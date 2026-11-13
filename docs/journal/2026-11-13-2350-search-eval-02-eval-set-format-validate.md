@@ -41,16 +41,16 @@ CodeRabbit CLI가 한 번 돌았고(`--include-untracked`, 미추적 열네 파�
 - 고친 것(Major 둘): `_parse_lines`가 `str.splitlines()`로 가르면 JSON 문자열 안의 U+2028·U+0085도 줄 경계가 되어 올바른 줄이 둘로 쪼개져 거부됐다(재현했다). `\n`으로만 가르고 끝의 `\r`을 벗기게 했다(변이 20). 윈도 예약 장치 이름(`CON`, `NUL`, `COM1`과 확장자가 붙은 꼴)이 경로 판정을 지나, 머리의 파일 칸에 `CON`을 적은 묶음이 `validate`를 멈추게 했다(재현했다. `read_bytes()`가 돌아오지 않았다). 마디의 장치 이름과 `:`(대체 데이터 스트림)를 운영체제와 무관하게 글자로 거르고(변이 21·22), `_read_text`가 열기 전에 일반 파일인지 본다(폴더나 FIFO, 변이 23).
 - 고친 것(Minor): `_entries`가 `os.scandir`의 `OSError`를 삼켜 읽지 못한 `documents/`가 "문제 없음"으로 끝났다. 폴더가 없는 경우만 조용히 하고 나머지는 `documents: 폴더를 읽을 수 없다`로 낸다(변이 24). `_check_document`의 `is_file()`과 `_read_miss_reviews`의 `exists()`도 `OSError`를 문제로 낸다(이 둘은 시험으로 고정하지 않았다). 판 꼴의 정규식이 4300자리를 넘는 수에서 `int()`로 죽는 길을 `{1,9}`로 닫았다(변이 25). `under=`를 준 판정의 문구가 "묶음 폴더 밖"으로 나가던 것을 "`<under>/` 밖"으로 고쳤다(변이 26). `records` 문제 문구에서 까닭을 권한으로 단정하던 말을 뺐다.
 - 보류(Minor): `miss-review`의 `evidence_id`가 그 질의 목록의 질의에 드는지를 보지 않는다. 명세의 `validate` 목록에 짝을 요구하는 말이 없어 판정을 더하는 일이라 건드리지 않았다. 사용자가 정한다.
-- 오탐: CodeRabbit이 Critical로 낸 "pydantic 메시지를 그대로 싣지 말라". 재현해 보니 모르는 칸의 이름과 판별 태그의 값은 실리고 입력한 값(정수 칸에 넣은 문자열, 깨진 JSON의 글, 뒤에 붙은 글)은 실리지 않았다. 칸 이름과 태그 값은 질문·글귀·연결 정보가 아니라 원칙 V의 대상이 아니고, 독스트링이 이미 그 한계를 적었다.
+- 오탐: CodeRabbit이 Critical로 낸, pydantic 메시지를 그대로 싣지 말라는 지적. 재현해 보니 모르는 칸의 이름과 판별 태그의 값은 실리고 입력한 값(정수 칸에 넣은 문자열, 깨진 JSON의 글, 뒤에 붙은 글)은 실리지 않았다. 칸 이름과 태그 값은 질문·글귀·연결 정보가 아니라 원칙 V의 대상이 아니고, 독스트링이 이미 그 한계를 적었다.
 - 사실 문장 검증: `_problems` 독스트링, 전각 숫자, 티켓 `## Comments`의 `documents/` 링크와 `bytes` 문장은 참이었다. `BundlePaths`가 안을 가리키는 링크를 받는다는 말에는 `documents/` 자체가 묶음 안의 다른 폴더를 가리키는 링크여도 받아 그 폴더를 문서 폴더로 걷는 것까지 든다는 단서가 붙어 티켓 `## Comments`에 더했다. 하드 링크는 판정이 가르지 못한다는 것을 `bundle_paths.py`의 못 보는 것에 더했다.
-- 이 반영이 새로 쓴 사실 문장(PR 봇이 겨냥할 것): `bundle_paths.py` 독스트링의 장치 이름·`:` 서술("윈도에서 열면 읽기가 돌아오지 않거나 장치로 간다", "하드 링크는 …가르지 못한다", "파일 아닌 것(폴더, POSIX의 FIFO)은 … 읽는 쪽이 연 파일인지 보고 거른다"), `_parse_lines` 독스트링("`splitlines()`는 U+2028 같은 문자도 줄 경계로 읽어 …"), `_VERSION_FORM` 주석("4300자리를 넘는 수는 `int()`가 오류로 죽는다"), 티켓 02 `## Comments` 넷째~여섯째 항목.
+- 이 반영이 새로 쓴 사실 문장(PR 봇이 겨냥할 것): `bundle_paths.py` 독스트링의 장치 이름·`:` 서술(윈도에서 열면 읽기가 돌아오지 않거나 장치로 간다는 말, "하드 링크는 …가르지 못한다", "파일 아닌 것(폴더, POSIX의 FIFO)은 … 읽는 쪽이 연 파일인지 보고 거른다"), `_parse_lines` 독스트링("`splitlines()`는 U+2028 같은 문자도 줄 경계로 읽어 …"), `_VERSION_FORM` 주석(4300자리를 넘는 수는 `int()`가 오류로 죽는다는 말), 티켓 02 `## Comments` 넷째~여섯째 항목.
 - 다시 돌린 것: 변이 표 전체 26개가 기대대로 빨강, 변경한 시험 셋 78 passed.
 
 ## 검증
 
 - 손으로 친 것: `uv run ruff check .`(0), `uv run ruff format --check .`(0), `uv run pyright`(0 errors, 반영 전), `uv run lint-imports`(2 kept), `uv run python tools/run_checks.py`(반영 전 전체가 종료 코드 0), `tools/mutate.py`로 변이 26 모두 기대대로 빨강(처음 16 가운데 어긋난 둘은 짐작한 표지가 틀린 것이고 시험은 빨강이었다), `tools/sibling_overlap.py`(번호·파일 겹침 없음).
 - 반영 뒤: `uv run ruff check .`(0), `uv run ruff format`, 시험 셋 78 passed, `uv run pyright`(0 errors), `uv run lint-imports`(2 kept), `uv run python tools/sibling_overlap.py`(겹침 없음).
-- 반영 뒤 `uv run python tools/run_checks.py`는 pytest만 빨강이었다(3924 passed, 1 failed, 305초). 실패는 `tests/server/test_admin_api.py::test_작업_목록은_최근_순이고_상태_한도_커서를_따른다`의 `ingest` 요청이 `httpx.ReadTimeout`으로 끝난 것이고 이 변경이 손댄 파일과 닿지 않는다. 같은 파일을 단독으로 다시 돌리면 16 passed(37초)였다. 부하가 큰 전체 실행에서만 난 시간 초과로 보지만 원인은 재 보지 않았다. 이 사건 하나는 고침도 규칙도 아니라 회차로 세는 후보다(아래 회고 8). 커밋의 pre-commit이 전체 pytest를 다시 돌고, 그것도 이 시험에서 빨강이면 diagnosing-bugs로 간다.
+- 반영 뒤 `uv run python tools/run_checks.py`는 pytest만 빨강이었다(3924 passed, 1 failed, 305초). 실패는 `tests/server/test_admin_api.py::test_작업_목록은_최근_순이고_상태_한도_커서를_따른다`의 `ingest` 요청이 `httpx.ReadTimeout`으로 끝난 것이고 이 변경이 손댄 파일과 닿지 않는다. 같은 파일을 단독으로 다시 돌리면 16 passed(37초)였다. 부하가 큰 전체 실행에서만 난 시간 초과로 보지만 원인은 재 보지 않았다. 이 사건 하나는 고침도 규칙도 아니라 회차로 세는 후보다(아래 회고 8). 커밋 63f3863의 pre-commit이 전체 pytest를 다시 돌았고 초록이었다(376초, 이 시험 포함. 러너의 나머지 검사 아홉도 초록). 같은 시험이 연속으로 빨강이 아니라서 diagnosing-bugs로 가지 않았다.
 
 ## 회고
 
