@@ -105,6 +105,7 @@ Spawn the Standards sub-agent with `model: sonnet` and `effort: high`, whatever 
 - The diff command, the untracked file list, and the commit list.
 - The path or fetched contents of the spec.
 - The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
+- 본 세션이 명세와 diff를 읽고, 명세나 이 변경이 상태(문서 상태, 색인 상태, 작업, 임대, 세대, 색인 판처럼 전이하며 값이 바뀌는 것. 나열은 예시이고 목록이 아니다)를 정하거나 바꾼다고 판정하면, 위 브리프 끝(Under 400 words. 앞)에 한 줄을 그대로 붙여 넣는다: "(d) 전이마다 다른 전이와 동시에 일어나는 교차와, 실패·중단 뒤에 남는 상태를 하나씩 밟아, 지운 것이 되살아나거나 전환이 영영 막히는 자리를 낸다." (d)의 결함은 명세가 침묵한 자리에서 나므로 명세 줄 인용 대신 어느 전이와 어느 전이가 교차하는지를 적게 한다. (a)~(c)는 명세와 요구를 대 보는 갈래라 이 꼴을 덮지 못했다. PR #3의 1회차 봇 지적 열둘 가운데 여덟이 이 꼴이었다(대기열 spec-review-transition-crossing의 서술).
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report.
 
