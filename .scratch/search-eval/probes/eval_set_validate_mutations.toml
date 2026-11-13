@@ -1,0 +1,295 @@
+# search-eval 02(묶음 형식과 `validate`의 파일 검사)가 더한 시험의 변이.
+# 경계를 지키는 시험("같으면 받는다", "정확히 30MB이면 받는다", "안을 가리키는 링크는 받는다")은
+# 구현과 함께 썼고 빨강을 본 적이 없어 변이로 본다. 거부 시험도 판정 하나를 지우는 변이로 그 판정만 겨눈다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/search-eval/probes/eval_set_validate_mutations.toml
+# 빨강의 표지는 엉뚱한 까닭의 빨강을 거르려고 도구가 표준 출력·오류에 내는 글에서 골랐다.
+# `문제 없음: `은 거부해야 할 묶음을 받았을 때 도구가 찍는 줄이고, `묶음의 오류 1건`은 받아야 할 묶음을
+# 거부했을 때 찍는 줄이다. 시험 파일의 글자가 아니라 도구가 내는 글이다.
+
+[[mutation]]
+name = "updated_after와 같은 갱신일을 거른다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["묶음의 오류 1건"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/check_eval_set.py"
+old = '''if after is not None and document.updated_at < after:'''
+new = '''if after is not None and document.updated_at <= after:'''
+
+[[mutation]]
+name = "updated_before와 같은 갱신일을 받는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/check_eval_set.py"
+old = '''if before is not None and document.updated_at >= before:'''
+new = '''if before is not None and document.updated_at > before:'''
+
+[[mutation]]
+name = "정확히 30MB인 문서 파일의 합을 거부한다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["묶음의 오류 1건"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_files.py"
+old = '''if total > MAX_DOCUMENT_BYTES:'''
+new = '''if total >= MAX_DOCUMENT_BYTES:'''
+
+[[mutation]]
+name = "30MB를 넘는 문서 파일의 합을 받는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_files.py"
+old = '''if total > MAX_DOCUMENT_BYTES:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "문서 해시를 견주지 않는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_files.py"
+old = '''if digest != document.sha256:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "문서 해시를 대소문자 가리지 않고 견준다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_files.py"
+old = '''if digest != document.sha256:'''
+new = '''if digest != document.sha256.lower():'''
+
+[[mutation]]
+name = "major가 다른 판을 받는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_set_reader.py"
+old = '''if major != SUPPORTED_FORMAT_MAJOR:'''
+new = '''if major < SUPPORTED_FORMAT_MAJOR:'''
+
+[[mutation]]
+name = "오프셋이 없는 필터 시각을 받는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["can't compare offset-naive and offset-aware datetimes"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_set_reader.py"
+old = '''if parsed.utcoffset() is None:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "groups가 든 필터를 받는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/check_eval_set.py"
+old = '''if query.filter.groups is not None:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "한 질의 목록 안의 같은 evidence_id를 받는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/check_eval_set.py"
+old = '''if count > 1:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "링크를 푼 경로가 묶음 밖이어도 받는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["링크이다. 따라가지 않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/bundle_paths.py"
+old = '''if not resolved.is_relative_to(base):'''
+new = '''if False:'''
+
+[[mutation]]
+name = "묶음 안을 가리키는 링크도 거른다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["링크를 풀면 묶음 폴더 밖을 가리킨다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/bundle_paths.py"
+old = '''if not resolved.is_relative_to(base):'''
+new = '''if resolved != base / relative:'''
+
+[[mutation]]
+name = "..이 든 경로를 글자로 거르지 않는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["a.docx: 목록에 없는 파일이다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/bundle_paths.py"
+old = '''if ".." in parts:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "절대 경로를 글자로 거르지 않는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["에 역슬래시가 들었다. POSIX 구분자(/)로 적는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/bundle_paths.py"
+old = '''if PurePosixPath(relative).is_absolute() or PureWindowsPath(relative).anchor:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "documents 안의 링크를 따라 내려간다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["linked/숨은.docx: 목록에 없는 파일이다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_files.py"
+old = '''if entry.is_symlink() or entry.is_junction():'''
+new = '''if False:'''
+
+[[mutation]]
+name = "records 폴더를 경로 판정에서 뺀다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_files.py"
+old = '''names = [*_NAMED_FILES, _RECORDS_FOLDER]'''
+new = '''names = [*_NAMED_FILES]'''
+
+[[mutation]]
+name = "documents 안의 링크가 documents 밖을 가리켜도 묶음 안이면 받는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["묶음의 오류 3건"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/bundle_paths.py"
+old = '''if not resolved.is_relative_to(base):'''
+new = '''if not resolved.is_relative_to(self._root):'''
+
+[[mutation]]
+name = "records 폴더를 읽다 난 OSError를 잡지 않는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["PermissionError: [Errno 13] 권한 없음"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_files.py"
+old = '''        except OSError:
+            problems.append(EvalProblem(_RECORDS_FOLDER, "폴더를 읽을 수 없다"))'''
+new = '''        except ZeroDivisionError:
+            problems.append(EvalProblem(_RECORDS_FOLDER, "폴더를 읽을 수 없다"))'''
+
+[[mutation]]
+name = "전각 숫자의 날짜를 꼴 검사에서 거르지 않는다"
+tests = ["tests/adapters/test_eval_set_reader.py"]
+expect = "red"
+expect_output = ["달력에 없는 날이다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_set_reader.py"
+old = '''re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")'''
+new = '''re.compile(r"\d{4}-\d{2}-\d{2}")'''
+
+[[mutation]]
+name = "JSON Lines를 splitlines로 가른다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["EOF while parsing a string"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_set_reader.py"
+old = '''enumerate(text.split("\n"), start=1)'''
+new = '''enumerate(text.splitlines(), start=1)'''
+
+[[mutation]]
+name = "윈도 예약 장치 이름을 글자로 거르지 않는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["CON: 문서 파일이 없다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/bundle_paths.py"
+old = '''if part.split(".")[0].rstrip(" ").upper() in _RESERVED_DEVICE_NAMES:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "마디의 콜론을 글자로 거르지 않는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["a.docx:stream: 문서 파일이 없다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/bundle_paths.py"
+old = '''if ":" in part:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "읽기 전에 일반 파일인지 보지 않는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["config.json: 파일을 읽지 못했다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_set_reader.py"
+old = '''if path.exists() and not path.is_file():'''
+new = '''if False:'''
+
+[[mutation]]
+name = "documents를 걷다 난 OSError를 모두 삼킨다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_files.py"
+old = '''except (FileNotFoundError, NotADirectoryError):'''
+new = '''except OSError:'''
+
+[[mutation]]
+name = "판 꼴의 자릿수를 묶지 않는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["Exceeds the limit"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_set_reader.py"
+old = '''r"([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})"'''
+new = '''r"([0-9]+)\.([0-9]+)\.([0-9]+)"'''
+
+[[mutation]]
+name = "하위 폴더 기준으로 푼 링크의 문구도 묶음 폴더라고 적는다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["링크를 풀면 묶음 폴더 밖을 가리킨다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/bundle_paths.py"
+old = '''scope = "묶음 폴더" if under is None else f"{under}/"'''
+new = '''scope = "묶음 폴더"'''
