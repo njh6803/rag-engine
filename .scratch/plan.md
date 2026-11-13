@@ -33,6 +33,7 @@ src/rag_engine/
   domain/                  슬라이스 1. 엔티티, 포트 Protocol, 예외와 오류 코드, 파서 인터페이스(ADR 0007·0008·0012). core 02 가 계약을 둔다. 층의 경계는 import-linter 계약
 tests/contract/            MCP 계약 시험. core 가 검색 도구의 형식(format_version, ADR 0015)과 쓰기 도구 없음을 더한다(원칙 VII, ADR 0001)
 compose.test.yml           슬라이스 1. 테스트 PostgreSQL(pgvector/pgvector:0.8.7-pg18-trixie, 운영과 같은 판). 검사 러너가 없으면 띄운다(core 01)
+tools/search_eval.py       슬라이스 2. 검색 평가 도구의 명령줄 입구(search-eval 02). 인자 해석과 조립만 하고 묶음의 읽기·쓰기는 adapters, 값과 판정은 domain·app 에 둔다. 다른 하위 명령은 search-eval 03 이후가 더한다
 Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 슬라이스 2의 release-image 가 판 태그, 단독 compose(서버, 작업자, PostgreSQL, 임베딩 TEI, 리랭커 TEI), SBOM과 CVE 스캔을 더한다
 (관리자 페이지)            슬라이스 2. admin 설계 인터뷰가 화면 스택을 정한다. 웹 워크스페이스면 web/ 에 두고 파이썬과 루트를 나눈다(tech.md)
 ```
