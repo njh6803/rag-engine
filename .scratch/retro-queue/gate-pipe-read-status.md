@@ -1,6 +1,6 @@
 # gate-pipe-read-status: `hook_bash_gate_pipe`가 게이트 바로 뒤에서 `$?`를 이미 읽은 체인에서도 뒤의 다른 명령의 `$?`에 경고한다
 
-**상태:** 열림
+**상태:** 닫힘 (.scratch/harness/issues/gate-pipe-read-status.md, 2026-11-13, `_exit_code_warnings`가 게이트 바로 다음 조각에 `$?`가 있으면 그 게이트를 읽힌 것으로 세어 뒤쪽 `$?`의 경고 후보에서 뺐다. 읽히지 않은 게이트(`pytest; echo done; echo $?`)는 계속 경고하고 시험으로 고정했다)
 **어디로:** `tools/hook_bash_gate_pipe.py`의 `_exit_code_warnings`와 `tests/tools/test_hook_bash_gate_pipe.py`
 **승인:** 사용자 승인 2026-11-09, 5회차(고침이라 문턱 없이 반영한다), 일지 2026-11-09-1221-kickoff.md, 2026-11-09-2125-core-design.md, 2026-11-10-2047-core-01-test-db-runner.md(4·5회차: 같은 세션에서 `ruff check . > 파일; echo ruff=$?; plan_table.py > 파일; echo plan=$?`의 둘째 `$?`에 다시 경고가 떴다), ADR 불필요
 

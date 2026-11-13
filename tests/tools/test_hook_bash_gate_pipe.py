@@ -126,6 +126,45 @@ def test_게이트_바로_뒤의_dollar_question_은_경고하지_않는다() ->
     assert warnings_for('uv run pytest -q; echo "exit=$?"') == []
 
 
+def test_바로_읽은_게이트_뒤의_dollar_question_은_경고하지_않는다() -> None:
+    """대기열 gate-pipe-read-status 4·5회차: 둘째 `$?` 는 게이트가 아닌 명령의 종료 코드를 읽는다.
+    게이트의 결과는 앞에서 이미 읽었으니 가려지지 않았다."""
+    plain = (
+        "uv run ruff check . > S/r.log 2>&1; echo ruff=$?; "
+        "uv run python tools/plan_table.py > S/p.log 2>&1; echo plan=$?"
+    )
+    chained = (
+        "uv run ruff check . > S/r.log 2>&1\n"
+        'echo "ruff=$?"\n'
+        "uv run python tools/plan_table.py > S/p.log 2>&1\n"
+        'echo "plan=$?"'
+    )
+    after_echo = "uv run pytest -q; echo a=$?; echo b=$?"
+
+    assert warnings_for(plain) == []
+    assert warnings_for(chained) == []
+    assert warnings_for(after_echo) == []
+
+
+def test_게이트의_dollar_question_을_읽지_않은_체인은_계속_경고한다() -> None:
+    """읽은 게이트가 하나 있다고 읽지 않은 게이트까지 면제되지 않는다."""
+    unread = warnings_for("uv run pytest -q; echo done; echo $?")
+    and_chain = warnings_for("uv run ruff check . && echo done; echo $?")
+    one_of_two = warnings_for(
+        "uv run pytest -q; echo done; uv run ruff check .; echo a=$?; echo b=$?"
+    )
+
+    assert len(unread) == 1
+    assert len(and_chain) == 1
+    assert len(one_of_two) == 1
+    assert "pytest" in one_of_two[0]
+
+
+def test_게이트_다음_조각의_dollar_question_은_쓰는지_보지_않고_읽은_것으로_센다() -> None:
+    """독스트링의 못 보는 것(거짓 음성)을 고정한다."""
+    assert warnings_for("uv run pytest -q; true $?; other; echo $?") == []
+
+
 def test_파이프_없는_게이트와_게이트_아닌_파이프는_경고하지_않는다() -> None:
     assert warnings_for("uv run pytest -q") == []
     assert warnings_for("git log --oneline | head -5") == []

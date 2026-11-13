@@ -19,14 +19,18 @@ rag-engine 에 없어 뺐다. 명령 위치에 선 것만 센다 — `uv run …
 위치다. 판정 둘.
 - 게이트가 파이프(`|`)의 마지막이 아닌 자리에 있다. 서브셸 안이어도 본다. 그 파이프의 종료 코드는
   마지막 명령의 것이다.
-- `$?` 마다 본다 — 그 바로 앞 조각이 게이트가 아니고 그 앞 어딘가에 게이트가 있다. `$?` 는
-  바로 앞 명령의 것이라 게이트의 결과가 아니다(대기열 11 — `&&` 체인 뒤의 `$?`). 파이프 경고가
-  이미 있으면 같은 원인이라 이 경고는 내지 않는다.
+- `$?` 마다 본다 — 그 바로 앞 조각이 게이트가 아니고 그 앞 어딘가에 아직 읽히지 않은 게이트가
+  있다. `$?` 는 바로 앞 명령의 것이라 게이트의 결과가 아니다(대기열 11 — `&&` 체인 뒤의 `$?`).
+  게이트 바로 다음 조각이 `$?` 를 읽었으면 그 게이트는 읽힌 것이다. 그 뒤 다른 명령 다음의 `$?` 는
+  그 명령의 종료 코드를 읽는 것이라 경고하지 않는다(대기열 gate-pipe-read-status — `ruff …;
+  echo ruff=$?; plan_table.py …; echo plan=$?`). 파이프 경고가 이미 있으면 같은 원인이라 이 경고는
+  내지 않는다.
 인용 구간은 지우지 않고 자리표시자 `_` 로 바꾼다. 지우면 `--project "경로" pytest` 의 pytest 가 옵션
 값 자리로 밀려 명령 위치를 잃는다(PR #91 리뷰).
 못 보는 것: `set -o pipefail` 이 켜진 파이프(그래도 경고한다 — 거짓 양성), `2>&1 | tee` 처럼 결과를
 버리지 않는 파이프(그래도 경고한다), 래퍼 스크립트 안의 게이트, `$PIPESTATUS`, PowerShell 의
-`$LASTEXITCODE`(이 훅은 Bash 매처다).
+`$LASTEXITCODE`(이 훅은 Bash 매처다). 게이트 바로 다음 조각에 `$?` 가 들었으면 그 종료 코드를 실제로
+쓰는지는 보지 않고 읽은 것으로 센다(`pytest; true $?; other; echo $?` 는 조용하다 — 거짓 음성).
 """
 
 from __future__ import annotations
@@ -106,12 +110,19 @@ def _exit_code_warnings(text: str) -> list[str]:
     for index, segment in enumerate(segments):
         if "$?" not in segment:
             continue
-        gates = [i for i, s in enumerate(segments[:index]) if is_gate(s)]
-        if not gates or gates[-1] == index - 1:
+        if index == 0 or is_gate(segments[index - 1]):
             continue
+        # 바로 다음 조각이 `$?` 를 읽은 게이트는 결과가 이미 읽혔다. 그 뒤 다른 명령 다음의 `$?` 는
+        # 그 명령의 종료 코드를 읽는 것이라 게이트의 결과를 가리지 않는다.
+        unread_gates = [
+            i for i in range(index - 1) if is_gate(segments[i]) and "$?" not in segments[i + 1]
+        ]
+        if not unread_gates:
+            continue
+        gate = segments[unread_gates[-1]].strip()
         warning = (
             "`$?` 바로 앞 명령이 게이트가 아니다. `$?` 는 마지막 명령의 종료 코드라 앞의 게이트"
-            f"(`{segments[gates[-1]].strip()}`)의 결과가 아니다(CLAUDE.md 환경 함정). 판정 명령"
+            f"(`{gate}`)의 결과가 아니다(CLAUDE.md 환경 함정). 판정 명령"
             f" 뒤에서 바로 읽거나 파이프·체인 없이 돌린다. {_REDIRECT_HINT}"
         )
         if warning not in warnings:
