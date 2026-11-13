@@ -310,6 +310,17 @@ PR 직전 리뷰 때 돌리지 않기로 한 판단을 바로잡았다. PR 서�
 - 푸시 직전에 `git merge-base --is-ancestor origin/dev HEAD`가 1이었다. 다른 세션의 chore PR #35(명세 축에 전이 교차 점검을 더한다)가 병합되어 origin/dev가 7c2ad6a로 앞서 있었다. `git merge --no-edit origin/dev`로 합쳤고(병합 커밋 c1ec3d5) 충돌은 없었으며, `uv run pytest tests/test_plan_status.py -q`가 13 passed였다. 그 PR이 대기열 spec-review-transition-crossing을 닫아 회차 5 이상인 열린 항목이 둘이 되었고(`uv run python tools/queue_open_rows.py`로 셌다), 아래 "다음"의 그 줄을 고쳤다.
 - 그 뒤 회차는 PR #34의 코멘트에 적는다.
 
+## 봇 셋째 회차(PR #34)
+
+- 푸시(4c5e34d..291ec2e) 뒤 `uv run python tools/wait_ci.py 34`가 종료 0이었다(헤드 291ec2e에서 CodeRabbit, claude-review, image, python, ticket, verify가 모두 SUCCESS다). CodeRabbit은 앞 리뷰에서 한 시간이 지나 있어 한도에 걸리지 않고 리뷰했다. 두 봇 모두 셋째 회차이고, 지적은 넷이다(CodeRabbit의 Major 셋, claude-review의 Minor 하나). 지적마다 근거를 열어 판정했다.
+  1. CodeRabbit Major, `validate`가 필터에 걸러지는 기대 근거를 지나친다. 기대한 문서의 갱신일이 질의의 기간 밖이면 검색이 그 문서의 조각을 내지 않아, 검색의 품질과 무관한 놓침이 필터 질의의 숫자를 낮춘다는 지적이다. 맞다. 고쳤다. 기간 필터가 붙은 질의의 기대 근거가 가리키는 문서는 모두 그 기간 안이어야 하고 `validate`가 파일만으로 본다. 봇은 적어도 하나를 제안했는데 모두로 정했다. 재현율과 nDCG의 분모가 기대 근거의 수이기 때문이다. 그룹 필터는 문서 목록에 그룹이 없어 이 판정이 보지 못한다고 명세에 적었다.
+  2. CodeRabbit Major, `index --records write`가 이미 색인한 데이터베이스에서 조각의 임베딩 기록을 비운다. 수집이 내용이 같은 문서를 다시 색인하지 않아 그 실행이 쓴 열쇠가 없기 때문이다. 맞다. 고쳤다. `index --records write`는 문서가 하나도 없는 데이터베이스에서만 돌고, 문서가 든 데이터베이스에서는 아무것도 쓰지 않고 종료 코드 1을 낸다. 조각의 임베딩 기록을 통째로 다시 만들 때도 데이터베이스를 새로 만든다고 적었다.
+  3. CodeRabbit Major, 취소된 푸시의 변경이 평가되지 않는다. 검색을 바꾼 푸시의 실행이 문서만 바꾼 다음 푸시에 취소되면, 뒤 푸시는 앞 커밋부터의 차이만 보아 평가를 건너뛴다는 지적이다. 맞다. 명세의 두 문장이 어긋나 있었다(푸시면 앞 커밋부터의 차이로 경로를 본다는 문장과, 마지막 머리는 재어진다는 문장). 고쳤다. 봇이 제안한 길(마지막으로 평가된 기준점부터의 차이)은 받지 않았다. 기준점을 기억하고 찾는 장치가 따로 필요하기 때문이다. 대신 푸시에서는 경로를 보지 않고 늘 평가하게 했다. 값은 문서만 바꾼 병합의 푸시에서도 평가가 한 번 도는 CI 시간이다. ADR 0018 이력의 글은 그대로 참이다. 첫 스텝이 바뀐 경로를 본다는 문장은 PR의 건너뛰기를 말하고, 푸시에서의 실행은 사용자가 고른 것이 아니라 명세가 정한 것이라고 그 이력이 적는다.
+  4. claude-review Minor, ADR 0007 이력의 `RelevanceJudge` 표현(둘째 회차의 Nit과 같은 자리다). 고치지 않았다. 봇도 판정기 포트를 넣는 티켓이 그 이력에 한 줄을 더하면 충분하다고 적었고, 그 일은 이미 아래 "다음"에 있다.
+- 고치며 새로 쓴 사실 문장과 근거. 검색 필터의 비교(`updated_after`는 그 시각을 포함하고 `updated_before`는 포함하지 않는다)는 `src/rag_engine/domain/entities.py`의 `SearchFilter` 독스트링과 `src/rag_engine/adapters/postgres/vector_index.py`의 조건 둘(`c.updated_at >= :updated_after`, `c.updated_at < :updated_before`)을 읽었다. 수집이 내용이 같은 문서를 다시 색인하지 않는다는 것은 `src/rag_engine/app/ingest.py`의 머리 독스트링(내용이 같은 수집의 세 갈래)과 `IngestAction.UNCHANGED`를 돌려주는 자리를 읽었다. `ci.yml`의 `concurrency`는 그 파일 24~26행을 다시 읽었다(그룹은 ref마다이고 `cancel-in-progress: true`다).
+- 명세의 표시 수는 17·7·79·3·8 그대로다(기존 항목의 문장을 고쳤다). `uv run python tools/check_adr_pointers.py`는 종료 0이다. Testing Decisions의 시험하는 행동에 셋(기간 필터의 판정과 그 경계, 문서가 든 데이터베이스에서 `index --records write`의 거부, 푸시에서 경로와 무관하게 평가한다는 판정)을 더했다.
+- 이 반영 커밋의 pre-commit 결과와 그 뒤 회차는 PR #34의 코멘트에 적는다.
+
 ## 다음
 
 - **다음 단계는 티켓 쪼개기(`to-tickets`)다.** 그 앞에 `spec-reviewer`가 명세를 본다. core가 끝났으므로 이 기능을 막는 다른 기능은 없다.
