@@ -160,6 +160,18 @@ def test_게이트의_dollar_question_을_읽지_않은_체인은_계속_경고�
     assert "pytest" in one_of_two[0]
 
 
+def test_and_뒤의_dollar_question_은_게이트가_실패하면_건너뛰어져_읽은_것이_아니다() -> None:
+    """PR 직전 리뷰(CodeRabbit): `&&` 뒤 읽기는 게이트가 실패하면 실행되지 않고, 이어지는
+    `echo done` 이 종료 코드를 0으로 덮어쓴다. 옛 판은 이 입력을 경고했다. `||` 뒤 읽기는
+    게이트가 실패해야 실행되니 읽은 것이다."""
+    skipped = warnings_for("uv run pytest -q && echo $?; echo done; echo $?")
+    on_failure = warnings_for("uv run pytest -q || echo $?; echo done; echo $?")
+
+    assert len(skipped) == 1
+    assert "pytest" in skipped[0]
+    assert on_failure == []
+
+
 def test_게이트_다음_조각의_dollar_question_은_쓰는지_보지_않고_읽은_것으로_센다() -> None:
     """독스트링의 못 보는 것(거짓 음성)을 고정한다."""
     assert warnings_for("uv run pytest -q; true $?; other; echo $?") == []
