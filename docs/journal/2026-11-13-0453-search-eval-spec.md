@@ -306,7 +306,9 @@ PR 직전 리뷰 때 돌리지 않기로 한 판단을 바로잡았다. PR 서�
   4. claude-review Nit, ADR 0007의 2026-11-13 이력만 읽으면 `RelevanceJudge`가 넷째 플러그인 자리로 읽힐 수 있다는 것. 고치지 않았다. 둘째 회차의 Nit이고, 그 이력은 사용자가 승인한 글이라 이 세션이 고칠 수 없으며, 명세의 포트 항목이 넷째 자리가 아니라고 이미 적는다. 봇도 병합을 막을 일은 아니라고 적었다. 판정기 포트를 넣는 티켓이 그 이력에 한 줄을 더할지 사용자에게 묻도록 아래 "다음"에 적었다.
 - 고치며 새로 쓴 사실 문장과 근거. 시험의 데이터베이스 이름은 `compose.test.yml`의 `POSTGRES_DB: rag_test`와 `tests/conftest.py`의 `rag_test_<난수>`를 읽었다. `LocalBlobStore`가 키를 푼 경로가 데이터 폴더 밖이면 읽지도 쓰지도 않는다는 것은 `src/rag_engine/adapters/blob_store.py`의 `_path`를 읽었다(읽기, 쓰기, 지우기가 모두 그 함수를 거친다). `ingest` 명령이 폴더 밖을 가리키는 링크를 거른다는 것은 `src/rag_engine/adapters/ingest_command.py`의 `_collect`를 읽었다. 보지 않은 것도 있다. 경로를 푸는 판정이 윈도의 junction을 어떻게 다루는지는 재지 않았고, 구현 티켓의 시험이 본다.
 - 명세의 표시 수는 17·7·79·3·8 그대로다(새 항목을 더하지 않고 기존 항목의 문장을 고쳤다). `uv run python tools/check_adr_pointers.py`는 종료 0이다. Testing Decisions의 시험하는 행동에 셋(이름이 맞지 않는 주소의 거부, 해시가 다른 문서 파일이 있을 때 `index`의 거부, 묶음 밖을 가리키는 링크에 쓰지 않는 것)을 더했다.
-- 이 반영 커밋의 pre-commit 결과와 그 뒤 회차는 PR #34의 코멘트에 적는다.
+- 넷째 커밋 efb4fa0(이 반영)의 pre-commit은 검사 러너의 열이 모두 Passed다(pytest 484.1초). 표, 줄 구분자, 변이 표, 인용 대조(경고 없음), 커밋 메시지 훅도 Passed이고 ruff 둘과 헌법 판 검사는 대상 파일이 없어 Skipped다. 커밋을 시작하기 전에 CPU 부하가 100%여서 34%로 내려갈 때까지 기다렸다(손으로 봤다. 앞 회차의 첫 시도가 부하에서 빨개진 것과 같은 조건이었다).
+- 푸시 직전에 `git merge-base --is-ancestor origin/dev HEAD`가 1이었다. 다른 세션의 chore PR #35(명세 축에 전이 교차 점검을 더한다)가 병합되어 origin/dev가 7c2ad6a로 앞서 있었다. `git merge --no-edit origin/dev`로 합쳤고(병합 커밋 c1ec3d5) 충돌은 없었으며, `uv run pytest tests/test_plan_status.py -q`가 13 passed였다. 그 PR이 대기열 spec-review-transition-crossing을 닫아 회차 5 이상인 열린 항목이 둘이 되었고(`uv run python tools/queue_open_rows.py`로 셌다), 아래 "다음"의 그 줄을 고쳤다.
+- 그 뒤 회차는 PR #34의 코멘트에 적는다.
 
 ## 다음
 
@@ -319,7 +321,7 @@ PR 직전 리뷰 때 돌리지 않기로 한 판단을 바로잡았다. PR 서�
 - **묶음의 경로 판정을 넣는 티켓이 볼 것.** 경로를 푸는 판정이 윈도의 junction과 리눅스의 심볼릭 링크를 모두 거르는지를 시험으로 본다(위 "봇 둘째 회차"에서 재지 않았다).
 - **면제 PR이 고칠 수 없어 구현 티켓이 고치는 파일**은 명세 Further Notes에 있다(`pyproject.toml`, `CLAUDE.md`, `docs/constitution/operations.md`, `.github/workflows/ci.yml`).
 - **PR #27 봇 첫 회차에서 남겨 사용자가 정할 것**(원칙 VII 아래나 헌법 README에 ADR 0015의 판 해석을 가리키는 포인터를 둘지)은 그대로 남아 있다.
-- **회차 5 이상인 열린 대기열 항목이 셋이다**(spec-review-transition-crossing 8회차, gate-pipe-read-status 5회차, 이 세션에서 5회차가 된 measured-claim-beyond-probe). chore를 어디에 둘지는 `next-session`의 결정표로 판단한다.
+- **회차 5 이상인 열린 대기열 항목이 둘이다**(gate-pipe-read-status 5회차, 이 세션에서 5회차가 된 measured-claim-beyond-probe). 회고 때는 셋이었고, spec-review-transition-crossing(8회차)은 다른 세션의 chore PR #35가 닫았다. chore를 어디에 둘지는 `next-session`의 결정표로 판단한다.
 - **출시 PR은 다른 세션이 이미 병합했다.** core의 `**끝:**` 줄을 적은 커밋(#31)을 main에 올리는 출시 PR #32가 병합되어 origin/main이 8712b83이고, `git log origin/main..origin/dev`가 비어 있다. main을 dev에 되돌려 합치는 PR #33도 그 뒤 병합되어 origin/dev가 defc690이 되었고, 이 브랜치에 합쳤다(위 "PR과 봇 첫 회차"). 이 PR은 `**끝:**` 줄을 더하지 않으므로 새 계기를 세우지 않는다.
 - **주 체크아웃 미갱신: 루트는 main.** 이 세션은 워크트리 세션이라 루트를 당기지 않았다(`git worktree list`의 첫 줄을 반영 커밋 앞에 봤다). 다음 세션이 워크트리에 들어가기 전에 `tidy-checkouts`로 당긴다.
 - **원격 브랜치 `docs/search-eval`이 남아 있다.** 앞 세션에서 분류기가 삭제를 거부했고 이 세션도 건드리지 않았다.
