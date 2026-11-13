@@ -1,0 +1,15 @@
+ pgvector 
+----------
+ 0.8.7
+(1 row)
+
+ setseed 
+---------
+ 
+(1 row)
+
+ lists_differ_a_b | top10_differ_a_b | lists_differ_a_exact 
+------------------+------------------+----------------------
+               27 |                5 |                   99
+(1 row)
+
