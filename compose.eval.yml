@@ -1,0 +1,57 @@
+# 검색 평가 전용 PostgreSQL과 임베딩 TEI(search-eval 03). 평가 도구(tools/search_eval.py)는 제품의 데이터베이스가 아니라
+# 여기서 띄운 것에만 붙는다. 데이터베이스 이름이 `rag_eval`로 시작하지 않으면 도구가 접속하기 전에 거부한다.
+#   docker compose -f compose.eval.yml up -d --wait
+# 평가 도구가 읽는 환경 변수는 아래 넷뿐이다. 제품의 RAG_DATABASE_URL 과 작업 폴더의 .env 는 읽지 않는다.
+#   RAG_EVAL_DATABASE_URL=postgresql://rag_eval:rag_eval@127.0.0.1:55433/rag_eval
+#   RAG_EVAL_DATA_DIR=<원본 파일을 둘 빈 폴더. 데이터베이스와 함께 지운다>
+#   RAG_EVAL_EMBEDDING_URL=http://127.0.0.1:18083
+#   RAG_EVAL_RERANKER_URL=<리랭커 끝점. 없어도 된다. 이 파일은 리랭커를 띄우지 않는다>
+# 그다음 `uv run python tools/search_eval.py index <묶음 폴더>` 로 색인하고 `validate <묶음 폴더> --indexed` 로 본다.
+# 묶음의 문서나 config.json 의 구성을 바꾸면 데이터베이스를 새로 만든다(`docker compose -f compose.eval.yml down -v`).
+# 도구가 남의 문서가 든 데이터베이스와 구성이 다른 데이터베이스를 거부하기 때문이다.
+# TEI 의 판(아래 이미지 태그)을 올리는 PR 은 추론 기록을 다시 만든다. 기록의 요청 지문과 응답이 TEI 의 판에 묶여 있다.
+# 이미지는 CPU 판이다(ADR 0010). 임베딩은 BAAI/bge-m3 이고 모델은 첫 기동에 허깅페이스에서 받아 볼륨에 둔다.
+# --max-batch-tokens 는 TEI 기본값 16384 가 아니라 4096 이다. 기본값에서는 임베딩 컨테이너 하나가 13.25GiB 를
+# 점유해(docker stats 로 손으로 본 값이다) 리랭커까지 띄우기에는 메모리가 모자랐다
+# (.scratch/core/probes/search-latency/compose.yml 의 머리 주석). 4096 으로 띄운 그 프로브의 임베딩 컨테이너는
+# 기동 직후 6.625GiB 였고 검색 부하 중 최대는 7497MiB 였다(같은 폴더의 probe_out.txt).
+# 포트는 127.0.0.1 에만 연다. 테스트용 compose.test.yml(55432)과 겹치지 않게 55433 과 18083 을 쓴다.
+name: rag-engine-eval
+
+services:
+  postgres:
+    # 운영과 같은 이미지 판이다(ADR 0006, compose.test.yml 과 같다).
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    environment:
+      POSTGRES_USER: rag_eval
+      POSTGRES_PASSWORD: rag_eval
+      POSTGRES_DB: rag_eval
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - eval-postgres:/var/lib/postgresql
+    # -h 는 필수다. 기본값은 유닉스 소켓인데, 이미지가 처음 초기화하는 동안 뜨는 임시 서버가 그 소켓으로 답해
+    # 진짜 서버가 TCP 로 뜨기 전에 healthy 가 된다(compose.test.yml 과 같은 까닭).
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U rag_eval -d rag_eval"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
+    command: ["--model-id", "BAAI/bge-m3", "--port", "80", "--max-batch-tokens", "4096"]
+    ports:
+      - "127.0.0.1:18083:80"
+    volumes:
+      - eval-tei-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:80/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 240
+      start_period: 10s
+
+volumes:
+  eval-postgres:
+  eval-tei-data:

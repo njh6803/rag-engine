@@ -1,0 +1,221 @@
+# search-eval 03(`index`와 `validate --indexed`)이 더한 시험의 변이.
+# 가드(소속 판정, 요소 판정, 스키마를 올리기 전의 판정, 이름의 규칙, 설정 격리, 글귀의 정규화와 제목 제외)는
+# 구현과 함께 시험을 썼고 빨강을 본 적이 없어 변이로 본다. 판정 하나를 지우거나 비트는 변이로 그 판정만 겨눈다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test \
+#       uv run python tools/mutate.py .scratch/search-eval/probes/eval_index_mutations.toml
+# 시험 하나마다 PostgreSQL을 쓰므로 변이가 겨누는 시험만 `::`로 골라 돌린다.
+# 빨강의 표지는 시험 파일에 글자 그대로 있으면 안 된다(도구가 거른다). 그래서 거부해야 할 것을 받았을 때
+# 도구가 찍는 줄(`updated`·`unchanged` 같은 수집 결과 줄, `문제 없음: `)이나 받아야 할 것을 거부했을 때
+# 찍는 줄(`묶음의 오류 1건`)에서 골랐다. 표지의 탭은 수집 결과 줄이 `<동작><탭><키>`이기 때문이다.
+
+[[mutation]]
+name = "내용 해시가 다른 문서를 같은 묶음으로 본다"
+tests = ["tests/tools/test_search_eval_index.py::test_키는_같고_내용_해시가_다른_문서가_든_데이터베이스에는_아무것도_쓰지_않고_1이다"]
+expect = "red"
+expect_output = ["updated	a.docx"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/check_eval_database.py"
+old = '''elif document.content_hash != wanted:'''
+new = '''elif False:'''
+
+[[mutation]]
+name = "묶음에 없는 문서가 든 데이터베이스를 받는다"
+tests = ["tests/tools/test_search_eval_index.py::test_묶음_밖의_문서가_든_데이터베이스에는_아무것도_쓰지_않고_1이다"]
+expect = "red"
+expect_output = ["문서 목록과 다르다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/check_eval_database.py"
+old = '''if wanted is None:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "현재 판의 요소가 config.json과 달라도 받는다"
+tests = ["tests/tools/test_search_eval_index.py::test_현재_판의_요소가_구성과_다르면_아무것도_쓰지_않고_1이다"]
+expect = "red"
+expect_output = ["unchanged	a.docx"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/check_eval_database.py"
+old = '''if differing:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "스키마의 판이 다른 데이터베이스를 받는다"
+tests = ["tests/tools/test_search_eval_index.py::test_스키마의_판이_이_체크아웃과_다르면_올리지_않고_거부한다"]
+expect = "red"
+expect_output = ["DuplicateTable"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_database.py"
+old = '''        if state is SchemaState.OTHER:
+            return ('''
+new = '''        if False:
+            return ('''
+
+[[mutation]]
+name = "데이터베이스 판정을 스키마를 올린 뒤로 미룬다"
+tests = ["tests/tools/test_search_eval_index.py::test_스키마의_판이_이_체크아웃과_다르면_올리지_않고_거부한다"]
+expect = "red"
+expect_output = ["DuplicateTable"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_index.py"
+old = '''        problems = run_in_selector_loop(check_database(environment.database_url, eval_set))
+        if problems:
+            return _report(problems)
+        migrate_database(settings)'''
+new = '''        migrate_database(settings)
+        problems = run_in_selector_loop(check_database(environment.database_url, eval_set))
+        if problems:
+            return _report(problems)'''
+
+[[mutation]]
+name = "이름의 접두 규칙을 지운다"
+tests = ["tests/tools/test_search_eval_index.py::test_이름이_rag_eval로_시작하지_않는_주소는_연결_오류가_아니라_이름의_규칙이_나온다"]
+expect = "red"
+expect_output = ["읽지 못했다(OperationalError)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_environment.py"
+old = '''or not name.startswith(DATABASE_NAME_PREFIX):'''
+new = '''or False:'''
+
+[[mutation]]
+name = "목적지를 바꾸는 질의 칸이 든 주소를 받는다"
+tests = ["tests/tools/test_search_eval_index.py::test_이름이_rag_eval로_시작하지_않는_주소는_연결_오류가_아니라_이름의_규칙이_나온다"]
+expect = "red"
+expect_output = ["읽지 못했다(OperationalError)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_environment.py"
+old = '''or not keys <= _SAFE_QUERY_KEYS'''
+new = '''or False'''
+
+[[mutation]]
+name = "차원 상한을 넘는 구성을 스키마를 올린 뒤에야 거부한다"
+tests = ["tests/tools/test_search_eval_index.py::test_기본_지식베이스를_만들_수_없는_구성은_스키마를_올리기_전에_1이다"]
+expect = "red"
+expect_output = ["설정 오류: 임베딩 차원"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/check_eval_database.py"
+old = '''if eval_set.config.embedding_dimensions > MAX_EMBEDDING_DIMENSIONS:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "모르는 청킹 전략을 스키마를 올린 뒤에야 거부한다"
+tests = ["tests/tools/test_search_eval_index.py::test_기본_지식베이스를_만들_수_없는_구성은_스키마를_올리기_전에_1이다"]
+expect = "red"
+expect_output = ["설정 오류: 모르는 청킹 전략이다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/check_eval_database.py"
+old = '''    except ConfigurationError as error:
+        return (EvalProblem("config.json", str(error)),)'''
+new = '''    except KeyError as error:
+        return (EvalProblem("config.json", str(error)),)'''
+
+[[mutation]]
+name = "색인 상태와 파싱 결과 판정을 지운다"
+tests = ["tests/tools/test_search_eval_index.py::test_validate_indexed는_색인에_실패한_문서를_색인되지_않은_것으로_거부한다"]
+expect = "red"
+expect_output = ["has no attribute 'blocks'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/check_indexed_documents.py"
+old = '''            if (
+                state is None
+'''
+new = '''            if False and (
+                state is None
+'''
+
+[[mutation]]
+name = "빠진 평가 환경 변수를 알리지 않는다"
+tests = ["tests/tools/test_search_eval_index.py::test_평가_전용_이름이_없으면_제품의_환경이_있어도_돌지_않고_빠진_이름을_알린다"]
+expect = "red"
+expect_output = ["KeyError: 'RAG_EVAL_"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_environment.py"
+old = '''if missing:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "제품 설정이 작업 폴더의 .env를 읽는다"
+tests = ["tests/tools/test_search_eval_index.py::test_작업_폴더의_env가_있어도_색인_결과가_같다"]
+expect = "red"
+expect_output = ["실패	two.pdf	too_many_pages"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_environment.py"
+old = '''        return (init_settings,)'''
+new = '''        return (init_settings, dotenv_settings)'''
+
+[[mutation]]
+name = "글귀를 NFC로 정규화하지 않는다"
+tests = ["tests/tools/test_search_eval_index.py::test_validate_indexed는_공백과_NFC가_달라도_글귀를_찾는다"]
+expect = "red"
+expect_output = ["묶음의 오류 1건"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_passages.py"
+old = '''_WHITESPACE.sub("", unicodedata.normalize("NFC", text))'''
+new = '''_WHITESPACE.sub("", text)'''
+
+[[mutation]]
+name = "글귀 비교가 공백류를 지우지 않는다"
+tests = ["tests/tools/test_search_eval_index.py::test_validate_indexed는_공백과_NFC가_달라도_글귀를_찾는다"]
+expect = "red"
+expect_output = ["묶음의 오류 1건"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_passages.py"
+old = '''_WHITESPACE = re.compile(r"\s+")'''
+new = '''_WHITESPACE = re.compile(r"\s{99}")'''
+
+[[mutation]]
+name = "절 제목 블록을 본문에서 빼지 않는다"
+tests = ["tests/tools/test_search_eval_index.py::test_validate_indexed는_절을_가르는_제목의_글귀를_본문으로_세지_않는다"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_passages.py"
+old = '''if count <= limit}'''
+new = '''if count < 0}'''
+
+[[mutation]]
+name = "긴 제목 블록도 본문에서 뺀다"
+tests = ["tests/tools/test_search_eval_index.py::test_validate_indexed는_조각_상한의_4분의_1을_넘는_제목을_문단으로_다뤄_본문에_둔다"]
+expect = "red"
+expect_output = ["묶음의 오류 1건"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_passages.py"
+old = '''if count <= limit}'''
+new = '''if count >= 0}'''
+
+[[mutation]]
+name = "한 문서 안에서 두 번 나온 글귀를 경고하지 않는다"
+tests = ["tests/tools/test_search_eval_index.py::test_validate_indexed는_한_문서_안에서_두_번_나오는_글귀를_경고하고_종료_코드는_0이다"]
+expect = "red"
+expect_output = ["assert '경고' in ''"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_passages.py"
+old = '''elif body.find(needle, first + 1) >= 0:'''
+new = '''elif False:'''
+
+[[mutation]]
+name = "본문에 없는 글귀를 오류로 세지 않는다"
+tests = ["tests/tools/test_search_eval_index.py::test_validate_indexed는_본문에_없는_글귀를_세트의_오류로_거부한다"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_passages.py"
+old = '''if first < 0:'''
+new = '''if False:'''

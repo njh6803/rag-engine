@@ -1,24 +1,42 @@
 """검색 평가 도구의 명령줄 입구(명세 `.scratch/search-eval/spec.md`의 "자리와 층").
 
-    uv run python tools/search_eval.py validate <묶음 폴더>
+    uv run python tools/search_eval.py validate <묶음 폴더> [--indexed]
+    uv run python tools/search_eval.py index <묶음 폴더>
 
 인자 해석과 조립만 한다. 묶음의 파일을 읽고 쓰는 코드는 `rag_engine.adapters`에, 값과 판정은
 `rag_engine.domain`과 `rag_engine.app`에 있다. `tools/`는 이미지에 실리지 않으므로(`.dockerignore`)
 이 입구는 관리자 페이지가 평가를 열기 전까지 제품 이미지에 없다. 하위 명령은 받는 티켓이 더한다.
 
-`validate`는 데이터베이스 없이 묶음의 형식과 목록을 본다. 틀린 곳을 까닭과 함께 표준 오류에 한 줄씩
-적는다.
+`validate`는 데이터베이스 없이 묶음의 형식과 목록을 본다. `--indexed`를 주면 평가 전용
+데이터베이스에서 묶음의 모든 문서가 색인되어 있는지와 글귀가 그 문서의 본문에 있는지까지 본다. 틀린
+곳을 까닭과 함께 표준 오류에 한 줄씩 적고, 한 문서 안에서 두 번 이상 나오는 글귀는 `경고`로
+적는다(종료 코드는 그대로).
 
-종료 코드. 0은 문제 없음, 1은 묶음의 오류(없는 폴더도 든다), 2는 잘못된 인자다.
+`index`는 `compose.eval.yml`로 띄운 평가 전용 데이터베이스에 묶음의 문서를 제품과 같은 길로
+색인한다. 작업자를 따로 띄우지 않는다. 문서를 넣은 뒤 작업자의 한 번 돌기 입구를 직접 불러 작업을
+끝까지 처리한다.
+
+데이터베이스에 붙는 하위 명령(`index`, `validate --indexed`)은 평가 전용 환경 변수
+`RAG_EVAL_DATABASE_URL`, `RAG_EVAL_DATA_DIR`, `RAG_EVAL_EMBEDDING_URL`(과 없어도 되는
+`RAG_EVAL_RERANKER_URL`)만 읽는다. 제품의 `RAG_*`와 작업 폴더의 `.env`는 읽지 않는다.
+
+종료 코드. 0은 문제 없음, 1은 묶음이나 색인의 오류(없는 폴더, 빠진 환경 변수도 든다), 2는 잘못된
+인자다.
 """
 
 import argparse
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
-from rag_engine.adapters.eval_validate import validate_bundle
+from rag_engine.adapters.eval_environment import EvalEnvironmentError, read_eval_environment
+from rag_engine.adapters.eval_index import index_bundle
+from rag_engine.adapters.eval_validate import validate_bundle, validate_bundle_indexed
+from rag_engine.domain.errors import ConfigurationError
+from rag_engine.domain.eval_set import EvalProblem
+from rag_engine.worker.assembly import run_once_with_settings
 
 TOOL: Final = "tools/search_eval.py"
 EXIT_OK: Final = 0
@@ -29,8 +47,16 @@ EXIT_USAGE: Final = 2
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=TOOL, description="검색 평가 도구")
     commands = parser.add_subparsers(dest="command", required=True)
-    validate = commands.add_parser("validate", help="묶음의 형식과 목록을 본다(데이터베이스 없이)")
+    validate = commands.add_parser("validate", help="묶음의 형식과 목록을 본다")
     validate.add_argument("bundle", type=Path, help="묶음 폴더")
+    validate.add_argument(
+        "--indexed",
+        action="store_true",
+        help="평가 전용 데이터베이스에서 모든 문서가 색인되어 있는지와"
+        " 글귀가 본문에 있는지까지 본다",
+    )
+    index = commands.add_parser("index", help="묶음의 문서를 평가 전용 데이터베이스에 색인한다")
+    index.add_argument("bundle", type=Path, help="묶음 폴더")
     return parser
 
 
@@ -41,14 +67,30 @@ def main(argv: Sequence[str]) -> int:
         # argparse가 사용법을 출력하고 낸 종료다. 도움말은 0이고 잘못된 인자는 2다.
         return stop.code if isinstance(stop.code, int) else EXIT_USAGE
     bundle: Path = args.bundle
-    return _validate(bundle)
+    if args.command == "index":
+        # 설정 오류는 `index_bundle`이 안에서 잡아 종료 코드로 낸다.
+        return index_bundle(bundle, os.environ, run_once_with_settings)
+    indexed: bool = args.indexed
+    return _validate(bundle, indexed=indexed)
 
 
-def _validate(bundle: Path) -> int:
+def _validate(bundle: Path, *, indexed: bool) -> int:
     if not bundle.is_dir():
         print(f"묶음 폴더가 없다: {bundle}", file=sys.stderr)
         return EXIT_FAILED
-    problems = validate_bundle(bundle)
+    warnings: tuple[EvalProblem, ...] = ()
+    if indexed:
+        try:
+            environment = read_eval_environment(os.environ)
+            report = validate_bundle_indexed(bundle, environment)
+        except (EvalEnvironmentError, ConfigurationError) as error:
+            print(f"설정 오류: {error}", file=sys.stderr)
+            return EXIT_FAILED
+        problems, warnings = report.problems, report.warnings
+    else:
+        problems = validate_bundle(bundle)
+    for warning in warnings:
+        print(f"경고\t{warning}", file=sys.stderr)
     if not problems:
         print(f"문제 없음: {bundle}")
         return EXIT_OK

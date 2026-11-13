@@ -56,15 +56,17 @@ CONFIG: dict[str, JsonValue] = {
     "judge_prompt_version": "1",
 }
 
+HEADER_QUERY_LISTS: list[JsonValue] = [
+    {"name": "human", "style": "question", "file": "queries-human.jsonl"},
+    {"name": "keyword", "style": "keyword", "file": "queries-keyword.jsonl"},
+]
+
 HEADER: dict[str, JsonValue] = {
     "format_version": "1.0.0",
     "name": "tiny",
     "documents": "documents.json",
     "evidence": "evidence.jsonl",
-    "query_lists": [
-        {"name": "human", "style": "question", "file": "queries-human.jsonl"},
-        {"name": "keyword", "style": "keyword", "file": "queries-keyword.jsonl"},
-    ],
+    "query_lists": HEADER_QUERY_LISTS,
 }
 
 EVIDENCE: list[JsonValue] = [
@@ -131,6 +133,47 @@ def edit_json(path: Path, change: Mapping[str, JsonValue]) -> None:
     assert isinstance(value, dict)
     merged = {key: item for key, item in {**value, **change}.items() if item is not None}
     write_json(path, merged)
+
+
+PASSAGE_B = "출장비는 실비로 정산한다"
+# TEI 스텁의 임베딩 차원이다(`TeiStub.dimensions`). 색인하는 시험의 구성은 이 차원을 쓴다.
+STUB_DIMENSIONS = 16
+INDEX_CONFIG: dict[str, JsonValue] = {**CONFIG, "embedding_dimensions": STUB_DIMENSIONS}
+
+
+def passage_evidence(evidence_id: str, document: str, passage: str) -> JsonValue:
+    return {
+        "id": evidence_id,
+        "evidence": [{"kind": "passage", "document": document, "passage": passage}],
+        "tags": [],
+    }
+
+
+def write_indexable_bundle(
+    root: Path,
+    documents: Mapping[str, bytes],
+    evidence: Sequence[JsonValue],
+    *,
+    config: Mapping[str, JsonValue] = INDEX_CONFIG,
+) -> Path:
+    """실제로 파싱되는 문서(`docx_files`, `pdf_files`의 바이트)로 묶음을 짓는다. 기대 근거마다
+    질의가 하나씩 선다. 문서 `key`는 `documents/` 기준 경로다."""
+    for key, data in documents.items():
+        target = root / "documents" / key
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    write_json(root / "eval-set.json", {**HEADER, "query_lists": [HEADER_QUERY_LISTS[0]]})
+    write_json(root / "config.json", dict(config))
+    write_json(
+        root / "documents.json", [document_entry(key, data) for key, data in documents.items()]
+    )
+    write_jsonl(root / "evidence.jsonl", evidence)
+    queries: list[JsonValue] = []
+    for item in evidence:
+        assert isinstance(item, dict)
+        queries.append({"evidence_id": item["id"], "query": f"{item['id']}에 관한 질문"})
+    write_jsonl(root / "queries-human.jsonl", queries)
+    return root
 
 
 def make_folder_link(link: Path, target: Path) -> None:
