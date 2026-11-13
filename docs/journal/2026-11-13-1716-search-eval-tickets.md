@@ -355,3 +355,108 @@ spec-reviewer 서브에이전트를 백그라운드로 돌렸다(기준 3c70184)
 - 바뀐 md 스물셋에 `check_md_tables.py` 0, `check_quotes.py --all-lines` 0(인용 26건, 경고 없음). `check_adr_pointers.py`(인자 없이) 0. `plan_table.py --check` 0.
 - `check_line_separators.py`는 처음에 1이었다. 프로브 폴더를 글롭으로 넘겨, SENTENCE를 대 보려고 모듈을 올릴 때 생긴 `__pycache__`(무시되는 폴더)를 읽지 못했다. 그 폴더를 지우고 파일 넷을 이름으로 넘겨 0.
 - 명세, 티켓 열아홉, ADR 0018, 프로브 README에 "비트까지"가 0이다(grep 종료 1).
+
+### 보안 축: 내장 `/security-review`(원문)
+
+커밋 9820faf 뒤에 돌렸다. 스킬이 보여 준 커밋 목록에는 dev에 이미 병합된 c0c8727, 11313d8이 섞여 있었다(대칭 범위로 뽑은 목록이다). 그래서 식별 하위 작업에 범위를 `git diff 3c70184 9820faf`로 못 박아 넘겼다. 하위 작업의 보고 원문이다.
+
+> No candidate vulnerabilities.
+>
+> Scope: I reviewed `git diff 3c70184 9820faf` (27 files) and nothing else. No `src/`, `tests/`, `tools/` or workflow file changed. I did not modify any files.
+>
+> **Probe files (the only executable content):**
+>
+> 1. `.scratch/search-eval/probes/repeat/tei_repeat.py`
+>    - **Untrusted input:** none. The TEI base URL, model name, kind and output and input paths all come from `sys.argv`, which counts as trusted CLI input. Request bodies are built from hardcoded Korean sentence constants. Responses are parsed with `json.loads`, and saved runs are read back with `json.load`; both are safe deserialization. There is no pickle, eval, subprocess or shell.
+>    - **Connects to:** the URL from argv. The docstring uses `http://127.0.0.1:18091` with `/health`, `/v1/embeddings` and `/rerank`. Its `docker run` example publishes the port on loopback only (`-p 127.0.0.1:18091:80`).
+>    - **Files:** writes the argv-named JSON output (`run1.json`/`run2.json`) and reads two argv-named JSON files in `compare`.
+>
+> 2. `.scratch/search-eval/probes/repeat/hnsw_repeat.sql`
+>    - **Untrusted input:** none. It is fully static SQL with no parameters or string building; vectors come from `setseed(0.42)` plus `random()`.
+>    - **Connects to:** nothing itself. Per its header comment it is piped through `docker exec ... psql -U rag_test` into the existing test container `rag-engine-test-postgres-1`, into a throwaway database `probe_hnsw_repeat` that is then dropped.
+>    - **Files and side effects:** only tables and an extension inside that throwaway database. It uses the existing test-only `rag_test` account (defined in `compose.test.yml`, not changed by this PR) and adds no new credential.
+>
+> 3. `.scratch/search-eval/probes/repeat/tei_repeat_out.txt`: static output (timings and equality and diff numbers). Nothing reads or executes it, and it holds no secrets or document content beyond the synthetic test sentences.
+>
+> 4. `.scratch/search-eval/probes/repeat/hnsw_repeat_out.txt`: static psql output (pgvector version and three counts). Same as above: not read by anything, no sensitive data.
+>
+> **Markdown (19 tickets, `spec.md`, ADR 0018, journal, `probes/README.md`):** documentation only, which is excluded from findings by the review rules. A grep of the added lines for secret, key, token, DSN, eval, pickle and subprocess patterns found no hardcoded credentials. Judge settings are referenced only by name (`RAG_JUDGE_API_KEY`), and the spec requires that the key and request/response bodies stay out of logs (principle V).
+>
+> **Design notes that are not findings (no code exists yet):**
+> - Ticket 11 already plans to confirm, from GitHub's official docs, whether fork PRs can poison the CI model cache.
+> - ADR 0018's new history entry adds a hash check on the stored inference records (`추론 기록`), so a hand-edited record cannot pass the gate unapproved.
+>
+> Both should get a security check when the CI workflow and eval code are actually written.
+
+판정. 후보가 없어 스킬의 2단계(후보마다 거짓 양성 거르기)는 돌 것이 없었고, 보고할 취약점은 0이다. 끝의 두 설계 메모는 지적이 아니고, 받는 티켓(11의 캐시 확인, 07·08의 해시 검사)에 이미 적혀 있어 더할 것이 없다.
+
+### 버그·성능 축: `bug-perf-review`(원문)
+
+커밋 9820faf 뒤에 범위 `3c70184..HEAD`와 밀 주장(셀프 리뷰의 새 사실 문장 여덟과 CodeRabbit 반영의 셋)을 넘겼다. 보고 원문이다.
+
+> 기준 커밋 3c70184, 범위 파일 약 30개(명세 1, 티켓 19, ADR 1, 프로브 README 1, 프로브 repeat/ 4, 일지 1, 그 밖에 llm-sdk/ 등 프로브 출력 몇 개). 마지막 [호출 6].
+>
+> tei_repeat.py와 hnsw_repeat.sql은 실행하지 않고 읽기만 했다(Docker·모델·PostgreSQL 필요).
+>
+> ## 지적
+> - [Minor] .scratch/search-eval/spec.md:83, docs/adr/0018-search-evaluation-in-app-and-baseline-gate.md:64, .scratch/search-eval/probes/README.md:13 — "상위 50이 다른 질의 27개(35개)"는 순서까지 견진 수라서, 후보 집합이 다른 질의의 수가 아니다.
+>   - 시나리오: 두 문서는 이 수를 "리랭크 기록이 CI 색인의 후보 쌍을 덮지 못한다"는 근거로 쓴다. 리랭크 기록이 덮어야 하는 것은 후보 집합이다.
+>   - 근거: hnsw_repeat.sql:35의 `ra.ids <> rb.ids`는 정렬된 배열 전체를 비교한다. 순서만 바뀌고 집합은 같은 질의도 센다. 출력의 lists_differ_a_b 27이 그렇게 센 값이다.
+>   - 제안: 문장에 "순서까지 포함해"를 적거나, 집합 비교(정렬한 배열)로 다시 잰다. 결정(정확 스캔)이 뒤집힐 만한 오차는 아니다.
+> - [Nit] .scratch/search-eval/probes/repeat/hnsw_repeat.sql:15-16, probes/README.md:13 — 설명이 실제 SQL과 조금 다르다.
+>   - 근거: SQL 22~27행은 빈 표에 HNSW 색인을 먼저 만들고 행을 나중에 INSERT한다. 그래서 CREATE INDEX의 일괄 빌드가 아니라 증분 삽입으로 지은 색인이다.
+>   - 영향: README와 SQL의 "색인을 지을 때의 난수"는 "삽입 때의 레벨 난수"로 읽어야 한다. 프로젝트의 실제 색인이 어느 방식인지에 따라 대표성이 달라진다. 이미 "어림"으로 적혀 있어 사실 문장은 아니다.
+> - [Nit] .scratch/search-eval/probes/repeat/tei_repeat.py:119-122와 tei_repeat_out.txt 1·5번째 줄 — `in-process same_1 vs same_1`과 `restart same_1 vs same_1`은 자기 자신과의 비교라 항상 identical True다.
+>   - 영향: README의 "비교 아홉 줄 모두 identical True"에서 두 줄은 정보가 없다. 실제로 견준 것은 일곱 줄이다. 수를 틀리게 적은 것은 아니다. "자기 비교 둘 포함"을 한 줄 적으면 된다.
+>
+> ## 밀 주장 대조 (문제 없음)
+> - spec.md:83의 "27개", README의 "27·5·99"와 hnsw_repeat_out.txt: 출력 값 27, 5, 99와 같다. pgvector 0.8.7도 맞다. ADR 64행의 27도 같다. 35·4·98은 검토의 도구 출력을 옮긴 것이고 README가 그렇게 적었다.
+> - spec.md:148의 "컨테이너를 다시 띄운 뒤에 돌려받은 값이 모두 같았다(JSON으로 받은 수를 `==`로 견줬다.":
+>   - tei_repeat.py 106행이 `a == b`로 견준다. json.loads로 받은 float을 견주는 것이다.
+>   - 출력의 아홉 줄은 모두 identical True, max_abs_diff 0.0이다. 문장은 출력과 맞는다.
+>   - 묶음 구성도 맞다. 같은 묶음 두 번, 뒤집기, 4+4로 나눈 묶음("둘로 나눈"), 짧은 글을 섞은 묶음(mixed), 재시작 뒤 같은 넷이다.
+>   - 닫는 괄호가 문장 안에서 빠져 있는데, 뒤의 "프로브 …"와 이어지는 구성이라 비문 수준이다.
+> - 티켓 14(issues/14-gpu-rerank-records.md:11)의 "JSON으로 받은 값이 `==`로 같았다": 위와 같은 근거로 맞다. 같은 글에 "비트까지"는 남아 있지 않다.
+> - 티켓 06(issues/06-miss-causes-and-breakdowns.md:16)의 "기본 구성에서 기대 근거가 합친 순위 둘째 이후에 닿는 질의가 있어야 두 실행이 갈린다.":
+>   - 후보 수 1로 줄이면 합친 뒤 줄이 1개가 된다. 둘째 이후에 닿던 질의만 줄이 달라진다. 논리는 맞다.
+>   - 수용 기준이 "구성을 싣기만 하고 쓰지 않는 구현"을 거르도록 닫혀 있다.
+> - 약 900자 글 8개: texts() 구조로 계산하면 900자(n이 한 자리인 s=0)와 918자(나머지 7개)다. README의 "900~918자"와 명세의 "약 900자"가 모두 맞다.
+> - README의 "(정의)를 뺀 꼴": 일지에 이 세션이 불러 대 본 기록이 있다. 서브에이전트 보고도 `제{n}조(정의)` 대 `제{n}조` 차이를 확인했다.
+> - tei_repeat.py 독스트링의 명령:
+>   - `uv run --no-project python -I tei_repeat.py` 방식은 스크립트 폴더에서 치면 돈다. -I는 스크립트 경로를 sys.path에 넣지 않지만 표준 라이브러리만 쓰므로 문제없다.
+>   - docker restart는 포트·옵션을 유지한다. --max-batch-tokens 4096에 8글자 약 3,760토큰과 mixed의 11글자는 한 배치에 들어간다.
+>   - mixed의 순서 복원(`together[len(short):] + together[:len(short)]`)은 alone의 `items + short` 순서와 맞는다.
+>   - reversed의 두 번 뒤집기도 맞다.
+> - Blocked by 사슬(issues/*.md의 5행 전부): 어긋난 곳은 없다.
+>   - 14는 10에만 막혀 있지만 10→07→05가 이어진다.
+>   - 17·18은 14에, 15는 11과 14에, 13은 06·10·11·12에 막혀 있다.
+>   - 16은 06과 11에, 19는 06과 07에 막혀 있다.
+>   - 받는 쪽이 보내는 쪽보다 먼저 도는 자리는 못 찾았다.
+> - 명세 "단계별 측정" 문장의 exact 기본 설계와 ADR 0018 이력 본문(:64)의 "같은 SQL 뼈대는 글의 뜻으로만 남는다" 설명은 서로 어긋나지 않는다.
+>
+> ## 요약
+> - 총 3건(Minor 1, Nit 2). 모두 유효하고 오탐은 0건이다.
+> - 즉시 수정 권장: 첫째 지적 하나뿐이다. 문장에 "순서까지 견준 수"를 더하거나 집합 비교로 재측정한다.
+> - 따라가지 못한 것: 티켓 01~05, 07~19의 수용 기준 내용 대조와 일지의 나머지 사실 문장은 목록의 밀 주장 밖이라 Blocked by와 인용 대조만 했다. 실행으로 확인한 것은 없다.
+>
+> 받는 본 세션에게: 일지를 쓰는 세션이면 이 보고를 받은 이 턴에 일지로 옮긴다. 고친 것과 남긴 것은 지적마다 판정한 턴에 옮긴다(code-review 6단계 끝).
+
+판정과 반영.
+
+- Minor(순서까지 견준 수): 유효. 문구만 고치지 않고 다시 쟀다. SQL 끝에 순서를 지운 집합으로 견주는 줄(두 표의 상위 50이 함께 가진 수의 최솟값과 평균 포함)을 더하고, 테스트 PostgreSQL의 임시 데이터베이스에서 한 번 더 돌려 출력 `hnsw_repeat_set_out.txt`를 더했다. 순서로 25·6·99, 집합으로 25·99, 함께 가진 수는 최소 43, 평균 49.55다. 이 실행에서 순서로 다른 질의와 집합으로 다른 질의가 같았으므로, 리랭크 기록이 CI 색인의 후보 쌍을 덮지 못한다는 추론은 선다. 갈리는 폭(평균 0.45개, 많아야 7개)은 작다. 명세 83행, 프로브 README, PR 본문에 "순서까지 견줘"와 새 출력의 수를 적었다. ADR 0018 이력의 문장("상위 50이 다른 질의가 35개였다")은 사용자가 승인한 글이고 글자대로 참이며(목록이 달랐다), 새 실행이 그 추론을 받치므로 고치지 않는다. 옛 출력 `hnsw_repeat_out.txt`는 ADR과 명세가 든 27의 근거라 그대로 두었다.
+- Nit(색인을 지을 때의 난수): 유효. SQL 머리 주석과 README를 "행을 색인에 넣을 때의 난수"로 고치고, 빈 표에 색인을 먼저 짓는 순서가 제품과 같다는 것을 적었다. 제품은 `PostgresVectorIndex.create_version_index`가 판의 색인을 만들고 `replace_chunks`가 그 뒤에 조각을 넣는다(`src/rag_engine/adapters/postgres/vector_index.py`를 읽었다).
+- Nit(자기 비교 둘): 반만 유효. `compare`는 첫 실행의 `same_1`을 기준으로 첫 실행의 묶음 넷과 다시 띄운 실행의 묶음 넷을 견준다(`tei_repeat.py`의 `compare`를 읽었다). 자기 비교는 `in-process same_1 vs same_1` 한 줄이고, `restart same_1 vs same_1`은 다시 띄우기 전과 뒤의 비교라 정보가 있다. README에 그 두 줄을 풀어 적었다.
+- 밀 주장 대조: 모두 문제없다고 확인됐다. 명세 148행의 괄호는 여러 문장을 담은 하나의 괄호라 고치지 않는다.
+
+반영으로 새로 쓴 사실 문장(PR 봇 회차가 겨냥할 자리).
+
+1. 명세 83행: "상위 50이 순서까지 견줘 다른 질의가 35개였다", "집합 비교를 더해 한 번 더 돌린 출력 `hnsw_repeat_set_out.txt`에서는 순서로도 집합으로도 25개였고, 두 표의 상위 50이 함께 가진 후보는 최소 43개, 평균 49.55개였다."
+2. 프로브 README `repeat/hnsw_repeat.sql` 행: 빈 표에 색인을 먼저 짓는다, 둘째 결과 줄의 설명, 셋째 실행의 수, "행을 색인에 넣을 때의 난수", "처음 검토가 같은 SQL(머리 주석, 판을 찍는 줄, 집합 줄만 다르다)".
+3. 프로브 README `repeat/tei_repeat.py` 행: "첫 비교 줄 `in-process same_1 vs same_1`은 같은 값끼리의 자기 비교라 늘 참이다. `restart same_1 vs same_1`은 다시 띄우기 전과 뒤를 견준다."
+4. `hnsw_repeat.sql` 머리 주석: 제품의 순서와 같다(코드를 읽었다), 둘째 결과 줄의 설명.
+
+## 커밋과 다시 돌린 것
+
+- 커밋 9820faf(셀프 리뷰와 CodeRabbit 반영까지)의 pre-commit: ruff check, ruff format, 검사 러너(test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright, pyright-linux, run-hooks, pytest 377.0초)가 모두 Passed. markdown tables, line separators, mutation tables, quotes(경고 없음), commit message도 Passed이고 constitution version은 고친 헌법 파일이 없어 Skipped였다. 커밋 전에 `tools/sibling_overlap.py`는 새 ADR 번호 없음, 번호 겹침 없음, 함께 고친 파일 없음이었다(origin/dev는 c0c8727로 이 브랜치의 기준보다 두 커밋 앞이고, 그 두 커밋은 이 PR의 파일을 건드리지 않았다).
+- `bug-perf-review` 반영 뒤 손으로 친 것: 고친 md 셋(명세, 프로브 README, 이 일지)에 `check_quotes.py --all-lines` 0(인용 23건, 경고 없음), `check_md_tables.py` 0. 그 셋과 `hnsw_repeat.sql`, `hnsw_repeat_set_out.txt`에 `check_line_separators.py` 0. 나머지 검사는 다음 커밋의 pre-commit으로 갈음한다.
+- 리뷰 반영분의 첫 커밋 시도는 pre-commit의 pytest에서 하나가 실패해 커밋되지 않았다(1 failed, 3824 passed, 935.85초. 첫 커밋 때의 377초보다 크게 느렸다). 실패한 것은 이 PR이 건드리지 않은 `tests/adapters/test_parse_runner.py`의 `test_메시지를_보내다_멈춘_자식이_있어도_수신이_영영_막히지_않는다`로, 윈도에서 `parse_failed`를 기대했는데 `parse_timeout`이 났다(기한 2초). dev의 11313d8(#36)이 부하에서 자식의 기동이 기한을 넘는 바로 이 경우를 고쳐 윈도 기한을 30초로 늘렸고, 이 브랜치는 그 앞(3c70184)에서 땄다. 시험을 손으로 고치지 않고 스테이징을 푼 뒤 origin/dev를 병합했다(3db82a9. 두 쪽이 함께 고친 파일은 없다). 그 뒤 같은 변경을 다시 커밋한다.
