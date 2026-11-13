@@ -1,0 +1,143 @@
+작업 폴더: C:\Users\User\AppData\Local\Temp\rl_full2
+
+== 기계 사양 ==
+운영체제: Windows-10-10.0.19045-SP0
+CPU: AMD Ryzen 7 3700X 8-Core Processor (논리 코어 16)
+메모리: 31.9 GiB
+Python: 3.12.10
+Docker: 29.9.2 / Docker Desktop; VM 16 CPU, 16733044736 bytes
+rag-latency-probe-embedding-1: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4 ["--model-id","BAAI/bge-m3","--port","80","--max-batch-tokens","4096"]
+  기동 직후 유휴 메모리·CPU: 6.625GiB / 15.58GiB / CPU 2.38%
+  TEI 로그: 2026-11-12T19:09:31.142079Z  INFO text_embeddings_core::tokenization: core/src/tokenization.rs:38: Starting 15 tokenization workers
+  TEI 로그: 2026-11-12T19:09:31.142351Z  INFO text_embeddings_router: router/src/lib.rs:284: Starting model backend
+  TEI 로그: 2026-11-12T19:38:29.429756Z  INFO text_embeddings_core::tokenization: core/src/tokenization.rs:38: Starting 15 tokenization workers
+  TEI 로그: 2026-11-12T19:38:29.429960Z  INFO text_embeddings_router: router/src/lib.rs:284: Starting model backend
+rag-latency-probe-reranker-1: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4 ["--model-id","BAAI/bge-reranker-v2-m3","--port","80","--max-batch-tokens","4096"]
+  기동 직후 유휴 메모리·CPU: 5.486GiB / 15.58GiB / CPU 0.89%
+  TEI 로그: 2026-11-12T19:10:55.625728Z  INFO text_embeddings_core::tokenization: core/src/tokenization.rs:38: Starting 15 tokenization workers
+  TEI 로그: 2026-11-12T19:10:55.625915Z  INFO text_embeddings_router: router/src/lib.rs:284: Starting model backend
+  TEI 로그: 2026-11-12T19:10:56.067845Z  INFO text_embeddings_backend: backends/src/lib.rs:788: Downloading `model.onnx`
+  TEI 로그: 2026-11-12T19:10:56.503067Z  INFO text_embeddings_backend: backends/src/lib.rs:802: Downloading `model.onnx_data`
+  TEI 로그:  not start backend: File at `/data/models--BAAI--bge-reranker-v2-m3/snapshots/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e/onnx/model.onnx` does not exist
+  TEI 로그: 2026-11-12T19:10:56.727829Z  INFO text_embeddings_backend: backends/src/lib.rs:672: Downloading `model.safetensors`
+  TEI 로그: 2026-11-12T20:27:11.745820Z  INFO text_embeddings_core::tokenization: core/src/tokenization.rs:38: Starting 15 tokenization workers
+  TEI 로그: 2026-11-12T20:27:11.746076Z  INFO text_embeddings_router: router/src/lib.rs:284: Starting model backend
+  TEI 로그: 2026-11-12T20:27:12.326499Z  INFO text_embeddings_backend: backends/src/lib.rs:788: Downloading `model.onnx`
+  TEI 로그: 2026-11-12T20:27:12.747099Z  INFO text_embeddings_backend: backends/src/lib.rs:802: Downloading `model.onnx_data`
+  TEI 로그:  not start backend: File at `/data/models--BAAI--bge-reranker-v2-m3/snapshots/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e/onnx/model.onnx` does not exist
+  TEI 로그: 2026-11-12T20:27:12.963713Z  INFO text_embeddings_backend: backends/src/lib.rs:672: Downloading `model.safetensors`
+판: rag-engine 0.0.0, kiwipiepy 0.24.1, pdfplumber 0.11.10, python-docx 1.2.0, python-hwpx 6.11.0, mcp 2.3.0, psycopg 3.3.8
+설정 기본값: RAG_SEARCH_CANDIDATES=50, RAG_TEI_BATCH_SIZE=32(이 값에서 시작한다)
+
+== 표본 ==
+형식마다 4개, 문서마다 6장, 시드 20261113
+  pdf: 4개, 파일 크기 합 118KiB, 본문 글자 수 합 18468
+  docx: 4개, 파일 크기 합 151KiB, 본문 글자 수 합 16437
+  hwpx: 4개, 파일 크기 합 46KiB, 본문 글자 수 합 18059
+질의 24개(예: 휴직 근태 처리 기한이 얼마나 되나요 / 에스컬레이션 사후 관리 처리 기한이 얼마나 되나요)
+
+== 수집(ingest --wait) ==
+종료 코드 0, 벽시계 277.2s, 표본 12개, 호스트 CPU 평균 100%
+측정용 시간 제한: {'RAG_TEI_TIMEOUT_SECONDS': '1800', 'RAG_SEARCH_TIMEOUT_SECONDS': '3600'}(기본은 TEI 60초, 검색 20초)
+작업 12개: {'succeeded': 12}
+  parse_ms: 합 82.1s, p50 5838 / p95 11873 / max 11873 ms (n=12)
+  embedding_ms: 합 381.7s, p50 21427 / p95 88489 / max 88489 ms (n=12)
+  write_ms: 합 3.9s, p50 305 / p95 588 / max 588 ms (n=12)
+  duration_ms: 합 470.5s, p50 30520 / p95 93515 / max 93515 ms (n=12)
+조각 91개, 토큰 합 33868, 최대 504, 중앙값 431
+조각당 임베딩 4194 ms
+
+== 파싱 시간과 메모리(표본마다 새 프로세스, 파서만) ==
+(Windows 에서 돌아 `RLIMIT_AS`는 걸리지 않는다. 최대 메모리는 프로세스 전체의
+ 최대 작업 집합이고 `base`는 import 직후의 값이라 둘의 차가 파싱이 더한 몫이다.)
+  pdf: 4개, 파싱 최대 0.29s(중앙값 0.28s), 최대 메모리 101MiB(base 101MiB), 글 최대 0.012MiB
+  docx: 4개, 파싱 최대 0.08s(중앙값 0.06s), 최대 메모리 102MiB(base 101MiB), 글 최대 0.011MiB
+  hwpx: 4개, 파싱 최대 0.03s(중앙값 0.02s), 최대 메모리 101MiB(base 101MiB), 글 최대 0.012MiB
+  한도 근처 PDF(쪽 1000, 5.5MiB): 파싱 65.2s, 최대 메모리 1475MiB, 글 2.36MiB, 블록 8285
+  한도: 쪽 1000, 시간 300s, 메모리 2048MiB, 글 64MiB, 업로드 100MiB
+
+== TEI 직접(한 호출에 보내는 글의 수별 소요 시간. 크기마다 한 번) ==
+조각 글 32개(토큰 수 상위), 글당 토큰 중앙값 488(특수 토큰 제외), 글자 수 중앙값 893
+기본 한도 비교: 한 호출이 60초(RAG_TEI_TIMEOUT_SECONDS)를 넘으면 x
+  임베딩  1개 한 호출:    2.9s   글당 2.85s, 177 토큰/s, 호스트 CPU 100%
+  임베딩  4개 한 호출:    7.8s   글당 1.96s, 256 토큰/s, 호스트 CPU 100%
+  임베딩  8개 한 호출:   13.3s   글당 1.66s, 301 토큰/s, 호스트 CPU 100%
+  임베딩 16개 한 호출:   26.8s   글당 1.67s, 296 토큰/s, 호스트 CPU 100%
+  임베딩 32개 한 호출:   53.2s   글당 1.66s, 290 토큰/s, 호스트 CPU 100%
+  리랭크  1개 한 호출:   40.0s   글당 40.01s, 13 토큰/s, 호스트 CPU 99%
+  리랭크  8개 한 호출:   41.6s   글당 5.21s, 96 토큰/s, 호스트 CPU 93%
+  리랭크 32개 한 호출:  100.6s x 글당 3.14s, 153 토큰/s, 호스트 CPU 84%
+
+== search 지연: RAG_SEARCH_CANDIDATES=5, RAG_TEI_BATCH_SIZE=32, 리랭크 있음 ==
+- 동시  1 × 2회 = 2건, 오류 0, 처리량 0.061건/s, 호스트 CPU 평균 90%
+    클라이언트 왕복: p50 15526 / p95 17275 / max 17275 ms (n=2)
+    서버 search 전체: p50 15491 / p95 17262 / max 17262 ms (n=2)
+      embedding_ms: p50 135 / p95 215 / max 215 ms (n=2)
+      sql_ms: p50 10 / p95 13 / max 13 ms (n=2)
+      rerank_ms: p50 15338 / p95 17031 / max 17031 ms (n=2)
+    TEI 최대 메모리 MiB / CPU %: probe 7492 / 286, probe 5845 / 885
+    기본 시간 제한 20초를 넘은 건: 0/2
+- 동시  4 × 1회 = 4건, 오류 0, 처리량 0.014건/s, 호스트 CPU 평균 100%
+    클라이언트 왕복: p50 203723 / p95 280927 / max 280927 ms (n=4)
+    서버 search 전체: p50 203640 / p95 280732 / max 280732 ms (n=4)
+      embedding_ms: p50 297 / p95 780 / max 780 ms (n=4)
+      sql_ms: p50 30 / p95 157 / max 157 ms (n=4)
+      rerank_ms: p50 203137 / p95 279722 / max 279722 ms (n=4)
+    TEI 최대 메모리 MiB / CPU %: probe 7497 / 365, probe 5940 / 1052
+    기본 시간 제한 20초를 넘은 건: 4/4
+
+== search 지연: RAG_SEARCH_CANDIDATES=10, RAG_TEI_BATCH_SIZE=32, 리랭크 있음 ==
+- 동시  1 × 1회 = 1건, 오류 0, 처리량 0.011건/s, 호스트 CPU 평균 100%
+    클라이언트 왕복: p50 94450 / p95 94450 / max 94450 ms (n=1)
+    서버 search 전체: p50 94398 / p95 94398 / max 94398 ms (n=1)
+      embedding_ms: p50 295 / p95 295 / max 295 ms (n=1)
+      sql_ms: p50 18 / p95 18 / max 18 ms (n=1)
+      rerank_ms: p50 94076 / p95 94076 / max 94076 ms (n=1)
+    TEI 최대 메모리 MiB / CPU %: probe 7496 / 39, probe 5921 / 967
+    기본 시간 제한 20초를 넘은 건: 1/1
+
+== search 지연: RAG_SEARCH_CANDIDATES=50, RAG_TEI_BATCH_SIZE=32, 리랭크 있음 ==
+- 동시  1 × 1회 = 1건, 오류 0, 처리량 0.008건/s, 호스트 CPU 평균 65%
+    클라이언트 왕복: p50 130102 / p95 130102 / max 130102 ms (n=1)
+    서버 search 전체: p50 130063 / p95 130063 / max 130063 ms (n=1)
+      embedding_ms: p50 192 / p95 192 / max 192 ms (n=1)
+      sql_ms: p50 13 / p95 13 / max 13 ms (n=1)
+      rerank_ms: p50 129853 / p95 129853 / max 129853 ms (n=1)
+    TEI 최대 메모리 MiB / CPU %: probe 7492 / 7, probe 5931 / 878
+    기본 시간 제한 20초를 넘은 건: 1/1
+
+== search 지연: RAG_SEARCH_CANDIDATES=50, RAG_TEI_BATCH_SIZE=32, 리랭커 없음(임베딩과 SQL만) ==
+- 동시  1 × 4회 = 4건, 오류 0, 처리량 3.354건/s, 호스트 CPU 평균 100%
+    클라이언트 왕복: p50 259 / p95 448 / max 448 ms (n=4)
+    서버 search 전체: p50 216 / p95 421 / max 421 ms (n=4)
+      embedding_ms: p50 177 / p95 373 / max 373 ms (n=4)
+      sql_ms: p50 26 / p95 44 / max 44 ms (n=4)
+      rerank_ms: p50 0 / p95 0 / max 0 ms (n=4)
+    TEI 최대 메모리 MiB / CPU %: probe 7492 / 170, probe 5663 / 1
+    기본 시간 제한 20초를 넘은 건: 0/4
+- 동시  4 × 3회 = 12건, 오류 0, 처리량 3.706건/s, 호스트 CPU 평균 100%
+    클라이언트 왕복: p50 980 / p95 1114 / max 1114 ms (n=12)
+    서버 search 전체: p50 866 / p95 1050 / max 1050 ms (n=12)
+      embedding_ms: p50 655 / p95 877 / max 877 ms (n=12)
+      sql_ms: p50 102 / p95 208 / max 208 ms (n=12)
+      rerank_ms: p50 0 / p95 0 / max 0 ms (n=12)
+    TEI 최대 메모리 MiB / CPU %: probe 7493 / 2042, probe 5663 / 9
+    기본 시간 제한 20초를 넘은 건: 0/12
+- 동시  8 × 2회 = 16건, 오류 0, 처리량 3.770건/s, 호스트 CPU 평균 100%
+    클라이언트 왕복: p50 1783 / p95 3230 / max 3230 ms (n=16)
+    서버 search 전체: p50 1683 / p95 3185 / max 3185 ms (n=16)
+      embedding_ms: p50 1589 / p95 3135 / max 3135 ms (n=16)
+      sql_ms: p50 34 / p95 97 / max 97 ms (n=16)
+      rerank_ms: p50 0 / p95 0 / max 0 ms (n=16)
+    TEI 최대 메모리 MiB / CPU %: probe 7496 / 1785, probe 5664 / 2
+    기본 시간 제한 20초를 넘은 건: 0/16
+
+== search 지연: RAG_SEARCH_CANDIDATES=10, RAG_TEI_BATCH_SIZE=8, 리랭크 있음 ==
+- 동시  1 × 1회 = 1건, 오류 0, 처리량 0.011건/s, 호스트 CPU 평균 100%
+    클라이언트 왕복: p50 88148 / p95 88148 / max 88148 ms (n=1)
+    서버 search 전체: p50 88091 / p95 88091 / max 88091 ms (n=1)
+      embedding_ms: p50 415 / p95 415 / max 415 ms (n=1)
+      sql_ms: p50 40 / p95 40 / max 40 ms (n=1)
+      rerank_ms: p50 87623 / p95 87623 / max 87623 ms (n=1)
+    TEI 최대 메모리 MiB / CPU %: probe 7497 / 27, probe 5929 / 1011
+    기본 시간 제한 20초를 넘은 건: 1/1

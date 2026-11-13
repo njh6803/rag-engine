@@ -41,7 +41,7 @@ Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 
 
 | 슬라이스 | 기능 | 내용 | Blocked by | Status |
 |---|---|---|---|---|
-| 1 | [core](core/plan.md) | 수집, 색인, 검색의 본체 v0. 관리 API로 넣은 문서를 MCP 읽기 도구로 근거 위치와 갱신일이 붙은 조각으로 찾는다 | 없음 | in-progress |
+| 1 | [core](core/plan.md) | 수집, 색인, 검색의 본체 v0. 관리 API로 넣은 문서를 MCP 읽기 도구로 근거 위치와 갱신일이 붙은 조각으로 찾는다 | 없음 | done |
 | 2 | [admin](admin/plan.md) | 관리자 페이지 v0. 현황, 원천, 문서, 검색 시험 화면에서 문서를 올리고 지우며 잘 찾아지는지 확인한다 | source-sync | todo |
 | 2 | [backup-upgrade](backup-upgrade/plan.md) | 색인, 원본 문서, 데이터베이스를 명령 하나로 백업하고 복원하며, 판 올림 때 다시 색인해야 하는지 알린다 | source-sync | todo |
 | 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 판, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync | todo |
@@ -56,4 +56,4 @@ Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 
 
 ## 프론티어
 
-done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능이다. `core`
+done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능이다. `release-image`, `search-eval`
