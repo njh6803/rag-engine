@@ -9,7 +9,7 @@ description: "주 체크아웃을 루트 브랜치(origin/dev가 있으면 dev, 
 
 병합 뒤에 남는 둘을 치운다. 주 체크아웃(저장소 루트, `git worktree list`의 첫 줄)이 루트 브랜치의 원격보다 뒤에 있는 것과, 병합된 브랜치의 워크트리와 로컬 브랜치다. 앞의 것이 남으면 새 세션과 훅이 주 체크아웃의 옛 하네스로 돈다(`.claude/rules/tools.md`의 `CLAUDE_PROJECT_DIR` 항목). 뒤의 것이 쌓이면 저장소 전체를 훑는 검색에 옛 사본이 섞인다(대기열 47).
 
-**루트 브랜치.** 주 체크아웃이 따르는 브랜치다. `git fetch origin` 뒤 `origin/dev`가 있으면 dev, 없으면 main이다(티켓 PR의 기준 브랜치와 같은 규칙이고 원천은 `docs/constitution/operations.md` 브랜치와 병합). 새 세션과 훅이 루트의 하네스로 돌고 티켓 PR은 dev로 병합되므로, 루트가 main에 머물면 dev로 병합한 스킬과 훅이 새 세션에 닿지 않는다. 핫픽스는 main으로 병합되지만 루트는 따르지 않는다. 핫픽스가 dev에 들어오는 것은 되돌려 합치기(`next-session` `merge.md`)의 일이다. 아래 `<루트 브랜치>`는 이 브랜치다. `origin/dev`가 없는 동안은 모든 곳이 지금처럼 main이다.
+**루트 브랜치.** 주 체크아웃이 따르는 브랜치다. `git fetch origin` 뒤 `origin/dev`가 있으면 dev, 없으면 main이다(티켓 PR의 기준 브랜치와 같은 규칙이고 원천은 `docs/constitution/operations.md` 브랜치와 병합). 새 세션과 훅이 루트의 하네스로 돌고 티켓 PR은 dev로 병합되므로, 루트가 main에 머물면 dev로 병합한 스킬과 훅이 새 세션에 닿지 않는다. 핫픽스는 main으로 병합되지만 루트는 따르지 않는다. 핫픽스가 dev에 들어오는 것은 되돌려 합치기(`next-session` `merge.md`)의 일이다. 아래 `<루트 브랜치>`는 이 브랜치다. 이 클론이 `origin/dev`를 받기 전에는 main이다.
 
 **주 체크아웃 세션에서만 돈다.** 워크트리 세션이 다른 체크아웃을 바꾸지 않는 경계와 그 근거는 `next-session` `merge.md`의 "워크트리에서 병합할 때"가 원천이다. 이 스킬은 당기고 지우기만 한다. 브랜치를 따거나 커밋하지 않는다.
 

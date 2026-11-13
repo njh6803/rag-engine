@@ -17,7 +17,7 @@ core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌�
 
 하네스 기능의 기능 계획은 `**슬라이스:**` 줄이 없어 아래 표와 프론티어에 들지 않는다(`docs/agents/issue-tracker.md`의 전체 계획 절). 그래서 열린 하네스 기능을 여기 적고, 그 기능의 마지막 티켓을 닫는 커밋이 지운다. 티켓의 상태는 그 기능 폴더의 `issues/`에서 본다.
 
-- dev-branch(`.scratch/dev-branch/plan.md`, ADR 0016): 브랜치 모델을 agent-os ADR 0043으로 옮긴다. 마지막 티켓 05는 04의 병합과 함께, agent-os의 harness 티켓 `dev-release-pr-step`이 그 저장소의 `origin/dev`에 병합되기를 기다린다(05의 `**Blocked by:**`).
+- 열린 하네스 기능이 없다.
 
 ## 목표 배치
 
@@ -41,12 +41,12 @@ Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 
 
 | 슬라이스 | 기능 | 내용 | Blocked by | Status |
 |---|---|---|---|---|
-| 1 | [core](core/plan.md) | 수집, 색인, 검색의 본체 v0. 관리 API로 넣은 문서를 MCP 읽기 도구로 근거 위치와 갱신일이 붙은 조각으로 찾는다 | 없음 | in-progress |
+| 1 | [core](core/plan.md) | 수집, 색인, 검색의 본체 v0. 관리 API로 넣은 문서를 MCP 읽기 도구로 근거 위치와 갱신일이 붙은 조각으로 찾는다 | 없음 | done |
 | 2 | [admin](admin/plan.md) | 관리자 페이지 v0. 현황, 원천, 문서, 검색 시험 화면에서 문서를 올리고 지우며 잘 찾아지는지 확인한다 | source-sync | todo |
 | 2 | [backup-upgrade](backup-upgrade/plan.md) | 색인, 원본 문서, 데이터베이스를 명령 하나로 백업하고 복원하며, 판 올림 때 다시 색인해야 하는지 알린다 | source-sync | todo |
 | 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 판, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync | todo |
 | 2 | [release-image](release-image/plan.md) | 판마다 검색 서버와 수집 작업자의 이미지를 내고, 자기 PostgreSQL을 띄우는 단독 compose로 깨끗한 VM에 설치된다 | core | todo |
-| 2 | [search-eval](search-eval/plan.md) | 평가 세트로 검색의 상위 k개 적중률을 재고, 기준치 아래로 떨어지면 CI가 실패한다 | core | todo |
+| 2 | [search-eval](search-eval/plan.md) | 평가 세트로 검색의 상위 k개 적중률을 재고, 기준 보고서보다 떨어지면 CI가 실패한다 | core | todo |
 | 2 | [source-sync](source-sync/plan.md) | 원천(업로드, 서버 경로, 수집 API)과 동기화. 원천에서 더하고 고치고 지운 문서가 다음 동기화 뒤 검색에 반영된다 | core, release-image | todo |
 | 3 | [change-log](change-log/plan.md) | 관리 변경 기록. 누가 언제 문서, 원천, 설정, 접근 그룹을 바꿨는지 남기고 조회하고 내보낸다 | admin | todo |
 | 3 | [db-source](db-source/plan.md) | SQL 커넥터. 운영자가 쓴 질의와 매핑으로 데이터베이스에 든 글과 그 첨부를 문서로 수집한다 | source-sync | todo |
@@ -56,4 +56,4 @@ Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 
 
 ## 프론티어
 
-done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능이다. `core`
+done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능이다. `release-image`, `search-eval`

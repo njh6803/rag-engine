@@ -20,3 +20,6 @@
 | [0014](0014-tokens-in-database-and-required-allowed-hosts.md) | 인증 토큰은 데이터베이스에 두고 관리 API로 발급·회수하며, MCP 허용 호스트 설정은 필수다 | accepted | 2026-11-09 |
 | [0015](0015-common-conventions.md) | 공통 규약: UUIDv7 식별자, RFC 9457 에러 봉투, UTC 시각, REST 경로 접두, pydantic-settings, JSON Lines 로그, 계약의 `format_version` | accepted | 2026-11-09 |
 | [0016](0016-branch-model-follows-agent-os-adr-0043.md) | 브랜치 모델은 agent-os ADR 0043을 따르고, 이 저장소에서 다른 것만 적는다 | accepted | 2026-11-12 |
+| [0017](0017-min-score-argument-requires-reranker.md) | 검색 도구에 최소 점수 인자를 두되 리랭커가 없으면 거부하고, 구현은 점수 분포를 잰 뒤에 한다 | accepted | 2026-11-12 |
+| [0018](0018-search-evaluation-in-app-and-baseline-gate.md) | 검색 평가의 핵심은 제품 코드의 유스케이스이고, 기대 근거로 채점하며, 기준 보고서보다 떨어지면 CI가 막는다 | accepted | 2026-11-12 |
+| [0019](0019-llm-relevance-judging-behind-a-port.md) | LLM은 검색 평가의 관련성 판정에만 쓰고, 판정기는 포트 뒤의 Claude 어댑터이며, 기본은 꺼짐이다 | accepted | 2026-11-12 |

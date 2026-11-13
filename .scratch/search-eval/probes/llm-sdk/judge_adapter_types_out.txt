@@ -1,0 +1,2 @@
+anthropic 2.8.0
+판정기를 만들었다: ClaudeRelevanceJudge (호출하지 않았다)

@@ -1,6 +1,6 @@
 # rag-engine 헌법 · 스택
 
-의존성을 더하거나 스택을 바꿀 때 읽는다. 갈아 끼우는 데 큰 비용이 드는 의존성(데이터베이스, 벡터 저장소, 작업 대기열, 파서, 임베딩 모델, MCP SDK, 웹 프레임워크)을 더하거나 바꾸면 ADR을 남긴다.
+의존성을 더하거나 스택을 바꿀 때 읽는다. 갈아 끼우는 데 큰 비용이 드는 의존성(데이터베이스, 벡터 저장소, 작업 대기열, 파서, 임베딩 모델, MCP SDK, LLM SDK, 웹 프레임워크)을 더하거나 바꾸면 ADR을 남긴다.
 
 | 항목 | 값 |
 |---|---|
@@ -14,6 +14,7 @@
 | 벡터 저장소 | pgvector 0.8.x(자기 PostgreSQL)와 PostgreSQL 전문 검색. 한국어 형태소 분석은 앱의 kiwipiepy(Apache-2.0, 우리 스텁)가 하고 `to_tsvector('simple', …)`에 넣는다. 벡터와 키워드는 한 SQL에서 RRF로 합친다. ADR 0006 |
 | 작업 대기열 | PostgreSQL 작업 표(SKIP LOCKED + LISTEN/NOTIFY). 작업자는 검색 서버와 다른 프로세스·이미지다. ADR 0009 |
 | 파서, 임베딩, 리랭커 | 파서는 pdfplumber(PDF), python-docx(DOCX), python-hwpx(HWPX, 1.0의 HWP 5.0도 같은 라이브러리). 설치형으로 재배포하므로 라이선스(특히 GPL과 AGPL 계열)를 원문으로 확인한 것만 들인다. PyMuPDF와 pyhwp는 AGPL이라 들이지 않는다. 임베딩과 리랭커는 설치 안의 TEI(text-embeddings-inference) 컨테이너가 돌리고(기본 bge-m3, bge-reranker-v2-m3) 서버·작업자 이미지에는 torch가 없다. 호출은 `/v1/embeddings`, `/tokenize`, `/rerank`. ADR 0010 |
+| 관련성 판정(LLM) | 검색 평가의 관련성 판정에만 쓴다. Anthropic 공식 SDK `anthropic`(Apache-2.0, major 2로 묶는다)으로 Claude API를 부르고 모델은 설정값이다. 기본은 꺼짐이고 설치처가 끝점 주소, 모델, 키를 모두 설정해야 조립된다. 검색 요청을 처리하는 길에서는 부르지 않는다. ADR 0019 |
 | 설정 | pydantic-settings. 환경 변수 `RAG_*`, `.env`, 비밀 파일. ADR 0015 |
 | 관리자 페이지 | admin 설계 인터뷰가 정한다(pnpm과 Next의 웹 워크스페이스, 또는 서버가 그리는 단순한 화면). 정하면 ADR과 함께 이 칸을 고친다 |
 | 관리 명령 | 표준 라이브러리 argparse. 범위는 서버 없이 해야 하는 것(`serve`, `worker`, `migrate`, `bootstrap-token`)과 `ingest <경로>`이고, 나머지 쓰기는 관리 API다. 명령은 REST와 같은 app 층 유스케이스를 부르고 같은 연결 문자열로 데이터베이스에 직접 붙는다(ADR 0007) |

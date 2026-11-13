@@ -64,7 +64,7 @@ MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 �
 ## 환경 함정
 - 파이썬은 맨 `python`이 아니라 `uv run python <파일>`로 친다. 개발 기계(Windows)의 맨 `python`은 pyenv-win shim이고, stdin(heredoc)으로 넘긴 스크립트를 출력 없이 끝냈다(2026-11-09 킥오프에서 봤다).
 - 파이프와 `&&`·`;` 체인 뒤의 `$?`는 마지막 명령의 종료 코드다. 판정 명령은 파이프·체인 없이 돌린다. 훅이 경고한다.
-- 커밋 전에 `git branch --show-current`로 브랜치를 본다. 같은 체크아웃을 다른 세션이 옮길 수 있다. main과 dev 위의 커밋은 훅이 막는다. 브랜치를 딸 자리인 기준 브랜치는 핫픽스(`hotfix/*`)면 `origin/main`, 그 밖이면 이 클론에 `origin/dev`의 추적 ref가 있을 때 `origin/dev`, 없을 때 `origin/main`이다(`<기준 브랜치>`는 이 규칙이고 원천은 `docs/constitution/operations.md` 브랜치와 병합이다. dev가 없는 동안은 모든 곳이 지금처럼 main이다). 그리고 `uv run python tools/sibling_overlap.py`를 쳐 ADR 번호와 헌법 판을 형제(origin/<기준 브랜치>, 열린 PR, 형제 워크트리)와 대 본다(무엇을 보는지는 그 독스트링). 1로 끝나면 출력대로 고친다. 번호는 "옮길 번호"대로 비켜 가고, 이 브랜치의 변경에서 옛 번호를 가리킨 인용도 고친다.
+- 커밋 전에 `git branch --show-current`로 브랜치를 본다. 같은 체크아웃을 다른 세션이 옮길 수 있다. main과 dev 위의 커밋은 훅이 막는다. 브랜치를 딸 자리인 기준 브랜치는 핫픽스(`hotfix/*`)면 `origin/main`, 그 밖이면 이 클론에 `origin/dev`의 추적 ref가 있을 때 `origin/dev`, 없을 때 `origin/main`이다(`<기준 브랜치>`는 이 규칙이고 원천은 `docs/constitution/operations.md` 브랜치와 병합이다. 클론이 `git fetch origin`으로 dev를 받기 전에는 main이다). 그리고 `uv run python tools/sibling_overlap.py`를 쳐 ADR 번호와 헌법 판을 형제(origin/<기준 브랜치>, 열린 PR, 형제 워크트리)와 대 본다(무엇을 보는지는 그 독스트링). 1로 끝나면 출력대로 고친다. 번호는 "옮길 번호"대로 비켜 가고, 이 브랜치의 변경에서 옛 번호를 가리킨 인용도 고친다.
 
 ## 원칙
 - 답변과 문서는 한국어로 쓴다.
