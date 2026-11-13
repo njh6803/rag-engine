@@ -19,6 +19,7 @@ from uuid import UUID
 
 from rag_engine.domain.entities import (
     Block,
+    CandidateScan,
     Chunk,
     ChunkDraft,
     ChunkingConfig,
@@ -34,6 +35,7 @@ from rag_engine.domain.entities import (
     JobStatus,
     KnowledgeBase,
     SearchCandidates,
+    SearchDiagnosis,
     SearchQuery,
     Source,
     StoredChunk,
@@ -104,6 +106,16 @@ class Reranker(Protocol):
     """리랭커의 경계. 글마다 점수를 입력 순서대로 낸다."""
 
     async def rerank(self, query: str, texts: Sequence[str]) -> list[float]: ...
+
+
+class RelevanceJudge(Protocol):
+    """검색 평가의 관련성 판정기(ADR 0019). 질문과 조각의 글을 받아 관련 있으면 참을 낸다. 판정기는
+    트랜잭션 밖에서 부른다. 다시 해 볼 만한 실패(연결 실패, 요청 한도, 서버 오류)는
+    `TransientFailure`로, 그 밖의 실패(인증 실패, 읽을 수 없는 응답)는 `PermanentFailure`로
+    올린다. 실패의 메시지에는 서드파티 예외와 서버가 보낸 오류의 글을 옮기지 않는다(질문과 조각의
+    글이 들 수 있다. 원칙 V)."""
+
+    async def judge(self, query: str, text: str) -> bool: ...
 
 
 class BlobStore(Protocol):
@@ -299,6 +311,17 @@ class VectorIndex(Protocol):
     async def search_candidates(self, query: SearchQuery) -> SearchCandidates:
         """벡터와 키워드 후보를 SQL 하나로 모아 RRF로 합친다. 같은 문장에서 질의한 판이 아직
         현재 판인지도 읽는다. 벡터 질의는 판의 HNSW 부분 색인을 탄다."""
+        ...
+
+    async def diagnose_candidates(
+        self, query: SearchQuery, *, scan: CandidateScan
+    ) -> SearchDiagnosis:
+        """`search_candidates`와 같은 SQL 뼈대로 벡터 후보와 키워드 후보의 합집합 전부를 낸다.
+        줄마다 벡터·키워드·합친 순위가 붙고, 합친 순위가 후보 수 이하인 줄이 `search_candidates`의
+        후보와 같다. `scan`이 `EXACT`이면 같은 트랜잭션에서 HNSW 색인을 쓰지 않는 계획으로 돌고, 그
+        계획 설정은 호출이 성공하면 끝에 되돌려져 밖으로 새지 않는다(데이터베이스 오류로 끝나면
+        트랜잭션이 되돌려진다). 평가가 단계의 순위를 재는 데만 쓰고 MCP로는 열지
+        않는다 (원칙 IV, ADR 0018)."""
         ...
 
 
