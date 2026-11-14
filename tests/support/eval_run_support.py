@@ -146,6 +146,12 @@ class Distribution(Strict):
         return found
 
 
+class ReportRecords(Strict):
+    read: int
+    computed: int
+    files: dict[str, str]
+
+
 class Report(Strict):
     format_version: str
     eval_set: ReportEvalSet
@@ -158,6 +164,7 @@ class Report(Strict):
     misses: list[MissRow]
     miss_counts: MissCounts
     human_causes: dict[str, int]
+    records: ReportRecords
     meta: ReportMeta
     score_distribution: Distribution | None = None
     # LLM 관련성 판정의 칸은 `test_search_eval_judge.py`가 자기 모델로 읽는다. 여기서는 받기만 한다.

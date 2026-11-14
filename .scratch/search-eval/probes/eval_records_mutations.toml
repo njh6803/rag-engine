@@ -1,0 +1,315 @@
+# search-eval 07(추론 기록)의 변이.
+# 열쇠(모델 이름, 질의와 글의 경계), 읽기의 상한(새로 계산한 임베딩 100개)과 그 경계, 쓰기의 조건(종료
+# 코드 0, 주인 파일, 요청 지문과 TEI 판이 다른 파일의 옛 값), `read`가 파일을 고치지 않는 것, 문서가 든
+# 데이터베이스에서의 `index --records write`, 리랭커 끝점의 필수 여부, 보고서의 `records` 칸, `validate`의
+# 기록 판정(크기, 요청 지문, TEI 판, compose 태그의 장치 머리)을 겨눈다.
+# 표면 시험(`tests/tools/test_search_eval_records.py`)은 구현 전에 썼고 인자가 없다는 이유로 빨갛게 확인했다.
+# 그 빨강은 구현의 까닭이 아니므로, 이 표가 구현을 틀리게 했을 때 시험이 실패하는 것으로 확인한다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test \
+#       uv run python tools/mutate.py .scratch/search-eval/probes/eval_records_mutations.toml
+# 빨강의 표지는 시험 파일에 있으면 안 된다(도구가 거른다).
+
+[[mutation]]
+name = "임베딩 열쇠에서 모델 이름을 뺀다"
+tests = ["tests/adapters/test_inference_records.py"]
+expect = "red"
+expect_output = ["8c3e5edc98ba"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''return hashlib.sha256(model.encode() + _NUL + text.encode("utf-8")).hexdigest()'''
+new = '''return hashlib.sha256(text.encode("utf-8")).hexdigest()'''
+
+[[mutation]]
+name = "리랭크 열쇠에서 질의와 글 사이의 NUL을 뺀다"
+tests = ["tests/adapters/test_inference_records.py"]
+expect = "red"
+expect_output = ["c5b852bc70ed"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''material = model.encode() + _NUL + query.encode("utf-8") + _NUL + text.encode("utf-8")'''
+new = '''material = model.encode() + _NUL + query.encode("utf-8") + text.encode("utf-8")'''
+
+[[mutation]]
+name = "새로 계산할 글이 상한과 같으면 멈춘다"
+tests = ["tests/adapters/test_inference_records.py"]
+expect = "red"
+expect_output = ["상한을 넘어 계산하지 않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''self._limit is not None and self.computed_count + len(missing) > self._limit'''
+new = '''self._limit is not None and self.computed_count + len(missing) >= self._limit'''
+
+[[mutation]]
+name = "상한을 넘은 기록기가 다음 호출에서 다시 계산한다"
+tests = ["tests/adapters/test_inference_records.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''if self.exceeded or ('''
+new = '''if ('''
+
+[[mutation]]
+name = "임베딩을 새로 계산해도 계산한 수를 세지 않는다"
+tests = ["tests/adapters/test_inference_records.py"]
+expect = "red"
+expect_output = ["기록에서 읽은 수와 새로 계산한 수: (1, 0)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''self.computed_count += len(missing)
+            vectors = await inner.embed(list(missing.values()))'''
+new = '''vectors = await inner.embed(list(missing.values()))'''
+
+[[mutation]]
+name = "리랭커가 없어 멈춘 사실을 남기지 않는다"
+tests = ["tests/adapters/test_inference_records.py"]
+expect = "red"
+expect_output = ["assert False is True"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''self.unavailable = True'''
+new = '''self.unavailable = False'''
+
+[[mutation]]
+name = "write가 요청 지문이 다른 파일의 옛 값을 옮긴다"
+tests = ["tests/tools/test_search_eval_records.py::test_write는_요청_지문이_다른_파일의_옛_값을_옮기지_않고_다시_계산한다"]
+expect = "red"
+expect_output = ["요청 지문이 다른 기록 뒤 다시 계산한 글 수: 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''entry.request_fingerprint != request_fingerprint(kind)'''
+new = '''False'''
+
+[[mutation]]
+name = "write가 TEI 판이 다른 파일의 옛 값을 옮긴다"
+tests = ["tests/tools/test_search_eval_records.py::test_tei_판만_바꾼_뒤의_write는_그_파일의_옛_값을_옮기지_않는다"]
+expect = "red"
+expect_output = ["TEI 판이 다른 기록 뒤 다시 계산한 글 수: 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''or entry.tei_version != self._config.tei_version'''
+new = '''or False'''
+
+[[mutation]]
+name = "read도 기록 파일을 다시 쓴다"
+tests = ["tests/tools/test_search_eval_records.py::test_read에서_새로_계산한_임베딩이_100개_이하이면_기록_파일을_고치지_않고_돈다"]
+expect = "red"
+expect_output = ["Full output truncated"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''if self._options.mode is not RecordMode.WRITE:
+            return
+        for kind in self._owned:
+            contents, entry = self._rendered(kind)'''
+new = '''for kind in self._owned:
+            contents, entry = self._rendered(kind)'''
+
+[[mutation]]
+name = "index가 1로 끝나도 기록 파일을 쓴다"
+tests = ["tests/tools/test_search_eval_records.py::test_write로_돈_index가_1로_끝나면_주인_파일이_바이트_그대로다"]
+expect = "red"
+expect_output = ["깨진 묶음의 index write 종료 코드: 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_index.py"
+old = '''if code != EXIT_OK:
+        return code
+    try:'''
+new = '''if False:
+        return code
+    try:'''
+
+[[mutation]]
+name = "run이 실패해도 기록 파일을 쓴다"
+tests = ["tests/tools/test_search_eval_records.py::test_write로_돈_run이_1로_끝나면_주인_파일이_바이트_그대로다"]
+expect = "red"
+expect_output = ["Differing items:"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_assembly.py"
+old = '''            for notice in records_run.notices():
+                print(notice, file=sys.stderr)'''
+new = '''            for notice in records_run.notices():
+                print(notice, file=sys.stderr)
+            records_run.commit()'''
+
+[[mutation]]
+name = "빠른 실행의 주인 파일에 리랭크를 넣는다"
+tests = ["tests/tools/test_search_eval_records.py::test_빠른_실행의_write는_리랭크_기록을_건드리지_않고_보고서에도_싣지_않는다"]
+expect = "red"
+expect_output = ["빠른 실행 보고서에 리랭크 기록이 실렸는지: True"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_assembly.py"
+old = '''owned=(*owned, RecordKind.RERANK) if through is Stage.RERANK else owned,'''
+new = '''owned=(*owned, RecordKind.RERANK),'''
+
+[[mutation]]
+name = "문서가 든 데이터베이스에서도 index write가 돈다"
+tests = ["tests/tools/test_search_eval_records.py::test_index_write가_문서가_든_데이터베이스에서는_기록_파일을_그대로_두고_1이다"]
+expect = "red"
+expect_output = ["문서가 든 데이터베이스의 index write 종료 코드: 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_index.py"
+old = '''if records_run.mode is RecordMode.WRITE and run_in_selector_loop('''
+new = '''if False and run_in_selector_loop('''
+
+[[mutation]]
+name = "작업자가 임베더를 감싸는 걸이를 무시한다"
+tests = ["tests/tools/test_search_eval_records.py::test_기록이_있으면_새_데이터베이스의_index가_조각을_임베딩_서버에_보내지_않는다"]
+expect = "red"
+expect_output = ["기록이 있는데 조각으로 서버에 간 글 수: 2"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/assembly.py"
+old = '''embedder_for=embedders if wrap_embedder_for is None else wrap_embedder_for(embedders),'''
+new = '''embedder_for=embedders,'''
+
+[[mutation]]
+name = "run이 질의의 임베더를 감싸지 않는다"
+tests = ["tests/tools/test_search_eval_records.py::test_기록이_있으면_run이_질의를_임베딩_서버에_보내지_않고_같은_보고서를_낸다"]
+expect = "red"
+expect_output = ["기록이 있는데 질의로 서버에 간 글 수: 2"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_assembly.py"
+old = '''            embedder_for=(
+                embedder_for
+                if query_recorder is None
+                else query_recorder.wrap_factory(embedder_for)
+            ),'''
+new = '''            embedder_for=embedder_for,'''
+
+[[mutation]]
+name = "기록을 읽는 전체 실행도 리랭커 끝점을 필수로 한다"
+tests = ["tests/tools/test_search_eval_records.py::test_리랭크_기록이_있으면_리랭커의_끝점_없이_전체_실행이_돈다"]
+expect = "red"
+expect_output = ["끝점 없이 기록으로 돈 전체 실행의 종료 코드: 1"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_assembly.py"
+old = '''if records.mode is RecordMode.OFF:
+        return require_reranker_url(environment)'''
+new = '''if True:
+        return require_reranker_url(environment)'''
+
+[[mutation]]
+name = "보고서가 읽은 수를 0으로 싣는다"
+tests = ["tests/tools/test_search_eval_records.py::test_보고서가_읽은_기록_파일의_해시와_읽은_수를_싣는다"]
+expect = "red"
+expect_output = ["{'read': 0} != {'read': 2}"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''read=sum(recorder.read_count for recorder in recorders),'''
+new = '''read=0,'''
+
+[[mutation]]
+name = "기록의 합 상한을 두 배로 본다"
+tests = ["tests/tools/test_search_eval_records.py::test_validate는_기록의_합이_20MB를_넘으면_실패한다"]
+expect = "red"
+expect_output = ["20MB를 넘는 기록의 validate 종료 코드: 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_records_check.py"
+old = '''if size > MAX_RECORDS_BYTES:'''
+new = '''if size > MAX_RECORDS_BYTES * 2:'''
+
+[[mutation]]
+name = "compose 태그의 장치 머리를 떼지 않는다"
+tests = ["tests/tools/test_search_eval_records.py::test_validate는_기록이_있는_묶음에서_초록이다"]
+expect = "red"
+expect_output = ["기록이 있는 묶음의 validate 종료 코드: 1"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_records_check.py"
+old = '''r"^(?:[A-Za-z0-9]+-)?(?P<version>\d+(?:\.\d+)*)$"'''
+new = '''r"^(?P<version>\d+(?:\.\d+)*)$"'''
+
+[[mutation]]
+name = "validate가 요청 지문이 다른 기록을 지나친다"
+tests = ["tests/tools/test_search_eval_records.py::test_validate는_요청_지문이_다르면_실패하고_다시_만들_기록_파일을_알린다"]
+expect = "red"
+expect_output = ["요청 지문이 다른 기록의 validate 종료 코드: 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_records_check.py"
+old = '''if entry.request_fingerprint != request_fingerprint(kind):'''
+new = '''if False:'''
+
+[[mutation]]
+name = "validate가 records.json의 TEI 판 불일치를 지나친다"
+tests = ["tests/tools/test_search_eval_records.py::test_validate는_records_json의_tei_판이_구성과_다르면_실패한다"]
+expect = "red"
+expect_output = ["의 오류 1건"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_records_check.py"
+old = '''if entry.tei_version != config.tei_version:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "요청 지문이 칸의 순서에 따라 달라진다"
+tests = ["tests/adapters/test_tei_embedder.py"]
+expect = "red"
+expect_output = ["a238d1519eb8"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/tei.py"
+old = '''sort_keys=True,'''
+new = '''sort_keys=False,'''
+
+[[mutation]]
+name = "기록 파일의 열쇠를 정렬하지 않고 쓴다"
+tests = ["tests/adapters/test_inference_record_files.py"]
+expect = "red"
+expect_output = ["At index 0 diff: b'b' != b'a'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_record_files.py"
+old = '''ordered = sorted(values)'''
+new = '''ordered = list(values)'''
+
+[[mutation]]
+name = "write가 시작할 때 주인 파일의 쓸 경로를 판정하지 않는다"
+tests = ["tests/adapters/test_inference_records.py::test_write는_주인_파일_중_하나라도_쓸_경로가_묶음_밖이면_시작할_때_거부한다"]
+expect = "red"
+expect_output = ["DID NOT RAISE"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''            for kind in self._owned:
+                check_writable(paths, kind)'''
+new = '''            pass'''
+
+[[mutation]]
+name = "임시 파일 경로를 묶음의 경로 판정에 걸지 않는다"
+tests = ["tests/adapters/test_inference_record_files.py::test_쓰기는_임시_파일이_묶음_밖을_가리키는_링크여도_거부하고_아무것도_쓰지_않는다"]
+expect = "red"
+expect_output = ["PermissionError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_record_files.py"
+old = '''    temporary = paths.resolve(f"{RECORDS_FOLDER}/{name}{TEMPORARY_SUFFIX}")'''
+new = '''    temporary = paths.resolve(f"{RECORDS_FOLDER}/{name}").with_name(f"{name}{TEMPORARY_SUFFIX}")'''
+
+[[mutation]]
+name = "임시 파일이 묶음 안의 다른 자리로 풀려도 받는다"
+tests = ["tests/adapters/test_inference_record_files.py::test_쓰기는_임시_파일이_묶음_안의_다른_자리를_가리키는_링크여도_거부하고_아무것도_쓰지_않는다"]
+expect = "red"
+expect_output = ["PermissionError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_record_files.py"
+old = '''    if temporary != path.with_name(f"{path.name}{TEMPORARY_SUFFIX}"):'''
+new = '''    if False:'''

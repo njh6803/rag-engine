@@ -13,3 +13,7 @@
 - [ ] `rerank.jsonl`을 커밋하고 `validate`가 통과한다. 리랭커 끝점 없이 `run --through rerank`(기록 방식 `read`)가 기록에 없는 쌍 없이 끝나는 것을 본다.
 - [ ] 걸린 시간과 장치를 `## Comments`와 프로브 README에 적는다.
 - [ ] 검사 넷이 초록이다.
+
+## Comments
+
+- 07의 한계(PR 직전 리뷰가 짚었다): `--records write`는 요청 지문과 TEI 판이 같으면 장치가 달라도 기록의 옛 값을 옮기고, 다시 쓰는 항목의 `device`는 이번 `--tei-device`로 적는다(`inference_records.py`의 `_usable_entry`와 `_rendered`를 읽었다). 장치를 판정에 넣으면 값의 차를 재는 이 티켓의 몫(명세 "값의 차" 항목)과 겹쳐 07이 정하지 않았다. 그래서 이 티켓이 GPU로 `run --records write`를 돌 때 CPU로 만든 질의 임베딩 파일의 값이 그대로 옮겨져 `records.json`의 그 항목이 `gpu`로 적힐 수 있다. 값이 섞인 항목에 장치를 적기 전에 그 항목의 기록 파일을 지우고 다시 만들지 정한다.

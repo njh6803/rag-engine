@@ -9,7 +9,7 @@ import httpx
 import pytest
 from tests.support.tei_stub import SECRET_MESSAGE, TeiStub
 
-from rag_engine.adapters.tei import TeiReranker
+from rag_engine.adapters.tei import RERANK_REQUEST, TeiReranker
 from rag_engine.domain.errors import ErrorCode, PermanentFailure, TransientFailure
 
 type RerankerFactory = Callable[..., TeiReranker]
@@ -120,6 +120,21 @@ async def test_요청은_질의와_글과_잘라_쓰는_칸을_싣는다(make_re
             "return_text": False,
         }
     ]
+
+
+async def test_추론_요청의_경로와_칸이_요청_지문의_원문과_같다(
+    make_reranker: RerankerFactory,
+) -> None:
+    """요청 지문(`RERANK_REQUEST`)은 기록이 어댑터의 변경을 알아보는 장치다. 실제로 보낸 요청이
+    그 자리의 값에서 벗어나면 지문이 요청을 대표하지 못한다."""
+    stub = TeiStub(model_id=MODEL)
+
+    await make_reranker(stub).rerank("연차휴가", ["연차휴가 규정"])
+
+    (request,) = [r for r in stub.requests if r.path != "/info"]
+    assert request.path == RERANK_REQUEST.path
+    extra = {name: value for name, value in request.body.items() if name not in {"query", "texts"}}
+    assert extra == dict(RERANK_REQUEST.fields)
 
 
 async def test_점수는_서버가_점수_순으로_돌려줘도_입력_순서로_나온다(
