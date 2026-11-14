@@ -1,11 +1,11 @@
 """평가 도구의 환경과 설정(명세 search-eval "자리와 층"의 구성 항목, "평가 전용 데이터베이스").
 
 평가 도구는 평가를 위해 만든 데이터베이스에만 붙는다. 데이터베이스 주소, 데이터 폴더, 임베딩 끝점,
-리랭커 끝점(없어도 된다)은 평가 전용 이름 `RAG_EVAL_*`로만 받고, 제품의 `RAG_DATABASE_URL`,
-`RAG_DATA_DIR`, `RAG_DEFAULT_*`와 작업 폴더의 `.env`는 읽지 않는다. 제품의 설정 객체(`Settings`)는
-그 환경 변수와 `.env`를 읽으므로, 이 모듈이 지은 설정 객체는 읽는 곳을 지어 준 값 하나로 좁힌다
-(`_IsolatedSettings`). 그래서 `config.json`과 평가 전용 이름에서 오지 않은 칸(파싱 한도, TEI 배치
-크기 같은)은 코드의 기본값이 된다.
+리랭커 끝점(전체 실행만 반드시 받는다)은 평가 전용 이름 `RAG_EVAL_*`로만 받고, 제품의
+`RAG_DATABASE_URL`, `RAG_DATA_DIR`, `RAG_DEFAULT_*`와 작업 폴더의 `.env`는 읽지 않는다. 제품의 설정
+객체(`Settings`)는 그 환경 변수와 `.env`를 읽으므로, 이 모듈이 지은 설정 객체는 읽는 곳을 지어 준 값
+하나로 좁힌다 (`_IsolatedSettings`). 그래서 `config.json`과 평가 전용 이름에서 오지 않은 칸(파싱
+한도, TEI 배치 크기 같은)은 코드의 기본값이 된다.
 
 데이터베이스의 이름이 `rag_eval`로 시작하지 않거나 주소에서 이름을 읽을 수 없으면 접속하기 전에
 거부한다. 오류 문장은 주소를 싣지 않는다(연결 문자열의 비밀번호, 원칙 V).
@@ -14,25 +14,29 @@
 것은 주소를 잘못 적는 실수다.
 """
 
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final
 from urllib.parse import parse_qs, urlsplit
 
+import httpx
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
 from rag_engine.adapters.settings import Settings
+from rag_engine.adapters.tei import TeiEmbedder, TeiEmbedderPool
+from rag_engine.domain.entities import IndexVersion
 from rag_engine.domain.eval_set import EvalConfig
 
 DATABASE_ENV: Final = "RAG_EVAL_DATABASE_URL"
 DATA_DIR_ENV: Final = "RAG_EVAL_DATA_DIR"
 EMBEDDING_ENV: Final = "RAG_EVAL_EMBEDDING_URL"
 RERANKER_ENV: Final = "RAG_EVAL_RERANKER_URL"
-# 데이터베이스에 붙는 하위 명령이 반드시 받는 이름이다. 리랭커는 없어도 된다.
+# 데이터베이스에 붙는 하위 명령이 반드시 받는 이름이다. 리랭커는 전체 실행(`require_reranker_url`)만
+# 반드시 받는다.
 REQUIRED_ENV: Final = (DATABASE_ENV, DATA_DIR_ENV, EMBEDDING_ENV)
 DATABASE_NAME_PREFIX: Final = "rag_eval"
 _SCHEME: Final = "postgresql://"
@@ -67,6 +71,14 @@ def read_eval_environment(environ: Mapping[str, str]) -> EvalEnvironment:
         embedding_url=environ[EMBEDDING_ENV],
         reranker_url=environ.get(RERANKER_ENV) or None,
     )
+
+
+def require_reranker_url(environment: EvalEnvironment) -> str:
+    """전체 실행(`run --through rerank`)이 받는 리랭커 끝점. 없으면 빠진 이름을 알린다. 끝점 없이
+    리랭크 기록만으로 도는 길은 기록을 읽는 티켓이 더한다."""
+    if environment.reranker_url is None:
+        raise EvalEnvironmentError(f"평가 전용 환경 변수가 없다: {RERANKER_ENV}")
+    return environment.reranker_url
 
 
 def check_database_name(database_url: str) -> None:
@@ -147,3 +159,23 @@ def eval_settings(environment: EvalEnvironment, config: EvalConfig) -> Settings:
             for problem in error.errors()
         )
         raise EvalEnvironmentError(f"config.json의 값이 설정에 맞지 않는다: {problems}") from None
+
+
+def eval_embedder_pool(settings: Settings) -> TeiEmbedderPool:
+    """평가가 질의와 문서를 임베딩하는 끝점의 연결 풀이다. 쓰고 나면 `aclose()`로 닫는다."""
+    return TeiEmbedderPool(
+        lambda endpoint: httpx.AsyncClient(base_url=endpoint, timeout=settings.tei_timeout_seconds),
+        batch_size=settings.tei_batch_size,
+    )
+
+
+def eval_embedder_for(
+    pool: TeiEmbedderPool, environment: EvalEnvironment
+) -> Callable[[IndexVersion], TeiEmbedder]:
+    """판마다 그 판의 모델로 임베딩하되, 끝점은 판에 적힌 것이 아니라 환경의
+    `RAG_EVAL_EMBEDDING_URL`로 바꾼다."""
+
+    def embedder_for(version: IndexVersion) -> TeiEmbedder:
+        return pool(replace(version, embedding_endpoint=environment.embedding_url))
+
+    return embedder_for

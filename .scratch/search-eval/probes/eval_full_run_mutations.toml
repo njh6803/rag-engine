@@ -1,0 +1,111 @@
+# search-eval 05(`run --through rerank`)가 더한 리랭크 단계와 점수 분포의 변이.
+# 리랭크 뒤 순위(점수 순, 같은 점수는 합친 순위 순), 리랭커에 보내는 글(절 경로), 점수 분포의 경계(구간의
+# 아래 끝, 문턱 이상), 보고서의 칸과 단계, 끝점이 없는 전체 실행의 거부, 후보 전부를 리랭크하는 것을 겨눈다.
+# 표면 시험은 구현 뒤에 썼다. 빨강은 이 표가 구현을 틀리게 했을 때 시험이 실패하는 것으로 확인한다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test \
+#       uv run python tools/mutate.py .scratch/search-eval/probes/eval_full_run_mutations.toml
+# 빨강의 표지는 시험 파일에 있으면 안 된다(도구가 거른다).
+
+[[mutation]]
+name = "리랭크 점수가 같을 때 합친 순위의 역순으로 정한다"
+tests = ["tests/app/test_eval_run.py::test_리랭크_뒤는_점수_순이고_점수가_같으면_합친_순위_순이다"]
+expect = "red"
+expect_output = ["('c', 0.5)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_run.py"
+old = '''key=lambda pair: (-pair[1], pair[0].fused_rank)'''
+new = '''key=lambda pair: (-pair[1], -pair[0].fused_rank)'''
+
+[[mutation]]
+name = "리랭커에 절 경로를 빼고 조각 글만 보낸다"
+tests = ["tests/app/test_eval_run.py::test_리랭커에_보내는_글은_검색과_같이_온전한_절_경로를_붙인_글이다"]
+expect = "red"
+expect_output = ["['a', 'b']"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_run.py"
+old = '''compose_index_text(hit.hit.location.section, hit.hit.text)'''
+new = '''hit.hit.text'''
+
+[[mutation]]
+name = "문턱이 그 값과 같은 조각을 뺀다"
+tests = ["tests/app/test_eval_score_distribution.py::test_문턱은_그_값_이상인_조각을_남긴다"]
+expect = "red"
+expect_output = ["1.0 ± 1.0e-06"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_score_distribution.py"
+old = '''c.score >= min_score'''
+new = '''c.score > min_score'''
+
+[[mutation]]
+name = "구간의 아래 끝 점수를 앞 구간에 센다"
+tests = ["tests/app/test_eval_score_distribution.py::test_점수를_닿은_조각과_닿지_않은_조각으로_갈라_구간마다_센다"]
+expect = "red"
+expect_output = ["Right contains 5 more items"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_score_distribution.py"
+old = '''bisect_right(_LOWER_EDGES, score) - 1'''
+new = '''bisect_left(_LOWER_EDGES, score) - 1'''
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_score_distribution.py"
+old = '''from bisect import bisect_right'''
+new = '''from bisect import bisect_left, bisect_right'''
+
+[[mutation]]
+name = "전체 실행의 보고서에 점수 분포를 싣지 않는다"
+tests = ["tests/tools/test_search_eval_run.py::test_score_distribution은_구간과_문턱별_값이_손으로_계산한_값과_같다"]
+expect = "red"
+expect_output = ["assert None is not None"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_report.py"
+old = '''build_score_distribution(result.outcomes) if Stage.RERANK in stages else None'''
+new = '''None'''
+
+[[mutation]]
+name = "전체 실행이 리랭크 뒤 단계를 보고서의 단계에 넣지 않는다"
+tests = ["tests/tools/test_search_eval_run.py::test_전체_실행의_보고서는_리랭크_뒤_줄이_마지막_단계다"]
+expect = "red"
+expect_output = ["'fused']"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_run.py"
+old = '''stages=FULL_STAGES if through is Stage.RERANK else FAST_STAGES,'''
+new = '''stages=FAST_STAGES,'''
+
+[[mutation]]
+name = "리랭크 뒤 적중을 합친 뒤 순위로 센다"
+tests = ["tests/tools/test_search_eval_run.py::test_리랭크에서_순위가_바뀐_질의의_적중률이_리랭크_뒤_줄에_반영된다"]
+expect = "red"
+expect_output = ["Obtained: 1.0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_run.py"
+old = '''rankings[Stage.RERANK] = tuple(hit for hit, _ in ranked)'''
+new = '''rankings[Stage.RERANK] = rankings[Stage.FUSED]'''
+
+[[mutation]]
+name = "리랭커 끝점이 없는 전체 실행을 거부하지 않는다"
+tests = ["tests/tools/test_search_eval_run.py::test_리랭커_끝점이_없는_전체_실행은_빠진_이름을_알리고_아무것도_부르지_않고_1이다"]
+expect = "red"
+expect_output = ["KeyError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_environment.py"
+old = '''if environment.reranker_url is None:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "합친 뒤의 후보 전부가 아니라 앞의 하나만 리랭크한다"
+tests = ["tests/tools/test_search_eval_run.py::test_리랭커에는_질의와_온전한_절_경로를_붙인_조각_글을_후보_수만큼_한_번에_보낸다"]
+expect = "red"
+expect_output = ["Right contains one more item"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_run.py"
+old = '''ranked = await rerank_candidates(self.reranker, query.query, rankings[Stage.FUSED])'''
+new = '''ranked = await rerank_candidates(self.reranker, query.query, rankings[Stage.FUSED][:1])'''
