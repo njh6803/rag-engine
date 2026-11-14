@@ -5,10 +5,8 @@
 그대로인지 견준다(명세 Testing Decisions). 데이터베이스는 `rag_eval_<난수>`로 짓는다.
 """
 
-import os
 import unicodedata
-from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from collections.abc import Callable
 from pathlib import Path
 
 import psycopg
@@ -23,9 +21,8 @@ from tests.support.eval_bundle import (
     passage_evidence,
     write_indexable_bundle,
 )
+from tests.support.eval_world import DATA_DIR_ENV, DATABASE_ENV, EMBEDDING_ENV, World
 from tests.support.pdf_files import PdfPage, pdf_bytes, text_block
-from tests.support.tei_server import serve_stub
-from tests.support.tei_stub import TeiStub
 
 from rag_engine.adapters import eval_index, eval_validate
 from rag_engine.adapters.bundle_paths import BundlePaths
@@ -44,45 +41,7 @@ EVIDENCE = [
     passage_evidence("q1", "a.docx", PASSAGE),
     passage_evidence("q2", "sub/b.docx", PASSAGE_B),
 ]
-DATABASE_ENV = "RAG_EVAL_DATABASE_URL"
-DATA_DIR_ENV = "RAG_EVAL_DATA_DIR"
-EMBEDDING_ENV = "RAG_EVAL_EMBEDDING_URL"
 SECRET = "비밀번호-자리표시자"
-
-
-@dataclass(frozen=True, slots=True)
-class World:
-    """평가 도구가 보는 환경. 평가 전용 이름 셋의 값과 시험이 도구를 부르는 작업 폴더다."""
-
-    database_url: str
-    data_dir: Path
-    tei_url: str
-    work_dir: Path
-
-
-@pytest.fixture
-def tei_url() -> Iterator[str]:
-    with serve_stub(TeiStub()) as url:
-        yield url
-
-
-@pytest.fixture
-def world(
-    empty_eval_database_url: str, tei_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> World:
-    """개발자 셸의 `RAG_*`를 지우고(시험이 쓰는 `RAG_TEST_DATABASE_URL`은 남긴다) 평가 전용 이름
-    셋을 준다. 작업 폴더는 빈 폴더다."""
-    for name in [name for name in os.environ if name.startswith("RAG_")]:
-        if name != "RAG_TEST_DATABASE_URL":
-            monkeypatch.delenv(name)
-    work_dir = tmp_path / "work"
-    work_dir.mkdir()
-    data_dir = tmp_path / "eval-data"
-    monkeypatch.chdir(work_dir)
-    monkeypatch.setenv(DATABASE_ENV, empty_eval_database_url)
-    monkeypatch.setenv(DATA_DIR_ENV, str(data_dir))
-    monkeypatch.setenv(EMBEDDING_ENV, tei_url)
-    return World(empty_eval_database_url, data_dir, tei_url, work_dir)
 
 
 def _bundle(

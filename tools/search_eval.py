@@ -2,6 +2,7 @@
 
     uv run python tools/search_eval.py validate <묶음 폴더> [--indexed]
     uv run python tools/search_eval.py index <묶음 폴더>
+    uv run python tools/search_eval.py run --through fused --out <폴더> <묶음 폴더>
 
 인자 해석과 조립만 한다. 묶음의 파일을 읽고 쓰는 코드는 `rag_engine.adapters`에, 값과 판정은
 `rag_engine.domain`과 `rag_engine.app`에 있다. `tools/`는 이미지에 실리지 않으므로(`.dockerignore`)
@@ -16,7 +17,12 @@
 색인한다. 작업자를 따로 띄우지 않는다. 문서를 넣은 뒤 작업자의 한 번 돌기 입구를 직접 불러 작업을
 끝까지 처리한다.
 
-데이터베이스에 붙는 하위 명령(`index`, `validate --indexed`)은 평가 전용 환경 변수
+`run`은 색인된 묶음을 평가해 `--out` 폴더에 `report.json`과 `report.md`를 쓴다. `--through`는
+`fused`(빠른 실행. 벡터만, 키워드만, 합친 뒤)와 `rerank`(전체 실행. 05가 더한다) 가운데 하나를
+반드시 받는다. 빠지거나 둘 다 주면 종료 코드 2다. 시작할 때 `index`와 같은 판정(평가 전용 이름,
+데이터베이스 이름, 이 묶음의 데이터베이스인지)을 지나야 돈다.
+
+데이터베이스에 붙는 하위 명령(`index`, `run`, `validate --indexed`)은 평가 전용 환경 변수
 `RAG_EVAL_DATABASE_URL`, `RAG_EVAL_DATA_DIR`, `RAG_EVAL_EMBEDDING_URL`(과 없어도 되는
 `RAG_EVAL_RERANKER_URL`)만 읽는다. 제품의 `RAG_*`와 작업 폴더의 `.env`는 읽지 않는다.
 
@@ -33,6 +39,7 @@ from typing import Final
 
 from rag_engine.adapters.eval_environment import EvalEnvironmentError, read_eval_environment
 from rag_engine.adapters.eval_index import index_bundle
+from rag_engine.adapters.eval_run import current_commit, run_fast
 from rag_engine.adapters.eval_validate import validate_bundle, validate_bundle_indexed
 from rag_engine.domain.errors import ConfigurationError
 from rag_engine.domain.eval_set import EvalProblem
@@ -42,6 +49,8 @@ TOOL: Final = "tools/search_eval.py"
 EXIT_OK: Final = 0
 EXIT_FAILED: Final = 1
 EXIT_USAGE: Final = 2
+THROUGH_CHOICES: Final = ("fused", "rerank")
+REPOSITORY: Final = Path(__file__).resolve().parent.parent
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -57,6 +66,16 @@ def _parser() -> argparse.ArgumentParser:
     )
     index = commands.add_parser("index", help="묶음의 문서를 평가 전용 데이터베이스에 색인한다")
     index.add_argument("bundle", type=Path, help="묶음 폴더")
+    run = commands.add_parser("run", help="색인된 묶음을 평가해 보고서를 쓴다")
+    run.add_argument("bundle", type=Path, help="묶음 폴더")
+    run.add_argument(
+        "--through",
+        action="append",
+        choices=THROUGH_CHOICES,
+        default=[],
+        help="fused(합친 뒤까지, 빠른 실행)와 rerank(리랭크 뒤까지, 전체 실행) 가운데 하나",
+    )
+    run.add_argument("--out", type=Path, required=True, help="보고서를 쓰는 폴더")
     return parser
 
 
@@ -67,11 +86,24 @@ def main(argv: Sequence[str]) -> int:
         # argparse가 사용법을 출력하고 낸 종료다. 도움말은 0이고 잘못된 인자는 2다.
         return stop.code if isinstance(stop.code, int) else EXIT_USAGE
     bundle: Path = args.bundle
+    if args.command == "run":
+        return _run(bundle, args.out, args.through)
     if args.command == "index":
         # 설정 오류는 `index_bundle`이 안에서 잡아 종료 코드로 낸다.
         return index_bundle(bundle, os.environ, run_once_with_settings)
     indexed: bool = args.indexed
     return _validate(bundle, indexed=indexed)
+
+
+def _run(bundle: Path, out: Path, through: list[str]) -> int:
+    if len(through) != 1:
+        choices = " 또는 ".join(THROUGH_CHOICES)
+        print(f"{TOOL} run: --through는 {choices} 가운데 하나를 한 번만 받는다", file=sys.stderr)
+        return EXIT_USAGE
+    if through[0] == "rerank":
+        print("전체 실행(--through rerank)은 아직 없다. 티켓 05가 더한다", file=sys.stderr)
+        return EXIT_FAILED
+    return run_fast(bundle, out, os.environ, commit=current_commit(REPOSITORY))
 
 
 def _validate(bundle: Path, *, indexed: bool) -> int:
