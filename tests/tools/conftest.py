@@ -5,6 +5,15 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from tests.support.claude_server import serve_claude_stub
+from tests.support.claude_stub import (
+    JUDGE_API_KEY,
+    JUDGE_API_KEY_ENV,
+    JUDGE_MODEL,
+    JUDGE_MODEL_ENV,
+    JUDGE_URL_ENV,
+    ClaudeStub,
+)
 from tests.support.eval_world import (
     DATA_DIR_ENV,
     DATABASE_ENV,
@@ -43,6 +52,25 @@ def reranker_url(
     del world
     with serve_stub(reranker_stub) as url:
         monkeypatch.setenv(RERANKER_ENV, url)
+        yield url
+
+
+@pytest.fixture
+def claude_stub() -> ClaudeStub:
+    """판정기의 가짜 끝점. 시험이 `relevant_when`과 오류를 정하고 받은 요청을 본다."""
+    return ClaudeStub()
+
+
+@pytest.fixture
+def claude_url(
+    claude_stub: ClaudeStub, world: World, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[str]:
+    """가짜 끝점을 띄우고 판정기의 설정 셋을 준다. `world`가 `RAG_*`를 지운 뒤에 준다."""
+    del world
+    with serve_claude_stub(claude_stub) as url:
+        monkeypatch.setenv(JUDGE_URL_ENV, url)
+        monkeypatch.setenv(JUDGE_MODEL_ENV, JUDGE_MODEL)
+        monkeypatch.setenv(JUDGE_API_KEY_ENV, JUDGE_API_KEY)
         yield url
 
 

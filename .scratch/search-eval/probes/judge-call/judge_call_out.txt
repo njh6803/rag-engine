@@ -1,0 +1,13 @@
+anthropic 2.8.0, 모델 claude-opus-5-5, 지시문의 판 1
+부를 건수 7건(표본 6, 응답 모양 1), 비용 어림 약 0.061달러
+판정 True  기대 True  일치
+판정 True  기대 True  일치
+판정 True  기대 True  일치
+판정 False 기대 False 일치
+판정 False 기대 False 일치
+판정 False 기대 False 일치
+기대와 일치 6/6
+stop_reason end_turn
+내용 블록 종류 ['text']
+글 블록 17자: {"relevant":true}
+usage 입력 536, 출력 10

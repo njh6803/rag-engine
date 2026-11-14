@@ -3,7 +3,7 @@
 글마다 정해 둔 판정을 낸다. 정하지 않은 글은 관련 없음이다. 받은 호출을 순서대로 기억해서 시험이
 판정기에 무엇이 갔는지 본다. `failure`를 주면 모든 호출이 그 예외를 올린다. 포트가 말하는
 `TransientFailure`와 `PermanentFailure`가 평가에 닿는 길을 시험하는 데 쓴다. Claude 구현은
-search-eval 12가 짓는다.
+`adapters/claude_judge.py`다(search-eval 12).
 """
 
 from collections.abc import Mapping

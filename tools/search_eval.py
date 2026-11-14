@@ -4,11 +4,15 @@
     uv run python tools/search_eval.py index <묶음 폴더> [--config <파일>] [기록 옵션]
     uv run python tools/search_eval.py run --through fused|rerank --out <폴더> <묶음 폴더>
         [--config <파일>] [기록 옵션]
+    uv run python tools/search_eval.py judge --through fused|rerank [--yes] [--prune] <묶음 폴더>
+        [--config <파일>]
     uv run python tools/search_eval.py inspect <묶음 폴더> <질의 목록 이름> <기대 근거 id>
         [--through fused|rerank] [--config <파일>]
 
 기록 옵션은 `--records read|write|off`(기본 `read`)와 `--tei-device cpu|gpu`다. 장치는 `write`가
-반드시 받고 다른 방식에서는 쓰지 않는다. `index`와 `run`만 받고 `inspect`는 기록을 쓰지 않는다.
+반드시 받고 다른 방식에서는 쓰지 않는다. `index`와 `run`만 받고 `inspect`와 `judge`는 기록 옵션을
+받지 않는다. `judge`는 기록을 읽지도 쓰지도 않아 `--records off`로 `run`을 돌린 것과 같은 평가를
+돈다.
 
 인자 해석과 조립만 한다. 묶음의 파일을 읽고 쓰는 코드는 `rag_engine.adapters`에, 값과 판정은
 `rag_engine.domain`과 `rag_engine.app`에 있다. `tools/`는 이미지에 실리지 않으므로(`.dockerignore`)
@@ -30,18 +34,31 @@
 데이터베이스인지)을 지나야 돈다. 기록을 끈(`--records off`) 전체 실행은 리랭커 끝점
 `RAG_EVAL_RERANKER_URL`이 없으면 그 이름을 알리고 종료 코드 1이다.
 
+`run`은 판정 파일 `judgments.jsonl`이 있으면 그 줄로 보고서의 `llm` 칸(LLM 관련성 판정의 참고
+숫자)을 센다. 판정기를 부르지 않으므로 판정기의 설정은 읽지 않는다.
+
+`judge`는 `run`과 같은 평가를 돌려 마지막 단계의 상위 10개 조각과 질의의 쌍 가운데 판정 파일에 없는
+것만 Claude 판정기로 판정해 판정 파일에 쌓는다. 판정기의 설정 `RAG_JUDGE_URL`, `RAG_JUDGE_MODEL`,
+`RAG_JUDGE_API_KEY`를 셋 모두 환경 변수에 둬야 돌고, `RAG_JUDGE_MODEL`과 지시문의 판이
+구성(`config.json`이나 `--config`로 준 파일)의 `judge_model`, `judge_prompt_version`과 같아야 한다.
+`--yes`가 없으면 부를 건수와 비용의 어림만 찍고 부르지 않는다. `--prune`은 지금의 모델과 지시문 판에
+맞지 않는 줄을 판정 파일에서 지운다.
+
 `inspect`는 질의 하나를 `run`과 같은 길로 돌려 그 질의의 글, 기대 근거, 단계마다의 상위 조각의 글을
 표준 출력에만 찍는다. 파일은 쓰지 않는다. `--through`는 `fused`(기본)와 `rerank` 가운데 하나다.
 
-`--config <파일>`은 `index`, `run`, `inspect`가 받는다. 주지 않으면 묶음의 `config.json`이다. 준
-구성 파일은 부르는 사람이 고른 자리라 묶음 폴더 밖이어도 된다. 보고서의 `config`와 내용 해시는 쓴
-구성으로 계산한다. 후보 수를 바꿔 같은 평가를 도는 일이 그 쓰임이다. 임베딩 모델, 차원, 청킹을 바꾼
-구성은 그 구성으로 색인한 데이터베이스에서만 돈다(`index`에도 같은 파일을 준다).
+`--config <파일>`은 `index`, `run`, `judge`, `inspect`가 받는다. 주지 않으면 묶음의
+`config.json`이다. 준 구성 파일은 부르는 사람이 고른 자리라 묶음 폴더 밖이어도 된다. 보고서의
+`config`와 내용 해시는 쓴 구성으로 계산한다. 후보 수를 바꿔 같은 평가를 도는 일이 그 쓰임이다.
+임베딩 모델, 차원, 청킹을 바꾼 구성은 그 구성으로 색인한 데이터베이스에서만 돈다(`index`에도 같은
+파일을 준다). 판정 파일의 열쇠가 되는 `judge_model`과 `judge_prompt_version`도 쓴 구성에서 읽으므로,
+`judge`와 `run`에는 같은 구성을 준다.
 
-데이터베이스에 붙는 하위 명령(`index`, `run`, `inspect`, `validate --indexed`)은 평가 전용 환경 변수
-`RAG_EVAL_DATABASE_URL`, `RAG_EVAL_DATA_DIR`, `RAG_EVAL_EMBEDDING_URL`(과 있으면
-`RAG_EVAL_RERANKER_URL`. 기록을 끈 전체 실행만 이것이 반드시 있어야 한다)만 읽는다. 제품의 `RAG_*`와
-작업 폴더의 `.env`는 읽지 않는다.
+데이터베이스에 붙는 하위 명령(`index`, `run`, `judge`, `inspect`, `validate --indexed`)은 평가 전용
+환경 변수 `RAG_EVAL_DATABASE_URL`, `RAG_EVAL_DATA_DIR`, `RAG_EVAL_EMBEDDING_URL`(과 있으면
+`RAG_EVAL_RERANKER_URL`. 기록을 끈 전체 실행만 이것이 반드시 있어야 하고, 기록 옵션이 없는 `judge`의
+전체 실행도 그렇다)만 읽는다. 제품의 `RAG_*`(판정기의 `RAG_JUDGE_*`는 빼고)와 작업 폴더의 `.env`는
+읽지 않는다.
 
 추론 기록(`--records`)은 모델이 계산한 임베딩과 리랭크 점수를 묶음의 `records/`에 저장해 다시 쓴다.
 `read`는 기록 파일을 고치지 않고, 기록에 있는 글은 모델을 부르지 않는다. 기록에 없어 새로 계산한
@@ -68,6 +85,7 @@ from typing import Final
 from rag_engine.adapters.eval_environment import EvalEnvironmentError, read_eval_environment
 from rag_engine.adapters.eval_index import index_bundle
 from rag_engine.adapters.eval_inspect import inspect_evaluation
+from rag_engine.adapters.eval_judge import run_judge
 from rag_engine.adapters.eval_run import current_commit, run_evaluation
 from rag_engine.adapters.eval_validate import validate_bundle, validate_bundle_indexed
 from rag_engine.adapters.inference_records import RecordMode, RecordsOptions
@@ -114,6 +132,28 @@ def _parser() -> argparse.ArgumentParser:
     )
     run.add_argument("--out", type=Path, required=True, help="보고서를 쓰는 폴더")
     _add_config(run)
+    judge = commands.add_parser(
+        "judge", help="상위 10개 조각과 질의의 쌍을 LLM으로 판정해 판정 파일에 쌓는다"
+    )
+    judge.add_argument("bundle", type=Path, help="묶음 폴더")
+    judge.add_argument(
+        "--through",
+        action="append",
+        choices=THROUGH_CHOICES,
+        default=[],
+        help="fused(합친 뒤)와 rerank(리랭크 뒤) 가운데 하나. 그 단계의 상위 10개를 판정한다",
+    )
+    judge.add_argument(
+        "--yes",
+        action="store_true",
+        help="부를 건수와 비용의 어림을 보고 승인한다. 없으면 어림만 찍고 부르지 않는다",
+    )
+    judge.add_argument(
+        "--prune",
+        action="store_true",
+        help="지금의 모델과 지시문 판에 맞지 않는 줄을 판정 파일에서 지운다",
+    )
+    _add_config(judge)
     inspect = commands.add_parser(
         "inspect", help="질의 하나의 글, 기대 근거, 단계별 상위 조각을 표준 출력에 찍는다"
     )
@@ -179,13 +219,17 @@ def main(argv: Sequence[str]) -> int:
     if args.command == "validate":
         indexed: bool = args.indexed
         return _validate(bundle, indexed=indexed)
+    if args.command == "judge":
+        approved: bool = args.yes
+        prune: bool = args.prune
+        return _judge(bundle, args.through, args.config, approved=approved, prune=prune)
     if args.command == "inspect":
         return inspect_evaluation(
             bundle,
             args.query_list,
             args.evidence_id,
             os.environ,
-            through=_stage(args.through),
+            through=_stage_of(args.through),
             config_file=args.config,
         )
     records = _records_options(args)
@@ -199,24 +243,50 @@ def main(argv: Sequence[str]) -> int:
     )
 
 
-def _stage(through: str) -> Stage:
+def _stage_of(through: str) -> Stage:
     return Stage.RERANK if through == "rerank" else Stage.FUSED
+
+
+def _single_stage(command: str, through: list[str]) -> Stage | None:
+    """`--through`의 값이 하나가 아니면 사용법을 알리고 `None`이다."""
+    if len(through) != 1:
+        choices = " 또는 ".join(THROUGH_CHOICES)
+        print(
+            f"{TOOL} {command}: --through는 {choices} 가운데 하나를 한 번만 받는다", file=sys.stderr
+        )
+        return None
+    return _stage_of(through[0])
 
 
 def _run(
     bundle: Path, out: Path, through: list[str], config_file: Path | None, records: RecordsOptions
 ) -> int:
-    if len(through) != 1:
-        choices = " 또는 ".join(THROUGH_CHOICES)
-        print(f"{TOOL} run: --through는 {choices} 가운데 하나를 한 번만 받는다", file=sys.stderr)
+    stage = _single_stage("run", through)
+    if stage is None:
         return EXIT_USAGE
     return run_evaluation(
         bundle,
         out,
         os.environ,
-        through=_stage(through[0]),
+        through=stage,
         commit=current_commit(REPOSITORY),
         records=records,
+        config_file=config_file,
+    )
+
+
+def _judge(
+    bundle: Path, through: list[str], config_file: Path | None, *, approved: bool, prune: bool
+) -> int:
+    stage = _single_stage("judge", through)
+    if stage is None:
+        return EXIT_USAGE
+    return run_judge(
+        bundle,
+        os.environ,
+        through=stage,
+        approved=approved,
+        prune=prune,
         config_file=config_file,
     )
 

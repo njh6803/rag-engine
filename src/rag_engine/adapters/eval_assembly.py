@@ -1,5 +1,5 @@
-"""평가를 도는 하위 명령(`run`, `inspect`)이 함께 지나는 준비와 조립(티켓 search-eval 04, 05, 06,
-명세 "자리와 층").
+"""평가를 도는 하위 명령(`run`, `inspect`, `judge`)이 함께 지나는 준비와 조립(티켓 search-eval 04,
+05, 06, 12, 명세 "자리와 층").
 
 준비(`prepare_evaluation`)는 평가 전용 환경, 묶음, 구성 파일, 목록과 문서 파일의 판정을 지난다.
 하나라도 어기면 오류를 표준 오류에 적고 `None`을 낸다. 그다음 데이터베이스를 읽는
@@ -49,7 +49,13 @@ from rag_engine.adapters.tei import TeiReranker
 from rag_engine.app.check_eval_database import DATABASE_SUBJECT
 from rag_engine.app.check_eval_set import check_eval_set
 from rag_engine.app.check_indexed_documents import check_documents_indexed
-from rag_engine.app.eval_run import EvalRunDeps, EvalRunError
+from rag_engine.app.eval_run import (
+    EvalRunDeps,
+    EvalRunError,
+    EvalRunResult,
+    run_fast_evaluation,
+    run_full_evaluation,
+)
 from rag_engine.app.eval_stages import Stage
 from rag_engine.domain.errors import ConfigurationError, RagEngineError
 from rag_engine.domain.eval_set import EvalProblem, EvalSet
@@ -178,6 +184,16 @@ async def check_ready(database_url: str, eval_set: EvalSet) -> tuple[EvalProblem
         return await check_documents_indexed(PostgresUnitOfWork(engine), eval_set)
     finally:
         await engine.dispose()
+
+
+async def evaluate(prepared: PreparedEvaluation) -> EvalRunResult:
+    """리랭커가 없으면 합친 뒤까지, 있으면 그 끝점의 리랭커로 리랭크 뒤까지 평가한다. `run`과
+    `judge`가 함께 쓴다."""
+    candidates = prepared.eval_set.config.search_candidates
+    async with evaluation_deps(prepared) as (deps, reranker):
+        if reranker is None:
+            return await run_fast_evaluation(deps, prepared.eval_set, candidates=candidates)
+        return await run_full_evaluation(deps, reranker, prepared.eval_set, candidates=candidates)
 
 
 @asynccontextmanager
