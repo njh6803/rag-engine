@@ -174,7 +174,13 @@ def _incomparable(baseline: ComparableReport, new: ComparableReport, gate: Gate)
     for name in gate.record_files:
         before = baseline.record_files.get(name)
         after = new.record_files.get(name)
-        if before != after:
+        if before is None:
+            reasons.append(
+                f"기록 파일 {name}의 해시가 기준 보고서에 없어 견줄 수 없다"
+                f"(기준 {_preview(before)}, 새 {_preview(after)})."
+                " 기록을 읽거나 쓴 실행(--records read|write)의 보고서로 기준을 갱신한다"
+            )
+        elif before != after:
             reasons.append(
                 f"기록 파일 {name}의 해시가 다르다(기준 {_preview(before)}, 새 {_preview(after)})"
             )

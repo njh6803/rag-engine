@@ -49,6 +49,21 @@
 - 확인: 병합 뒤 `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`(0 errors), 겹친 영역의 시험(`test_eval_compare.py`, `test_search_eval_compare.py`, `test_eval_set.py`, `test_eval_report.py`) 88 passed, DB가 필요한 `test_search_eval_judge.py`와 `test_search_eval_compare_records.py` 40 passed. 12의 `judge`가 판정 칸 둘(`judge_model`, `judge_prompt_version`)을 쓰므로 `compare`가 그 둘을 구성 견줌에서 빼는 것이 12와 맞는다.
 - 처음 시험을 돌릴 때 `RAG_TEST_DATABASE_URL`을 내보내지 않아 39개가 환경 오류였고, `-p no:logging`을 준 탓에 `caplog` 시험 하나가 오류였다. 둘 다 내 명령의 실수이고 코드와는 무관하다.
 
+## PR 직전 리뷰
+
+`coderabbit-review` 에이전트가 `coderabbit review --agent --committed --base origin/dev`를 돌렸다. CLI 0.7.5, `Seat: not assigned`, 종료 코드 0으로 `review_completed`, 파일 19개, CLI 지적 2건이다(한도 초과나 거절은 없었다). 에이전트가 코드를 읽고 직접 찾은 지적 6건을 더해 8건이고 Critical과 Major는 0건이다. 중점으로 준 항목(하락폭 경계, 판정 칸 제외와 기록 해시 견줌, 기준 보고서 읽기와 `BundlePaths`, `_chunk_file_hashes` 호환)은 문제를 찾지 못했다고 보고했다. 경계는 질의 수 여덟 가지에 모든 맞힌 수로 정확히 2%p 떨어진 5202쌍을 돌려 거짓 양성 0이었다고 한다(에이전트가 돌린 값이고 이 세션에서 다시 돌리지는 않았다).
+
+- 고쳤다. [Minor, 직접 읽은 지적] 기준 보고서와 새 보고서 모두 기록 파일 해시가 없으면(`--records off`로 만든 보고서끼리) `None != None`이 거짓이라 기록 파일 견줌이 조용히 통과했다. `src/rag_engine/app/eval_compare.py`의 `_incomparable`을 코드로 읽어 맞는 것을 확인했고, 기준 쪽 해시가 없으면 새 쪽 값과 무관하게 견줄 수 없다고 내도록 고쳤다(문구는 `기록 파일 <이름>의 해시가 기준 보고서에 없어 견줄 수 없다(기준 없음, 새 …). 기록을 읽거나 쓴 실행(--records read|write)의 보고서로 기준을 갱신한다`, 기존 시험이 기대하는 `기준 없음`은 그대로다). 시험 `test_양쪽_보고서에_기록_파일_해시가_모두_없어도_견줄_수_없다고_낸다`를 더했다.
+- 고쳤다. [Minor, CLI 지적을 구현의 한계로 읽은 것] 보고서의 조각 임베딩 해시는 `run`이 도는 때의 디스크 바이트라, 기록을 바꿔 `index`를 돌린 뒤 `run` 전에 되돌리면 통과한다. 코드 변경 없이 `adapters/eval_compare.py` 독스트링의 못 보는 것에 이 틈과 빠른 게이트의 잡에서는 열리지 않는다는 판단을 적었다.
+- 남겼다. [Minor, CLI] `_chunk_file_hashes`가 `read_bytes()`로 조각 임베딩 파일 전체를 읽어 해시한다. 같은 함수의 기존 `_file_hashes`도 `read_bytes`이고 묶음에 용량 상한이 있어 새 유형이 아니다. 청크 해시 헬퍼로 두 곳을 함께 바꾸는 일은 이 티켓의 범위 밖이라 일지에만 남긴다.
+- 남겼다. [Minor] 구성 견줌이 파이썬 `!=`라 `True == 1`이다. 지금 `search_config_values`의 칸은 문자열, 정수, 중첩 객체뿐이라 나타나지 않는다. 칸이 불리언이나 부동소수점으로 늘면 그때 견줌을 바꾼다.
+- 남겼다. [Nit] `JUDGE_CONFIG_KEYS`와 `config_values`의 리터럴이 따로 적힌 것은 `tests/domain/test_eval_set.py`의 묶는 시험이 이미 잡는다. 기준 보고서 자리가 폴더나 특수 파일이면 "기준 보고서가 없다"로 안내하는 문구의 부정확, 새 보고서에 같은 `(질의 목록, 단계)` 줄이 둘이면 뒤의 것이 이기는 것(`run`이 중복을 내지 않는다), 반올림이 half-even이라 5e-10 이내의 초과가 통과하는 것은 실제 하락폭에 비해 무시할 수 있어 두었다.
+- 오탐으로 분류한 것은 없다.
+
+반영 뒤 `uv run pytest tests/app/test_eval_compare.py tests/tools/test_search_eval_compare.py` 78 passed, `uv run pyright` 두 파일 0 errors. 전체 검사는 커밋이 부르는 pre-commit이 돌린다.
+
+PR 직전 리뷰가 밀 주장으로 넘기는 새 사실 문장은 둘이다. 하나는 `adapters/eval_compare.py` 독스트링의 "보고서의 조각 임베딩 해시는 `index`가 색인을 만든 때가 아니라 `run`이 도는 때의 디스크 바이트"이고, 다른 하나는 위 문구의 "빠른 게이트의 잡(같은 체크아웃에서 이어 도는 단계)에서는 열리지 않는 틈"이다. 앞의 것은 `inference_records.py`의 `_chunk_file_hashes` 독스트링("디스크의 바이트")과 대 봤고, 뒤의 것은 명세 162행의 빠른 게이트 잡 순서(`validate`, `index`, `validate --indexed`, `run --through fused`, `compare --gate fast`가 한 잡에서 차례로 돈다)에서 읽은 추론이다.
+
 ## 회고
 
 낸 후보 여섯. 승인 4, 기각 2, 넘김 없음.

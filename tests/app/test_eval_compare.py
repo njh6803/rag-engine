@@ -239,6 +239,16 @@ def test_한쪽에만_기록_파일이_있으면_견줄_수_없다고_낸다() -
     assert all("새 없음" in reason for reason in result.incomparable)
 
 
+def test_양쪽_보고서에_기록_파일_해시가_모두_없어도_견줄_수_없다고_낸다() -> None:
+    """`--records off`로 만든 보고서끼리는 기록 파일을 견줄 수 없다. 서로 같다고 읽으면 기록을
+    바꿔도 게이트가 통과한다."""
+    result = compare_reports(_report(files={}), _report(files={}), Gate.FAST)
+
+    assert not result.passed, f"기록 파일 해시가 없는데 통과했다: {result.drops}"
+    assert len(result.incomparable) == len(Gate.FAST.record_files)
+    assert all("기준 보고서에 없어" in reason for reason in result.incomparable)
+
+
 def test_견줄_수_없는_까닭은_모두_모아_낸다() -> None:
     changed: dict[str, JsonValue] = {**CONFIG, "search_candidates": 10}
 
