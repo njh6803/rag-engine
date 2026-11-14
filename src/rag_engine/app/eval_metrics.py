@@ -12,11 +12,16 @@ nDCG에서 기대 근거 하나는 처음 닿은 순위에서 한 번만 이득 
 """
 
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
 from rag_engine.app.eval_passages import normalize_text
+from rag_engine.domain.eval_set import Expectation, PassageEvidence
+
+# 문서의 키마다 그 문서의 블록 순번과 그 블록이 놓인 쪽 번호다(쪽이 없는 블록은 `None`). 최신 파싱
+# 결과에서 읽고, 쪽으로 적은 기대 근거가 있는 문서만 든다.
+type BlockPages = Mapping[str, Mapping[int, int | None]]
 
 TOP_K: Final = 10
 HIT_CUTOFFS: Final = (1, 3, 5, 10)
@@ -29,6 +34,27 @@ def passage_reaches(passage: str, chunk_text: str) -> bool:
     문자열로 본다(`normalize_text`). 조각 글은 절 경로 줄을 뺀 `text`다. 글귀가 조각의 경계에서
     갈리면 닿지 않는다."""
     return normalize_text(passage) in normalize_text(chunk_text)
+
+
+def reaches(
+    expectation: Expectation,
+    key: str,
+    text: str,
+    block_range: tuple[int, int],
+    pages: BlockPages,
+) -> bool:
+    """조각이 기대 근거에 닿는지 본다. 기대 근거의 문서는 (원천, 키)의 키로 가리키고 조각의 문서가
+    그 문서일 때만 닿는다. 글귀로 적은 기대 근거는 조각 글(`text`)에 글귀가 들면 닿고, 쪽으로 적은
+    기대 근거는 조각이 덮은 블록(`block_range`, 양 끝 포함)의 쪽 번호 가운데 기대한 쪽이 있으면
+    닿는다. 조각의 근거 위치에 실린 쪽은 첫 블록의 것뿐이라 두 쪽에 걸친 조각을 놓치기 때문에
+    블록의 쪽을 직접 본다."""
+    if key != expectation.document:
+        return False
+    if isinstance(expectation, PassageEvidence):
+        return passage_reaches(expectation.passage, text)
+    first, last = block_range
+    block_pages = pages.get(key, {})
+    return any(block_pages.get(ordinal) == expectation.page for ordinal in range(first, last + 1))
 
 
 @dataclass(frozen=True, slots=True)

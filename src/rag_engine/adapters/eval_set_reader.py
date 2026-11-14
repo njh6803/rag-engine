@@ -17,6 +17,7 @@
 import re
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, ValidationError
@@ -177,10 +178,11 @@ class _Miss(_Model):
     confirmed: bool
 
 
-def read_eval_set(paths: BundlePaths) -> EvalSet:
-    """묶음을 읽는다. 하나라도 틀리면 모든 오류를 든 `EvalSetFormatError`를 올린다."""
+def read_eval_set(paths: BundlePaths, *, config_file: Path | None = None) -> EvalSet:
+    """묶음을 읽는다. 하나라도 틀리면 모든 오류를 든 `EvalSetFormatError`를 올린다. `config_file`을
+    주면 묶음의 `config.json` 대신 그 파일을 구성으로 읽는다(`--config`)."""
     header = _read_header(paths)
-    config, config_problems = _attempt(lambda: _read_config(paths))
+    config, config_problems = _attempt(lambda: _read_config(paths, config_file))
     documents, document_problems = _attempt(lambda: _read_documents(paths, header.documents))
     evidence, evidence_problems = _attempt(lambda: _read_evidence(paths, header.evidence))
     reviews, review_problems = _attempt(lambda: _read_miss_reviews(paths))
@@ -245,8 +247,14 @@ def _major_of(version: str) -> int | None:
     return int(matched.group(1)) if matched else None
 
 
-def _read_config(paths: BundlePaths) -> EvalConfig:
-    config = _parse(CONFIG_FILE, _read_text(paths, CONFIG_FILE, None), _Config)
+def _read_config(paths: BundlePaths, config_file: Path | None) -> EvalConfig:
+    """`config_file`이 있으면 그 파일을, 없으면 묶음의 `config.json`을 읽는다. 준 파일은 부르는
+    사람이 고른 자리라 묶음 폴더 밖이어도 되고 묶음의 경로 판정을 거치지 않는다."""
+    if config_file is None:
+        config = _parse(CONFIG_FILE, _read_text(paths, CONFIG_FILE, None), _Config)
+    else:
+        where = f"--config {config_file}"
+        config = _parse(where, _read_file(config_file, where), _Config)
     return EvalConfig(
         embedding_model=config.embedding_model,
         embedding_dimensions=config.embedding_dimensions,
@@ -358,19 +366,24 @@ def _read_text(paths: BundlePaths, relative: str, field: str | None) -> str:
         if field is None:
             raise _fail(relative, str(error)) from None
         raise _fail(HEADER_FILE, f"{field}: {error}") from None
+    return _read_file(path, relative)
+
+
+def _read_file(path: Path, where: str) -> str:
+    """파일 하나의 글. `where`는 오류가 짚는 이름이다."""
     try:
         # 폴더나 FIFO를 열면 읽기가 돌아오지 않을 수 있어 열기 전에 일반 파일인지 본다.
         if path.exists() and not path.is_file():
-            raise _fail(relative, "일반 파일이 아니다")
+            raise _fail(where, "일반 파일이 아니다")
         data = path.read_bytes()
     except FileNotFoundError:
-        raise _fail(relative, "파일이 없다") from None
+        raise _fail(where, "파일이 없다") from None
     except OSError:
-        raise _fail(relative, "파일을 읽지 못했다") from None
+        raise _fail(where, "파일을 읽지 못했다") from None
     try:
         return data.decode("utf-8")
     except UnicodeDecodeError:
-        raise _fail(relative, "UTF-8 글이 아니다") from None
+        raise _fail(where, "UTF-8 글이 아니다") from None
 
 
 def _parse[M: BaseModel](where: str, text: str, model: type[M]) -> M:

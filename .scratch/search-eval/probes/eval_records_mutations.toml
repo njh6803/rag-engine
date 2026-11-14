@@ -135,19 +135,21 @@ expect = "red"
 expect_output = ["Differing items:"]
 
 [[mutation.edit]]
-file = "src/rag_engine/adapters/eval_run.py"
-old = '''print(f"평가를 끝내지 못했다: {error}", file=sys.stderr)'''
-new = '''print(f"평가를 끝내지 못했다: {error}", file=sys.stderr)
-        records_run.commit()'''
+file = "src/rag_engine/adapters/eval_assembly.py"
+old = '''            for notice in records_run.notices():
+                print(notice, file=sys.stderr)'''
+new = '''            for notice in records_run.notices():
+                print(notice, file=sys.stderr)
+            records_run.commit()'''
 
 [[mutation]]
 name = "빠른 실행의 주인 파일에 리랭크를 넣는다"
 tests = ["tests/tools/test_search_eval_records.py::test_빠른_실행의_write는_리랭크_기록을_건드리지_않고_보고서에도_싣지_않는다"]
 expect = "red"
-expect_output = ["빠른 실행 뒤 리랭크 기록의 바이트 수: 0"]
+expect_output = ["빠른 실행 보고서에 리랭크 기록이 실렸는지: True"]
 
 [[mutation.edit]]
-file = "src/rag_engine/adapters/eval_run.py"
+file = "src/rag_engine/adapters/eval_assembly.py"
 old = '''owned=(*owned, RecordKind.RERANK) if through is Stage.RERANK else owned,'''
 new = '''owned=(*owned, RecordKind.RERANK),'''
 
@@ -180,7 +182,7 @@ expect = "red"
 expect_output = ["기록이 있는데 질의로 서버에 간 글 수: 2"]
 
 [[mutation.edit]]
-file = "src/rag_engine/adapters/eval_run.py"
+file = "src/rag_engine/adapters/eval_assembly.py"
 old = '''            embedder_for=(
                 embedder_for
                 if query_recorder is None
@@ -195,7 +197,7 @@ expect = "red"
 expect_output = ["끝점 없이 기록으로 돈 전체 실행의 종료 코드: 1"]
 
 [[mutation.edit]]
-file = "src/rag_engine/adapters/eval_run.py"
+file = "src/rag_engine/adapters/eval_assembly.py"
 old = '''if records.mode is RecordMode.OFF:
         return require_reranker_url(environment)'''
 new = '''if True:

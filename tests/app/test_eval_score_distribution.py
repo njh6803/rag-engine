@@ -9,8 +9,9 @@
 
 import pytest
 
-from rag_engine.app.eval_run import QueryOutcome, ScoredCandidate, Stage
+from rag_engine.app.eval_run import QueryOutcome, ScoredCandidate
 from rag_engine.app.eval_score_distribution import ScoreDistribution, build_score_distribution
+from rag_engine.app.eval_stages import Stage
 
 
 def _outcome(*scored: tuple[float, bool]) -> QueryOutcome:
@@ -119,3 +120,14 @@ def test_상위_5와_상위_10은_남은_조각의_순위로_센다() -> None:
 
 def test_질의가_하나도_없으면_분포가_없다() -> None:
     assert build_score_distribution(()) is None
+
+
+def test_점수가_없는_질의는_후보가_없는_질의로_세지_않고_오류로_끝낸다() -> None:
+    """빠른 실행의 질의(`scored`가 `None`)와 후보가 없었던 전체 실행의 질의(빈 튜플)는 다르다. 앞의
+    것을 분포에 넣으면 점수를 재지 않은 질의가 빈 질의의 비율을 올린다."""
+    fast = QueryOutcome(
+        query_list="human", evidence_id="q", expected=1, reach={stage: () for stage in Stage}
+    )
+
+    with pytest.raises(ValueError, match="점수"):
+        build_score_distribution([fast])

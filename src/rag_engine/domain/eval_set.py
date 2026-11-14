@@ -10,6 +10,8 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Final
 
+from rag_engine.domain.entities import JsonValue
+
 # 도구가 받는 묶음 형식의 major다. major가 다른 판의 묶음은 거부한다.
 SUPPORTED_FORMAT_MAJOR: Final = 1
 
@@ -129,6 +131,32 @@ class EvalConfig:
     tei_version: str
     judge_model: str
     judge_prompt_version: str
+
+
+def search_config_values(config: EvalConfig) -> dict[str, JsonValue]:
+    """검색의 숫자에 닿는 구성의 칸. 묶음의 내용 해시와 `compare`의 구성 비교가 쓴다. 판정 칸
+    (`judge_model`, `judge_prompt_version`)은 검색의 숫자에 닿지 않는 참고 숫자의 열쇠라서 뺀다."""
+    return {
+        "embedding_model": config.embedding_model,
+        "embedding_dimensions": config.embedding_dimensions,
+        "reranker_model": config.reranker_model,
+        "chunking": {
+            "strategy": config.chunking.strategy,
+            "max_tokens": config.chunking.max_tokens,
+            "overlap_tokens": config.chunking.overlap_tokens,
+        },
+        "search_candidates": config.search_candidates,
+        "tei_version": config.tei_version,
+    }
+
+
+def config_values(config: EvalConfig) -> dict[str, JsonValue]:
+    """보고서의 `config` 칸. 검색 구성의 칸에 판정 칸을 더한다."""
+    return {
+        **search_config_values(config),
+        "judge_model": config.judge_model,
+        "judge_prompt_version": config.judge_prompt_version,
+    }
 
 
 @dataclass(frozen=True, slots=True)

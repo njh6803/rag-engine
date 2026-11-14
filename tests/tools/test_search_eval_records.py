@@ -578,7 +578,8 @@ def test_빠른_실행의_write는_리랭크_기록을_건드리지_않고_보�
     )
     files = _records_of(tmp_path / "fast")["files"]
     assert isinstance(files, dict)
-    assert "records/rerank.jsonl" not in files
+    listed = "records/rerank.jsonl" in files
+    assert not listed, f"빠른 실행 보고서에 리랭크 기록이 실렸는지: {listed}"
     del world
 
 

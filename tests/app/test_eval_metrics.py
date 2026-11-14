@@ -10,12 +10,15 @@ import unicodedata
 import pytest
 
 from rag_engine.app.eval_metrics import (
+    BlockPages,
     QueryScore,
     StageMetrics,
     aggregate,
     passage_reaches,
+    reaches,
     score_query,
 )
+from rag_engine.domain.eval_set import PageEvidence, PassageEvidence
 
 NONE: frozenset[int] = frozenset()
 FIRST: frozenset[int] = frozenset({0})
@@ -139,3 +142,36 @@ def test_공백과_줄바꿈과_NFC가_달라도_닿는다() -> None:
 def test_글귀가_조각의_경계에서_갈리면_닿지_않는다() -> None:
     assert not passage_reaches("연차휴가는 입사 일 년 뒤부터 발생한다", "연차휴가는 입사 일 년")
     assert not passage_reaches("연차휴가는 입사 일 년 뒤부터 발생한다", "뒤부터 발생한다")
+
+
+# 문서 `a.pdf`의 블록 순번(0부터)과 그 블록이 놓인 쪽이다. 블록 2는 쪽이 없다.
+PAGES: BlockPages = {"a.pdf": {0: 1, 1: 1, 2: None, 3: 2, 4: 3}}
+
+
+def test_쪽으로_적은_기대_근거는_덮은_블록의_쪽_번호에_기대한_쪽이_있으면_닿는다() -> None:
+    assert reaches(PageEvidence(document="a.pdf", page=2), "a.pdf", "조각 글", (3, 3), PAGES)
+
+
+def test_두_쪽에_걸친_조각은_첫_블록이_아닌_쪽의_기대_근거에도_닿는다() -> None:
+    """근거 위치에 실린 쪽은 첫 블록의 것(1쪽)뿐이지만, 블록 1~3을 덮으므로 2쪽에도 닿는다."""
+    assert reaches(PageEvidence(document="a.pdf", page=2), "a.pdf", "조각 글", (1, 3), PAGES)
+
+
+def test_덮은_블록의_쪽에_기대한_쪽이_없으면_닿지_않는다() -> None:
+    assert not reaches(PageEvidence(document="a.pdf", page=3), "a.pdf", "조각 글", (0, 3), PAGES)
+
+
+def test_쪽이_없는_블록만_덮은_조각은_쪽으로_적은_기대_근거에_닿지_않는다() -> None:
+    assert not reaches(PageEvidence(document="a.pdf", page=1), "a.pdf", "글", (2, 2), PAGES)
+
+
+def test_쪽으로_적은_기대_근거는_다른_문서의_조각에_닿지_않는다() -> None:
+    assert not reaches(PageEvidence(document="a.pdf", page=2), "b.pdf", "글", (3, 3), PAGES)
+
+
+def test_글귀로_적은_기대_근거는_문서가_같고_글귀가_조각_글에_들_때만_닿는다() -> None:
+    expectation = PassageEvidence(document="a.pdf", passage="연차 발생")
+
+    assert reaches(expectation, "a.pdf", "연차 발생 시기", (0, 0), PAGES)
+    assert not reaches(expectation, "b.pdf", "연차 발생 시기", (0, 0), PAGES)
+    assert not reaches(expectation, "a.pdf", "출장비 정산", (0, 0), PAGES)
