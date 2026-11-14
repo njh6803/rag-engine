@@ -64,6 +64,9 @@ class TeiStub:
     # `/v1/embeddings` 요청을 받을 때마다 지금까지 받은 임베딩 요청의 수(이번 요청 포함)를 넘겨
     # 부른다. 평가 도중 판이 바뀌는 시험이 질의 사이에 판을 바꾸는 걸이다(티켓 search-eval 04).
     on_embeddings: Callable[[int], None] | None = None
+    # 시험이 글마다 임베딩을 직접 정한다. 후보 목록의 순서를 정확히 짜야 하는 시험이 쓴다(티켓
+    # search-eval 06). 없으면 낱말 주머니 벡터다.
+    embed_with: Callable[[str], Sequence[float]] | None = None
     requests: list[RecordedRequest] = field(default_factory=lambda: [])
     forced_statuses: dict[str, int] = field(default_factory=lambda: {})
     app: FastAPI = field(init=False)
@@ -135,7 +138,15 @@ class TeiStub:
             if len(_units(text)) + self.special_tokens > self.max_input_length:
                 return _error(413, f"`inputs` must have less than {self.max_input_length} tokens")
         data = [
-            {"object": "embedding", "index": i, "embedding": _vector(text, self.dimensions)}
+            {
+                "object": "embedding",
+                "index": i,
+                "embedding": (
+                    _vector(text, self.dimensions)
+                    if self.embed_with is None
+                    else list(self.embed_with(text))
+                ),
+            }
             for i, text in enumerate(texts)
         ]
         return JSONResponse(

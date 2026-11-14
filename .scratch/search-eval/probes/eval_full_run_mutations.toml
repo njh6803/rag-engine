@@ -85,8 +85,8 @@ expect_output = ["Obtained: 1.0"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/eval_run.py"
-old = '''reach[Stage.RERANK] = _reach(item, [hit for hit, _ in ranked])'''
-new = '''reach[Stage.RERANK] = _reach(item, fused)'''
+old = '''rankings[Stage.RERANK] = tuple(hit for hit, _ in ranked)'''
+new = '''rankings[Stage.RERANK] = rankings[Stage.FUSED]'''
 
 [[mutation]]
 name = "리랭커 끝점이 없는 전체 실행을 거부하지 않는다"
@@ -107,5 +107,5 @@ expect_output = ["Right contains one more item"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/eval_run.py"
-old = '''ranked = await _rerank(reranker, query.query, fused)'''
-new = '''ranked = await _rerank(reranker, query.query, fused[:1])'''
+old = '''ranked = await rerank_candidates(self.reranker, query.query, rankings[Stage.FUSED])'''
+new = '''ranked = await rerank_candidates(self.reranker, query.query, rankings[Stage.FUSED][:1])'''
