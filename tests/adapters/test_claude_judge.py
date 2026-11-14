@@ -10,6 +10,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 
 import pytest
+from anthropic import AsyncAnthropic
 from tests.support.claude_server import serve_claude_stub
 from tests.support.claude_stub import (
     JUDGE_API_KEY,
@@ -18,6 +19,7 @@ from tests.support.claude_stub import (
     ClaudeStub,
 )
 
+from rag_engine.adapters import claude_judge
 from rag_engine.adapters.claude_judge import PROMPT_VERSION, ClaudeRelevanceJudge
 from rag_engine.adapters.judge_settings import JudgeSettings
 from rag_engine.domain.entities import JsonValue
@@ -175,7 +177,14 @@ async def test_생각_블록이_앞서_와도_글_블록의_판정을_읽는다(
 
 @pytest.mark.parametrize(
     ("name", "child"),
-    [("anthropic", "anthropic"), ("httpx2", "httpx2"), ("httpcore2", "httpcore2.http11")],
+    [
+        ("anthropic", "anthropic"),
+        ("httpx2", "httpx2"),
+        ("httpcore2", "httpcore2.http11"),
+        # 요청의 본문을 찍는 로거는 `anthropic`의 자식 `anthropic._base_client`다. 호출하는 쪽이 이
+        # 자식에 수준을 직접 주면 부모를 되돌려도 그 수준이 이긴다.
+        ("anthropic._base_client", "anthropic._base_client"),
+    ],
 )
 def test_SDK_로거의_수준을_경고로_되돌려_요청_본문이_로그에_가지_않게_한다(
     name: str, child: str
@@ -187,3 +196,23 @@ def test_SDK_로거의_수준을_경고로_되돌려_요청_본문이_로그에_
     ClaudeRelevanceJudge(JudgeSettings(url="http://127.0.0.1:1", model="m", api_key="k"))
 
     assert logging.getLogger(child).getEffectiveLevel() >= logging.WARNING
+
+
+def test_SDK의_OpenTelemetry_추적을_끄고_환경_변수가_본문을_켜도_추적은_꺼진다(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # SDK는 `open_telemetry`를 받지 못하면 이 환경 변수로 span에 글을 싣는 방식을 고른다.
+    monkeypatch.setenv("ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE", "content")
+    seen: dict[str, object] = {}
+
+    class _Spy:
+        def __init__(self, **kwargs: object) -> None:
+            seen.update(kwargs)
+
+    monkeypatch.setattr(claude_judge, "AsyncAnthropic", _Spy)
+    ClaudeRelevanceJudge(JudgeSettings(url="http://127.0.0.1:1", model="m", api_key="k"))
+
+    assert seen.get("open_telemetry") is False
+    # 그 값이 정말 추적을 끄는지는 SDK가 정한다. 같은 환경에서 실제 클라이언트로 본다.
+    client = AsyncAnthropic(api_key="k", open_telemetry=False)
+    assert client.open_telemetry["traces"]["enabled"] is False

@@ -22,6 +22,10 @@
 호스트와 포트, 응답의 상태와 헤더를 붙여 찍고(`_trace.py`), 요청은 메서드만 찍어 요청의 헤더 값과
 본문은 싣지 않는다(`_models.py`의 `Request.__repr__`). 모두 소스에서 읽었고 본문을 싣는 호출은
 찾지 못했다. 로그를 실제로 켜서 재지는 않았다. 그래서 본문 여부와 관계없이 두 로거의 수준도 올린다.
+요청의 본문을 찍는 로거는 `anthropic`의 자식 `anthropic._base_client`라, 호출하는 쪽이 이 자식에
+수준을 직접 주었어도 이기도록 이름을 찍어 올린다. 로그와 별개로 SDK는 환경 변수
+`ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE=content`와 OpenTelemetry의 추적기가 함께 설정되면
+질의와 조각의 글을 span에 실을 수 있어(`_tracing.py`), `open_telemetry=False`로 추적을 끈다.
 
 못 보는 것. 실제 API의 응답 모양은 가짜 끝점이 흉내 낸 것이라 이 파일의 시험이 말하지 않는다
 (프로브 `.scratch/search-eval/probes/judge-call/`이 실제 호출로 잰다).
@@ -63,7 +67,10 @@ _TIMEOUT_SECONDS: Final = 120.0
 _RETRYABLE_STATUSES: Final = frozenset({408, 409, 429})
 # 요청과 응답을 INFO나 DEBUG 수준에서 찍는 로거들이다. 설치된 SDK 2.8.0은 `httpx`와 `httpcore`가
 # 아니라 `httpx2`와 `httpcore2`를 쓴다(`anthropic/_utils/_logs.py`, `httpx2/_client.py`).
-_QUIET_LOGGERS: Final = ("anthropic", "httpx2", "httpcore2")
+#
+# `anthropic._base_client`는 요청 본문을 찍는 `anthropic`의 자식이다. 자식에 수준이 직접 주어져
+# 있으면 부모를 되돌려도 그 수준이 이기므로(시험이 이 경우를 고정한다) 이름을 찍어 올린다.
+_QUIET_LOGGERS: Final = ("anthropic", "anthropic._base_client", "httpx2", "httpcore2")
 _UNREADABLE: Final = "판정기의 응답을 읽을 수 없다"
 
 
@@ -78,6 +85,9 @@ class ClaudeRelevanceJudge:
             api_key=settings.api_key,
             max_retries=0,
             timeout=_TIMEOUT_SECONDS,
+            # 받지 못하면 SDK가 환경 변수(`ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE=content`)로
+            # span에 질의와 조각의 글을 싣는 방식을 고른다. `False`는 추적을 끈다.
+            open_telemetry=False,
         )
         self._model = settings.model
 
