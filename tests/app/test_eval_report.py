@@ -7,6 +7,7 @@
 import json
 from datetime import UTC, datetime
 
+from rag_engine.app.eval_judgments import LlmUnavailable
 from rag_engine.app.eval_misses import MissCause
 from rag_engine.app.eval_report import (
     REPORT_FORMAT_VERSION,
@@ -125,6 +126,7 @@ def _fast_report_values() -> dict[str, JsonValue]:
         stages=FAST_STAGES,
         run_at=RUN_AT,
         commit=None,
+        llm=LlmUnavailable("판정 파일이 없다"),
     )
     return report_json(report)
 
@@ -223,6 +225,7 @@ def test_전체_실행의_지표는_리랭크_뒤_단계에_대해_낸다() -> N
         stages=FULL_STAGES,
         run_at=RUN_AT,
         commit=None,
+        llm=LlmUnavailable("판정 파일이 없다"),
     )
 
     values = report_json(report)
@@ -252,6 +255,7 @@ def test_보고서는_json으로_직렬화되고_마크다운은_같은_값을_�
         stages=FAST_STAGES,
         run_at=RUN_AT,
         commit=None,
+        llm=LlmUnavailable("판정 파일이 없다"),
     )
 
     json.dumps(report_json(report), ensure_ascii=False)

@@ -39,18 +39,31 @@ from rag_engine.adapters.eval_assembly import (
     EXIT_OK,
     PreparedEvaluation,
     check_ready,
-    evaluation_deps,
+    evaluate,
     guarded,
     prepare_evaluation,
     report_problems,
 )
 from rag_engine.adapters.eval_bundle_hash import bundle_content_hash
+from rag_engine.adapters.eval_judgments_file import (
+    JudgmentFileError,
+    judgments_path,
+    read_judgments,
+)
 from rag_engine.adapters.inference_record_files import failure_reason
 from rag_engine.adapters.inference_records import RecordsOptions
 from rag_engine.adapters.postgres.engine import run_in_selector_loop
+from rag_engine.app.eval_judgments import (
+    JUDGMENTS_FILE,
+    Judgment,
+    LlmNumbers,
+    LlmUnavailable,
+    llm_summary,
+)
 from rag_engine.app.eval_report import build_report, report_json, report_markdown
-from rag_engine.app.eval_run import EvalRunResult, run_fast_evaluation, run_full_evaluation
+from rag_engine.app.eval_run import EvalRunResult
 from rag_engine.app.eval_stages import FAST_STAGES, FULL_STAGES, Stage
+from rag_engine.domain.eval_set import EvalSet
 
 REPORT_JSON: Final = "report.json"
 REPORT_MARKDOWN: Final = "report.md"
@@ -111,6 +124,14 @@ def run_evaluation(
     )
     if prepared is None:
         return EXIT_FAILED
+    try:
+        judgments = read_judgments(judgments_path(prepared.paths))
+    except JudgmentFileError as error:
+        print(error, file=sys.stderr)
+        return EXIT_FAILED
+    except (OSError, BundlePathError) as error:
+        print(f"{JUDGMENTS_FILE}을 읽지 못했다({type(error).__name__})", file=sys.stderr)
+        return EXIT_FAILED
     records_run = prepared.records_run
     evaluated = guarded(lambda: _check_and_evaluate(prepared), records_run)
     if evaluated is None:
@@ -128,6 +149,7 @@ def run_evaluation(
         stages=FULL_STAGES if through is Stage.RERANK else FAST_STAGES,
         run_at=datetime.now(UTC),
         commit=commit,
+        llm=_llm_numbers(prepared.eval_set, result, judgments),
         records=summary,
     )
     json_text = json.dumps(report_json(report), ensure_ascii=False, indent=2) + "\n"
@@ -145,6 +167,19 @@ def run_evaluation(
     return EXIT_OK
 
 
+def _llm_numbers(
+    eval_set: EvalSet, result: EvalRunResult, judgments: list[Judgment] | None
+) -> LlmNumbers | LlmUnavailable:
+    """판정 파일의 줄로 센 LLM 숫자. 판정 파일의 열쇠는 `config.json`의 `judge_model`과
+    `judge_prompt_version`이다. 판정기의 설정(`RAG_JUDGE_*`)은 읽지 않는다."""
+    return llm_summary(
+        result.outcomes,
+        judgments,
+        model=eval_set.config.judge_model,
+        prompt_version=eval_set.config.judge_prompt_version,
+    )
+
+
 def _check_and_evaluate(prepared: PreparedEvaluation) -> tuple[str, EvalRunResult] | None:
     """데이터베이스를 읽는 판정(3과 4)을 지난 뒤 묶음의 내용 해시와 평가 결과를 낸다. 판정에
     걸리면 이유를 적고 `None`이다."""
@@ -155,21 +190,10 @@ def _check_and_evaluate(prepared: PreparedEvaluation) -> tuple[str, EvalRunResul
     if problems:
         report_problems(problems)
         return None
-    return content_hash, run_in_selector_loop(_evaluate(prepared))
+    return content_hash, run_in_selector_loop(evaluate(prepared))
 
 
 def _write_reports(out: Path, json_text: str, markdown_text: str) -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / REPORT_JSON).write_bytes(json_text.encode())
     (out / REPORT_MARKDOWN).write_bytes(markdown_text.encode())
-
-
-async def _evaluate(prepared: PreparedEvaluation) -> EvalRunResult:
-    """리랭커가 없으면 합친 뒤까지, 있으면 그 리랭커로 리랭크 뒤까지 평가한다. 질의의 임베딩과
-    리랭크는 추론 기록기를 거친다(`evaluation_deps`). 리랭크 기록기가 있는 전체 실행은 끝점이 없어도
-    기록에 있는 쌍으로 돌고, 기록에 없는 쌍 하나에서 멈춘다."""
-    candidates = prepared.eval_set.config.search_candidates
-    async with evaluation_deps(prepared) as (deps, reranker):
-        if reranker is None:
-            return await run_fast_evaluation(deps, prepared.eval_set, candidates=candidates)
-        return await run_full_evaluation(deps, reranker, prepared.eval_set, candidates=candidates)

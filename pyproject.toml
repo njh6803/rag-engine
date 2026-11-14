@@ -28,6 +28,7 @@ dependencies = [
     "python-docx>=1.2,<2",
     "pdfplumber>=0.11.10,<0.12",
     "python-hwpx>=6.11,<7",
+    "anthropic>=2.8,<3",
 ]
 
 [project.scripts]
@@ -128,10 +129,11 @@ layers = [
     "rag_engine.domain",
 ]
 
-# domain 과 app 이 쓰는 서드파티는 uuid6 하나다(명세 "층, 패키지, 조립"). 아래 열여섯은 어느 쪽도
-# import 하지 못한다. 목록에 없는 서드파티(uuid6)는 막지 않는다.
+# domain 과 app 이 쓰는 서드파티는 uuid6 하나다(명세 "층, 패키지, 조립"). 아래 열일곱은 어느 쪽도
+# import 하지 못한다. 목록에 없는 서드파티(uuid6)는 막지 않는다. `anthropic` 은 관련성 판정기(ADR 0019)가
+# 들어오며 더했다. SDK 는 adapters 에서만 쓴다.
 [[tool.importlinter.contracts]]
-name = "domain and app import none of the sixteen listed third-party packages"
+name = "domain and app import none of the seventeen listed third-party packages"
 type = "forbidden"
 source_modules = [
     "rag_engine.domain",
@@ -154,4 +156,5 @@ forbidden_modules = [
     "pdfminer",
     "docx",
     "hwpx",
+    "anthropic",
 ]

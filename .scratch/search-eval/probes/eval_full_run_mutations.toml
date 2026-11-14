@@ -25,8 +25,8 @@ expect_output = ["['a', 'b']"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/eval_run.py"
-old = '''compose_index_text(hit.hit.location.section, hit.hit.text)'''
-new = '''hit.hit.text'''
+old = '''return [compose_index_text(hit.hit.location.section, hit.hit.text) for hit in hits]'''
+new = '''return [hit.hit.text for hit in hits]'''
 
 [[mutation]]
 name = "문턱이 그 값과 같은 조각을 뺀다"

@@ -42,6 +42,13 @@
 - 실제 TEI(Docker와 GPU)를 띄운 실행은 하지 않았다.
 - 커밋 전에 `mutate.py --staged`를 먼저 돌렸다(07의 첫 커밋 시도가 이 검사에 막힌 기억에서다). 변이 12, 15, 17의 표지가 pytest의 단언 풀이 줄(`assert 0 == 1`, `where 1 = _compare(…`, `CompareResult(…).passed`)이라 거부되었다. 시험 단언에 값을 실은 메시지를 달고(`assert code == 1, f"하락폭을 넘는 하락의 종료 코드: {code}"` 꼴) 그 문구를 표지로 바꾼 뒤 세 변이를 돌려 기대한 빨강을 봤고, `--staged`가 문제 0으로 지나갔다.
 
+## origin/dev 병합
+
+커밋 `5a9faf6` 뒤 `git fetch origin`으로 보니 `origin/dev`가 티켓 12(#47, `judge` 하위 명령)를 받아 앞서 있었다. `git merge origin/dev`는 `tools/search_eval.py`와 `app/eval_report.py`를 자동으로 합치고 `README.md`의 `tools/` 줄 한 곳에서만 충돌했다. 12의 문장(`judge`가 마지막 단계의 상위 10개를 판정하고 `run`이 그 파일로 `llm` 숫자를 센다)을 기준으로 두고 끝에 이 PR의 `compare` 문장을 이었다. 생성 파일 `.scratch/plan.md`는 `tools/plan_table.py`를 다시 돌려도 달라지지 않았다.
+
+- 확인: 병합 뒤 `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`(0 errors), 겹친 영역의 시험(`test_eval_compare.py`, `test_search_eval_compare.py`, `test_eval_set.py`, `test_eval_report.py`) 88 passed, DB가 필요한 `test_search_eval_judge.py`와 `test_search_eval_compare_records.py` 40 passed. 12의 `judge`가 판정 칸 둘(`judge_model`, `judge_prompt_version`)을 쓰므로 `compare`가 그 둘을 구성 견줌에서 빼는 것이 12와 맞는다.
+- 처음 시험을 돌릴 때 `RAG_TEST_DATABASE_URL`을 내보내지 않아 39개가 환경 오류였고, `-p no:logging`을 준 탓에 `caplog` 시험 하나가 오류였다. 둘 다 내 명령의 실수이고 코드와는 무관하다.
+
 ## 회고
 
 낸 후보 여섯. 승인 4, 기각 2, 넘김 없음.

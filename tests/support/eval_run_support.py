@@ -167,6 +167,9 @@ class Report(Strict):
     records: ReportRecords
     meta: ReportMeta
     score_distribution: Distribution | None = None
+    # LLM 관련성 판정의 칸은 `test_search_eval_judge.py`가 자기 모델로 읽는다. 여기서는 받기만 한다.
+    llm: dict[str, JsonValue] | None = None
+    llm_unavailable: str | None = None
 
     def row(self, query_list: str, stage: str) -> ReportRow:
         (found,) = [r for r in self.rows if r.query_list == query_list and r.stage == stage]

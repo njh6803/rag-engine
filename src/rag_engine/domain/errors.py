@@ -1,8 +1,9 @@
 """오류 코드와 이 저장소의 예외 계층. 코드의 이름은 이 파일 한 자리에서만 정의한다.
 
-작업 코드 열넷(`internal_error` 포함)과 HTTP·도구 코드 전부가 `ErrorCode` 하나에 든다. 뒤의 티켓은
-이 자리의 이름만 쓰고 문자열을 새로 짓지 않는다(명세 "수집 파이프라인과 작업", "관리 API", "MCP
-도구").
+작업 코드 열넷(`internal_error` 포함)과 HTTP·도구 코드 전부가 `ErrorCode` 하나에 든다. 판정기의
+코드 둘(`judge_unavailable`, `judge_rejected`)도 여기 있지만 작업 코드가 아니라서 작업 코드의
+집합에는 들지 않고 `JUDGE_*_FAILURE_CODES`에 따로 든다. 뒤의 티켓은 이 자리의 이름만 쓰고 문자열을
+새로 짓지 않는다(명세 "수집 파이프라인과 작업", "관리 API", "MCP 도구").
 
 예외의 메시지는 이 저장소가 쓴 글만 담는다. 서드파티 예외의 메시지는 옮기지 않는다. 질의, 문서 내용,
 연결 정보가 들 수 있어서다(원칙 V, ADR 0015).
@@ -42,6 +43,9 @@ class ErrorCode(StrEnum):
     REINDEX_IN_PROGRESS = "reindex_in_progress"
     SEARCH_UNAVAILABLE = "search_unavailable"
     INVALID_ARGUMENT = "invalid_argument"
+    # 관련성 판정기(ADR 0019). 평가 도구만 쓰고 작업 행과 응답에는 나가지 않는다.
+    JUDGE_UNAVAILABLE = "judge_unavailable"
+    JUDGE_REJECTED = "judge_rejected"
 
 
 # 영구 실패의 코드. 다시 시도하지 않고 작업이 `failed`로 끝난다.
@@ -67,6 +71,11 @@ TRANSIENT_FAILURE_CODES = frozenset(
         ErrorCode.BLOB_STORE_ERROR,
     }
 )
+
+# 관련성 판정기(`RelevanceJudge`)의 실패 코드. 위 집합에 넣지 않는다. 넣으면 작업 행의 오류 코드
+# 칸에 들어갈 수 있는 값(아래 `JOB_ERROR_CODES`)이 늘기 때문이다.
+JUDGE_PERMANENT_FAILURE_CODES = frozenset({ErrorCode.JUDGE_REJECTED})
+JUDGE_TRANSIENT_FAILURE_CODES = frozenset({ErrorCode.JUDGE_UNAVAILABLE})
 
 # 작업 행과 문서·색인 상태의 오류 코드 칸에 들어갈 수 있는 값 열넷.
 JOB_ERROR_CODES = (
@@ -137,7 +146,7 @@ class PermanentFailure(RagEngineError):
     """영구 실패. 같은 입력으로 다시 해도 같은 결과라 재시도하지 않는다."""
 
     def __init__(self, code: ErrorCode, message: str) -> None:
-        if code not in PERMANENT_FAILURE_CODES:
+        if code not in PERMANENT_FAILURE_CODES | JUDGE_PERMANENT_FAILURE_CODES:
             raise ValueError(f"영구 실패의 코드가 아니다: {code}")
         super().__init__(code, message)
 
@@ -146,7 +155,7 @@ class TransientFailure(RagEngineError):
     """일시 실패. 시간이 지나면 풀릴 수 있어 백오프로 다시 예약한다."""
 
     def __init__(self, code: ErrorCode, message: str) -> None:
-        if code not in TRANSIENT_FAILURE_CODES:
+        if code not in TRANSIENT_FAILURE_CODES | JUDGE_TRANSIENT_FAILURE_CODES:
             raise ValueError(f"일시 실패의 코드가 아니다: {code}")
         super().__init__(code, message)
 

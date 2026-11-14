@@ -11,7 +11,13 @@ from uuid import uuid4
 
 import pytest
 
-from rag_engine.app.eval_run import rerank_ranking, rerank_texts, stage_ranking
+from rag_engine.app.eval_run import (
+    rerank_ranking,
+    rerank_texts,
+    sha256_text,
+    stage_ranking,
+    top_passages,
+)
 from rag_engine.app.eval_stages import Stage
 from rag_engine.domain.entities import BlockKind, ChunkLocation, DiagnosedHit, SearchHit
 
@@ -114,3 +120,30 @@ def test_리랭커에_보내는_글은_검색과_같이_온전한_절_경로를_
     ]
 
     assert rerank_texts(hits) == ["제3장 > 정의\n\na", "b"]
+
+
+def test_상위_조각은_앞_열_개이고_순위_순이며_글과_해시가_리랭커에_보내는_글과_같다() -> None:
+    hits = [
+        _hit(f"h{number:02d}", vector_rank=number, keyword_rank=None, fused_rank=number)
+        for number in range(1, 13)
+    ]
+    reach = tuple(frozenset({0}) if number % 2 else frozenset() for number in range(12))
+
+    top = top_passages("질의", hits, reach)
+
+    assert [passage.document for passage in top] == [f"h{number:02d}" for number in range(1, 11)]
+    assert [passage.reached for passage in top] == [number % 2 == 1 for number in range(10)]
+    texts = rerank_texts(hits[:10])
+    assert [passage.text for passage in top] == texts
+    assert [passage.text_sha256 for passage in top] == [sha256_text(text) for text in texts]
+    assert {passage.query_sha256 for passage in top} == {sha256_text("질의")}
+
+
+def test_상위_조각이_열_개보다_적으면_있는_만큼이고_repr에는_질의와_조각의_글이_없다() -> None:
+    hits = [_hit("a", vector_rank=1, keyword_rank=None, fused_rank=1, section=("제3장", "비밀절"))]
+
+    (passage,) = top_passages("비밀질의", hits, (frozenset(),))
+
+    assert passage.reached is False
+    assert "비밀질의" not in repr(passage)
+    assert "비밀절" not in repr(passage)
