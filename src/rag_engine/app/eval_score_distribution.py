@@ -57,7 +57,7 @@ class ScoreDistribution:
     thresholds: tuple[ThresholdRow, ...]
 
 
-def score_distribution(outcomes: Sequence[QueryOutcome]) -> ScoreDistribution | None:
+def build_score_distribution(outcomes: Sequence[QueryOutcome]) -> ScoreDistribution | None:
     """질의가 하나도 없으면 `None`이다. 전체 실행이 아닌 질의(`scored`가 빈)는 후보가 없는 질의로
     센다."""
     if not outcomes:

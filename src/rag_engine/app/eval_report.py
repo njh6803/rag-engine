@@ -18,7 +18,7 @@ from typing import Final
 
 from rag_engine.app.eval_metrics import StageMetrics, aggregate, score_query
 from rag_engine.app.eval_run import EvalRunResult, IndexSummary, Stage
-from rag_engine.app.eval_score_distribution import ScoreDistribution, score_distribution
+from rag_engine.app.eval_score_distribution import ScoreDistribution, build_score_distribution
 from rag_engine.domain.entities import JsonValue
 from rag_engine.domain.eval_set import EvalConfig, EvalSet
 
@@ -107,7 +107,7 @@ def build_report(
         run_at=run_at,
         commit=commit,
         score_distribution=(
-            score_distribution(result.outcomes) if Stage.RERANK in stages else None
+            build_score_distribution(result.outcomes) if Stage.RERANK in stages else None
         ),
     )
 

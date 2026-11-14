@@ -10,7 +10,7 @@
 import pytest
 
 from rag_engine.app.eval_run import QueryOutcome, ScoredCandidate, Stage
-from rag_engine.app.eval_score_distribution import ScoreDistribution, score_distribution
+from rag_engine.app.eval_score_distribution import ScoreDistribution, build_score_distribution
 
 
 def _outcome(*scored: tuple[float, bool]) -> QueryOutcome:
@@ -24,7 +24,7 @@ def _outcome(*scored: tuple[float, bool]) -> QueryOutcome:
 
 
 def _distribution(*outcomes: QueryOutcome) -> ScoreDistribution:
-    distribution = score_distribution(outcomes)
+    distribution = build_score_distribution(outcomes)
     assert distribution is not None
     return distribution
 
@@ -118,4 +118,4 @@ def test_상위_5와_상위_10은_남은_조각의_순위로_센다() -> None:
 
 
 def test_질의가_하나도_없으면_분포가_없다() -> None:
-    assert score_distribution(()) is None
+    assert build_score_distribution(()) is None

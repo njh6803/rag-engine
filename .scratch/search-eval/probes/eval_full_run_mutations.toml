@@ -63,7 +63,7 @@ expect_output = ["assert None is not None"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/eval_report.py"
-old = '''score_distribution(result.outcomes) if Stage.RERANK in stages else None'''
+old = '''build_score_distribution(result.outcomes) if Stage.RERANK in stages else None'''
 new = '''None'''
 
 [[mutation]]
