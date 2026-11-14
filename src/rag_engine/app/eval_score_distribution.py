@@ -58,14 +58,16 @@ class ScoreDistribution:
 
 
 def build_score_distribution(outcomes: Sequence[QueryOutcome]) -> ScoreDistribution | None:
-    """질의가 하나도 없으면 `None`이다. 전체 실행이 아닌 질의(`scored`가 빈)는 후보가 없는 질의로
-    센다."""
+    """질의가 하나도 없으면 `None`이다. 후보가 없었던 전체 실행의 질의(`scored`가 빈 튜플)는 후보가
+    없는 질의로 세고, 점수를 재지 않은 질의(`scored`가 `None`, 빠른 실행)가 들어오면
+    `ValueError`다."""
     if not outcomes:
         return None
+    scored = [_scored(outcome) for outcome in outcomes]
     reached = [0] * BIN_COUNT
     not_reached = [0] * BIN_COUNT
-    for outcome in outcomes:
-        for candidate in outcome.scored:
+    for candidates in scored:
+        for candidate in candidates:
             counts = reached if candidate.reached else not_reached
             counts[_bin_number(candidate.score)] += 1
     upper_edges = (*_LOWER_EDGES[1:], 1.0)
@@ -75,17 +77,23 @@ def build_score_distribution(outcomes: Sequence[QueryOutcome]) -> ScoreDistribut
             ScoreBin(lower, upper, reached[number], not_reached[number])
             for number, (lower, upper) in enumerate(zip(_LOWER_EDGES, upper_edges, strict=True))
         ),
-        thresholds=tuple(_threshold_row(outcomes, edge) for edge in _LOWER_EDGES[1:]),
+        thresholds=tuple(_threshold_row(scored, edge) for edge in _LOWER_EDGES[1:]),
     )
+
+
+def _scored(outcome: QueryOutcome) -> tuple[ScoredCandidate, ...]:
+    if outcome.scored is None:
+        raise ValueError(f"질의 {outcome.query_list}/{outcome.evidence_id}에 리랭크 점수가 없다")
+    return outcome.scored
 
 
 def _bin_number(score: float) -> int:
     return max(0, bisect_right(_LOWER_EDGES, score) - 1)
 
 
-def _threshold_row(outcomes: Sequence[QueryOutcome], min_score: float) -> ThresholdRow:
-    count = len(outcomes)
-    kept = [[c for c in outcome.scored if c.score >= min_score] for outcome in outcomes]
+def _threshold_row(scored: Sequence[Sequence[ScoredCandidate]], min_score: float) -> ThresholdRow:
+    count = len(scored)
+    kept = [[c for c in candidates if c.score >= min_score] for candidates in scored]
     return ThresholdRow(
         min_score=min_score,
         hit_at_5=sum(_any_reached(row[:_TOP_FIVE]) for row in kept) / count,

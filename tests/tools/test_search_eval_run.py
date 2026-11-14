@@ -15,18 +15,23 @@ from typing import LiteralString
 
 import psycopg
 import pytest
-from pydantic import BaseModel, ConfigDict
 from tests.support.docx_files import docx_bytes
-from tests.support.eval_bundle import (
-    HEADER,
-    HEADER_QUERY_LISTS,
-    INDEX_CONFIG,
-    PASSAGE,
-    PASSAGE_B,
-    passage_evidence,
-    write_indexable_bundle,
-    write_json,
-    write_jsonl,
+from tests.support.eval_bundle import INDEX_CONFIG, PASSAGE, PASSAGE_B, passage_evidence
+from tests.support.eval_run_support import (
+    DOCUMENT_B,
+    EMBEDDINGS,
+    EVIDENCE,
+    HUMAN,
+    QUERY_A,
+    QUERY_B,
+    indexed_fast_report,
+    indexed_full_report,
+    make_bundle,
+    prefer_b,
+    read_report,
+    run_fast,
+    run_full,
+    run_index,
 )
 from tests.support.eval_world import (
     DATA_DIR_ENV,
@@ -43,171 +48,6 @@ from rag_engine.adapters.settings import Settings
 from rag_engine.domain.entities import JsonValue
 from tools import search_eval
 
-DOCUMENT_A = docx_bytes("휴가", PASSAGE + ".")
-DOCUMENT_B = docx_bytes("출장", PASSAGE_B + ".")
-DOCUMENTS = {"a.docx": DOCUMENT_A, "sub/b.docx": DOCUMENT_B}
-# 문서의 제목과 글을 그대로 옮긴 질의: 낱말 주머니가 그 문서의 조각과 같아 그 조각이 벡터 1위다.
-QUERY_A = f"휴가 {PASSAGE}."
-QUERY_B = f"출장 {PASSAGE_B}."
-EVIDENCE = [
-    passage_evidence("q1", "a.docx", PASSAGE),
-    passage_evidence("q2", "sub/b.docx", PASSAGE_B),
-]
-HUMAN = [
-    {"evidence_id": "q1", "query": QUERY_A},
-    {"evidence_id": "q2", "query": QUERY_B},
-]
-EMBEDDINGS = "/v1/embeddings"
-
-
-class _Strict(BaseModel):
-    """보고서의 칸을 모두 이름으로 받는다. 모르는 칸이 있으면 검증이 실패해 칸의 목록을 고정한다."""
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class _EvalSet(_Strict):
-    name: str
-    format_version: str
-    content_hash: str
-    documents: int
-    questions: int
-    queries: int
-
-
-class _Index(_Strict):
-    schema_version: int
-    embedding_model: str
-    embedding_dimensions: int
-    chunking_hash: str
-    tokenizer_version: str
-    chunks: int
-
-
-class _Row(_Strict):
-    query_list: str
-    stage: str
-    queries: int
-    hit_at_1: float
-    hit_at_3: float
-    hit_at_5: float
-    hit_at_10: float
-    mrr: float
-    recall: float
-    ndcg_at_10: float
-    ndcg_truncated: int
-
-
-class _Meta(_Strict):
-    run_at: str
-    commit: str | None
-
-
-class _Bin(_Strict):
-    lower: float
-    upper: float
-    reached: int
-    not_reached: int
-
-
-class _Threshold(_Strict):
-    min_score: float
-    hit_at_5: float
-    hit_at_10: float
-    empty_rate: float
-    mean_kept: float
-
-
-class _Distribution(_Strict):
-    queries: int
-    bins: list[_Bin]
-    thresholds: list[_Threshold]
-
-    def counts(self) -> dict[int, tuple[int, int]]:
-        """닿은 조각과 닿지 않은 조각이 하나라도 있는 구간의 번호(0부터)와 그 수."""
-        return {
-            number: (bin_.reached, bin_.not_reached)
-            for number, bin_ in enumerate(self.bins)
-            if bin_.reached or bin_.not_reached
-        }
-
-    def row(self, min_score: float) -> _Threshold:
-        (found,) = [row for row in self.thresholds if row.min_score == min_score]
-        return found
-
-
-class _Report(_Strict):
-    format_version: str
-    eval_set: _EvalSet
-    config: dict[str, JsonValue]
-    index: _Index
-    stages: list[str]
-    rows: list[_Row]
-    meta: _Meta
-    score_distribution: _Distribution | None = None
-
-    def row(self, query_list: str, stage: str) -> _Row:
-        (found,) = [r for r in self.rows if r.query_list == query_list and r.stage == stage]
-        return found
-
-
-def _bundle(
-    tmp_path: Path,
-    name: str = "bundle",
-    *,
-    documents: dict[str, bytes] | None = None,
-    evidence: Sequence[JsonValue] = EVIDENCE,
-    human: Sequence[JsonValue] = HUMAN,
-    keyword: Sequence[JsonValue] | None = None,
-    config: dict[str, JsonValue] | None = None,
-) -> Path:
-    root = write_indexable_bundle(
-        tmp_path / name,
-        DOCUMENTS if documents is None else documents,
-        evidence,
-        config=INDEX_CONFIG if config is None else config,
-    )
-    write_jsonl(root / "queries-human.jsonl", human)
-    if keyword is not None:
-        write_json(root / "eval-set.json", {**HEADER, "query_lists": HEADER_QUERY_LISTS})
-        write_jsonl(root / "queries-keyword.jsonl", keyword)
-    return root
-
-
-def _index(bundle: Path) -> int:
-    return search_eval.main(["index", str(bundle)])
-
-
-def _run(bundle: Path, out: Path, *extra: str) -> int:
-    return search_eval.main(["run", str(bundle), "--through", "fused", "--out", str(out), *extra])
-
-
-def _full_run(bundle: Path, out: Path) -> int:
-    return search_eval.main(["run", str(bundle), "--through", "rerank", "--out", str(out)])
-
-
-def _prefer_b(query: str, text: str) -> float:
-    """리랭커 스텁의 점수. 질의와 상관없이 `b` 문서의 조각을 높이 친다."""
-    del query
-    return 0.9 if PASSAGE_B in text else 0.2
-
-
-def _indexed_full_run(bundle: Path, out: Path) -> _Report:
-    assert _index(bundle) == 0
-    assert _full_run(bundle, out) == 0
-    return _report(out)
-
-
-def _report(out: Path) -> _Report:
-    return _Report.model_validate_json((out / "report.json").read_text(encoding="utf-8"))
-
-
-def _indexed_run(world: World, bundle: Path, out: Path) -> _Report:
-    del world
-    assert _index(bundle) == 0
-    assert _run(bundle, out) == 0
-    return _report(out)
-
 
 def test_index_뒤_빠른_run이_질의_목록마다_단계별_줄을_내고_리랭크_뒤_줄은_없다(
     world: World, tmp_path: Path
@@ -215,9 +55,9 @@ def test_index_뒤_빠른_run이_질의_목록마다_단계별_줄을_내고_리
     human = [*HUMAN, {"evidence_id": "q3", "query": QUERY_A}]
     evidence = [*EVIDENCE, passage_evidence("q3", "sub/b.docx", PASSAGE_B)]
     keyword = [{"evidence_id": "q1", "query": "연차휴가 입사 발생"}]
-    bundle = _bundle(tmp_path, evidence=evidence, human=human, keyword=keyword)
+    bundle = make_bundle(tmp_path, evidence=evidence, human=human, keyword=keyword)
 
-    report = _indexed_run(world, bundle, tmp_path / "out")
+    report = indexed_fast_report(bundle, tmp_path / "out")
 
     assert report.format_version == "1.0.0"
     assert report.stages == ["vector", "keyword", "fused"]
@@ -245,9 +85,9 @@ def test_지표는_손으로_계산한_값과_같다(world: World, tmp_path: Pat
     없어 키워드 후보에 들지 못한다. 합친 뒤는 두 쪽에 다 든 `a`가 1위, 벡터에만 든 `b`가 2위다."""
     human = [*HUMAN, {"evidence_id": "q3", "query": QUERY_A}]
     evidence = [*EVIDENCE, passage_evidence("q3", "sub/b.docx", PASSAGE_B)]
-    bundle = _bundle(tmp_path, evidence=evidence, human=human)
+    bundle = make_bundle(tmp_path, evidence=evidence, human=human)
 
-    report = _indexed_run(world, bundle, tmp_path / "out")
+    report = indexed_fast_report(bundle, tmp_path / "out")
 
     second_gain = 1 / 1.5849625007211563  # 1 / log2(3)
     for stage in ("vector", "fused"):
@@ -272,9 +112,9 @@ def test_지표는_손으로_계산한_값과_같다(world: World, tmp_path: Pat
 def test_키워드_토큰이_빈_질의는_키워드만_단계에서_놓친_것으로_센다(
     world: World, tmp_path: Path
 ) -> None:
-    bundle = _bundle(tmp_path, human=[{"evidence_id": "q1", "query": "!!!"}])
+    bundle = make_bundle(tmp_path, human=[{"evidence_id": "q1", "query": "!!!"}])
 
-    report = _indexed_run(world, bundle, tmp_path / "out")
+    report = indexed_fast_report(bundle, tmp_path / "out")
 
     assert report.row("human", "keyword").queries == 1
     assert report.row("human", "keyword").hit_at_10 == 0.0
@@ -288,7 +128,7 @@ def test_글귀가_조각의_경계에서_갈리면_놓친_것으로_센다(worl
     spanning = " ".join(words[5:25])
     short = " ".join(words[:4])
     document = docx_bytes("휴가", " ".join(words))
-    bundle = _bundle(
+    bundle = make_bundle(
         tmp_path,
         documents={"a.docx": document},
         evidence=[
@@ -302,7 +142,7 @@ def test_글귀가_조각의_경계에서_갈리면_놓친_것으로_센다(worl
         },
     )
 
-    report = _indexed_run(world, bundle, tmp_path / "out")
+    report = indexed_fast_report(bundle, tmp_path / "out")
 
     assert report.index.chunks > 1
     for stage in ("vector", "fused"):
@@ -313,13 +153,13 @@ def test_글귀가_조각의_경계에서_갈리면_놓친_것으로_센다(worl
 
 def test_공백과_줄바꿈과_NFC가_달라도_글귀가_닿는다(world: World, tmp_path: Path) -> None:
     decomposed = unicodedata.normalize("NFD", PASSAGE).replace(" ", "\t\n")
-    bundle = _bundle(
+    bundle = make_bundle(
         tmp_path,
         evidence=[passage_evidence("q1", "a.docx", decomposed), EVIDENCE[1]],
         human=HUMAN,
     )
 
-    report = _indexed_run(world, bundle, tmp_path / "out")
+    report = indexed_fast_report(bundle, tmp_path / "out")
 
     assert report.row("human", "fused").hit_at_1 == pytest.approx(1.0)
 
@@ -327,13 +167,13 @@ def test_공백과_줄바꿈과_NFC가_달라도_글귀가_닿는다(world: Worl
 def test_다른_문서의_같은_글귀는_닿지_않는다(world: World, tmp_path: Path) -> None:
     """기대 근거는 `b`의 글귀인데 그 글귀는 `a`의 본문에만 있다. `a`의 조각이 후보 첫 자리에 올라도
     문서가 달라 닿지 않는다."""
-    bundle = _bundle(
+    bundle = make_bundle(
         tmp_path,
         evidence=[passage_evidence("q1", "sub/b.docx", PASSAGE)],
         human=[{"evidence_id": "q1", "query": QUERY_A}],
     )
 
-    report = _indexed_run(world, bundle, tmp_path / "out")
+    report = indexed_fast_report(bundle, tmp_path / "out")
 
     for stage in ("vector", "keyword", "fused"):
         assert report.row("human", stage).hit_at_10 == 0.0
@@ -351,14 +191,14 @@ def test_조각_하나가_기대_근거_둘에_닿아_nDCG가_잘린_질의가_�
         ],
         "tags": [],
     }
-    bundle = _bundle(
+    bundle = make_bundle(
         tmp_path,
         documents={"a.docx": docx_bytes("휴가", PASSAGE + ".", second + ".")},
         evidence=[both],
         human=[{"evidence_id": "q1", "query": f"휴가 {PASSAGE}. {second}."}],
     )
 
-    report = _indexed_run(world, bundle, tmp_path / "out")
+    report = indexed_fast_report(bundle, tmp_path / "out")
 
     row = report.row("human", "fused")
     assert row.recall == pytest.approx(1.0)
@@ -369,9 +209,9 @@ def test_조각_하나가_기대_근거_둘에_닿아_nDCG가_잘린_질의가_�
 def test_report_md는_report_json의_판과_해시와_질의_목록을_표로_옮긴다(
     world: World, tmp_path: Path
 ) -> None:
-    bundle = _bundle(tmp_path, keyword=[{"evidence_id": "q1", "query": "연차휴가 입사 발생"}])
+    bundle = make_bundle(tmp_path, keyword=[{"evidence_id": "q1", "query": "연차휴가 입사 발생"}])
 
-    report = _indexed_run(world, bundle, tmp_path / "out")
+    report = indexed_fast_report(bundle, tmp_path / "out")
 
     markdown = (tmp_path / "out" / "report.md").read_text(encoding="utf-8")
     assert report.format_version in markdown
@@ -383,8 +223,8 @@ def test_report_md는_report_json의_판과_해시와_질의_목록을_표로_�
 
 
 def test_보고서에_질의의_글과_조각의_글이_없다(world: World, tmp_path: Path) -> None:
-    bundle = _bundle(tmp_path)
-    _indexed_run(world, bundle, tmp_path / "out")
+    bundle = make_bundle(tmp_path)
+    indexed_fast_report(bundle, tmp_path / "out")
 
     for name in ("report.json", "report.md"):
         text = (tmp_path / "out" / name).read_text(encoding="utf-8")
@@ -397,30 +237,30 @@ def test_보고서에_질의의_글과_조각의_글이_없다(world: World, tmp
 
 
 def test_작업_폴더의_env가_있어도_보고서가_같다(world: World, tmp_path: Path) -> None:
-    bundle = _bundle(tmp_path)
-    before = _indexed_run(world, bundle, tmp_path / "before")
+    bundle = make_bundle(tmp_path)
+    before = indexed_fast_report(bundle, tmp_path / "before")
     (world.work_dir / ".env").write_text(
         "RAG_PARSE_MAX_PAGES=1\nRAG_DEFAULT_CHUNK_TOKENS=64\nRAG_SEARCH_CANDIDATES=1\n",
         encoding="utf-8",
     )
 
-    assert _run(bundle, tmp_path / "after") == 0
+    assert run_fast(bundle, tmp_path / "after") == 0
 
-    after = _report(tmp_path / "after")
+    after = read_report(tmp_path / "after")
     assert after.model_copy(update={"meta": before.meta}) == before
 
 
 def test_run은_판에_적힌_끝점이_아니라_RAG_EVAL_EMBEDDING_URL로_질의를_임베딩한다(
     world: World, tei_stub: TeiStub, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    bundle = _bundle(tmp_path)
-    assert _index(bundle) == 0
+    bundle = make_bundle(tmp_path)
+    assert run_index(bundle) == 0
     indexed_requests = tei_stub.count(EMBEDDINGS)
     other = TeiStub()
     with serve_stub(other) as other_url:
         monkeypatch.setenv(EMBEDDING_ENV, other_url)
 
-        assert _run(bundle, tmp_path / "out") == 0
+        assert run_fast(bundle, tmp_path / "out") == 0
 
     assert other.count(EMBEDDINGS) == len(HUMAN)
     assert tei_stub.count(EMBEDDINGS) == indexed_requests
@@ -435,8 +275,8 @@ def test_평가_도중_판이_바뀌면_보고서를_쓰지_않고_1이다(
 ) -> None:
     """판을 바꾸는 걸이는 TEI 스텁의 응답 순번이다. 평가의 둘째 질의를 임베딩하는 요청을 받을 때
     현재 판을 없애, 그 질의의 진단용 검색이 `is_current` 거짓을 읽게 한다."""
-    bundle = _bundle(tmp_path)
-    assert _index(bundle) == 0
+    bundle = make_bundle(tmp_path)
+    assert run_index(bundle) == 0
     switching = TeiStub()
     seen: list[int] = []
 
@@ -451,7 +291,7 @@ def test_평가_도중_판이_바뀌면_보고서를_쓰지_않고_1이다(
     with serve_stub(switching) as url:
         monkeypatch.setenv(EMBEDDING_ENV, url)
 
-        code = _run(bundle, tmp_path / "out")
+        code = run_fast(bundle, tmp_path / "out")
 
     assert code == 1
     assert seen[:2] == [1, 2]
@@ -467,12 +307,12 @@ def test_평가_전용_이름이_없으면_제품의_환경이_있어도_돌지_
     capsys: pytest.CaptureFixture[str],
     missing: str,
 ) -> None:
-    bundle = _bundle(tmp_path)
+    bundle = make_bundle(tmp_path)
     monkeypatch.delenv(missing)
     monkeypatch.setenv("RAG_DATABASE_URL", world.database_url)
     monkeypatch.setenv("RAG_DEFAULT_EMBEDDING_URL", world.tei_url)
 
-    assert _run(bundle, tmp_path / "out") == 1
+    assert run_fast(bundle, tmp_path / "out") == 1
 
     assert missing in capsys.readouterr().err
     assert not (tmp_path / "out").exists()
@@ -487,7 +327,7 @@ def test_이름이_rag_eval로_시작하지_않는_주소는_연결_오류가_�
     del world
     monkeypatch.setenv(DATABASE_ENV, "postgresql://user:secret-value@127.0.0.1:1/product")
 
-    assert _run(_bundle(tmp_path), tmp_path / "out") == 1
+    assert run_fast(make_bundle(tmp_path), tmp_path / "out") == 1
 
     err = capsys.readouterr().err
     assert "rag_eval" in err
@@ -500,7 +340,7 @@ def test_스키마가_올라_있지_않은_데이터베이스에서는_평가하
 ) -> None:
     del world
 
-    assert _run(_bundle(tmp_path), tmp_path / "out") == 1
+    assert run_fast(make_bundle(tmp_path), tmp_path / "out") == 1
 
     assert "index" in capsys.readouterr().err
     assert tei_stub.requests == []
@@ -514,8 +354,8 @@ def test_묶음_밖의_문서가_든_데이터베이스에서는_질의를_임�
     make_settings: Callable[..., Settings],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    bundle = _bundle(tmp_path)
-    assert _index(bundle) == 0
+    bundle = make_bundle(tmp_path)
+    assert run_index(bundle) == 0
     foreign = tmp_path / "foreign"
     foreign.mkdir()
     (foreign / "other.docx").write_bytes(docx_bytes("다른", "묶음에 없는 문서의 글이다."))
@@ -524,7 +364,7 @@ def test_묶음_밖의_문서가_든_데이터베이스에서는_질의를_임�
     capsys.readouterr()
     requests_before = len(tei_stub.requests)
 
-    assert _run(bundle, tmp_path / "out") == 1
+    assert run_fast(bundle, tmp_path / "out") == 1
 
     assert "묶음에 없는 문서" in capsys.readouterr().err
     assert len(tei_stub.requests) == requests_before
@@ -555,13 +395,13 @@ def test_리랭커_끝점이_없는_전체_실행은_빠진_이름을_알리고_
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    bundle = _bundle(tmp_path)
-    assert _index(bundle) == 0
+    bundle = make_bundle(tmp_path)
+    assert run_index(bundle) == 0
     monkeypatch.delenv(RERANKER_ENV, raising=False)
     capsys.readouterr()
     requests_before = len(tei_stub.requests)
 
-    assert _full_run(bundle, tmp_path / "out") == 1
+    assert run_full(bundle, tmp_path / "out") == 1
 
     assert RERANKER_ENV in capsys.readouterr().err
     assert len(tei_stub.requests) == requests_before
@@ -574,7 +414,7 @@ def test_빠른_실행은_리랭커_끝점이_없어도_돈다(
 ) -> None:
     monkeypatch.delenv(RERANKER_ENV, raising=False)
 
-    report = _indexed_run(world, _bundle(tmp_path), tmp_path / "out")
+    report = indexed_fast_report(make_bundle(tmp_path), tmp_path / "out")
 
     assert report.stages == ["vector", "keyword", "fused"]
 
@@ -583,10 +423,10 @@ def test_전체_실행의_보고서는_리랭크_뒤_줄이_마지막_단계다(
     world: World, reranker_url: str, tmp_path: Path
 ) -> None:
     keyword = [{"evidence_id": "q1", "query": "연차휴가 입사 발생"}]
-    bundle = _bundle(tmp_path, keyword=keyword)
+    bundle = make_bundle(tmp_path, keyword=keyword)
     del reranker_url
 
-    report = _indexed_full_run(bundle, tmp_path / "out")
+    report = indexed_full_report(bundle, tmp_path / "out")
 
     assert report.format_version == "1.0.0"
     assert report.stages == ["vector", "keyword", "fused", "rerank"]
@@ -604,10 +444,10 @@ def test_리랭크에서_순위가_바뀐_질의의_적중률이_리랭크_뒤_�
 ) -> None:
     """합친 뒤는 q1과 q2 모두 자기 문서가 1위다. 리랭커가 `b` 문서를 높이 치면 q2는 1위로 남고 q1의
     `a` 문서는 2위로 밀린다. 리랭크 뒤: 적중률@1은 1/2, @3은 1, MRR은 (1 + 1/2) / 2다."""
-    reranker_stub.score_with = _prefer_b
+    reranker_stub.score_with = prefer_b
     del reranker_url
 
-    report = _indexed_full_run(_bundle(tmp_path), tmp_path / "out")
+    report = indexed_full_report(make_bundle(tmp_path), tmp_path / "out")
 
     assert report.row("human", "fused").hit_at_1 == pytest.approx(1.0)
     rerank = report.row("human", "rerank")
@@ -627,7 +467,7 @@ def test_리랭크_점수가_같으면_합친_순위_순으로_정한다(
     reranker_stub.score_with = lambda query, text: 0.5
     del reranker_url
 
-    report = _indexed_full_run(_bundle(tmp_path), tmp_path / "out")
+    report = indexed_full_report(make_bundle(tmp_path), tmp_path / "out")
 
     assert report.row("human", "rerank") == report.row("human", "fused").model_copy(
         update={"stage": "rerank"}
@@ -640,7 +480,7 @@ def test_리랭커에는_질의와_온전한_절_경로를_붙인_조각_글을_
 ) -> None:
     del reranker_url
 
-    _indexed_full_run(_bundle(tmp_path), tmp_path / "out")
+    indexed_full_report(make_bundle(tmp_path), tmp_path / "out")
 
     bodies = reranker_stub.bodies("/rerank")
     assert len(bodies) == len(HUMAN)
@@ -661,10 +501,10 @@ def test_score_distribution은_구간과_문턱별_값이_손으로_계산한_�
     """점수는 `b`의 조각 0.9, `a`의 조각 0.2다. q1은 `a`의 조각에, q2는 `b`의 조각에 닿는다. 닿은
     조각은 0.2(q1)와 0.9(q2), 닿지 않은 조각은 0.9(q1)와 0.2(q2)이다. 0.2는 구간 4(`[0.20, 0.25)`),
     0.9는 구간 18(`[0.90, 0.95)`)이다."""
-    reranker_stub.score_with = _prefer_b
+    reranker_stub.score_with = prefer_b
     del reranker_url
 
-    report = _indexed_full_run(_bundle(tmp_path), tmp_path / "out")
+    report = indexed_full_report(make_bundle(tmp_path), tmp_path / "out")
 
     distribution = report.score_distribution
     assert distribution is not None
@@ -698,7 +538,7 @@ def test_전체_실행의_보고서에도_질의의_글과_조각의_글이_없�
 ) -> None:
     del reranker_url
 
-    _indexed_full_run(_bundle(tmp_path), tmp_path / "out")
+    indexed_full_report(make_bundle(tmp_path), tmp_path / "out")
 
     for name in ("report.json", "report.md"):
         text = (tmp_path / "out" / name).read_text(encoding="utf-8")
@@ -715,13 +555,13 @@ def test_리랭커가_실패하면_보고서를_쓰지_않고_서버의_메시�
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    bundle = _bundle(tmp_path)
-    assert _index(bundle) == 0
+    bundle = make_bundle(tmp_path)
+    assert run_index(bundle) == 0
     reranker_stub.fail("/rerank", 500)
     capsys.readouterr()
     del reranker_url
 
-    assert _full_run(bundle, tmp_path / "out") == 1
+    assert run_full(bundle, tmp_path / "out") == 1
 
     err = capsys.readouterr().err
     assert "리랭크" in err
@@ -746,12 +586,12 @@ def test_현재_판의_요소가_구성과_다르면_평가하지_않고_1이다
     capsys: pytest.CaptureFixture[str],
     change: dict[str, JsonValue],
 ) -> None:
-    assert _index(_bundle(tmp_path)) == 0
-    other = _bundle(tmp_path, "other", config={**INDEX_CONFIG, **change})
+    assert run_index(make_bundle(tmp_path)) == 0
+    other = make_bundle(tmp_path, "other", config={**INDEX_CONFIG, **change})
     capsys.readouterr()
     requests_before = len(tei_stub.requests)
 
-    assert _run(other, tmp_path / "out") == 1
+    assert run_fast(other, tmp_path / "out") == 1
 
     assert "config.json" in capsys.readouterr().err
     assert len(tei_stub.requests) == requests_before
@@ -777,8 +617,8 @@ def test_색인이_끝나지_않은_문서가_있으면_질의를_임베딩하�
 ) -> None:
     """문서의 내용 해시는 올릴 때 저장되므로 색인이 안 끝난 문서도 묶음과 같다. 그 문서의 조각은
     0개로 세어져 질의가 모두 놓친 것이 되고 보고서가 0으로 끝나므로, 문서마다 색인을 본다."""
-    bundle = _bundle(tmp_path)
-    assert _index(bundle) == 0
+    bundle = make_bundle(tmp_path)
+    assert run_index(bundle) == 0
     with psycopg.connect(world.database_url, autocommit=True) as connection:
         connection.execute(
             "UPDATE document_index_states SET "
@@ -788,7 +628,7 @@ def test_색인이_끝나지_않은_문서가_있으면_질의를_임베딩하�
     capsys.readouterr()
     requests_before = len(tei_stub.requests)
 
-    assert _run(bundle, tmp_path / "out") == 1
+    assert run_fast(bundle, tmp_path / "out") == 1
 
     err = capsys.readouterr().err
     assert "a.docx" in err
@@ -801,13 +641,13 @@ def test_색인이_끝나지_않은_문서가_있으면_질의를_임베딩하�
 def test_키는_같고_내용_해시가_다른_문서가_든_데이터베이스에서는_질의를_임베딩하지_않고_1이다(
     world: World, tei_stub: TeiStub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert _index(_bundle(tmp_path)) == 0
+    assert run_index(make_bundle(tmp_path)) == 0
     changed = docx_bytes("휴가", "같은 이름의 문서지만 내용이 다르다.")
-    other = _bundle(tmp_path, "other", documents={"a.docx": changed, "sub/b.docx": DOCUMENT_B})
+    other = make_bundle(tmp_path, "other", documents={"a.docx": changed, "sub/b.docx": DOCUMENT_B})
     capsys.readouterr()
     requests_before = len(tei_stub.requests)
 
-    assert _run(other, tmp_path / "out") == 1
+    assert run_fast(other, tmp_path / "out") == 1
 
     assert "a.docx" in capsys.readouterr().err
     assert len(tei_stub.requests) == requests_before

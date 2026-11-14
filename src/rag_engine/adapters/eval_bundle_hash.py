@@ -18,8 +18,7 @@ from pydantic import BaseModel, ConfigDict
 
 from rag_engine.adapters.bundle_paths import BundlePaths
 from rag_engine.adapters.eval_set_reader import HEADER_FILE
-from rag_engine.app.eval_report import config_values
-from rag_engine.domain.eval_set import EvalSet
+from rag_engine.domain.eval_set import EvalSet, search_config_values
 
 _SEPARATOR: Final = b"\0"
 
@@ -44,7 +43,7 @@ def bundle_content_hash(paths: BundlePaths, eval_set: EvalSet) -> str:
     head = paths.resolve(HEADER_FILE).read_bytes()
     header = _Header.model_validate_json(head)
     config = json.dumps(
-        config_values(eval_set.config, with_judge=False),
+        search_config_values(eval_set.config),
         sort_keys=True,
         ensure_ascii=False,
         separators=(",", ":"),
