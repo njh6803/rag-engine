@@ -52,7 +52,12 @@
 
 ## 봇 회차
 
-(PR을 연 뒤에 적는다)
+PR #46, 첫 푸시 `66deb8f`. 검사 다섯(`image`, `python`, `ticket`, `verify`, `claude-review`)이 모두 초록이다.
+
+- claude-review 첫 회차: 지적 없음. 코드 변경이 읽기 전용 프로브 하나뿐이고 `Any`·`cast`·`type: ignore`가 없으며, 제품 코드와 `tests/contract/`가 바뀌지 않아 계약 영향이 없다는 PR 설명과 일치한다고 봤다. 문서 파일은 이진이라 diff로 읽지 못했고 `documents.json`, `config.json`, `eval-set.json`은 읽었다고 적었다.
+- CodeRabbit: `@coderabbitai review` 뒤에 "Review limit reached"(무료 OSS 리뷰 한도, 다음 리뷰는 58분 뒤)로 리뷰가 없었다. 회차로 세지 않는다. 이 PR의 CodeRabbit 리뷰는 PR 직전 리뷰(CLI)가 대신했다.
+- 고친 것: 없다. 이 절을 적는 일지만 푸시한다(그 푸시로 도는 claude-review는 둘째 회차라 Critical·Major만 고친다).
+- 이 반영이 새로 쓴 사실 문장: 없다(코드와 데이터를 고치지 않았다).
 
 ## 회고
 
