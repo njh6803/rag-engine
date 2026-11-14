@@ -5,10 +5,12 @@
 관리자 페이지가 설치처의 평가에 다시 쓸 때 질문과 문서 내용이 보고서 파일로 번지지 않게 하기
 위해서다(원칙 V).
 
-이 판(`"1.0.0"`)의 칸은 `format_version`, `eval_set`, `config`, `index`, `stages`, `rows`, `meta`와,
-전체 실행(`stages`가 리랭크 뒤로 끝난다)에서만 `score_distribution`이다. 빠른 실행의 보고서에는
-`score_distribution` 칸이 없다. 유형 표지와 필터의 지표, 놓친 질의, 사람 판정, LLM 숫자, 추론 기록은
-그 칸을 받는 티켓이 같은 판에서 더한다(칸을 더하는 것은 판을 올리지 않는다).
+이 판(`"1.0.0"`)의 칸은 `format_version`, `eval_set`, `config`, `index`, `stages`, `rows`, `llm`,
+`meta`와, 전체 실행(`stages`가 리랭크 뒤로 끝난다)에서만 `score_distribution`이다. 빠른 실행의
+보고서에는 `score_distribution` 칸이 없다. `llm`은 판정 파일로 센 참고 숫자와 빠진 정답
+후보(식별자로만)의 목록이고, 숫자를 낼 수 없으면 `null`이며 까닭이 형제 칸 `llm_unavailable`에 든다.
+유형 표지와 필터의 지표, 놓친 질의, 사람 판정, 추론 기록은 그 칸을 받는 티켓이 같은 판에서
+더한다(칸을 더하는 것은 판을 올리지 않는다).
 """
 
 from collections.abc import Sequence
@@ -16,6 +18,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
+from rag_engine.app.eval_judgments import LlmNumbers, LlmUnavailable
 from rag_engine.app.eval_metrics import StageMetrics, aggregate, score_query
 from rag_engine.app.eval_run import EvalRunResult, IndexSummary, Stage
 from rag_engine.app.eval_score_distribution import ScoreDistribution, build_score_distribution
@@ -49,6 +52,7 @@ class EvalReport:
     rows: tuple[ReportRow, ...]
     run_at: datetime
     commit: str | None
+    llm: LlmNumbers | LlmUnavailable
     score_distribution: ScoreDistribution | None = None
 
 
@@ -81,6 +85,7 @@ def build_report(
     stages: Sequence[Stage],
     run_at: datetime,
     commit: str | None,
+    llm: LlmNumbers | LlmUnavailable,
 ) -> EvalReport:
     rows: list[ReportRow] = []
     for query_list in eval_set.query_lists:
@@ -109,6 +114,7 @@ def build_report(
         score_distribution=(
             build_score_distribution(result.outcomes) if Stage.RERANK in stages else None
         ),
+        llm=llm,
     )
 
 
@@ -117,6 +123,30 @@ def report_json(report: EvalReport) -> dict[str, JsonValue]:
     if report.score_distribution is not None:
         values["score_distribution"] = _distribution_json(report.score_distribution)
     return values
+
+
+def _llm_json(llm: LlmNumbers | LlmUnavailable) -> dict[str, JsonValue]:
+    """`llm` 칸과 까닭 칸. 숫자를 낼 수 없으면 `llm`이 `null`이고 `llm_unavailable`이 까닭이다."""
+    if isinstance(llm, LlmUnavailable):
+        return {"llm": None, "llm_unavailable": llm.reason}
+    return {
+        "llm": {
+            "pairs": llm.pairs,
+            "judged": llm.judged,
+            "relevant_rate": llm.relevant_rate,
+            "agreement_rate": llm.agreement_rate,
+            "unjudged_rate": llm.unjudged_rate,
+            "missing_candidates": [
+                {
+                    "query_list": item.query_list,
+                    "evidence_id": item.evidence_id,
+                    "document": item.document,
+                    "ordinal": item.ordinal,
+                }
+                for item in llm.missing_candidates
+            ],
+        }
+    }
 
 
 def _distribution_json(distribution: ScoreDistribution) -> dict[str, JsonValue]:
@@ -167,6 +197,7 @@ def _report_values(report: EvalReport) -> dict[str, JsonValue]:
         },
         "stages": [stage.value for stage in report.stages],
         "rows": [_row_json(row) for row in report.rows],
+        **_llm_json(report.llm),
         "meta": {"run_at": report.run_at.isoformat(), "commit": report.commit},
     }
 
@@ -230,9 +261,49 @@ def report_markdown(report: EvalReport) -> str:
             ),
             [_metric_cells(row) for row in report.rows if row.query_list == name],
         )
+    lines += _llm_markdown(report.llm)
     if report.score_distribution is not None:
         lines += _distribution_markdown(report.score_distribution)
     return "\n".join(lines) + "\n"
+
+
+def _llm_markdown(llm: LlmNumbers | LlmUnavailable) -> list[str]:
+    """LLM 관련성 판정의 참고 숫자. 숫자를 낼 수 없으면 까닭 한 줄이다."""
+    lines = ["", "## LLM 관련성 판정(참고 숫자)", ""]
+    if isinstance(llm, LlmUnavailable):
+        return [*lines, f"숫자가 없다: {llm.reason}"]
+    lines += _table(
+        ("칸", "값"),
+        [
+            ("마지막 단계의 상위 10개 조합", str(llm.pairs)),
+            ("그 가운데 판정이 있는 조합", str(llm.judged)),
+            ("LLM이 관련 있다고 본 비율", _optional_number(llm.relevant_rate)),
+            (
+                "기대 근거에 닿은 조각을 LLM도 관련 있다고 본 비율",
+                _optional_number(llm.agreement_rate),
+            ),
+            ("판정 없음의 비율(분모는 조합 전체)", _number(llm.unjudged_rate)),
+        ],
+    )
+    lines += [
+        "",
+        f"빠진 정답 후보 {len(llm.missing_candidates)}건"
+        ": 기대 근거에 없는데 LLM이 관련 있다고 본 조각이다.",
+    ]
+    if llm.missing_candidates:
+        lines += [""]
+        lines += _table(
+            ("질의 목록", "기대 근거", "문서", "조각 순번"),
+            [
+                (f"`{item.query_list}`", item.evidence_id, item.document, str(item.ordinal))
+                for item in llm.missing_candidates
+            ],
+        )
+    return lines
+
+
+def _optional_number(value: float | None) -> str:
+    return "없음" if value is None else _number(value)
 
 
 def _distribution_markdown(distribution: ScoreDistribution) -> list[str]:

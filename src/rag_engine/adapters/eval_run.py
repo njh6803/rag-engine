@@ -42,6 +42,11 @@ from rag_engine.adapters.eval_environment import (
     read_eval_environment,
     require_reranker_url,
 )
+from rag_engine.adapters.eval_judgments_file import (
+    JudgmentFileError,
+    judgments_path,
+    read_judgments,
+)
 from rag_engine.adapters.eval_set_reader import EvalSetFormatError, read_eval_set
 from rag_engine.adapters.kiwi import tokenize_keywords
 from rag_engine.adapters.postgres.engine import create_engine, run_in_selector_loop
@@ -51,6 +56,13 @@ from rag_engine.adapters.tei import TeiEmbedderPool, TeiReranker
 from rag_engine.app.check_eval_database import DATABASE_SUBJECT
 from rag_engine.app.check_eval_set import check_eval_set
 from rag_engine.app.check_indexed_documents import check_documents_indexed
+from rag_engine.app.eval_judgments import (
+    JUDGMENTS_FILE,
+    Judgment,
+    LlmNumbers,
+    LlmUnavailable,
+    llm_summary,
+)
 from rag_engine.app.eval_report import build_report, report_json, report_markdown
 from rag_engine.app.eval_run import (
     FAST_STAGES,
@@ -126,18 +138,26 @@ def run_evaluation(
         print(error, file=sys.stderr)
         return EXIT_FAILED
     except EvalSetFormatError as error:
-        return _report_problems(error.problems)
+        return report_problems(error.problems)
     problems = (*check_eval_set(eval_set), *check_bundle_files(paths, eval_set))
     if problems:
-        return _report_problems(problems)
+        return report_problems(problems)
+    try:
+        judgments = read_judgments(judgments_path(paths))
+    except JudgmentFileError as error:
+        print(error, file=sys.stderr)
+        return EXIT_FAILED
+    except (OSError, BundlePathError) as error:
+        print(f"{JUDGMENTS_FILE}을 읽지 못했다({type(error).__name__})", file=sys.stderr)
+        return EXIT_FAILED
     try:
         content_hash = bundle_content_hash(paths, eval_set)
         settings = eval_settings(environment, eval_set.config)
-        problems = run_in_selector_loop(_check_ready(environment.database_url, eval_set))
+        problems = run_in_selector_loop(check_ready(environment.database_url, eval_set))
         if problems:
-            return _report_problems(problems)
+            return report_problems(problems)
         result = run_in_selector_loop(
-            _evaluate(environment, settings, eval_set, reranker_url=reranker_url)
+            evaluate(environment, settings, eval_set, reranker_url=reranker_url)
         )
     except EvalRunError as error:
         print(f"평가를 끝내지 못했다: {error}", file=sys.stderr)
@@ -156,6 +176,7 @@ def run_evaluation(
         stages=FULL_STAGES if through is Stage.RERANK else FAST_STAGES,
         run_at=datetime.now(UTC),
         commit=commit,
+        llm=_llm_numbers(eval_set, result, judgments),
     )
     json_text = json.dumps(report_json(report), ensure_ascii=False, indent=2) + "\n"
     try:
@@ -167,24 +188,38 @@ def run_evaluation(
     return EXIT_OK
 
 
+def _llm_numbers(
+    eval_set: EvalSet, result: EvalRunResult, judgments: list[Judgment] | None
+) -> LlmNumbers | LlmUnavailable:
+    """판정 파일의 줄로 센 LLM 숫자. 판정 파일의 열쇠는 `config.json`의 `judge_model`과
+    `judge_prompt_version`이다. 판정기의 설정(`RAG_JUDGE_*`)은 읽지 않는다."""
+    return llm_summary(
+        result.outcomes,
+        judgments,
+        model=eval_set.config.judge_model,
+        prompt_version=eval_set.config.judge_prompt_version,
+    )
+
+
 def _write_reports(out: Path, json_text: str, markdown_text: str) -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / REPORT_JSON).write_bytes(json_text.encode())
     (out / REPORT_MARKDOWN).write_bytes(markdown_text.encode())
 
 
-def _report_problems(problems: tuple[EvalProblem, ...]) -> int:
+def report_problems(problems: tuple[EvalProblem, ...]) -> int:
     for problem in problems:
         print(problem, file=sys.stderr)
     print(f"묶음의 오류 {len(problems)}건. 평가하지 않았고 보고서를 쓰지 않았다", file=sys.stderr)
     return EXIT_FAILED
 
 
-async def _check_ready(database_url: str, eval_set: EvalSet) -> tuple[EvalProblem, ...]:
+async def check_ready(database_url: str, eval_set: EvalSet) -> tuple[EvalProblem, ...]:
     """`index`와 같은 판정(`check_database`)에 스키마가 올라 있는지와 묶음의 문서가 모두 색인되어
-    있는지를 더한다. `check_database`는 스키마를 올리기 전에 부르도록 빈 데이터베이스를 지나가게
-    두지만, 평가는 색인된 데이터베이스가 있어야 한다. 문서의 색인은 질의를 임베딩하기 전에
-    본다. 색인이 끝나지 않은 문서는 조각이 0개로 세어져 질의가 모두 놓친 것이 된다."""
+    있는지를 더한다. `run`과 `judge`가 함께 쓴다. `check_database`는 스키마를 올리기 전에 부르도록
+    빈 데이터베이스를 지나가게 두지만, 평가는 색인된 데이터베이스가 있어야 한다. 문서의 색인은
+    질의를 임베딩하기 전에 본다. 색인이 끝나지 않은 문서는 조각이 0개로 세어져 질의가 모두 놓친 것이
+    된다."""
     engine = create_engine(database_url)
     try:
         state = await read_schema_state(engine)
@@ -204,14 +239,15 @@ async def _check_ready(database_url: str, eval_set: EvalSet) -> tuple[EvalProble
         await engine.dispose()
 
 
-async def _evaluate(
+async def evaluate(
     environment: EvalEnvironment,
     settings: Settings,
     eval_set: EvalSet,
     *,
     reranker_url: str | None,
 ) -> EvalRunResult:
-    """`reranker_url`이 없으면 합친 뒤까지, 있으면 그 끝점의 리랭커로 리랭크 뒤까지 평가한다."""
+    """`reranker_url`이 없으면 합친 뒤까지, 있으면 그 끝점의 리랭커로 리랭크 뒤까지 평가한다.
+    `run`과 `judge`가 함께 쓴다."""
     engine = create_engine(environment.database_url)
     pool = TeiEmbedderPool(
         lambda endpoint: httpx.AsyncClient(base_url=endpoint, timeout=settings.tei_timeout_seconds),

@@ -3,6 +3,7 @@
     uv run python tools/search_eval.py validate <묶음 폴더> [--indexed]
     uv run python tools/search_eval.py index <묶음 폴더>
     uv run python tools/search_eval.py run --through fused|rerank --out <폴더> <묶음 폴더>
+    uv run python tools/search_eval.py judge --through fused|rerank [--yes] [--prune] <묶음 폴더>
 
 인자 해석과 조립만 한다. 묶음의 파일을 읽고 쓰는 코드는 `rag_engine.adapters`에, 값과 판정은
 `rag_engine.domain`과 `rag_engine.app`에 있다. `tools/`는 이미지에 실리지 않으므로(`.dockerignore`)
@@ -24,10 +25,20 @@
 데이터베이스인지)을 지나야 돈다. 전체 실행은 리랭커 끝점 `RAG_EVAL_RERANKER_URL`이 없으면 그 이름을
 알리고 종료 코드 1이다.
 
-데이터베이스에 붙는 하위 명령(`index`, `run`, `validate --indexed`)은 평가 전용 환경 변수
+`run`은 판정 파일 `judgments.jsonl`이 있으면 그 줄로 보고서의 `llm` 칸(LLM 관련성 판정의 참고
+숫자)을 센다. 판정기를 부르지 않으므로 판정기의 설정은 읽지 않는다.
+
+`judge`는 `run`과 같은 평가를 돌려 마지막 단계의 상위 10개 조각과 질의의 쌍 가운데 판정 파일에 없는
+것만 Claude 판정기로 판정해 판정 파일에 쌓는다. 판정기의 설정 `RAG_JUDGE_URL`, `RAG_JUDGE_MODEL`,
+`RAG_JUDGE_API_KEY`를 셋 모두 환경 변수에 둬야 돌고, `RAG_JUDGE_MODEL`과 지시문의 판이
+`config.json`의 `judge_model`, `judge_prompt_version`과 같아야 한다. `--yes`가 없으면 부를 건수와
+비용의 어림만 찍고 부르지 않는다. `--prune`은 지금의 모델과 지시문 판에 맞지 않는 줄을 판정 파일에서
+지운다.
+
+데이터베이스에 붙는 하위 명령(`index`, `run`, `judge`, `validate --indexed`)은 평가 전용 환경 변수
 `RAG_EVAL_DATABASE_URL`, `RAG_EVAL_DATA_DIR`, `RAG_EVAL_EMBEDDING_URL`(과 있으면
-`RAG_EVAL_RERANKER_URL`. 전체 실행은 이것이 반드시 있어야 한다)만 읽는다. 제품의 `RAG_*`와 작업
-폴더의 `.env`는 읽지 않는다.
+`RAG_EVAL_RERANKER_URL`. 전체 실행은 이것이 반드시 있어야 한다)만 읽는다. 제품의 `RAG_*`(판정기의
+`RAG_JUDGE_*`는 빼고)와 작업 폴더의 `.env`는 읽지 않는다.
 
 종료 코드. 0은 문제 없음, 1은 묶음이나 색인의 오류(없는 폴더, 빠진 환경 변수도 든다), 2는 잘못된
 인자다.
@@ -42,6 +53,7 @@ from typing import Final
 
 from rag_engine.adapters.eval_environment import EvalEnvironmentError, read_eval_environment
 from rag_engine.adapters.eval_index import index_bundle
+from rag_engine.adapters.eval_judge import run_judge
 from rag_engine.adapters.eval_run import current_commit, run_evaluation
 from rag_engine.adapters.eval_validate import validate_bundle, validate_bundle_indexed
 from rag_engine.app.eval_run import Stage
@@ -80,6 +92,27 @@ def _parser() -> argparse.ArgumentParser:
         help="fused(합친 뒤까지, 빠른 실행)와 rerank(리랭크 뒤까지, 전체 실행) 가운데 하나",
     )
     run.add_argument("--out", type=Path, required=True, help="보고서를 쓰는 폴더")
+    judge = commands.add_parser(
+        "judge", help="상위 10개 조각과 질의의 쌍을 LLM으로 판정해 판정 파일에 쌓는다"
+    )
+    judge.add_argument("bundle", type=Path, help="묶음 폴더")
+    judge.add_argument(
+        "--through",
+        action="append",
+        choices=THROUGH_CHOICES,
+        default=[],
+        help="fused(합친 뒤)와 rerank(리랭크 뒤) 가운데 하나. 그 단계의 상위 10개를 판정한다",
+    )
+    judge.add_argument(
+        "--yes",
+        action="store_true",
+        help="부를 건수와 비용의 어림을 보고 승인한다. 없으면 어림만 찍고 부르지 않는다",
+    )
+    judge.add_argument(
+        "--prune",
+        action="store_true",
+        help="지금의 모델과 지시문 판에 맞지 않는 줄을 판정 파일에서 지운다",
+    )
     return parser
 
 
@@ -92,6 +125,10 @@ def main(argv: Sequence[str]) -> int:
     bundle: Path = args.bundle
     if args.command == "run":
         return _run(bundle, args.out, args.through)
+    if args.command == "judge":
+        approved: bool = args.yes
+        prune: bool = args.prune
+        return _judge(bundle, args.through, approved=approved, prune=prune)
     if args.command == "index":
         # 설정 오류는 `index_bundle`이 안에서 잡아 종료 코드로 낸다.
         return index_bundle(bundle, os.environ, run_once_with_settings)
@@ -99,13 +136,29 @@ def main(argv: Sequence[str]) -> int:
     return _validate(bundle, indexed=indexed)
 
 
-def _run(bundle: Path, out: Path, through: list[str]) -> int:
+def _stage(command: str, through: list[str]) -> Stage | None:
+    """`--through`의 값이 하나가 아니면 사용법을 알리고 `None`이다."""
     if len(through) != 1:
         choices = " 또는 ".join(THROUGH_CHOICES)
-        print(f"{TOOL} run: --through는 {choices} 가운데 하나를 한 번만 받는다", file=sys.stderr)
+        print(
+            f"{TOOL} {command}: --through는 {choices} 가운데 하나를 한 번만 받는다", file=sys.stderr
+        )
+        return None
+    return Stage.RERANK if through[0] == "rerank" else Stage.FUSED
+
+
+def _run(bundle: Path, out: Path, through: list[str]) -> int:
+    stage = _stage("run", through)
+    if stage is None:
         return EXIT_USAGE
-    stage = Stage.RERANK if through[0] == "rerank" else Stage.FUSED
     return run_evaluation(bundle, out, os.environ, through=stage, commit=current_commit(REPOSITORY))
+
+
+def _judge(bundle: Path, through: list[str], *, approved: bool, prune: bool) -> int:
+    stage = _stage("judge", through)
+    if stage is None:
+        return EXIT_USAGE
+    return run_judge(bundle, os.environ, through=stage, approved=approved, prune=prune)
 
 
 def _validate(bundle: Path, *, indexed: bool) -> int:

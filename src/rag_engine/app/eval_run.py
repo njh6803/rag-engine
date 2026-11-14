@@ -18,12 +18,18 @@
 끝점이 아니라 환경의 끝점을 쓴다.
 
 평가 도중 판이 전환되면(`is_current`가 거짓) 평가를 `EvalRunError`로 끝낸다. 평가는 고정된 색인
-하나를 재는 일이라 다시 하지 않는다. 질의의 글과 조각의 글은 결과에 싣지 않고 식별자와 순위만
+하나를 재는 일이라 다시 하지 않는다. 질의의 글과 조각의 글은 보고서에 싣지 않고 식별자와 순위만
 싣는다(원칙 V).
+
+LLM 관련성 판정(티켓 search-eval 12)은 마지막 단계(빠른 실행은 합친 뒤, 전체 실행은 리랭크 뒤)의
+상위 10개 조각을 본다. 그 조각마다 `QueryOutcome.top`에 `TopPassage`를 싣는다. 판정기에 보낼
+글(질의의 글과 리랭커에 보내는 것과 같은 조각의 글)은 메모리에만 들고 `repr`에서 뺀다. 보고서와 판정
+파일에는 해시와 식별자만 나간다.
 """
 
+import hashlib
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final
 
@@ -63,6 +69,13 @@ class Stage(StrEnum):
 
 FAST_STAGES: Final = (Stage.VECTOR, Stage.KEYWORD, Stage.FUSED)
 FULL_STAGES: Final = (*FAST_STAGES, Stage.RERANK)
+# LLM 판정이 보는 순위의 깊이(명세 "LLM 관련성 판정"). 지표의 가장 깊은 순위(@10)와 같다.
+JUDGED_TOP: Final = 10
+
+
+def sha256_text(text: str) -> str:
+    """글의 sha256 16진 소문자 글. 판정 파일의 `query_sha256`과 `text_sha256`이 이 표기다."""
+    return hashlib.sha256(text.encode()).hexdigest()
 
 
 class EvalRunError(Exception):
@@ -86,16 +99,33 @@ class ScoredCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class TopPassage:
+    """마지막 단계의 상위 10개에 든 조각 하나. `document`와 `ordinal`(문서 안의 조각 순번)이
+    보고서가 조각을 가리키는 식별자다. `reached`는 그 조각이 질문의 기대 근거에 하나라도 닿았는지다.
+    `query`와 `text`는 판정기에 보내는 글이라 메모리에만 들고 `repr`에는 싣지 않는다(원칙 V)."""
+
+    document: str
+    ordinal: int
+    reached: bool
+    query_sha256: str
+    text_sha256: str
+    query: str = field(repr=False)
+    text: str = field(repr=False)
+
+
+@dataclass(frozen=True, slots=True)
 class QueryOutcome:
     """질의 하나의 단계별 결과. `reach[단계][i]`는 그 단계에서 순위 `i + 1`인 조각이 닿은 기대
     근거의 번호(질문의 기대 근거 안의 자리) 집합이다. `expected`는 그 질문의 기대 근거 수다.
-    `scored`는 전체 실행에서만 차고, 합친 뒤의 후보 전부를 리랭크 뒤 순위 순으로 담는다."""
+    `scored`는 전체 실행에서만 차고, 합친 뒤의 후보 전부를 리랭크 뒤 순위 순으로 담는다. `top`은
+    마지막 단계의 상위 10개 조각이고 순위 순이다."""
 
     query_list: str
     evidence_id: str
     expected: int
     reach: dict[Stage, Reach]
     scored: tuple[ScoredCandidate, ...] = ()
+    top: tuple[TopPassage, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,10 +196,13 @@ async def _evaluate(
                 for stage in FAST_STAGES
             }
             scored: tuple[ScoredCandidate, ...] = ()
+            last_stage = Stage.FUSED
+            last_ranked = stage_ranking(diagnosis.hits, Stage.FUSED, keywords, candidates)
             if reranker is not None:
-                fused = stage_ranking(diagnosis.hits, Stage.FUSED, keywords, candidates)
-                ranked = await _rerank(reranker, query.query, fused)
-                reach[Stage.RERANK] = _reach(item, [hit for hit, _ in ranked])
+                ranked = await _rerank(reranker, query.query, last_ranked)
+                last_stage = Stage.RERANK
+                last_ranked = [hit for hit, _ in ranked]
+                reach[Stage.RERANK] = _reach(item, last_ranked)
                 scored = tuple(
                     ScoredCandidate(score, bool(reached))
                     for (_, score), reached in zip(ranked, reach[Stage.RERANK], strict=True)
@@ -181,9 +214,32 @@ async def _evaluate(
                     expected=len(item.evidence),
                     reach=reach,
                     scored=scored,
+                    top=top_passages(query.query, last_ranked, reach[last_stage]),
                 )
             )
     return EvalRunResult(index=summary, outcomes=tuple(outcomes))
+
+
+def top_passages(
+    query: str, ranked: Sequence[DiagnosedHit], reach: Reach
+) -> tuple[TopPassage, ...]:
+    """마지막 단계의 상위 `JUDGED_TOP`개. 판정기에 보내는 글은 리랭커에 보내는 글과 같다."""
+    query_hash = sha256_text(query)
+    passages: list[TopPassage] = []
+    for hit, reached in zip(ranked[:JUDGED_TOP], reach[:JUDGED_TOP], strict=True):
+        text = compose_index_text(hit.hit.location.section, hit.hit.text)
+        passages.append(
+            TopPassage(
+                document=hit.hit.key,
+                ordinal=hit.ordinal,
+                reached=bool(reached),
+                query_sha256=query_hash,
+                text_sha256=sha256_text(text),
+                query=query,
+                text=text,
+            )
+        )
+    return tuple(passages)
 
 
 async def _rerank(

@@ -5,6 +5,8 @@ import pytest
 
 from rag_engine.domain.errors import (
     JOB_ERROR_CODES,
+    JUDGE_PERMANENT_FAILURE_CODES,
+    JUDGE_TRANSIENT_FAILURE_CODES,
     PERMANENT_FAILURE_CODES,
     PROBLEM_ERROR_CODES,
     TOOL_ERROR_CODES,
@@ -33,6 +35,9 @@ SPEC_JOB_CODES = {
     "internal_error",
     "worker_lost",
 }
+
+# 관련성 판정기의 실패 코드 둘(ADR 0019, search-eval 12). 작업 행이나 응답에는 나가지 않는다.
+SPEC_JUDGE_CODES = {"judge_unavailable", "judge_rejected"}
 
 # Problem Details 의 코드 목록(명세 "관리 API").
 SPEC_PROBLEM_CODES = {
@@ -74,10 +79,26 @@ def test_도구_오류_코드_다섯이_모두_정의되어_있다() -> None:
     assert {code.value for code in TOOL_ERROR_CODES} == SPEC_TOOL_CODES
 
 
-def test_정의된_코드는_작업_코드와_HTTP_도구_코드의_합집합이다() -> None:
-    expected = SPEC_JOB_CODES | SPEC_PROBLEM_CODES | SPEC_TOOL_CODES
+def test_정의된_코드는_작업_코드와_HTTP_도구_코드와_판정기_코드의_합집합이다() -> None:
+    expected = SPEC_JOB_CODES | SPEC_PROBLEM_CODES | SPEC_TOOL_CODES | SPEC_JUDGE_CODES
 
     assert {code.value for code in ErrorCode} == expected
+
+
+def test_판정기_코드는_작업_코드에도_HTTP_코드에도_들지_않는다() -> None:
+    judge = JUDGE_PERMANENT_FAILURE_CODES | JUDGE_TRANSIENT_FAILURE_CODES
+
+    assert {code.value for code in judge} == SPEC_JUDGE_CODES
+    assert judge.isdisjoint(JOB_ERROR_CODES | PROBLEM_ERROR_CODES | TOOL_ERROR_CODES)
+
+
+def test_판정기의_영구_실패와_일시_실패는_각자_자기_코드를_받는다() -> None:
+    assert PermanentFailure(ErrorCode.JUDGE_REJECTED, "거부").code is ErrorCode.JUDGE_REJECTED
+    assert TransientFailure(ErrorCode.JUDGE_UNAVAILABLE, "불통").code is ErrorCode.JUDGE_UNAVAILABLE
+    with pytest.raises(ValueError, match="영구 실패의 코드가 아니다"):
+        PermanentFailure(ErrorCode.JUDGE_UNAVAILABLE, "메시지")
+    with pytest.raises(ValueError, match="일시 실패의 코드가 아니다"):
+        TransientFailure(ErrorCode.JUDGE_REJECTED, "메시지")
 
 
 def test_영구_실패와_일시_실패의_코드는_겹치지_않는다() -> None:
