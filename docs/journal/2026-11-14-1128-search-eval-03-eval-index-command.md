@@ -52,6 +52,18 @@ CodeRabbit CLI(0.7.5)가 한 번 돌았다. `Seat: not assigned`(Free)에서도 
 - 변이 표 실행은 `RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test PYTHONUTF8=1 uv run python tools/mutate.py <표>`다. 이름 규칙을 겨눈 변이는 닿지 않는 주소에 접속을 시도해 각각 130초 안팎이 걸린다.
 - 실제 TEI(bge-m3)로 색인하는 실행은 이 PR에서 하지 않았다. 시험은 TEI 스텁(차원 16)으로 돈다. CI 러너에서 4096차원으로 뜨는지는 게이트 티켓(11)이 본다.
 
+## 봇 회차
+
+PR #41, 첫 푸시 2fc7e65 뒤 일지 커밋 85efc94에서 두 봇이 처음 리뷰했다(CodeRabbit은 `@coderabbitai review` 뒤에 리뷰했고 검사 여섯은 모두 초록이었다). 두 봇 모두 첫 회차다. 이 회차는 CodeRabbit이 Major 하나와 Minor 둘, claude-review가 Minor 셋과 Nit 하나를 냈다.
+
+- 고친 것(CodeRabbit Major): `read_schema_state`가 표 목록을 `current_schema()`(검색 경로의 첫 스키마)에서만 읽었다. 데이터베이스에 `search_path = 빈_스키마, public`이 걸려 있으면 이어지는 `alembic_version`과 제품 표의 비한정 이름은 `public`으로 풀리므로, 빈 데이터베이스로 읽고 그 표에 쓸 수 있다. 시험을 먼저 써서 재현했다(`ALTER DATABASE … SET search_path`로 첫 스키마를 비우고 `public.alembic_version`에 옛 판을 둔 데이터베이스. 고치기 전에는 판정을 지나쳐 `migrate`까지 가서 `ProgrammingError`로 끝났다). `current_schemas(false)`의 모든 스키마에서 읽게 했다(변이 21).
+- 고친 것(CodeRabbit Minor): `_IsolatedSettings`가 `settings_customise_sources`로 읽는 곳을 좁혀도 pydantic-settings가 그 함수를 부르기 전에 `.env`의 읽기 원천을 만들고 파일을 연다(설치된 `pydantic_settings/main.py`에서 `DotEnvSettingsSource` 생성이 491행, 그 함수 호출이 516행이다). CP949로 저장한 `.env`가 작업 폴더에 있으면 도구가 `UnicodeDecodeError`로 멈추는 것을 시험으로 재현했다. 하위 클래스의 `model_config`에 `env_file=None`을 줬다. 생성자에 `_env_file=None`을 주는 길은 하위 클래스의 합성된 시그니처가 그 인자를 몰라 pyright가 거부했다(`Settings`의 타입 검사용 `__init__`은 하위 클래스가 물려받지 않는다). 변이 22가 겨눈다.
+- 고친 것(CodeRabbit Minor와 claude-review Minor): `validate_bundle_indexed`가 묶음을 두 번 읽어, 둘째 읽기의 `EvalSetFormatError`를 버리고 "문제 없음"으로 끝날 수 있었다. `_read_and_check`가 한 번 읽은 값으로 두 판정이 모두 보게 했다. 읽기 횟수를 센 시험으로 고정했고(고치기 전 2회) 변이 23이 겨눈다. 셀프 리뷰가 남긴 Minor 가운데 "묶음을 한 번 더 읽는다"는 이것으로 해소되었다.
+- 고친 것(claude-review Nit): `read_eval_environment` 독스트링의 "데이터베이스 의 이름" 공백.
+- 보류(claude-review Minor 셋): `(오류, 경고)` 이름 없는 튜플과 읽기 트랜잭션 안의 토큰 세기는 셀프 리뷰에서 이미 남긴 것과 같고 04가 모은다. `index_bundle`의 `except` 갈래가 같은 출력과 종료 코드를 되풀이하는 것과 `_ingest_and_process`가 수집, 처리, 대기, 실패 보고를 한 함수에 두는 것은 동작을 바꾸지 않는 모양 문제라 `index`의 단계가 늘 때 나눈다. 아래 "다음"에 적었다.
+- 이 반영이 새로 쓴 사실 문장(PR 봇이 겨냥할 것): `eval_database.py`의 `read_schema_state` 독스트링("이어지는 `alembic_version`과 제품 표의 비한정 이름이 검색 경로를 따라 풀리므로, 첫 스키마(`current_schema()`)만 보면 …"), `eval_environment.py`의 `_IsolatedSettings` 독스트링("pydantic-settings는 그 함수를 부르기 전에 `.env`의 읽기 원천을 만들고 파일을 연다", "하위 클래스의 생성자 시그니처가 그 인자를 몰라 타입 검사를 지나지 못한다"), `eval_validate.py` 모듈 독스트링("읽기를 판정마다 따로 하면 읽는 사이에 묶음이 바뀌었을 때 판정이 서로 다른 값을 본다"), 티켓 03 `## Comments`의 새 항목 둘, PR 본문의 "봇 리뷰 첫 회차의 반영".
+- 다시 돌린 것: `uv run ruff check .`(0), `uv run pyright`(0 errors), `tests/tools/test_search_eval_index.py`와 `tests/tools/test_search_eval.py`, `tests/adapters/test_eval_set_reader.py` 122 passed, 새 변이 21·22·23 기대대로 빨강(변이 표는 23개가 되었다). 전체 시험은 커밋의 pre-commit이 돈다.
+
 ## 회고
 
 낸 후보 여덟. 승인 2, 기각 6, 넘김 없음.
@@ -74,3 +86,4 @@ CodeRabbit CLI(0.7.5)가 한 번 돌았다. `Seat: not assigned`(Free)에서도 
 - 02에서 이어진 것: PR #40 봇 회차의 보류 둘(`_entries`의 출력 인자 변경, `_read_miss_reviews`의 이중 경로 검사)은 03이 그 파일을 넓히지 않아 건드리지 않았다. 변이 표 둘의 윈도 전용 표지는 리눅스에서 다시 골라야 한다.
 - 주 체크아웃 미갱신: 루트는 `dev`(97f9914)이다. 병합 뒤 `tidy-checkouts`는 다음 새 세션이 돈다.
 - 사람에게 넘긴 정리: 워크트리 `14-reindex-version-switch`(앞 일지에서 이어졌다).
+- 봇 첫 회차에서 보류한 모양 문제 둘(`index_bundle`의 `except` 갈래 되풀이, `_ingest_and_process`의 한 함수 안 추상화 수준)은 `index`의 단계가 늘 때 나눈다(티켓 03 `## Comments`).

@@ -21,7 +21,7 @@ from typing import Final
 from urllib.parse import parse_qs, urlsplit
 
 from pydantic import ValidationError
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
@@ -55,7 +55,7 @@ class EvalEnvironment:
 
 def read_eval_environment(environ: Mapping[str, str]) -> EvalEnvironment:
     """평가 전용 이름에서 환경을 읽는다. 앞의 셋 가운데 빠진 것이 있으면 빠진 이름을 알리고,
-    데이터베이스 의 이름이 규칙에 맞지 않으면 알린다. 어느 쪽도 데이터베이스에 접속하지 않는다."""
+    데이터베이스의 이름이 규칙에 맞지 않으면 알린다. 어느 쪽도 데이터베이스에 접속하지 않는다."""
     missing = [name for name in REQUIRED_ENV if not environ.get(name)]
     if missing:
         raise EvalEnvironmentError(f"평가 전용 환경 변수가 없다: {', '.join(missing)}")
@@ -100,7 +100,15 @@ def check_database_name(database_url: str) -> None:
 
 
 class _IsolatedSettings(Settings):
-    """환경 변수, `.env`, 비밀 파일을 읽지 않고 지어 준 값만 받는 제품의 설정 객체."""
+    """환경 변수, `.env`, 비밀 파일을 읽지 않고 지어 준 값만 받는 제품의 설정 객체.
+
+    읽는 곳을 `settings_customise_sources`로 좁히는 것만으로는 `.env`를 열지 않는 데 모자라다.
+    pydantic-settings는 그 함수를 부르기 전에 `.env`의 읽기 원천을 만들고 파일을 연다(UTF-8이
+    아닌 `.env`가 작업 폴더에 있으면 이 도구가 `UnicodeDecodeError`로 멈춘다). 그래서 설정의
+    `env_file`도 끈다. 지을 때 `_env_file=None`을 주는 길은 하위 클래스의 생성자 시그니처가 그
+    인자를 몰라 타입 검사를 지나지 못한다."""
+
+    model_config = SettingsConfigDict(env_file=None)
 
     @classmethod
     def settings_customise_sources(

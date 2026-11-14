@@ -247,3 +247,39 @@ old = '''    except (OSError, SQLAlchemyError) as error:
         # 접속 실패의'''
 new = '''    except KeyError as error:
         # 접속 실패의'''
+
+[[mutation]]
+name = "표 목록을 검색 경로의 첫 스키마에서만 읽는다"
+tests = ["tests/tools/test_search_eval_index.py::test_검색_경로의_첫_스키마가_비어_있어도_뒤의_스키마에_든_표를_보고_거부한다"]
+expect = "red"
+expect_output = ["쓰지 못했다(ProgrammingError)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_database.py"
+old = '''table_schema = ANY (current_schemas(false))'''
+new = '''table_schema = current_schema()'''
+
+[[mutation]]
+name = "평가 설정 객체가 작업 폴더의 .env를 연다"
+tests = ["tests/tools/test_search_eval_index.py::test_작업_폴더의_env가_UTF_8이_아니어도_열지_않아_도구가_멈추지_않는다"]
+expect = "red"
+expect_output = ["'utf-8' codec can't decode byte 0xc7"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_environment.py"
+old = '''SettingsConfigDict(env_file=None)'''
+new = '''SettingsConfigDict(env_file=".env")'''
+
+[[mutation]]
+name = "validate --indexed가 묶음을 판정마다 따로 읽는다"
+tests = ["tests/tools/test_search_eval_index.py::test_validate_indexed는_묶음을_한_번만_읽어_읽는_사이의_변경에_흔들리지_않는다"]
+expect = "red"
+expect_output = ["묶음을 2번 읽었다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_validate.py"
+old = '''    eval_set, problems = _read_and_check(folder)
+    if eval_set is None:'''
+new = '''    problems = _read_and_check(folder)[1]
+    eval_set = _read_and_check(folder)[0]
+    if eval_set is None:'''

@@ -27,11 +27,14 @@ from tests.support.pdf_files import PdfPage, pdf_bytes, text_block
 from tests.support.tei_server import serve_stub
 from tests.support.tei_stub import TeiStub
 
-from rag_engine.adapters import eval_index
+from rag_engine.adapters import eval_index, eval_validate
+from rag_engine.adapters.bundle_paths import BundlePaths
+from rag_engine.adapters.eval_set_reader import read_eval_set
 from rag_engine.adapters.ingest_command import ingest_path
 from rag_engine.adapters.postgres.migrate import upgrade_to_head
 from rag_engine.adapters.settings import Settings
 from rag_engine.domain.entities import JsonValue
+from rag_engine.domain.eval_set import EvalSet
 from tools import search_eval
 
 DOCUMENT_A = docx_bytes("휴가", PASSAGE + ".")
@@ -224,6 +227,20 @@ def test_작업_폴더의_env가_있어도_색인_결과가_같다(world: World,
 
 
 @pytest.mark.parametrize("command", ["index", "validate --indexed"])
+def test_작업_폴더의_env가_UTF_8이_아니어도_열지_않아_도구가_멈추지_않는다(
+    world: World, tmp_path: Path, command: str
+) -> None:
+    """한국어 윈도의 메모장은 `.env`를 CP949로 저장한다. 제품의 설정 객체는 그 파일을 UTF-8로 열다
+    `UnicodeDecodeError`로 죽으므로, 평가의 설정 객체는 파일을 열지 않아야 한다."""
+    bundle = _bundle(tmp_path)
+    assert _index(bundle) == 0
+    legacy_text = "RAG_DEFAULT_CHUNK_TOKENS=64 # 한글 주석\n"
+    (world.work_dir / ".env").write_bytes(legacy_text.encode("cp949"))
+
+    assert search_eval.main([*command.split(), str(bundle)]) == 0
+
+
+@pytest.mark.parametrize("command", ["index", "validate --indexed"])
 @pytest.mark.parametrize(
     "url",
     [
@@ -326,6 +343,37 @@ def test_스키마의_판_표가_없는데_다른_표가_든_데이터베이스�
 
     assert "스키마" in capsys.readouterr().err
     assert _snapshot(world.database_url) == before
+
+
+def test_검색_경로의_첫_스키마가_비어_있어도_뒤의_스키마에_든_표를_보고_거부한다(
+    world: World, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """데이터베이스에 `search_path = 빈_스키마, public`이 걸려 있으면 비한정 표 이름은 `public`의
+    표로 풀린다. 판정이 첫 스키마(`current_schema()`)만 보면 빈 데이터베이스로 읽고 그 표에 쓴다."""
+    with psycopg.connect(world.database_url, autocommit=True) as connection:
+        name = connection.execute("SELECT current_database()").fetchone()
+        assert name is not None
+        connection.execute("CREATE SCHEMA first_empty")
+        connection.execute(
+            sql.SQL("ALTER DATABASE {} SET search_path = first_empty, public").format(
+                sql.Identifier(name[0])
+            )
+        )
+        connection.execute("CREATE TABLE public.alembic_version (version_num varchar(32))")
+        connection.execute("INSERT INTO public.alembic_version VALUES ('0001')")
+    before = _files(world.data_dir)
+
+    assert _index(_bundle(tmp_path)) == 1
+
+    assert "스키마" in capsys.readouterr().err
+    with psycopg.connect(world.database_url, autocommit=True) as connection:
+        versions = connection.execute("SELECT version_num FROM public.alembic_version").fetchall()
+        tables = connection.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+        ).fetchall()
+    assert versions == [("0001",)]
+    assert tables == [("alembic_version",)]
+    assert _files(world.data_dir) == before
 
 
 @pytest.mark.parametrize(
@@ -474,6 +522,26 @@ def test_validate_indexed는_스키마가_없는_데이터베이스에서_거부
 
     assert "색인되어 있지 않다" in capsys.readouterr().err
     assert _snapshot(world.database_url) == {}
+
+
+def test_validate_indexed는_묶음을_한_번만_읽어_읽는_사이의_변경에_흔들리지_않는다(
+    world: World, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """파일 검사와 데이터베이스 판정이 서로 다른 읽기의 값을 보면, 두 읽기 사이에 묶음이 바뀌거나
+    둘째 읽기가 실패했을 때 오류가 사라질 수 있다. 읽기가 한 번이면 두 판정은 같은 값을 본다."""
+    del world
+    bundle = _bundle(tmp_path)
+    assert _index(bundle) == 0
+    reads: list[Path] = []
+
+    def counting_read(paths: BundlePaths) -> EvalSet:
+        reads.append(bundle)
+        return read_eval_set(paths)
+
+    monkeypatch.setattr(eval_validate, "read_eval_set", counting_read)
+
+    assert _validate_indexed(bundle) == 0
+    assert len(reads) == 1, f"묶음을 {len(reads)}번 읽었다"
 
 
 def test_validate_indexed는_본문에_없는_글귀를_세트의_오류로_거부한다(

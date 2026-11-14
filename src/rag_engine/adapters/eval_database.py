@@ -44,11 +44,14 @@ class SchemaState(Enum):
 
 
 async def read_schema_state(engine: AsyncEngine) -> SchemaState:
+    """표 목록은 검색 경로(`search_path`) 전체에서 읽는다. 이어지는 `alembic_version`과 제품 표의
+    비한정 이름이 검색 경로를 따라 풀리므로, 첫 스키마(`current_schema()`)만 보면 첫 스키마가 비어
+    있을 때 뒤 스키마의 표를 보지 못한 채 빈 데이터베이스로 읽는다."""
     async with engine.connect() as connection:
         listed = await connection.execute(
             sa.text(
                 "SELECT table_name FROM information_schema.tables"
-                " WHERE table_schema = current_schema()"
+                " WHERE table_schema = ANY (current_schemas(false))"
             )
         )
         tables = {str(name) for name in listed.scalars()}
