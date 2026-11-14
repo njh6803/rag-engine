@@ -55,6 +55,10 @@ type KeywordTokenizer = Callable[[str], list[str]]
 # 같은 판은 같은 자를 돌려써 끝점 확인(`/info`)을 한 번만 한다. 구현은 `adapters`에 있다.
 type EmbedderFor = Callable[[IndexVersion], Embedder]
 
+# 임베더를 내는 함수를 감싸 다른 임베더를 내는 함수를 낸다. 작업자의 조립이 걸이로 받고, 평가
+# 도구가 추론 기록을 끼울 때 쓴다(명세 search-eval "추론 기록"). 작업자는 무엇을 감싸는지 모른다.
+type EmbedderWrapper = Callable[[EmbedderFor], EmbedderFor]
+
 # 청킹 전략의 이름으로 청커를 고른다.
 type ChunkerFor = Callable[[str], Chunker]
 

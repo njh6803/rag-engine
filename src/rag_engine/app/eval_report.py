@@ -11,7 +11,7 @@
 그 칸을 받는 티켓이 같은 판에서 더한다(칸을 더하는 것은 판을 올리지 않는다).
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
@@ -36,6 +36,20 @@ class ReportRow:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordsSummary:
+    """이번 실행이 추론 기록에서 읽은 열쇠의 수와 새로 계산한 열쇠의 수, 값이 나온 기록 파일마다의
+    sha256이다(묶음 폴더 기준 경로 → 16진 소문자 글). 기록을 쓰지 않은 실행(`--records off`)은
+    기록 계층을 거치지 않아 두 수를 세지 않으므로 0이고 파일이 없다."""
+
+    read: int
+    computed: int
+    files: Mapping[str, str]
+
+
+NO_RECORDS: Final = RecordsSummary(read=0, computed=0, files={})
+
+
+@dataclass(frozen=True, slots=True)
 class EvalReport:
     set_name: str
     set_format_version: str
@@ -50,6 +64,7 @@ class EvalReport:
     run_at: datetime
     commit: str | None
     score_distribution: ScoreDistribution | None = None
+    records: RecordsSummary = NO_RECORDS
 
 
 def config_values(config: EvalConfig, *, with_judge: bool) -> dict[str, JsonValue]:
@@ -81,6 +96,7 @@ def build_report(
     stages: Sequence[Stage],
     run_at: datetime,
     commit: str | None,
+    records: RecordsSummary = NO_RECORDS,
 ) -> EvalReport:
     rows: list[ReportRow] = []
     for query_list in eval_set.query_lists:
@@ -109,6 +125,7 @@ def build_report(
         score_distribution=(
             build_score_distribution(result.outcomes) if Stage.RERANK in stages else None
         ),
+        records=records,
     )
 
 
@@ -167,6 +184,11 @@ def _report_values(report: EvalReport) -> dict[str, JsonValue]:
         },
         "stages": [stage.value for stage in report.stages],
         "rows": [_row_json(row) for row in report.rows],
+        "records": {
+            "read": report.records.read,
+            "computed": report.records.computed,
+            "files": dict(sorted(report.records.files.items())),
+        },
         "meta": {"run_at": report.run_at.isoformat(), "commit": report.commit},
     }
 
@@ -232,7 +254,24 @@ def report_markdown(report: EvalReport) -> str:
         )
     if report.score_distribution is not None:
         lines += _distribution_markdown(report.score_distribution)
+    lines += _records_markdown(report.records)
     return "\n".join(lines) + "\n"
+
+
+def _records_markdown(records: RecordsSummary) -> list[str]:
+    """추론 기록의 읽은 수와 새로 계산한 수, 기록 파일마다의 sha256."""
+    lines = [
+        "",
+        "## 추론 기록",
+        "",
+        *_table(
+            ("칸", "값"),
+            [("읽은 수", str(records.read)), ("새로 계산한 수", str(records.computed))],
+        ),
+    ]
+    if records.files:
+        lines += ["", *_table(("읽은 기록 파일", "sha256"), sorted(records.files.items()))]
+    return lines
 
 
 def _distribution_markdown(distribution: ScoreDistribution) -> list[str]:

@@ -94,6 +94,21 @@ async def check_database(database_url: str, eval_set: EvalSet) -> tuple[EvalProb
         await engine.dispose()
 
 
+async def has_documents(database_url: str) -> bool:
+    """데이터베이스에 문서가 한 건이라도 있는지 본다(삭제 표시가 된 문서도 센다). 스키마가 올라
+    있지 않으면 문서가 없다. `index --records write`가 빈 데이터베이스에서만 도는 규칙이 쓴다.
+    읽기만 하고 아무것도 쓰지 않는다."""
+    engine = create_engine(database_url)
+    try:
+        if await read_schema_state(engine) is SchemaState.EMPTY:
+            return False
+        async with engine.connect() as connection:
+            count = await connection.scalar(sa.text("SELECT count(*) FROM documents"))
+    finally:
+        await engine.dispose()
+    return bool(count)
+
+
 async def check_indexed(
     environment: EvalEnvironment, eval_set: EvalSet
 ) -> tuple[tuple[EvalProblem, ...], tuple[EvalProblem, ...]]:

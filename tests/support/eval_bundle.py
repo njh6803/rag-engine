@@ -51,7 +51,7 @@ CONFIG: dict[str, JsonValue] = {
     "reranker_model": "BAAI/bge-reranker-v2-m3",
     "chunking": {"strategy": "structure_first", "max_tokens": 512, "overlap_tokens": 64},
     "search_candidates": 50,
-    "tei_version": "1.9",
+    "tei_version": "1.9.4",
     "judge_model": "none",
     "judge_prompt_version": "1",
 }

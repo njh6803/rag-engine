@@ -136,6 +136,12 @@ class _Distribution(_Strict):
         return found
 
 
+class _Records(_Strict):
+    read: int
+    computed: int
+    files: dict[str, str]
+
+
 class _Report(_Strict):
     format_version: str
     eval_set: _EvalSet
@@ -143,6 +149,7 @@ class _Report(_Strict):
     index: _Index
     stages: list[str]
     rows: list[_Row]
+    records: _Records
     meta: _Meta
     score_distribution: _Distribution | None = None
 
@@ -182,8 +189,8 @@ def _run(bundle: Path, out: Path, *extra: str) -> int:
     return search_eval.main(["run", str(bundle), "--through", "fused", "--out", str(out), *extra])
 
 
-def _full_run(bundle: Path, out: Path) -> int:
-    return search_eval.main(["run", str(bundle), "--through", "rerank", "--out", str(out)])
+def _full_run(bundle: Path, out: Path, *extra: str) -> int:
+    return search_eval.main(["run", str(bundle), "--through", "rerank", "--out", str(out), *extra])
 
 
 def _prefer_b(query: str, text: str) -> float:
@@ -548,7 +555,7 @@ def test_through가_하나가_아니면_아무것도_읽지_않고_2다(
     assert not (tmp_path / "out").exists()
 
 
-def test_리랭커_끝점이_없는_전체_실행은_빠진_이름을_알리고_아무것도_부르지_않고_1이다(
+def test_기록을_끈_전체_실행은_리랭커_끝점이_없으면_빠진_이름을_알리고_아무것도_부르지_않고_1이다(
     world: World,
     tei_stub: TeiStub,
     tmp_path: Path,
@@ -561,7 +568,7 @@ def test_리랭커_끝점이_없는_전체_실행은_빠진_이름을_알리고_
     capsys.readouterr()
     requests_before = len(tei_stub.requests)
 
-    assert _full_run(bundle, tmp_path / "out") == 1
+    assert _full_run(bundle, tmp_path / "out", "--records", "off") == 1
 
     assert RERANKER_ENV in capsys.readouterr().err
     assert len(tei_stub.requests) == requests_before

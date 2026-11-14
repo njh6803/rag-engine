@@ -70,7 +70,7 @@ tests/
   tools/       하네스 도구의 시험과 검색 평가 도구(`validate`, `index`)의 시험. `index`의 시험은 테스트 PostgreSQL이 필요하다
 compose.test.yml  테스트용 PostgreSQL(pgvector, 운영과 같은 이미지 판). 검사 러너가 없으면 띄운다
 compose.eval.yml  검색 평가 전용 PostgreSQL(데이터베이스 이름 rag_eval)과 임베딩 TEI. 머리 주석이 평가 전용 환경 변수 넷의 값을 적는다
-tools/         훅, 검사, 검사 러너, 검색 평가 도구(search_eval.py. `validate`가 묶음의 형식과 목록을 보고 `--indexed`가 색인 상태와 글귀를 보며, `index`가 묶음을 평가 전용 데이터베이스에 색인하며, `run --through fused`가 벡터만·키워드만·합친 뒤 세 단계의 지표를, `run --through rerank`가 리랭크 뒤 단계와 리랭크 점수의 분포까지 더해 `report.json`과 `report.md`로 쓴다). 규약은 .claude/rules/tools.md
+tools/         훅, 검사, 검사 러너, 검색 평가 도구(search_eval.py. `validate`가 묶음의 형식과 목록을 보고 `--indexed`가 색인 상태와 글귀를 보며, `index`가 묶음을 평가 전용 데이터베이스에 색인하며, `run --through fused`가 벡터만·키워드만·합친 뒤 세 단계의 지표를, `run --through rerank`가 리랭크 뒤 단계와 리랭크 점수의 분포까지 더해 `report.json`과 `report.md`로 쓴다. `index`와 `run`의 `--records read|write|off`가 모델이 계산한 임베딩과 리랭크 점수를 묶음의 `records/`에 저장해 다시 쓴다). 규약은 .claude/rules/tools.md
 docs/          헌법, ADR, PRD, 에이전트 문서, 일지
 .scratch/      로컬 마크다운 이슈 트래커(기능 계획, 티켓, 회고 대기열)
 ```
