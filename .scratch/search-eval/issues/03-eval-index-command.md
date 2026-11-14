@@ -25,5 +25,5 @@
 - 묶음의 파일 이름 상수(`config.json`, `miss-review.jsonl`, `documents.json`, `evidence.jsonl`)는 이 티켓에서 옮기지 않았다. 이 티켓이 읽는 묶음 파일은 `read_eval_set`이 이미 읽는 것뿐이라 더 읽을 파일이 없었다. 07과 12가 묶음에 쓸 때 정한다.
 - `compose.eval.yml`의 TEI 이미지 태그는 `cpu-1.9.4`다. 07이 이 태그에서 장치 머리를 뗀 판(`1.9.4`)을 `config.json`의 `tei_version`과 견준다.
 - PR #40 두 번째 봇 회차에서 미룬 둘(`eval_bundle_files.py`의 `_entries`가 출력 인자 `unreadable`을 바꾸는 것, `eval_set_reader.py`의 `_read_miss_reviews`가 경로를 두 번 판정하는 것)은 이 티켓이 두 파일을 넓히지 않아 손대지 않았다.
-- 변이 표 `.scratch/search-eval/probes/eval_index_mutations.toml`의 열여덟 변이가 모두 기대대로 빨갛다. 변이를 돌릴 때는 테스트 PostgreSQL 주소를 `RAG_TEST_DATABASE_URL`로 준다. 이름의 규칙 변이 둘은 닿지 않는 주소(`127.0.0.1:1`)에 접속을 시도해 변이 도구의 출력이 각각 131초와 133초를 냈다.
+- 변이 표 `.scratch/search-eval/probes/eval_index_mutations.toml`의 스무 변이가 모두 기대대로 빨갛다. 변이를 돌릴 때는 테스트 PostgreSQL 주소를 `RAG_TEST_DATABASE_URL`로 준다. 이름의 규칙 변이 둘은 닿지 않는 주소(`127.0.0.1:1`)에 접속을 시도해 변이 도구의 출력이 각각 131초와 133초를 냈다.
 - 셀프 리뷰에서 남긴 Minor: (오류, 경고) 쌍이 `check_passages`·`check_indexed_documents`·`check_indexed`에서는 이름 없는 튜플이고 `eval_validate.ValidationReport`에서만 타입이라는 것, `validate_bundle_indexed`가 `validate_bundle` 뒤에 묶음을 한 번 더 읽는 것, `check_indexed_documents`가 읽기 트랜잭션을 연 채 토큰 세기(HTTP)를 부르는 것이다. 모두 판정을 바꾸지 않아 이 티켓에서는 고치지 않았다. 04가 `check_indexed`의 반환을 넓힐 때 쌍을 타입으로 모은다.

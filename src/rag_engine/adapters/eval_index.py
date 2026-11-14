@@ -26,6 +26,8 @@ from pathlib import Path, PurePosixPath
 from typing import Final
 from uuid import UUID
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from rag_engine.adapters.blob_store import LocalBlobStore
 from rag_engine.adapters.bundle_paths import BundlePathError, BundlePaths
 from rag_engine.adapters.eval_bundle_files import DOCUMENTS_FOLDER, check_bundle_files
@@ -88,6 +90,10 @@ def index_bundle(folder: Path, environ: Mapping[str, str], process_jobs: Process
         return run_in_selector_loop(_ingest_and_process(settings, documents, process_jobs))
     except (EvalEnvironmentError, ConfigurationError) as error:
         print(f"설정 오류: {error}", file=sys.stderr)
+        return EXIT_FAILED
+    except (OSError, SQLAlchemyError) as error:
+        # 접속 실패의 메시지와 스택은 호스트와 사용자 이름을 싣는다(원칙 V). 오류의 종류만 알린다.
+        print(f"데이터베이스를 쓰지 못했다({type(error).__name__})", file=sys.stderr)
         return EXIT_FAILED
 
 

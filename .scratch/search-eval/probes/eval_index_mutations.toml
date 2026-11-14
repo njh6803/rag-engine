@@ -79,8 +79,10 @@ expect_output = ["읽지 못했다(OperationalError)"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/eval_environment.py"
-old = '''or not name.startswith(DATABASE_NAME_PREFIX):'''
-new = '''or False:'''
+old = '''        or not name.startswith(DATABASE_NAME_PREFIX)
+'''
+new = '''        or False
+'''
 
 [[mutation]]
 name = "목적지를 바꾸는 질의 칸이 든 주소를 받는다"
@@ -219,3 +221,29 @@ expect_output = ["문제 없음: "]
 file = "src/rag_engine/app/eval_passages.py"
 old = '''if first < 0:'''
 new = '''if False:'''
+
+[[mutation]]
+name = "조각 표시가 든 주소의 질의 칸을 못 본 채 받는다"
+tests = ["tests/tools/test_search_eval_index.py::test_이름이_rag_eval로_시작하지_않는_주소는_연결_오류가_아니라_이름의_규칙이_나온다"]
+expect = "red"
+expect_output = ["읽지 못했다(OperationalError)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_environment.py"
+old = '''        or "#" in database_url
+'''
+new = '''        or False
+'''
+
+[[mutation]]
+name = "스키마를 올리다 난 데이터베이스 오류를 그대로 던진다"
+tests = ["tests/tools/test_search_eval_index.py::test_스키마를_올리다_데이터베이스_오류가_나면_종류만_알리고_1이다"]
+expect = "red"
+expect_output = ["sqlalchemy.exc.OperationalError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_index.py"
+old = '''    except (OSError, SQLAlchemyError) as error:
+        # 접속 실패의'''
+new = '''    except KeyError as error:
+        # 접속 실패의'''

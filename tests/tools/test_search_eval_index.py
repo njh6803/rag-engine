@@ -14,6 +14,7 @@ from pathlib import Path
 import psycopg
 import pytest
 from psycopg import sql
+from sqlalchemy.exc import OperationalError
 from tests.support.docx_files import docx_bytes
 from tests.support.eval_bundle import (
     INDEX_CONFIG,
@@ -26,6 +27,7 @@ from tests.support.pdf_files import PdfPage, pdf_bytes, text_block
 from tests.support.tei_server import serve_stub
 from tests.support.tei_stub import TeiStub
 
+from rag_engine.adapters import eval_index
 from rag_engine.adapters.ingest_command import ingest_path
 from rag_engine.adapters.postgres.migrate import upgrade_to_head
 from rag_engine.adapters.settings import Settings
@@ -235,6 +237,8 @@ def test_작업_폴더의_env가_있어도_색인_결과가_같다(world: World,
         f"postgresql://user:{SECRET}@127.0.0.1:1/rag_eval_x?database=product",
         f"postgresql://user:{SECRET}@127.0.0.1:1/rag_eval_x?host=other.example",
         f"postgresql://user:{SECRET}@127.0.0.1:1/rag_eval_x?service=product",
+        f"postgresql://user:{SECRET}@127.0.0.1:1/rag_eval_x#?dbname=product",
+        f"postgresql://user:{SECRET}@127.0.0.1:1/rag_eval_x#?host=other.example",
     ],
 )
 def test_이름이_rag_eval로_시작하지_않는_주소는_연결_오류가_아니라_이름의_규칙이_나온다(
@@ -405,6 +409,28 @@ def test_색인에_실패한_문서가_하나라도_있으면_1이고_나머지�
 
     assert "broken.docx" in capsys.readouterr().err
     assert _indexed_keys(world.database_url) == ["a.docx", "sub/b.docx"]
+
+
+def test_스키마를_올리다_데이터베이스_오류가_나면_종류만_알리고_1이다(
+    world: World,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del world
+
+    def refuse(settings: Settings) -> None:
+        del settings
+        raise OperationalError("SELECT 1", None, Exception(f"{SECRET}@db.internal"))
+
+    monkeypatch.setattr(eval_index, "migrate_database", refuse)
+
+    assert _index(_bundle(tmp_path)) == 1
+
+    err = capsys.readouterr().err
+    assert "OperationalError" in err
+    assert SECRET not in err
+    assert "db.internal" not in err
 
 
 def test_validate_indexed는_색인되지_않은_문서가_있으면_거부한다(

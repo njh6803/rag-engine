@@ -85,9 +85,17 @@ def check_database_name(database_url: str) -> None:
     except ArgumentError:
         raise EvalEnvironmentError(rule) from None
     name = parsed.database
-    # `make_url`은 값이 빈 `?dbname=`을 질의에서 버리므로 글자 그대로의 질의에서 칸의 이름을 본다.
+    # 두 파서가 질의를 다르게 읽는다. `make_url`은 값이 빈 `?dbname=`을 버리므로 글자 그대로의
+    # 질의에서 칸의 이름을 본다. 반대로 `urlsplit`은 `#` 뒤를 조각으로 잘라 `#?dbname=x`의 질의를 못
+    # 보지만 `make_url`은 그것을 질의로 읽는다. 그래서 조각 표시 `#`가 든 주소는 이름을 읽을 수 없는
+    # 것으로 거부한다.
     keys = {key.lower() for key in parse_qs(urlsplit(database_url).query, keep_blank_values=True)}
-    if not name or not keys <= _SAFE_QUERY_KEYS or not name.startswith(DATABASE_NAME_PREFIX):
+    if (
+        not name
+        or "#" in database_url
+        or not keys <= _SAFE_QUERY_KEYS
+        or not name.startswith(DATABASE_NAME_PREFIX)
+    ):
         raise EvalEnvironmentError(rule)
 
 
