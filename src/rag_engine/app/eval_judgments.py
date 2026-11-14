@@ -154,8 +154,9 @@ def llm_summary(
     }
     if not verdicts:
         return LlmUnavailable(
-            f"{JUDGMENTS_FILE}에 config.json의 judge_model과 judge_prompt_version에 맞는 줄이"
-            " 없다. 모델이나 지시문의 판을 바꿨으면 judge로 다시 판정한다"
+            f"{JUDGMENTS_FILE}에 쓴 구성(--config 또는 묶음의 config.json)의 judge_model과"
+            " judge_prompt_version에 맞는 줄이 없다. 모델이나 지시문의 판을 바꿨으면 judge로"
+            " 다시 판정하고, 판정을 --config로 했으면 run에도 같은 구성을 준다"
         )
     pairs = judged = relevant = reached_judged = reached_relevant = 0
     missing: dict[MissingCandidate, None] = {}

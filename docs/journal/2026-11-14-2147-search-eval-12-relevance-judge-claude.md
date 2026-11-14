@@ -87,6 +87,9 @@ CodeRabbit CLI(0.7.5, 무료 요금제)는 한 번 돌았지만 리뷰 서비스
 - 변이 표: `eval_full_run_mutations.toml`의 둘(`rankings[Stage.RERANK]`, `rerank_candidates`)은 06이 코드를 옮겨 이미 새 원문이었으므로 그쪽을 취했다. `eval_judge_mutations.toml`의 "데이터베이스 점검을 건너뛴다"는 `ruff format`이 호출을 세 줄로 나눈 새 모양에 맞췄다. 네 표 모두 `--check`가 원문이 한 번씩 있음을 확인했다.
 - `tests/app/test_eval_report.py`(06이 새로 쓴 시험) 세 곳이 `build_report`를 `llm` 없이 불러 `llm=LlmUnavailable("판정 파일이 없다")`를 더했다. `tests/support/eval_run_support.py`의 `Report`는 `extra="forbid"`라 `llm`, `llm_unavailable` 칸을 받도록 더했다(전에 `test_search_eval_run.py`에 있던 12의 줄이 06의 이동으로 거기 없다).
 - 대기열 `surface-tests-after-implementation`은 양쪽이 같은 줄을 3회차로 올려 합쳐 4회차로 적었고(04, 05, 06, 12), README의 두 목록(어댑터·앱 파일, `tools/` 설명)도 양쪽을 합쳤다.
+- 병합 뒤 PR 직전 리뷰: 앞의 PR 직전 리뷰는 06을 합치기 전의 코드를 봤으므로 병합에서 새로 쓴 통합 코드를 `bug-perf-review`로 한 번 더 돌렸다(범위는 `git show --cc 7d14d97`과 기준 대비 diff 24개 파일). Critical·Major·Minor는 없었고 Nit 하나였다. 보안 축(`/security-review`)은 이 병합 뒤에는 다시 돌리지 않았다. 앞서 돈 것이 판정기·파일 쓰기·로그를 이미 겨눴고, 병합에서 새로 쓴 코드는 점검 순서와 단계 연결이라 새 공격면이 아니라고 보았다(코드를 읽어 내린 판단이고 도구로 재지 않았다).
+  - Nit(`eval_judge.py`의 `_mismatches`와 `eval_judgments.py`의 `llm_unavailable` 문구가 `--config`를 쓴 경우에도 "config.json의 judge_model"이라고만 적어, `judge --config alt.json`에서 어긋나면 사용자가 묶음의 `config.json`을 열게 된다): 고쳤다. 두 문구가 "쓴 구성(--config 또는 묶음의 config.json)의 …"로 적고, `llm_unavailable`은 판정을 `--config`로 했으면 `run`에도 같은 구성을 주라고 덧붙인다. 이 문구를 단언하는 시험과 변이 표는 없었고(grep), `judge_model`·`판` 관련 시험 28건이 홀로 초록이었다.
+  - 이 병합 뒤 반영이 새로 쓴 사실 문장(PR 직전 리뷰가 겨눌 것): 위 두 문구와 "판정을 `--config`로 했으면 `run`에도 같은 구성을 준다"는 안내(`tools/search_eval.py` 독스트링과 티켓 12 Comments가 같은 말을 한다).
 
 ## 검증
 

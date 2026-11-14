@@ -167,13 +167,14 @@ def _mismatches(settings: JudgeSettings, config: EvalConfig) -> list[str]:
     found: list[str] = []
     if settings.model != config.judge_model:
         found.append(
-            f"{MODEL_ENV}={settings.model}이(가) config.json의 judge_model={config.judge_model}과"
-            " 다르다. 어느 쪽을 고쳐 같게 한 뒤에 다시 친다"
+            f"{MODEL_ENV}={settings.model}이(가) 쓴 구성(--config 또는 묶음의 config.json)의"
+            f" judge_model={config.judge_model}과 다르다. 어느 쪽을 고쳐 같게 한 뒤에 다시 친다"
         )
     if str(PROMPT_VERSION) != config.judge_prompt_version:
         found.append(
-            f"어댑터의 지시문 판 {PROMPT_VERSION}이 config.json의 judge_prompt_version="
-            f"{config.judge_prompt_version}과 다르다. 판을 올렸으면 config.json도 올린다"
+            f"어댑터의 지시문 판 {PROMPT_VERSION}이 쓴 구성(--config 또는 묶음의 config.json)의"
+            f" judge_prompt_version={config.judge_prompt_version}과 다르다."
+            " 판을 올렸으면 그 구성도 올린다"
         )
     return found
 
