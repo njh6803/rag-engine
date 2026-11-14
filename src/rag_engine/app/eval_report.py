@@ -5,9 +5,10 @@
 관리자 페이지가 설치처의 평가에 다시 쓸 때 질문과 문서 내용이 보고서 파일로 번지지 않게 하기
 위해서다(원칙 V).
 
-이 판(`"1.0.0"`)의 칸은 `format_version`, `eval_set`, `config`, `index`, `stages`, `rows`, `meta`다.
-유형 표지와 필터의 지표, 놓친 질의, 사람 판정, LLM 숫자, 점수 분포, 추론 기록은 그 칸을 받는 티켓이
-같은 판에서 더한다(칸을 더하는 것은 판을 올리지 않는다).
+이 판(`"1.0.0"`)의 칸은 `format_version`, `eval_set`, `config`, `index`, `stages`, `rows`, `meta`와,
+전체 실행(`stages`가 리랭크 뒤로 끝난다)에서만 `score_distribution`이다. 빠른 실행의 보고서에는
+`score_distribution` 칸이 없다. 유형 표지와 필터의 지표, 놓친 질의, 사람 판정, LLM 숫자, 추론 기록은
+그 칸을 받는 티켓이 같은 판에서 더한다(칸을 더하는 것은 판을 올리지 않는다).
 """
 
 from collections.abc import Sequence
@@ -17,6 +18,7 @@ from typing import Final
 
 from rag_engine.app.eval_metrics import StageMetrics, aggregate, score_query
 from rag_engine.app.eval_run import EvalRunResult, IndexSummary, Stage
+from rag_engine.app.eval_score_distribution import ScoreDistribution, build_score_distribution
 from rag_engine.domain.entities import JsonValue
 from rag_engine.domain.eval_set import EvalConfig, EvalSet
 
@@ -47,6 +49,7 @@ class EvalReport:
     rows: tuple[ReportRow, ...]
     run_at: datetime
     commit: str | None
+    score_distribution: ScoreDistribution | None = None
 
 
 def config_values(config: EvalConfig, *, with_judge: bool) -> dict[str, JsonValue]:
@@ -103,10 +106,45 @@ def build_report(
         rows=tuple(rows),
         run_at=run_at,
         commit=commit,
+        score_distribution=(
+            build_score_distribution(result.outcomes) if Stage.RERANK in stages else None
+        ),
     )
 
 
 def report_json(report: EvalReport) -> dict[str, JsonValue]:
+    values = _report_values(report)
+    if report.score_distribution is not None:
+        values["score_distribution"] = _distribution_json(report.score_distribution)
+    return values
+
+
+def _distribution_json(distribution: ScoreDistribution) -> dict[str, JsonValue]:
+    return {
+        "queries": distribution.queries,
+        "bins": [
+            {
+                "lower": bin_.lower,
+                "upper": bin_.upper,
+                "reached": bin_.reached,
+                "not_reached": bin_.not_reached,
+            }
+            for bin_ in distribution.bins
+        ],
+        "thresholds": [
+            {
+                "min_score": row.min_score,
+                "hit_at_5": row.hit_at_5,
+                "hit_at_10": row.hit_at_10,
+                "empty_rate": row.empty_rate,
+                "mean_kept": row.mean_kept,
+            }
+            for row in distribution.thresholds
+        ],
+    }
+
+
+def _report_values(report: EvalReport) -> dict[str, JsonValue]:
     elements = report.index.elements
     return {
         "format_version": REPORT_FORMAT_VERSION,
@@ -192,7 +230,47 @@ def report_markdown(report: EvalReport) -> str:
             ),
             [_metric_cells(row) for row in report.rows if row.query_list == name],
         )
+    if report.score_distribution is not None:
+        lines += _distribution_markdown(report.score_distribution)
     return "\n".join(lines) + "\n"
+
+
+def _distribution_markdown(distribution: ScoreDistribution) -> list[str]:
+    """점수 분포의 두 표. 구간별 조각 수와 문턱별 지표다."""
+    return [
+        "",
+        f"## 리랭크 점수 분포 (질의 {distribution.queries}개)",
+        "",
+        "구간별 조각 수: 합친 뒤의 후보 전부를 기대 근거에 닿았는지로 가른다.",
+        "",
+        *_table(
+            ("구간", "닿음", "닿지 않음"),
+            [
+                (
+                    f"{_number(bin_.lower)}~{_number(bin_.upper)}",
+                    str(bin_.reached),
+                    str(bin_.not_reached),
+                )
+                for bin_ in distribution.bins
+            ],
+        ),
+        "",
+        "문턱별 지표: 문턱 이상의 점수를 가진 조각만 남긴다.",
+        "",
+        *_table(
+            ("문턱", "적중률@5", "적중률@10", "빈 질의의 비율", "남는 조각 수의 평균"),
+            [
+                (
+                    _number(row.min_score),
+                    _number(row.hit_at_5),
+                    _number(row.hit_at_10),
+                    _number(row.empty_rate),
+                    _number(row.mean_kept),
+                )
+                for row in distribution.thresholds
+            ],
+        ),
+    ]
 
 
 def _index_rows(report: EvalReport) -> list[tuple[str, str]]:

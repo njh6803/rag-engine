@@ -53,7 +53,7 @@ src/rag_engine/
                요청 문맥 미들웨어(request_context.py: 요청 ID, 로그), 인증 미들웨어(auth.py), 토큰 관리 API(token_api.py), 수집 API(ingest_api.py), 작업·문서 조회 API(admin_api.py)와 그 응답 모델(admin_models.py)
   worker/      작업자. assembly.py(조립과 상시 작업자 `run_worker`), processing.py(작업 하나의 처리와 임대 연장, `run_once`), service.py(`LISTEN`·폴링·동시 처리로 도는 `serve`), signals.py(종료 신호)
   adapters/    포트의 구현. settings.py(설정 객체), log_format.py(JSON Lines·text 로그 포매터), index_elements.py(색인 판 요소), blob_store.py(로컬 폴더 원본 저장소), tei.py(임베딩 서버 어댑터), kiwi.py(키워드 토큰과 문장 분리), chunking.py(구조 우선 청킹), utf8_offsets.py(바이트 오프셋 변환), postgres/ 에 표 정의(tables.py), alembic 판(migrations/. 0001 첫 판, 0002 작업 표의 진행 중 작업 색인), 작업 단위와 Catalog·DocumentStore·JobQueue·VectorIndex·TokenStore 어댑터, migrate 와 bootstrap-token 의 조립(bootstrap.py), ingest 명령의 조립(ingest_command.py), 평가 세트 묶음의 경로 판정(bundle_paths.py)·읽기(eval_set_reader.py)·파일 판정(eval_bundle_files.py)·`validate` 조립(eval_validate.py), 평가 전용 환경과 설정 객체(eval_environment.py), 평가 데이터베이스 판정(eval_database.py), `index` 조립(eval_index.py), 묶음의 내용 해시(eval_bundle_hash.py), `run` 조립(eval_run.py)
-  app/         유스케이스. default_records.py(migrate 의 기본 레코드 보장), tokens.py(토큰 발급·인증·폐기), ingest.py(수집: 원본 저장, 문서 행과 작업 넣기), admin_queries.py(작업·문서 조회), await_documents.py(`ingest --wait`의 기다림), document_outcome.py(문서의 색인 실패 판정), check_eval_set.py(평가 세트 묶음의 목록 판정), check_eval_database.py(평가 데이터베이스의 소속과 현재 판의 요소 판정), check_indexed_documents.py(`validate --indexed`의 색인 판정), eval_passages.py(글귀의 본문 판정), eval_metrics.py(적중 판정과 지표), eval_run.py(빠른 실행의 단계별 순위), eval_report.py(보고서의 칸과 표)
+  app/         유스케이스. default_records.py(migrate 의 기본 레코드 보장), tokens.py(토큰 발급·인증·폐기), ingest.py(수집: 원본 저장, 문서 행과 작업 넣기), admin_queries.py(작업·문서 조회), await_documents.py(`ingest --wait`의 기다림), document_outcome.py(문서의 색인 실패 판정), check_eval_set.py(평가 세트 묶음의 목록 판정), check_eval_database.py(평가 데이터베이스의 소속과 현재 판의 요소 판정), check_indexed_documents.py(`validate --indexed`의 색인 판정), eval_passages.py(글귀의 본문 판정), eval_metrics.py(적중 판정과 지표), eval_run.py(단계별 순위. 빠른 실행은 합친 뒤까지, 전체 실행은 리랭크 뒤까지), eval_score_distribution.py(리랭크 점수의 분포), eval_report.py(보고서의 칸과 표)
   domain/      엔티티, 포트 Protocol, 예외와 오류 코드, 파서 인터페이스, 색인에 넣는 글을 짓는 함수(index_text.py), 형식 판정(media_types.py), 평가 세트 묶음의 값(eval_set.py). 서드파티는 uuid6만 쓴다(금지 목록은 pyproject.toml의 import-linter 계약)
 typings/       서드파티 타입 스텁. kiwipiepy에 py.typed가 없어 쓰는 면만 적었다(ADR 0006)
 tests/
@@ -70,7 +70,7 @@ tests/
   tools/       하네스 도구의 시험과 검색 평가 도구(`validate`, `index`)의 시험. `index`의 시험은 테스트 PostgreSQL이 필요하다
 compose.test.yml  테스트용 PostgreSQL(pgvector, 운영과 같은 이미지 판). 검사 러너가 없으면 띄운다
 compose.eval.yml  검색 평가 전용 PostgreSQL(데이터베이스 이름 rag_eval)과 임베딩 TEI. 머리 주석이 평가 전용 환경 변수 넷의 값을 적는다
-tools/         훅, 검사, 검사 러너, 검색 평가 도구(search_eval.py. `validate`가 묶음의 형식과 목록을 보고 `--indexed`가 색인 상태와 글귀를 보며, `index`가 묶음을 평가 전용 데이터베이스에 색인하며, `run --through fused`가 벡터만·키워드만·합친 뒤 세 단계의 지표를 `report.json`과 `report.md`로 쓴다). 규약은 .claude/rules/tools.md
+tools/         훅, 검사, 검사 러너, 검색 평가 도구(search_eval.py. `validate`가 묶음의 형식과 목록을 보고 `--indexed`가 색인 상태와 글귀를 보며, `index`가 묶음을 평가 전용 데이터베이스에 색인하며, `run --through fused`가 벡터만·키워드만·합친 뒤 세 단계의 지표를, `run --through rerank`가 리랭크 뒤 단계와 리랭크 점수의 분포까지 더해 `report.json`과 `report.md`로 쓴다). 규약은 .claude/rules/tools.md
 docs/          헌법, ADR, PRD, 에이전트 문서, 일지
 .scratch/      로컬 마크다운 이슈 트래커(기능 계획, 티켓, 회고 대기열)
 ```

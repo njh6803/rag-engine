@@ -2,7 +2,7 @@
 
     uv run python tools/search_eval.py validate <묶음 폴더> [--indexed]
     uv run python tools/search_eval.py index <묶음 폴더>
-    uv run python tools/search_eval.py run --through fused --out <폴더> <묶음 폴더>
+    uv run python tools/search_eval.py run --through fused|rerank --out <폴더> <묶음 폴더>
 
 인자 해석과 조립만 한다. 묶음의 파일을 읽고 쓰는 코드는 `rag_engine.adapters`에, 값과 판정은
 `rag_engine.domain`과 `rag_engine.app`에 있다. `tools/`는 이미지에 실리지 않으므로(`.dockerignore`)
@@ -18,13 +18,16 @@
 끝까지 처리한다.
 
 `run`은 색인된 묶음을 평가해 `--out` 폴더에 `report.json`과 `report.md`를 쓴다. `--through`는
-`fused`(빠른 실행. 벡터만, 키워드만, 합친 뒤)와 `rerank`(전체 실행. 05가 더한다) 가운데 하나를
-반드시 받는다. 빠지거나 둘 다 주면 종료 코드 2다. 시작할 때 `index`와 같은 판정(평가 전용 이름,
-데이터베이스 이름, 이 묶음의 데이터베이스인지)을 지나야 돈다.
+`fused`(빠른 실행. 벡터만, 키워드만, 합친 뒤)와 `rerank`(전체 실행. 합친 뒤의 후보 전부를 리랭크한
+뒤까지와 리랭크 점수의 분포 `score_distribution`) 가운데 하나를 반드시 받는다. 빠지거나 둘 다 주면
+종료 코드 2다. 시작할 때 `index`와 같은 판정(평가 전용 이름, 데이터베이스 이름, 이 묶음의
+데이터베이스인지)을 지나야 돈다. 전체 실행은 리랭커 끝점 `RAG_EVAL_RERANKER_URL`이 없으면 그 이름을
+알리고 종료 코드 1이다.
 
 데이터베이스에 붙는 하위 명령(`index`, `run`, `validate --indexed`)은 평가 전용 환경 변수
-`RAG_EVAL_DATABASE_URL`, `RAG_EVAL_DATA_DIR`, `RAG_EVAL_EMBEDDING_URL`(과 없어도 되는
-`RAG_EVAL_RERANKER_URL`)만 읽는다. 제품의 `RAG_*`와 작업 폴더의 `.env`는 읽지 않는다.
+`RAG_EVAL_DATABASE_URL`, `RAG_EVAL_DATA_DIR`, `RAG_EVAL_EMBEDDING_URL`(과 있으면
+`RAG_EVAL_RERANKER_URL`. 전체 실행은 이것이 반드시 있어야 한다)만 읽는다. 제품의 `RAG_*`와 작업
+폴더의 `.env`는 읽지 않는다.
 
 종료 코드. 0은 문제 없음, 1은 묶음이나 색인의 오류(없는 폴더, 빠진 환경 변수도 든다), 2는 잘못된
 인자다.
@@ -39,8 +42,9 @@ from typing import Final
 
 from rag_engine.adapters.eval_environment import EvalEnvironmentError, read_eval_environment
 from rag_engine.adapters.eval_index import index_bundle
-from rag_engine.adapters.eval_run import current_commit, run_fast
+from rag_engine.adapters.eval_run import current_commit, run_evaluation
 from rag_engine.adapters.eval_validate import validate_bundle, validate_bundle_indexed
+from rag_engine.app.eval_run import Stage
 from rag_engine.domain.errors import ConfigurationError
 from rag_engine.domain.eval_set import EvalProblem
 from rag_engine.worker.assembly import run_once_with_settings
@@ -100,10 +104,8 @@ def _run(bundle: Path, out: Path, through: list[str]) -> int:
         choices = " 또는 ".join(THROUGH_CHOICES)
         print(f"{TOOL} run: --through는 {choices} 가운데 하나를 한 번만 받는다", file=sys.stderr)
         return EXIT_USAGE
-    if through[0] == "rerank":
-        print("전체 실행(--through rerank)은 아직 없다. 티켓 05가 더한다", file=sys.stderr)
-        return EXIT_FAILED
-    return run_fast(bundle, out, os.environ, commit=current_commit(REPOSITORY))
+    stage = Stage.RERANK if through[0] == "rerank" else Stage.FUSED
+    return run_evaluation(bundle, out, os.environ, through=stage, commit=current_commit(REPOSITORY))
 
 
 def _validate(bundle: Path, *, indexed: bool) -> int:
