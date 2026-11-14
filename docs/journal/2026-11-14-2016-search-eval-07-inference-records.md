@@ -43,6 +43,8 @@
 - 첫 커밋 시도가 둘로 막혔다. 하나는 변이 표 훅(`tools/mutate.py --staged`)이다. 내 표 열둘의 표지가 pytest의 단언 풀이 줄(`assert 0 == 1` 꼴)이라 대기열 517이 알렸고, 03 표의 변이 둘은 내가 `eval_index.py`와 `eval_validate.py`를 고쳐 원문이 사라져 있었다. 나는 `--check`만 돌렸고 `--staged`는 돌리지 않았다. 시험 단언에 값을 실은 메시지(`assert code == 1, f"…종료 코드: {code}"`)를 더하고 그 문구를 표지로 골랐다. 바뀐 변이 열둘을 실제로 돌려 모두 기대대로 빨갰다(`PYTHONUTF8=1 … uv run python tools/mutate.py <표> 5 7 8 …`). 03 표의 두 변이는 원문을 현재 소스에 맞췄고, 변이 둘(4, 5)의 표지는 `DuplicateTable`에서 `데이터베이스를 쓰지 못했다(ProgrammingError)`로 바꿨다. 03 표 전체를 돌려 보니 변이 12(`제품 설정이 작업 폴더의 .env를 읽는다`)가 기대 빨강인데 초록이었다. 설정 객체에 `env_file=None`이 dev에 이미 있어서 `dotenv_settings`를 되살려도 `.env`가 열리지 않는 동치 변이이고, 이 PR이 만든 것이 아니라 손대지 않았다.
 - 다른 하나는 pytest 시험 하나(`test_dev의_유무를_조회하다_시간을_넘기면_재지_않는다`)이다. 앞의 손으로 돌린 러너에서도 빨갰다가 단독에서는 통과한 것과 같은 시험이라, 두 번째 빨강에서 추측하지 않고 코드를 읽었다. 시간 제한 0.0001초가 걸리려면 `git`이 끝나기 전에 부모가 `communicate`에 들어가야 하는데, 부하에서 부모가 멈추면 그렇지 못하다(스크래치 스크립트로 재현했다. `Popen` 직후 멈춤이 없으면 5번 모두 `TimeoutExpired`, 0.5초 멈추면 5번 모두 정상 종료). 대기열 `load-time-assertion-margins`의 사례로 더했고 이 PR에서 시험은 고치지 않는다.
 
+첫 병합 커밋 뒤 `git fetch origin`에서 `origin/dev`가 다시 앞서 있어(#46 search-eval 09, #45 harness) 한 번 더 합쳤다. 충돌은 `README.md`의 디렉터리 설명 한 곳뿐이었다. 09의 `evals/` 줄을 더하고 `tools/` 줄은 이 PR의 `--records` 문장이 든 쪽을 유지했다. 생성 파일 `.scratch/plan.md`는 `tools/plan_table.py`를 다시 돌려도 달라지지 않았고, `uv run pytest tests/test_plan_status.py`는 13 passed(184.21초)였다. 09의 평가 재료(`evals/`)를 가리키는 시험은 `tests/`에 없었다.
+
 ## 병합 커밋의 pre-commit
 
 `origin/dev`(06) 병합 커밋을 pre-commit이 두 번 돌렸다(둘 다 막혔다). 시도마다 빨간 시험이 달랐고, 이 PR이 건드린 파일의 시험은 하나도 없었다.

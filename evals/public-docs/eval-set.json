@@ -1,0 +1,10 @@
+{
+  "format_version": "1.0.0",
+  "name": "public-docs",
+  "documents": "documents.json",
+  "evidence": "evidence.jsonl",
+  "query_lists": [
+    {"name": "human", "style": "question", "file": "queries-human.jsonl"},
+    {"name": "keyword", "style": "keyword", "file": "queries-keyword.jsonl"}
+  ]
+}

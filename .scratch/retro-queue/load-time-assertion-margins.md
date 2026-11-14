@@ -11,3 +11,5 @@ search-eval 07 세션이 손으로 돌린 `tools/run_checks.py`(4132 passed, 2 f
 같은 세션의 둘째 커밋 시도에서는 반대로 `test_dev…`가 통과하고 `test_job_lease`의 같은 시험이 5.42초로 다시 빨갰다(`assert (302472.171 - 302466.75) < 5`). 그때 pre-commit의 pytest가 1426.94초였고(앞 시도는 869.73초) 부하의 까닭은 재 보지 않았다(나란히 도는 다른 세션의 검사가 겹쳤을 수 있다). 부하에 따라 빨간 시험이 바뀌는 모양이라 사례 하나씩 고치는 길이 닿지 않는다는 근거다.
 
 search-eval 07의 `origin/dev` 병합 커밋도 두 시도에서 이 종류로 막혔다. 첫 시도(pre-commit의 pytest, 4207 passed 2 failed, 1356초)는 `tests/contract/test_reindex_switch.py`의 시험 둘이 MCP 클라이언트의 `ReadTimeout`으로 빨갰고, 그 파일만 단독으로 돌리면 8건이 모두 통과했다(175.51초). 둘째 시도(4207 passed 2 failed, 872.74초)는 `test_job_lease`의 같은 시험이 5.56초(`assert (318223.703 - 318218.14) < 5`)로, `test_serve가_뜨면…`이 "serve가 30초 안에 뜨지 않았다"로 빨갰다. 두 시도 사이에 빨간 시험이 모두 바뀌었다. 그때 CPU 사용률이 100%였고 다른 저장소(`C:\project\agent`)와 이 저장소의 형제 워크트리가 `tools/run_checks.py`를 번갈아 돌고 있었다(프로세스 목록을 손으로 봤다). 한가해지기를 30분씩 두 번 기다렸으나 끝내 오지 않았다.
+
+같은 종류를 search-eval 09 세션이 `load-sensitive-time-tests`로도 올렸다(두 세션이 나란히 돌아 서로의 항목을 보지 못했다). 둘은 같은 `test_job_lease`의 5초 단언과 계약 시험의 `ReadTimeout`을 다룬다. chore가 반영할 때 두 항목을 하나로 묶어 종류 전체를 없애는 고침 하나를 정한다.
