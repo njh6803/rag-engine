@@ -99,6 +99,27 @@ def test_형식이_맞지_않는_줄은_줄_번호만_알리고_내용은_싣지
     assert line not in str(caught.value)
 
 
+def test_UTF_8이_아닌_파일은_형식_오류로_알리고_바이트를_싣지_않는다(tmp_path: Path) -> None:
+    path = tmp_path / "judgments.jsonl"
+    path.write_bytes("한글".encode("cp949") + b"\n")
+
+    with pytest.raises(JudgmentFileError) as caught:
+        read_judgments(path)
+
+    assert "UTF-8" in str(caught.value)
+    assert "\\x" not in str(caught.value)
+
+
+def test_끝에_개행이_없는_파일에_덧붙여도_앞_줄과_붙지_않는다(tmp_path: Path) -> None:
+    path = tmp_path / "judgments.jsonl"
+    append_judgment(path, _judgment("a"))
+    path.write_bytes(path.read_bytes().rstrip(b"\n"))
+
+    append_judgment(path, _judgment("b"))
+
+    assert read_judgments(path) == [_judgment("a"), _judgment("b")]
+
+
 def test_정렬해_다시_쓰면_열쇠_순이고_같은_열쇠는_나중_줄이_이긴다(tmp_path: Path) -> None:
     path = tmp_path / "judgments.jsonl"
     for judgment in (_judgment("b"), _judgment("a", relevant=False), _judgment("a", relevant=True)):

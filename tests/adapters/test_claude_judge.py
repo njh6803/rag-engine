@@ -89,8 +89,8 @@ async def test_요청에_모델과_키와_구조화된_출력의_스키마와_�
     assert properties["relevant"] == {"type": "boolean"}
 
 
-@pytest.mark.parametrize("status", [429, 500, 503, 529])
-async def test_요청_한도와_서버_오류는_일시_실패이고_SDK가_몰래_다시_하지_않는다(
+@pytest.mark.parametrize("status", [408, 409, 429, 500, 503, 529])
+async def test_시간_초과와_요청_한도와_서버_오류는_일시_실패이고_SDK가_몰래_다시_하지_않는다(
     status: int,
 ) -> None:
     stub = ClaudeStub()

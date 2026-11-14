@@ -6,10 +6,11 @@
 정수이고, 지시문의 글(`INSTRUCTION`)이나 요청의 모양을 바꾸면 올린다. 판정 파일의 열쇠가 이 판이라
 올리면 옛 판정은 판정 없음이 된다.
 
-실패는 포트의 약속대로 올린다. 연결 실패와 시간 초과, 429, 5xx(529 포함)는 `TransientFailure`
-(`judge_unavailable`)이고 그 밖의 상태 코드(인증, 권한, 요청 오류), 거절, 길이 한도에서 잘린 응답,
-읽을 수 없는 응답은 `PermanentFailure`(`judge_rejected`)다. 다시 하는 일은 호출하는 쪽의 몫이라
-SDK의 자체 재시도는 끈다(`max_retries=0`). 켜 두면 호출하는 쪽이 센 횟수보다 요청이 많이 나간다.
+실패는 포트의 약속대로 올린다. 연결 실패와 시간 초과, 408, 409, 429, 5xx(529 포함)는
+`TransientFailure`(`judge_unavailable`)이고 그 밖의 상태 코드(인증, 권한, 요청 오류), 거절, 길이
+한도에서 잘린 응답, 읽을 수 없는 응답은 `PermanentFailure`(`judge_rejected`)다. 다시 하는 일은
+호출하는 쪽의 몫이라 SDK의 자체 재시도는 끈다(`max_retries=0`). 켜 두면 호출하는 쪽이 센 횟수보다
+요청이 많이 나간다.
 
 비밀. SDK는 서버가 보낸 오류의 본문을 예외 메시지에 싣고, `anthropic` 로거는 DEBUG 수준에서 요청의
 본문(질의와 조각의 글)을 찍는다(설치된 `anthropic`의 `_base_client.py`와 `_utils/_logs.py`를
@@ -17,9 +18,10 @@ SDK의 자체 재시도는 끈다(`max_retries=0`). 켜 두면 호출하는 쪽�
 아래 HTTP 라이브러리의 로거 수준을 경고로 되돌린다. 환경 변수 `ANTHROPIC_LOG=debug`나 호출하는 쪽의
 로깅 설정이 DEBUG를 켜도 본문이 로그로 가지 않게 하려는 것이다(원칙 V). SDK 아래의 HTTP
 라이브러리는 `httpx`와 `httpcore`가 아니라 `httpx2`와 `httpcore2`다. `httpx2`는 요청의 메서드와
-주소와 상태 코드를(`_client.py`), `httpcore2`는 연결과 전송 단계의 이름을(`_trace.py`) 찍는다고
-소스에서 읽었고 본문을 싣는 호출은 찾지 못했다. 로그를 실제로 켜서 재지는 않았다. 그래서 본문
-여부와 관계없이 두 로거의 수준도 올린다.
+주소와 상태 코드를 INFO로 찍는다(`_client.py`). `httpcore2`는 DEBUG로 연결과 전송 단계의 이름에
+호스트와 포트, 응답의 상태와 헤더를 붙여 찍고(`_trace.py`), 요청은 메서드만 찍어 요청의 헤더 값과
+본문은 싣지 않는다(`_models.py`의 `Request.__repr__`). 모두 소스에서 읽었고 본문을 싣는 호출은
+찾지 못했다. 로그를 실제로 켜서 재지는 않았다. 그래서 본문 여부와 관계없이 두 로거의 수준도 올린다.
 
 못 보는 것. 실제 API의 응답 모양은 가짜 끝점이 흉내 낸 것이라 이 파일의 시험이 말하지 않는다
 (프로브 `.scratch/search-eval/probes/judge-call/`이 실제 호출로 잰다).
@@ -55,7 +57,11 @@ RESPONSE_SCHEMA: Final[dict[str, object]] = {
 # 생각 토큰도 이 한도를 쓴다. 한도에서 잘린 응답은 영구 실패로 올린다.
 MAX_TOKENS: Final = 4096
 _TIMEOUT_SECONDS: Final = 120.0
-# 요청과 응답을 DEBUG 수준에서 찍을 수 있는 로거들이다. 설치된 SDK 2.8.0은 `httpx`와 `httpcore`가
+# 5xx 밖에서 일시 실패로 세는 상태 코드다. 408(요청 시간 초과), 409(잠금 시간 초과), 429(요청 한도).
+# SDK가 자체 재시도에서 재시도 대상으로 보는 것과 같다(`anthropic/_base_client.py`의
+# `_should_retry`).
+_RETRYABLE_STATUSES: Final = frozenset({408, 409, 429})
+# 요청과 응답을 INFO나 DEBUG 수준에서 찍는 로거들이다. 설치된 SDK 2.8.0은 `httpx`와 `httpcore`가
 # 아니라 `httpx2`와 `httpcore2`를 쓴다(`anthropic/_utils/_logs.py`, `httpx2/_client.py`).
 _QUIET_LOGGERS: Final = ("anthropic", "httpx2", "httpcore2")
 _UNREADABLE: Final = "판정기의 응답을 읽을 수 없다"
@@ -91,7 +97,7 @@ class ClaudeRelevanceJudge:
             ) from None
         except anthropic.APIStatusError as error:
             status = error.status_code
-            if status == 429 or status >= 500:
+            if status in _RETRYABLE_STATUSES or status >= 500:
                 raise TransientFailure(
                     ErrorCode.JUDGE_UNAVAILABLE,
                     f"판정기가 일시적으로 요청을 받지 못했다(HTTP {status})",

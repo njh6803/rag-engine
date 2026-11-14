@@ -1,11 +1,12 @@
 """평가의 LLM 판정 유스케이스(티켓 search-eval 12, 명세 "LLM 관련성 판정").
 
 판정 쌍 고르기, 보고서의 `llm` 숫자(분모가 어디인지), 판정 실행(동시 호출 넷, 일시 실패 재시도 셋,
-영구 실패에서 멈춤)을 가짜 판정기로 본다. 판정 파일의 줄과 끝점은 이 시험의 일이 아니다.
+영구 실패는 그 쌍만 건너뛰고 연이어 나면 멈춤)을 가짜 판정기로 본다. 판정 파일의 줄과 끝점은 이
+시험의 일이 아니다.
 """
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date
 
 import pytest
@@ -14,6 +15,8 @@ from tests.support.fake_judge import FakeRelevanceJudge
 from rag_engine.app.eval_judgments import (
     JUDGE_CONCURRENCY,
     JUDGE_RETRIES,
+    PERMANENT_STREAK_LIMIT,
+    JudgeOutcome,
     JudgeRunError,
     Judgment,
     JudgmentPair,
@@ -223,7 +226,7 @@ def _pair(query: str, text: str) -> JudgmentPair:
 
 async def _run(
     judge: RelevanceJudge, pairs: Sequence[JudgmentPair], recorded: list[Judgment]
-) -> int:
+) -> JudgeOutcome:
     return await judge_pairs(
         judge,
         pairs,
@@ -270,9 +273,9 @@ async def test_판정은_쌍마다_하나씩_받는_대로_기록하고_모델�
     recorded: list[Judgment] = []
     judge = FakeRelevanceJudge({"글1": True})
 
-    count = await _run(judge, _pairs(3), recorded)
+    outcome = await _run(judge, _pairs(3), recorded)
 
-    assert count == 3
+    assert (outcome.received, outcome.skipped) == (3, 0)
     assert sorted(judge.calls) == [("질의0", "글0"), ("질의1", "글1"), ("질의2", "글2")]
     assert {(item.model, item.prompt_version, item.judged_at) for item in recorded} == {
         (MODEL, VERSION, TODAY)
@@ -297,7 +300,7 @@ async def test_일시_실패는_다시_해서_받는다() -> None:
     recorded: list[Judgment] = []
     judge = _FlakyJudge([TransientFailure(ErrorCode.JUDGE_UNAVAILABLE, "불통")] * 2)
 
-    assert await _run(judge, _pairs(1), recorded) == 1
+    assert (await _run(judge, _pairs(1), recorded)).received == 1
 
     assert judge.calls == 3
     assert len(recorded) == 1
@@ -316,20 +319,67 @@ async def test_일시_실패가_재시도_셋_뒤에도_이어지면_멈추고_�
     assert recorded == []
 
 
-async def test_영구_실패는_다시_하지_않고_멈춘다() -> None:
-    judge = _FlakyJudge([PermanentFailure(ErrorCode.JUDGE_REJECTED, "거절")])
+class _PickyJudge:
+    """주어진 글의 쌍은 영구 실패로 거절하고 나머지는 참을 낸다. 거절의 까닭은 글마다 다르다."""
 
-    with pytest.raises(JudgeRunError, match="거절"):
-        await _run(judge, _pairs(1), [])
+    def __init__(self, rejected: Iterable[str]) -> None:
+        self._rejected = set(rejected)
+        self.calls = 0
 
-    assert judge.calls == 1
+    async def judge(self, query: str, text: str) -> bool:
+        del query
+        self.calls += 1
+        if text in self._rejected:
+            raise PermanentFailure(ErrorCode.JUDGE_REJECTED, "거절" if self.calls % 2 else "잘림")
+        return True
 
 
-async def test_영구_실패가_나면_남은_쌍을_더_부르지_않는다() -> None:
-    judge = _FlakyJudge([PermanentFailure(ErrorCode.JUDGE_REJECTED, "거절")])
+async def test_영구_실패는_다시_하지_않고_그_쌍만_건너뛰고_나머지를_판정한다() -> None:
+    recorded: list[Judgment] = []
+    judge = _PickyJudge(["글3"])
 
-    with pytest.raises(JudgeRunError):
+    outcome = await _run(judge, _pairs(20), recorded)
+
+    assert judge.calls == 20
+    assert (outcome.received, outcome.skipped) == (19, 1)
+    assert sha256_text("글3") not in {item.text_sha256 for item in recorded}
+    assert len(recorded) == 19
+
+
+async def test_건너뛴_까닭은_이_저장소가_쓴_글을_중복_없이_모은다() -> None:
+    judge = _PickyJudge(["글0", "글1", "글2"])
+
+    outcome = await _run(judge, _pairs(10), [])
+
+    assert outcome.skipped == 3
+    assert sorted(outcome.skip_reasons) == ["거절", "잘림"]
+
+
+async def test_영구_실패가_이어져도_사이에_판정을_받으면_연속이_끊겨_멈추지_않는다() -> None:
+    limit = PERMANENT_STREAK_LIMIT
+    rejected = [f"글{number}" for number in (*range(limit - 1), *range(limit, 2 * limit - 1))]
+    judge = _PickyJudge(rejected)
+
+    outcome = await _run(judge, _pairs(30), [])
+
+    assert (outcome.received, outcome.skipped) == (30 - len(rejected), len(rejected))
+
+
+async def test_영구_실패가_연이어_한계에_닿으면_멈추고_남은_쌍을_더_부르지_않는다() -> None:
+    judge = _PickyJudge(f"글{number}" for number in range(50))
+
+    with pytest.raises(JudgeRunError, match="연이어"):
         await _run(judge, _pairs(50), [])
 
-    # 호출 중이던 몇 개는 끝까지 가지만 쌍 쉰 개를 모두 부르지는 않는다.
-    assert judge.calls <= JUDGE_CONCURRENCY
+    assert PERMANENT_STREAK_LIMIT == 5
+    assert judge.calls == PERMANENT_STREAK_LIMIT
+
+
+async def test_영구_실패에서_멈출_때도_이미_받은_판정은_남는다() -> None:
+    recorded: list[Judgment] = []
+    judge = _PickyJudge(f"글{number}" for number in range(2, 50))
+
+    with pytest.raises(JudgeRunError):
+        await _run(judge, _pairs(50), recorded)
+
+    assert len(recorded) == 2

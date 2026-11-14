@@ -100,15 +100,75 @@ old = '''JUDGE_RETRIES: Final = 3'''
 new = '''JUDGE_RETRIES: Final = 0'''
 
 [[mutation]]
-name = "한 쌍이 실패해도 남은 쌍을 계속 부른다"
-tests = ["tests/app/test_eval_judgments.py::test_영구_실패가_나면_남은_쌍을_더_부르지_않는다"]
+name = "영구 실패가 연이어 나도 멈추지 않는다"
+tests = ["tests/app/test_eval_judgments.py::test_영구_실패가_연이어_한계에_닿으면_멈추고_남은_쌍을_더_부르지_않는다"]
 expect = "red"
-expect_output = ["test_eval_judgments.py:335: AssertionError"]
+expect_output = ["DID NOT RAISE"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/eval_judgments.py"
-old = '''while queue and not failures:'''
-new = '''while queue:'''
+old = '''if streak >= PERMANENT_STREAK_LIMIT:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "쌍 하나의 영구 실패에 실행 전체를 멈춘다"
+tests = ["tests/app/test_eval_judgments.py::test_영구_실패는_다시_하지_않고_그_쌍만_건너뛰고_나머지를_판정한다"]
+expect = "red"
+expect_output = ["연이어 1번"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_judgments.py"
+old = '''PERMANENT_STREAK_LIMIT: Final = 5'''
+new = '''PERMANENT_STREAK_LIMIT: Final = 1'''
+
+[[mutation]]
+name = "영구 실패의 연속을 판정을 받아도 끊지 않는다"
+tests = ["tests/app/test_eval_judgments.py::test_영구_실패가_이어져도_사이에_판정을_받으면_연속이_끊겨_멈추지_않는다"]
+expect = "red"
+expect_output = ["연이어 5번"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_judgments.py"
+old = '''            streak = 0
+            try:
+                record('''
+new = '''            try:
+                record('''
+
+[[mutation]]
+name = "UTF-8이 아닌 판정 파일을 형식 오류로 바꾸지 않는다"
+tests = ["tests/adapters/test_eval_judgments_file.py::test_UTF_8이_아닌_파일은_형식_오류로_알리고_바이트를_싣지_않는다"]
+expect = "red"
+expect_output = ["UnicodeDecodeError: 'utf-8' codec"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_judgments_file.py"
+old = '''    except UnicodeDecodeError:
+        raise JudgmentFileError'''
+new = '''    except ZeroDivisionError:
+        raise JudgmentFileError'''
+
+[[mutation]]
+name = "개행 없이 끝난 판정 파일에 개행 없이 덧붙인다"
+tests = ["tests/adapters/test_eval_judgments_file.py::test_끝에_개행이_없는_파일에_덧붙여도_앞_줄과_붙지_않는다"]
+expect = "red"
+expect_output = ["의 1번째 줄이 형식에 맞지 않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_judgments_file.py"
+old = '''separator = "" if _ends_with_newline(path) else "\n"'''
+new = '''separator = ""'''
+
+[[mutation]]
+name = "판정을 하나도 받지 못하고 건너뛰기만 했는데 0으로 끝난다"
+tests = ["tests/tools/test_search_eval_judge.py::test_영구_실패는_다시_부르지_않고_1이며_서버와_요청의_글이_표준_오류에_없다"]
+expect = "red"
+expect_output = ["test_search_eval_judge.py:340: AssertionError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_judge.py"
+old = '''return EXIT_OK if outcome.received else EXIT_FAILED'''
+new = '''return EXIT_OK'''
 
 [[mutation]]
 name = "판정 파일을 다시 쓸 때 같은 열쇠의 앞 줄이 이긴다"
@@ -167,14 +227,25 @@ new = '''logging.getLogger(name).setLevel(logging.DEBUG)'''
 
 [[mutation]]
 name = "429를 영구 실패로 센다"
-tests = ["tests/adapters/test_claude_judge.py::test_요청_한도와_서버_오류는_일시_실패이고_SDK가_몰래_다시_하지_않는다"]
+tests = ["tests/adapters/test_claude_judge.py::test_시간_초과와_요청_한도와_서버_오류는_일시_실패이고_SDK가_몰래_다시_하지_않는다[429]"]
 expect = "red"
 expect_output = ["판정기가 요청을 거절했다(HTTP 429)"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/claude_judge.py"
-old = '''if status == 429 or status >= 500:'''
+old = '''if status in _RETRYABLE_STATUSES or status >= 500:'''
 new = '''if status >= 500:'''
+
+[[mutation]]
+name = "408과 409를 영구 실패로 센다"
+tests = ["tests/adapters/test_claude_judge.py::test_시간_초과와_요청_한도와_서버_오류는_일시_실패이고_SDK가_몰래_다시_하지_않는다[409]"]
+expect = "red"
+expect_output = ["판정기가 요청을 거절했다(HTTP 409)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/claude_judge.py"
+old = '''_RETRYABLE_STATUSES: Final = frozenset({408, 409, 429})'''
+new = '''_RETRYABLE_STATUSES: Final = frozenset({429})'''
 
 [[mutation]]
 name = "길이 한도에서 잘린 응답을 읽어 본다"

@@ -32,6 +32,9 @@ JUDGE_CONCURRENCY: Final = 4
 JUDGE_RETRIES: Final = 3
 # 다시 하기 전 기다림의 처음 값(초). 시도마다 두 배가 된다.
 RETRY_DELAY_SECONDS: Final = 0.25
+# 영구 실패는 그 쌍만 건너뛴다. 사이에 판정을 받지 못한 채 이만큼 이어지면 쌍 하나의 일이 아니라
+# 판정기의 일(인증, 권한, 모델 이름, 크레딧)로 보고 멈춘다.
+PERMANENT_STREAK_LIMIT: Final = 5
 # ADR 0019의 어림이다. 3,000건(질문 150, 질의 목록 2, 상위 10)에 Opus 5.5로 약 26달러다.
 _ADR_COUNT: Final = 3000
 _ADR_DOLLARS: Final = 26.0
@@ -94,6 +97,17 @@ class LlmUnavailable:
     """숫자를 낼 수 없는 까닭. 보고서가 `llm`을 `null`로 두고 이 글을 싣는다."""
 
     reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class JudgeOutcome:
+    """`judge_pairs`의 결과. `received`는 받아 기록한 판정의 수, `skipped`는 영구 실패로 건너뛴
+    쌍의 수, `skip_reasons`는 그 실패의 메시지(이 저장소가 쓴 글)를 중복 없이 처음 난 순으로
+    모은 것이다."""
+
+    received: int
+    skipped: int
+    skip_reasons: tuple[str, ...]
 
 
 class JudgeRunError(Exception):
@@ -188,21 +202,43 @@ async def judge_pairs(
     today: date,
     record: Callable[[Judgment], None],
     retry_delay_seconds: float = RETRY_DELAY_SECONDS,
-) -> int:
-    """쌍을 동시에 `JUDGE_CONCURRENCY`개까지 판정하고, 하나를 받을 때마다 `record`에 넘긴다. 받은
-    판정의 수를 낸다. 일시 실패는 `JUDGE_RETRIES`번까지 다시 하고 영구 실패는 다시 하지 않는다.
-    어느 쪽이든 끝내 실패하면 남은 쌍을 더 부르지 않고(호출 중인 것은 끝까지 기다린다) 첫 실패를
-    `JudgeRunError`로 올린다. 이미 `record`에 넘긴 판정은 남는다."""
+) -> JudgeOutcome:
+    """쌍을 동시에 `JUDGE_CONCURRENCY`개까지 판정하고, 하나를 받을 때마다 `record`에 넘긴다.
+    일시 실패는 `JUDGE_RETRIES`번까지 다시 하고, 끝내 풀리지 않으면 남은 쌍을 더 부르지 않고(호출
+    중인 것은 끝까지 기다린다) 첫 실패를 `JudgeRunError`로 올린다. 영구 실패는 다시 하지 않고 그
+    쌍만 건너뛴다(`JudgeOutcome.skipped`). 사이에 판정을 받지 못한 채 영구 실패가
+    `PERMANENT_STREAK_LIMIT`번 이어지면 같은 방식으로 멈춘다. 이미 `record`에 넘긴 판정은 남는다."""
     queue = deque(pairs)
     failures: list[JudgeRunError] = []
+    skip_reasons: list[str] = []
     received = 0
+    skipped = 0
+    streak = 0
 
     async def worker() -> None:
-        nonlocal received
+        nonlocal received, skipped, streak
         while queue and not failures:
             pair = queue.popleft()
             try:
                 relevant = await _judge_with_retries(judge, pair, retry_delay_seconds)
+            except PermanentFailure as error:
+                skipped += 1
+                streak += 1
+                if str(error) not in skip_reasons:
+                    skip_reasons.append(str(error))
+                if streak >= PERMANENT_STREAK_LIMIT:
+                    failures.append(
+                        JudgeRunError(
+                            f"판정기가 요청을 연이어 {streak}번 받아들이지 않았다: {error}"
+                        )
+                    )
+                    return
+                continue
+            except JudgeRunError as error:
+                failures.append(error)
+                return
+            streak = 0
+            try:
                 record(
                     Judgment(
                         query_sha256=pair.query_sha256,
@@ -213,9 +249,6 @@ async def judge_pairs(
                         judged_at=today,
                     )
                 )
-            except JudgeRunError as error:
-                failures.append(error)
-                return
             except OSError:
                 failures.append(JudgeRunError(f"판정을 {JUDGMENTS_FILE}에 쓰지 못했다"))
                 return
@@ -224,12 +257,13 @@ async def judge_pairs(
     await asyncio.gather(*(worker() for _ in range(min(JUDGE_CONCURRENCY, len(queue)))))
     if failures:
         raise failures[0]
-    return received
+    return JudgeOutcome(received, skipped, tuple(skip_reasons))
 
 
 async def _judge_with_retries(
     judge: RelevanceJudge, pair: JudgmentPair, retry_delay_seconds: float
 ) -> bool:
+    """일시 실패는 다시 한다. 영구 실패(`PermanentFailure`)는 그대로 올려 부른 쪽이 정한다."""
     attempt = 0
     while True:
         try:
@@ -241,5 +275,3 @@ async def _judge_with_retries(
                 ) from None
             await asyncio.sleep(retry_delay_seconds * 2**attempt)
             attempt += 1
-        except PermanentFailure as error:
-            raise JudgeRunError(f"판정기가 요청을 받아들이지 않았다: {error}") from None

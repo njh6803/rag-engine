@@ -34,7 +34,8 @@ _FIELDS: Final = (
 
 
 class JudgmentFileError(Exception):
-    """판정 파일의 줄이 형식에 맞지 않는다. 메시지는 줄 번호만 싣는다."""
+    """판정 파일이 형식에 맞지 않는다(줄이 어긋나거나 UTF-8이 아니다). 메시지는 줄 번호나 인코딩
+    이름만 싣고 파일의 내용은 싣지 않는다."""
 
 
 def judgments_path(paths: BundlePaths) -> Path:
@@ -48,6 +49,8 @@ def read_judgments(path: Path) -> list[Judgment] | None:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return None
+    except UnicodeDecodeError:
+        raise JudgmentFileError(f"{JUDGMENTS_FILE}이 UTF-8이 아니다") from None
     judgments: list[Judgment] = []
     for number, line in enumerate(text.splitlines(), start=1):
         if line.strip():
@@ -56,9 +59,24 @@ def read_judgments(path: Path) -> list[Judgment] | None:
 
 
 def append_judgment(path: Path, judgment: Judgment) -> None:
-    """파일 끝에 줄 하나를 덧붙인다. 파일이 없으면 만든다."""
+    """파일 끝에 줄 하나를 덧붙인다. 파일이 없으면 만든다. 파일이 개행 없이 끝나면(편집기가 마지막
+    개행을 지웠거나 쓰다 끊겼다) 개행을 먼저 써서 앞 줄과 붙지 않게 한다."""
+    separator = "" if _ends_with_newline(path) else "\n"
     with path.open("a", encoding="utf-8", newline="\n") as stream:
-        stream.write(_dump(judgment))
+        stream.write(separator + _dump(judgment))
+
+
+def _ends_with_newline(path: Path) -> bool:
+    """파일이 없거나 비었거나 개행으로 끝나면 참이다."""
+    try:
+        size = path.stat().st_size
+    except FileNotFoundError:
+        return True
+    if size == 0:
+        return True
+    with path.open("rb") as stream:
+        stream.seek(size - 1)
+        return stream.read(1) == b"\n"
 
 
 def rewrite_sorted(path: Path) -> None:

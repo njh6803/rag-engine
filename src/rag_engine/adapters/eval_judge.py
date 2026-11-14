@@ -63,6 +63,7 @@ from rag_engine.adapters.postgres.engine import run_in_selector_loop
 from rag_engine.app.check_eval_set import check_eval_set
 from rag_engine.app.eval_judgments import (
     JUDGMENTS_FILE,
+    JudgeOutcome,
     JudgeRunError,
     Judgment,
     JudgmentPair,
@@ -220,21 +221,31 @@ def _print_plan(pairs: list[JudgmentPair], *, total: int, model: str) -> None:
 def _judge_and_record(
     settings: JudgeSettings, pairs: list[JudgmentPair], path: Path, *, model: str, version: str
 ) -> int:
-    """쌍을 판정해 받는 대로 판정 파일에 덧붙이고, 끝나면(실패해도) 열쇠 순으로 정렬해 다시 쓴다."""
+    """쌍을 판정해 받는 대로 판정 파일에 덧붙이고, 끝나면(실패해도) 열쇠 순으로 정렬해 다시 쓴다.
+    영구 실패로 건너뛴 쌍은 판정 없음으로 남고 다시 돌리면 다시 부른다. 판정을 하나도 받지 못한
+    채 끝나면 1이다."""
     try:
-        received = run_in_selector_loop(_judge_all(settings, pairs, path, model, version))
+        outcome = run_in_selector_loop(_judge_all(settings, pairs, path, model, version))
     except JudgeRunError as error:
         print(f"판정을 끝내지 못했다: {error}", file=sys.stderr)
         return EXIT_FAILED
     finally:
         rewrite_sorted(path)
-    print(f"판정 {received}건을 {JUDGMENTS_FILE}에 썼다")
-    return EXIT_OK
+    print(f"판정 {outcome.received}건을 {JUDGMENTS_FILE}에 썼다")
+    if not outcome.skipped:
+        return EXIT_OK
+    reasons = "; ".join(outcome.skip_reasons)
+    print(
+        f"판정기가 받아들이지 않아 건너뛴 쌍 {outcome.skipped}건({reasons})."
+        " 판정 없음으로 남고 다시 돌리면 다시 부른다",
+        file=sys.stderr,
+    )
+    return EXIT_OK if outcome.received else EXIT_FAILED
 
 
 async def _judge_all(
     settings: JudgeSettings, pairs: list[JudgmentPair], path: Path, model: str, version: str
-) -> int:
+) -> JudgeOutcome:
     judge = ClaudeRelevanceJudge(settings)
     try:
         return await judge_pairs(

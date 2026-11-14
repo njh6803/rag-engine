@@ -348,6 +348,29 @@ def test_영구_실패는_다시_부르지_않고_1이며_서버와_요청의_�
     del world, claude_url
 
 
+def test_쌍_하나가_영구_실패여도_그_쌍만_건너뛰고_나머지를_판정해_0이다(
+    world: World,
+    claude_url: str,
+    claude_stub: ClaudeStub,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    bundle = _prepared(tmp_path, claude_stub)
+    claude_stub.fail_next(400)
+    capsys.readouterr()
+
+    assert _judge(bundle, "--yes") == 0
+
+    assert claude_stub.count() == 4
+    assert len(_lines(bundle)) == 3
+    captured = capsys.readouterr()
+    assert "건너뛴 쌍 1건" in captured.err
+    for text in (captured.out, captured.err):
+        for secret in (SECRET_MESSAGE, JUDGE_API_KEY, QUERY_A, PASSAGE):
+            assert secret not in text
+    del world, claude_url
+
+
 def test_SDK의_디버그_로그를_켜도_로그와_출력에_키와_요청_응답의_본문이_없다(
     world: World,
     claude_url: str,
@@ -499,9 +522,11 @@ def test_판정_파일이_묶음_밖을_가리키는_링크이면_쓰지_않고_
     make_folder_link(bundle / JUDGMENTS, outside)
     capsys.readouterr()
 
+    assert _run(bundle, tmp_path / "out") == 1
+    assert "링크를 풀면 묶음 폴더 밖을 가리킨다" in capsys.readouterr().err
     assert _judge(bundle, "--yes") == 1
 
-    assert JUDGMENTS in capsys.readouterr().err
+    assert "링크를 풀면 묶음 폴더 밖을 가리킨다" in capsys.readouterr().err
     assert claude_stub.count() == 0
     assert list(outside.iterdir()) == []
     del world, claude_url

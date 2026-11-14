@@ -52,9 +52,34 @@
   - `prune_judgments`와 `_stage`의 명령·조회 분리, 상수를 고정하는 시험 하나, `del world, claude_url`의 되풀이.
 - 다시 돌린 것: 아래 검증에 적었다.
 
+## PR 직전 리뷰
+
+CodeRabbit CLI(0.7.5, 무료 요금제)는 한 번 돌았지만 리뷰 서비스 연결이 끊겨(`Connection failed: WebSocket subscription completed unexpectedly`) 끝나지 못했고 발견은 0건이었다. 한도를 더 쓰지 않으려 다시 돌리지 않았다. 규정대로 `bug-perf-review`가 같은 축을 봤고, `coderabbit-review` 에이전트가 CLI 실패 뒤 직접 읽은 보고도 받았다. 두 보고 모두 Critical은 없었다.
+
+- 직접 읽은 보고(`coderabbit-review`): Major 없음, Minor 일곱.
+  - 고친 것
+    - `claude_judge.py`의 `_QUIET_LOGGERS` 주석이 `httpx2`를 DEBUG로 찍는다고 적었지만 `httpx2/_client.py`의 1084행과 1922행은 INFO로 찍는다(직접 열어 확인했다). 주석을 INFO나 DEBUG로 고쳤다.
+    - 머리 독스트링이 `httpcore2`는 단계 이름만 찍는다고 적었지만 `_trace.py`의 `Trace.trace`(43~45행)는 `key=value`로 호스트·포트·응답 헤더까지 DEBUG로 찍는다. 요청은 메서드만 찍어 헤더 값과 본문은 싣지 않는다는 서술로 고쳤다.
+    - 408(요청 시간 초과)과 409(잠금 시간 초과)를 영구 실패로 세던 것. SDK의 `_should_retry`(`_base_client.py` 947~954행)는 둘을 재시도 대상으로 본다. 어댑터가 SDK 재시도를 끄고 호출하는 쪽에 맡기므로 같은 집합(`_RETRYABLE_STATUSES`)을 일시 실패로 센다. 시험을 먼저 고쳐 408·409에서 빨강을 봤다.
+    - UTF-8이 아닌 `judgments.jsonl`을 읽으면 `UnicodeDecodeError`가 처리되지 않고 스택으로 나갔다. `JudgmentFileError`(메시지는 인코딩 이름만)로 바꿨다. 시험을 먼저 써서 빨강을 봤다.
+  - 도달하지 않는 길로 보고 시험만 고정했다: 판정 파일이 묶음 밖 링크일 때 `BundlePathError`의 까닭을 버리고 형 이름만 낸다는 지적. 실제로는 앞의 점검 단계가 이미 `링크를 풀면 묶음 폴더 밖을 가리킨다`를 찍는다. 기존 시험의 단언을 그 문장으로 바꿔 `run`과 `judge` 둘 다 고정했고, 바꾼 시험은 고치기 전에도 초록이었다.
+  - 남긴 것: SDK가 읽는 `ANTHROPIC_CUSTOM_HEADERS`가 개발 셸에 있으면 그 헤더가 `RAG_JUDGE_URL`로 간다(`anthropic/_client.py` 250~255행). `api_key`와 `base_url`은 명시해 `ANTHROPIC_*`의 키와 주소는 쓰이지 않는다. `compose.eval.yml`의 서술(코드가 직접 읽는 환경 변수)은 참이라 두었다. 첫 실제 실행 티켓(13)이 개발 셸을 정리할 때 함께 본다.
+  - 원칙 V 점검: 질의, 조각 본문, API 키가 로그·표준 오류·예외 메시지·보고서로 새는 길을 찾지 못했다. 이론상의 길 하나는 SDK의 OpenTelemetry 계측(`records_content`)이 켜지고 OTel SDK가 설정된 경우인데 이 도구는 OTel을 설정하지 않아 noop이다. 판정기를 서버 프로세스에 붙이게 되면 다시 본다.
+- 대체 보고(`bug-perf-review`): Major 하나, Minor 셋, 보류 하나.
+  - Major: 쌍 하나가 영구 실패(`refusal`, `max_tokens`에서 잘린 응답, 400)를 내면 실행 전체가 멈추고, 판정 대기의 순서가 고정이라 다시 돌려도 같은 쌍에서 멈춘다. 동시 작업자 넷이 3쌍씩만 나아가 3,000건이면 1,000번쯤 다시 쳐야 한다. 명세는 이 경우를 정하지 않았다. 판정기 포트의 두 예외로는 쌍 하나의 거절과 인증 실패를 가를 수 없어 설계 결정이라 사용자에게 물었다.
+    > 건너뛰고 계속 (Recommended)
+    - 고친 것: 영구 실패는 그 쌍만 건너뛰고(`JudgeOutcome.skipped`와 `skip_reasons`) 나머지를 판정한다. 사이에 판정을 받지 못한 채 영구 실패가 `PERMANENT_STREAK_LIMIT`(5)번 이어지면 쌍이 아니라 판정기의 일로 보고 멈춘다. 판정을 하나도 받지 못하고 끝나면 종료 1이다. 건너뛴 수와 까닭을 표준 오류에 알린다. 건너뛴 쌍은 판정 없음으로 남아 다시 돌리면 다시 부르므로 거절의 비용이 한 번 더 든다.
+  - Minor 고침: `judgments.jsonl`이 개행 없이 끝나면 덧붙인 줄이 앞 줄에 붙고 `rewrite_sorted`가 `JudgmentFileError`로 막혔다(시험에서 재현했다). `append_judgment`가 개행을 먼저 쓴다. 시험을 먼저 써서 빨강을 봤다.
+  - Minor 남김: 재시도 대기(0.25, 0.5, 1초)가 짧고 `Retry-After`를 읽지 않아 429나 529가 2초쯤 이어지면 실행이 멈춘다. 이어서 돌릴 수 있고 데이터는 잃지 않는다. 대기를 더하는 것은 비용과 시간의 판단이라 첫 실제 실행(티켓 13)의 결과를 본 뒤 정한다. 실패한 실행이 몇 건을 남겼는지 알리지 않는 것(`JudgeRunError`가 받은 건수를 싣지 않는다)도 같은 이유로 남겼다.
+  - 보류: 두 프로세스가 같은 묶음에서 동시에 `judge`나 `run`을 돌릴 때의 경합(`os.replace`로 한쪽 줄이 사라지고 임시 파일 이름이 하나라 서로 지운다). 보고가 코드를 읽은 것이라 재현하지 않았고 한 사람이 한 묶음을 돌리는 도구라 남겼다.
+  - 성능: 3,000건에서 판정 파일의 읽기와 쓰기, 쌍 고르기, `llm_summary`는 문제가 없다. `judge`는 `--yes` 없이 어림만 볼 때도 평가 전체를 돌아 `--yes`로 다시 치면 평가가 두 번 돈다. 설계상 의도다(건수는 평가의 결과로만 알 수 있다).
+- 내장 `/security-review`(식별 하위 작업 하나): 확신 8 이상의 취약점은 발견 없음이라 거르는 하위 작업은 돌리지 않았다. 읽은 것은 어댑터 셋(`claude_judge.py`, `judge_settings.py`, `eval_judgments_file.py`), `eval_judge.py`, `bundle_paths.py`, 앱의 `eval_judgments.py`·`eval_report.py`, `tools/search_eval.py`, 프로브 `judge-call/`와 그 출력이고 `uv.lock`은 열지 않았다. 결론은 키가 repr·예외·표준 오류·프로브 출력으로 새는 길 없음, `judgments.jsonl` 경로는 묶음의 경로 판정을 지나고 임시 파일을 먼저 지워 링크를 따라 쓰지 않음, 보고서에는 질의나 조각 본문이 실리지 않음이다. 코드를 읽어 판정했고 판정기 호출이나 로그 출력을 돌려 재지는 않았다. 건너뛰기 처리와 `_ends_with_newline`을 더한 뒤의 작업 나무(커밋하지 않은 수정 포함)를 읽은 것이다.
+- 고친 것의 변이 표: 영구 실패 셋(연이어 한계, 한 쌍에 멈춤, 연속을 끊지 않음)과 종료 1, UTF-8, 개행, 408·409를 새 변이로 더하고 기존 429와 "한 쌍이 실패해도 남은 쌍을 계속 부른다"(옛 동작을 겨눈 것)를 고쳤다(23개에서 29개).
+
 ## 검증
 
-- 손으로 친 것: `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`(0 errors), `uv run lint-imports`(2 kept), `uv run python tools/check_type_escapes.py`(깨끗), 판정 관련 단위 시험 101 passed(`tests/app/test_eval_judgments.py`, `test_eval_run.py`, `tests/adapters/test_claude_judge.py`, `test_judge_settings.py`, `test_eval_judgments_file.py`, `tests/domain/test_errors.py`). 반영 전에는 전체 `uv run pytest`가 4162 passed였고 부하에서 `ReadTimeout` 둘이 났다가 홀로 돌리니 초록이었다. 전체 시험은 커밋의 pre-commit이 다시 돈다. 첫 커밋 시도에서 pre-commit이 세 가지로 막았다. 티켓 05 변이 표의 `old` 셋이 어긋난 것(`eval_full_run_mutations.toml` 2·7·9번을 고치고 세 변이가 빨강인 것을 다시 확인했다), 일지의 따옴표 경고 둘(인용부호를 지웠다), 계약 시험 둘의 `ReadTimeout`이다. 셋째는 `tests/contract/test_search_complete.py`를 홀로 돌려 19 passed(5분 6초)로 부하 탓임을 확인했다. 두 번째 커밋 시도는 변이 표와 따옴표 훅을 지나 전체 pytest에서 5건이 빨갰고(4165 passed), 그 파일 셋을 홀로 돌리니 19 passed(3분 59초)였다.
+- 손으로 친 것: `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`(0 errors), `uv run lint-imports`(2 kept), `uv run python tools/check_type_escapes.py`(깨끗), 판정 관련 단위 시험 101 passed(`tests/app/test_eval_judgments.py`, `test_eval_run.py`, `tests/adapters/test_claude_judge.py`, `test_judge_settings.py`, `test_eval_judgments_file.py`, `tests/domain/test_errors.py`). 반영 전에는 전체 `uv run pytest`가 4162 passed였고 부하에서 `ReadTimeout` 둘이 났다가 홀로 돌리니 초록이었다. 전체 시험은 커밋의 pre-commit이 다시 돈다. 첫 커밋 시도에서 pre-commit이 세 가지로 막았다. 티켓 05 변이 표의 `old` 셋이 어긋난 것(`eval_full_run_mutations.toml` 2·7·9번을 고치고 세 변이가 빨강인 것을 다시 확인했다), 일지의 따옴표 경고 둘(인용부호를 지웠다), 계약 시험 둘의 `ReadTimeout`이다. 셋째는 `tests/contract/test_search_complete.py`를 홀로 돌려 19 passed(5분 6초)로 부하 탓임을 확인했다. 두 번째 커밋 시도는 변이 표와 따옴표 훅을 지나 전체 pytest에서 5건이 빨갰고(4165 passed), 그 파일 셋을 홀로 돌리니 19 passed(3분 59초)였다. 세 번째 시도가 통과해 커밋 fc295e6이 만들어졌다.
+- PR 직전 리뷰를 반영한 뒤 손으로 친 것: `uv run ruff check src tests`(통과), `uv run ruff format --check .`(630개 이미 맞음), `uv run pyright`(0 errors), `uv run lint-imports`(2 kept), `uv run python tools/check_type_escapes.py`(깨끗), 바뀐 시험(`tests/app/test_eval_judgments.py`, `tests/tools/test_search_eval_judge.py` 55 passed, `tests/adapters/test_eval_judgments_file.py`와 `test_claude_judge.py` 43 passed). 변이 표는 `--check`로 29개 원문이 한 번씩 있음을 확인했고, 새로 더하거나 고친 변이 여덟(9~14, 20, 21)이 모두 기대대로 빨강이었다(20·21은 처음에 표지가 어긋나 매개변수 하나로 좁혀 다시 돌렸다). 전체 `uv run pytest`는 이 반영을 담은 커밋의 pre-commit이 다시 돈다.
 - 변이 표: 23개 모두 기대대로 빨강이다. 셀프 리뷰 반영 뒤 전체 실행은 세 번 걸렸다. 첫 번째는 22번의 원문이 `_Job`→`_Inputs` 개명으로 어긋나 아무 파일도 쓰지 않고 멈췄다. 두 번째는 이 셸에 `RAG_TEST_DATABASE_URL`이 없어 표면 시험 셋의 기준선이 error라 변이를 넣지 않았다(컨테이너는 떠 있었다. 환경 변수를 붙여 다시 돌렸다). 세 번째에서 21개가 기대대로였고 12번과 14번은 결과가 빨강이었지만 줄 번호 꼴 표지(`…py:128: AssertionError`, `…py:182: AssertionError`)가 시험 파일의 편집으로 밀려 어긋났다. 표지를 새 줄 번호(143, 189)로 고치고 그 둘만 다시 돌려 기대대로였으며, `--check`로 변이 뒤에 소스의 원문이 한 번씩 있는 것(원상태)을 확인했다.
 - 시험 순서를 솔직히 적는다. 앱 시험(`tests/app/`)은 시험을 먼저 쓰고 구현했다. 표면 시험(`tests/tools/test_search_eval_judge.py`)도 구현 전에 썼지만 구현 전에 한 번 실행해 빨강을 보지는 않았다. 빨강은 변이 표가 구현을 틀리게 했을 때 시험이 실패하는 것으로 확인했다. 셀프 리뷰가 낸 세 수정(로거, 임시 파일 링크, 공백 값)은 시험을 먼저 고쳐 옛 코드에서 빨강을 본 뒤 고쳤다.
 - 변이 표를 처음 돌렸을 때 두 빈틈이 있었다(길이 한도에서 잘린 응답을 읽어 보는 변이 16번과 상위 조각 수를 다섯으로 줄이는 변이 23번이 초록으로 지나갔다). 16번은 시험을 보강했고 23번은 `top_passages`를 공개 함수로 올려 앱 시험을 더했다. 그 뒤 23개 모두 기대대로 빨강이었다. 셀프 리뷰 반영 뒤 22번의 원문이 `_Job`→`_Inputs` 개명으로 어긋나 표를 고쳤다.
@@ -70,6 +95,7 @@
 - `compose.eval.yml` 4행과 `README.md` 72행의 환경 변수 서술, `domain/errors.py` 모듈 독스트링의 판정기 코드 문장.
 - 티켓 12 `## Comments`의 SDK 줄 번호 라벨과 로거 이름 서술, 프로브 README의 judge-call 행.
 - 이 일지의 회고 14·15번과 검증 절의 pre-commit 서술(변이 표 05의 2·7·9번 수정, 계약 시험 둘의 부하 flake 판정).
+- PR 직전 리뷰를 반영해 새로 쓴 것: `claude_judge.py`의 머리 독스트링(일시 실패에 408·409 포함, `httpx2`는 INFO, `httpcore2`는 호스트·포트·응답 헤더까지 DEBUG이고 요청의 헤더 값과 본문은 싣지 않는다는 서술)과 `_RETRYABLE_STATUSES` 위의 주석(SDK의 `_should_retry`와 같은 집합이라는 서술), `eval_judgments_file.py`의 `JudgmentFileError`·`append_judgment` 독스트링, `app/eval_judgments.py`의 `PERMANENT_STREAK_LIMIT` 주석과 `judge_pairs`·`JudgeOutcome` 독스트링, `eval_judge.py`의 `_judge_and_record` 독스트링과 건너뛴 쌍의 표준 오류 문구.
 
 ## 회고
 
