@@ -139,7 +139,9 @@ def _reranker_url(
 def guarded[T](work: Callable[[], T], records_run: RecordsRun | None = None) -> T | None:
     """데이터베이스를 읽고 평가하는 일을 돌려 실패를 종류만 적고 `None`으로 낸다. 접속 실패의
     메시지와 스택은 호스트와 사용자 이름을 싣는다(원칙 V). 평가가 끝나지 못했을 때 `records_run`이
-    계산을 멈춘 기록이 있으면 어느 명령을 다시 돌리는지도 알린다."""
+    계산을 멈춘 기록이 있으면 어느 명령을 다시 돌리는지도 알린다. 기록기가 계산을 멈추려고 올리는
+    `PermanentFailure`는 평가 유스케이스가 질의 임베딩과 리랭크에서 `EvalRunError`로 옮기므로,
+    안내는 그 갈래에서만 낸다."""
     try:
         return work()
     except EvalRunError as error:

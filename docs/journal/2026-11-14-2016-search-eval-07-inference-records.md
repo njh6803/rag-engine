@@ -47,7 +47,7 @@
 
 ## 병합 커밋의 pre-commit
 
-`origin/dev`(06) 병합 커밋을 pre-commit이 두 번 돌렸다(둘 다 막혔다). 시도마다 빨간 시험이 달랐고, 이 PR이 건드린 파일의 시험은 하나도 없었다.
+`origin/dev`(06) 병합 커밋을 pre-commit이 세 번 돌렸고 앞의 두 번이 막혔다. 둘째 병합(#46, #45)의 커밋은 두 번 돌려 한 번 막혔다. 시도마다 빨간 시험이 달랐고, 이 PR이 건드린 파일의 시험은 하나도 없었다. 아래의 두 시도는 첫 병합의 앞의 두 번이다.
 
 - 첫 시도(4207 passed 2 failed, 1356초): `tests/contract/test_reindex_switch.py`의 시험 둘이 MCP 클라이언트의 `ReadTimeout`. 그 파일만 단독으로 돌리면 8건 통과(175.51초).
 - 둘째 시도(4207 passed 2 failed, 872.74초): `test_job_lease`의 5초 단언이 5.56초, `test_serve가_뜨면…`이 "serve가 30초 안에 뜨지 않았다".
@@ -72,6 +72,18 @@ PR을 열기 전에 `git fetch origin`으로 보니 `origin/dev`가 티켓 06(#4
 - 변이 표: 위치가 옮겨 간 변이 넷(11, 12, 15, 16)의 대상 파일을 `eval_assembly.py`로 바꿨다. 변이 12(빠른 실행의 주인 파일에 리랭크를 넣는다)는 처음에 표지가 나오지 않았다. 처음에는 전체 실행으로 바뀌어 종료 코드가 1이 되리라고 짐작했으나 틀렸고, 손으로 변이를 넣어 시험을 직접 돌려 보니 종료 코드는 0이고 리랭크 기록의 바이트도 그대로였다(리랭크 값이 기록에 이미 있어 기록으로 처리된다). 시험은 마지막 단언(보고서 `files`에 `records/rerank.jsonl`이 실린다)에서 실패한다. 그 단언에 값을 실은 메시지를 달고 표지를 그 문구로 바꿨다.
 - 문서 충돌: `compose.eval.yml`과 `README.md`는 두 쪽의 문장을 모두 살렸다. 대기열 `mutate-marker-discovery`의 승인 줄은 06 일지가 7회차, 이 일지가 8회차가 되도록 이었다.
 - 확인: 병합 뒤 `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`(0 errors), `uv run lint-imports`(2 kept), 관련 시험 736 passed(`tests/tools`의 `search_eval*`, `tests/adapters` 전체, `tests/app`과 `tests/domain`의 평가 시험), 변이 표 `--check` 다섯 표가 모두 원문 한 번씩.
+
+## 봇 회차
+
+머리 `27c0459`에서 CodeRabbit은 무료 리뷰 한도에 걸려 리뷰하지 못했다(약 58분 뒤에 다시 쓸 수 있다고 알렸고 상태는 NEUTRAL). `claude-review`는 Critical과 Major 없이 Minor 3건과 Nit 2건을 냈다. 첫 회차라 지적마다 판단했다. CI 다섯 건(claude-review, image, python, ticket, verify)은 통과했다.
+
+- Minor `RerankRecorder`가 임베딩 거부 코드(`EMBEDDING_REJECTED`)를 쓰는 것: 남긴다. 셀프 리뷰가 이미 남긴 항목과 같다. 호출부는 코드로 갈래를 고르지 않고 기록기의 `exceeded`와 `unavailable` 표지로 안내를 고른다(`inference_records.py`의 `notices()`). `eval_index.py`가 코드를 쓰는 곳은 `index`의 문서 거부 출력이고 리랭크는 `index`에 쓰이지 않는다. 새 코드는 영구 실패 코드의 닫힌 목록과 작업 코드 열넷(`domain/errors.py`)을 바꾸는 도메인 계약 변경이라 이 PR의 범위가 아니다.
+- Minor 두 기록기의 조회 루프가 닮은 것: 남긴다. 셀프 리뷰가 이미 남긴 항목과 같다. 두 루프는 갈래가 다르고(임베딩은 상한과 `exceeded`, 리랭크는 `inner is None`과 `unavailable`) 변이 26개 가운데 14개가 `inference_records.py`를 겨냥해, 합치면 표의 원문과 표지를 다시 맞춰야 한다.
+- Minor `RecordsRun`이 맡은 일이 많은 것: 남긴다. 새 지적이다. 나누는 변경은 `commit`, `_rendered`, `_file_hashes`의 호출 관계와 위 변이 14개를 다시 확인해야 하는 구조 변경이고, 이 PR이 바꾸는 동작은 없다. 지금 나누지 않는 근거는 비용이고 Critical·Major가 아니다.
+- Nit `guarded`가 `EvalRunError`일 때만 안내하는 것: 반영했다. 기록기가 올린 `PermanentFailure`는 `app/eval_run.py`가 질의 임베딩(345행)과 리랭크(386행)에서 `EvalRunError`로 옮기는 것을 코드로 열어 확인했다. 독스트링에 한 문장을 더했다.
+- Nit `PreparedEvaluation.records_run`이 필수 칸인 것: 지적이 문제없다고 밝혔고 바꾸지 않는다.
+
+이 회차가 새로 쓴 사실 문장(밀 주장): `eval_assembly.py`의 `guarded` 독스트링 마지막 문장. 위 판정 문단들의 근거 문장은 이 일지에만 있다.
 
 ## 회고
 
