@@ -23,7 +23,7 @@ agent-os(`C:\project\agent`)를 봤다. 그 저장소의 일지 `docs/journal/20
 ## 손으로 본 것
 
 - 고치기 전: `uv run pytest tests/test_plan_status.py -q` 13 passed, `uv run python tools/check_ticket.py` 종료 코드 0(그때는 면제 모양만 바뀌었다), `uv run python tools/check_instructions.py` 출력 없이 끝났다.
-- `gh pr view 569 -R njh6803/agent-os`: `OPEN`, 머리 `docs/release-image-tickets`, 제목 "docs: release-image를 티켓 열한 장으로 나눈다 (release-image)". 그 브랜치의 `.scratch/release-image/issues/`에는 01~11의 티켓 열한 개가 있다. 그 저장소의 dev에는 release-image의 `spec.md`와 ADR 0056이 있다. 이 상태는 날이 지나면 낡아 기능 계획에 적지 않고 여기에만 둔다.
+- `gh pr view 569 -R njh6803/agent-os`: `OPEN`, 머리 `docs/release-image-tickets`, 제목 `docs: release-image를 티켓 열한 장으로 나눈다 (release-image)`. 그 브랜치의 `.scratch/release-image/issues/`에는 01~11의 티켓 열한 개가 있다. 그 저장소의 dev에는 release-image의 `spec.md`와 ADR 0056이 있다. 이 상태는 날이 지나면 낡아 기능 계획에 적지 않고 여기에만 둔다.
 - `uv run python tools/sibling_overlap.py`: 종료 코드 0, 새 번호 없음, 번호 겹침 없음. 함께 고친 파일로 워크트리 `09-public-docs-documents`의 `.scratch/plan-head.md`와 `.scratch/plan.md`가 나왔다. 그 워크트리는 `plan-head.md`의 목표 배치 블록(`evals/public-docs/` 줄)을 고쳐 이 변경의 순서 절과 hunk가 다르고, `plan.md`는 생성 파일이라 나중에 병합하는 쪽이 도구를 다시 돌려 푼다.
 - 반영 뒤: `uv run pytest tests/tools/test_plan_table.py tests/test_plan_status.py -q` 48 passed, `uv run ruff check tools/plan_table.py` 통과, `uv run ruff format --check tools/plan_table.py` 통과, `uv run python tools/check_ticket.py` 출력 없이 끝났다. `git grep -n -I -E "다른 저장소의 기능에 막히지|이 기능에 닿는 넷|병합을 기다린다" -- tools .scratch docs/agents .claude/skills`는 0건이다(미추적 티켓은 git grep에 들지 않고, 그 티켓은 옛 문장을 고칠 대상으로 인용한다).
 
@@ -50,23 +50,28 @@ agent-os(`C:\project\agent`)를 봤다. 그 저장소의 일지 `docs/journal/20
   - "순서를 다시 바꾸는 것은 사용자가 정한다(같은 일지의 "사용자가 물었다" 절)."
   - "Blocked by 는 이 저장소의 기능만 가리킨다."
   - "다른 저장소의 일을 기다리는 기능은 기능 계획 본문에 그 대기를 적는다(release-image)."
-- 다시 돌린 명령: 위 손으로 본 것의 "반영 뒤" 줄이다. 손으로 치는 다섯 가운데 나머지(전체 테스트, 타입체크, import 경계)는 커밋의 pre-commit으로 갈음한다.
+- 다시 돌린 명령: 위 손으로 본 것의 "반영 뒤" 줄이다. 손으로 치는 다섯 가운데 나머지(전체 테스트, 타입체크, import 경계)는 커밋의 pre-commit으로 갈음했다. 커밋 `c552d5c`의 pre-commit은 모두 통과했다(pytest 1030.7s, pyright·pyright-linux, lint-imports, check-ticket, check-instructions, check-type-escapes, run-hooks, zizmor. 헌법 판 검사는 고친 헌법 파일이 없어 Skipped). 인용 대조가 경고 하나를 냈다. 손으로 본 것 줄의 그 저장소 PR 제목을 따옴표로 적어 이 저장소에 없는 글로 읽혔고, 다음 커밋에서 코드 스팬으로 바꿨다.
+
+PR 직전 `coderabbit-review`: CLI 0.7.5, `Plan: Free`, `Seat: not assigned`, `review_completed`, 지적 0건. 리뷰한 파일은 이 커밋의 아홉과 같다. CLI가 리뷰를 마쳤으므로 대체 둘(`/security-review`, `bug-perf-review`)은 돌리지 않았다. 반영으로 새로 쓴 사실 문장은 CLI에 넘기는 길이 없어 본 세션이 손으로 대 봤다. 지시문을 내는 세션은 그 저장소 명세 504행(출시 PR 병합 뒤의 첫 실제 판 내기를 지켜본 세션이 낸다고 적는다), 따로 정할 것과 순서를 사용자가 정한다는 것은 그 일지 363행, Blocked by가 이 저장소의 기능만 가리킨다는 것은 `tests/tools/test_plan_table.py`의 `rag-engine:core` 사례(종료 2)다.
+
+둘째 커밋(이 일지의 고침만 싣는다)의 첫 시도는 pre-commit의 pytest(1232.9s)에서 네 시험이 빨개 커밋되지 않았다. `tests/contract/test_first_round_trip.py`의 `test_로그에는_문서의_키와_제목과_질의가_없고_검색은_지연만_남는다`와 `test_지식베이스를_이름으로_고르고_안_고르면_기본_지식베이스를_쓴다`, `tests/contract/test_search_complete.py`의 `test_리랭커가_순서를_바꾸고_점수는_리랭크_점수다`는 MCP 호출이 `httpx2.ReadTimeout`으로 끊겼다. 서버 로그의 `/mcp` 요청은 5.5~5.9초에 상태 없이 끝났고, `tests/support/round_trip.py`의 `call`이 만드는 `httpx2.AsyncClient`는 시간 한도를 주지 않아 기본값 `Timeout(timeout=5.0)`이다(`uv run python -c`로 그 값을 찍어 봤다). `tests/app/test_job_lease.py`의 `test_임대를_잃은_것이_드러나면_처리를_멈추고_문서에도_작업_행에도_쓰지_않는다`는 5초 상한에 5.77초로 걸렸다. 네 시험을 `-p no:xdist`로 따로 돌리니 42.71초에 모두 통과했다(call 11.19s, 9.22s, 5.03s, 2.66s). 이 변경은 일지만 고쳤고, 그사이 `origin/dev`에 든 커밋 9ca1e6b(search-eval 06)는 이 네 시험과 `tests/support/round_trip.py`를 고치지 않았다. 원칙 I대로 시험은 고치지 않고 같은 커밋을 한 번 더 시도했다. 그 결과는 PR 본문에 적는다.
 
 ## 회고
 
-후보 일곱, 승인 2, 기각 5, 넘김 0. `uv run python tools/queue_open_rows.py`(작업 폴더와, `git fetch origin` 뒤 `--ref origin/dev`)의 만료할 항목은 둘 다 없었다.
+후보 여덟, 승인 2, 기각 5, 넘김 0, 받아들여 닫은 종류의 새 사례 1(후보 8. 둘째 커밋의 첫 시도 뒤에 더했다). `uv run python tools/queue_open_rows.py`(작업 폴더와, `git fetch origin` 뒤 `--ref origin/dev`)의 만료할 항목은 둘 다 없었다.
 
 1. **승인. 다른 저장소의 일을 기다리는 기능이 프론티어에 올라 설계 인터뷰를 열 수 있다고 잘못 답했다.** 사건: 사용자가 바로잡은 첫 답(위 "사용자의 물음과 교정"). 층: 판정은 `tools/plan_table.py`가 할 수 있다. 되돌림: PR 하나. 빠진 사실을 적는 고침은 이 티켓이 한 일 자체라 회고 반영 줄을 따로 더하지 않았다. 대기를 프론티어 계산에 반영하는 것은 더하는 것이라 새 항목 cross-repo-wait-on-frontier(1회차)로 대기열에 뒀다. 같은 뿌리(외부 조건을 기다리는 일이 전체 계획에 보이지 않음)를 하네스 기능 쪽에서 다루는 harness-feature-off-plan과 대상 파일이 같아, 두 항목이 서로 가리키게 했다. `next-session` 결정표와 `grill-with-docs`·`hook_grill_design_check`가 대기를 보지 못하는 갈래(셀프 리뷰 표준 1, 명세 a4)도 이 항목이 프론티어에서 빼면 함께 닫혀 따로 쓰지 않았다.
 2. **승인(회차). 첫 초안이 기능 계획 본문에 agent-os의 진행 상황과 그 저장소가 이 서버의 판을 고정하는 관계를 적었다.** 셀프 리뷰 두 축이 원칙 III(항상 실리는 지침)로 짚었다. 구현 때 실리는 지침을 어겨 리뷰가 잡은 사건이라 client-name-in-spec-body에 회차를 더했다(3회차). agent-os를 판 내기 규약의 원천으로 든 것은 ADR 0016의 쓰임이라 남겼다.
 3. **기각. agent-os 세션이 2026-11-11에 rag-engine의 순서를 정하고 그 사실을 rag-engine에 적지 않았다.** 그 저장소는 일을 끝낸 세션이 지시문을 내는 길을 골랐고(그 저장소의 release-image 기능 계획), 고칠 층이 이 저장소에 없다.
 4. **기각. 셀프 리뷰가 잡은 첫 초안의 결함들**(본문에 글자 그대로 든 필드 표지, 출처에 없는 "넷만", 출처 귀속, 낡을 상태 문장, 문단을 걷는 때 없음, `tools/plan_table.py` 독스트링의 잔존). 두 브리프의 기준(주장 검증의 인용·잔존, 갈래 밟기)으로 리뷰가 잡은 것이라 회차 셈에서 뺀다. 검사로 옮길 꼴로는 본문의 필드 표지가 있지만, 그것을 줄 머리 없이 grep하는 읽는 쪽이 저장소에 없고 잘못 읽힌 사건도 없다.
-5. **기각. 훅과 앱 가드가 막거나 알린 명령.** 다른 체크아웃으로 가는 `cd`(`hook_bash_cd_outside`), `.env`에 닿는 Grep glob 두 번(`hook_env_read`), 변수 꼴과 `-C` 꼴의 git 세 번(앱 워크트리 가드), `origin/dev:.scratch/...`의 MSYS 경로 변환(계기), 파이프 뒤의 게이트(`hook_bash_gate_pipe` 계기)다. 모두 그 자리에서 막거나 알렸다.
+5. **기각. 훅과 앱 가드가 막거나 알린 명령.** 다른 체크아웃으로 가는 `cd`(`hook_bash_cd_outside`), `.env`에 닿는 Grep glob 두 번(`hook_env_read`), 변수 꼴과 `-C` 꼴의 git 세 번(앱 워크트리 가드), `origin/dev:.scratch/...`의 MSYS 경로 변환(계기), 파이프 뒤의 게이트(`hook_bash_gate_pipe` 계기), 커밋의 인용 대조가 그 저장소의 PR 제목 인용에 낸 경고다. 모두 그 자리에서 막거나 알렸다.
 6. **기각. 다른 저장소에 Glob을 쳐 ripgrep이 20초에 끊겼다.** 한 번이고, 바로 `git ls-tree`와 Read로 돌았다.
 7. **기각. 셀프 리뷰 뒤 브랜치를 `docs/`에서 `chore/`로 바꿨다.** 면제 밖의 파일을 고치게 될 때의 길을 `docs/agents/issue-tracker.md`와 커밋 검사가 정해 두었고, 비용은 이름 바꾸기와 제목 바꾸기 둘이었다.
+8. **일지에만 적는다. 둘째 커밋의 pre-commit에서 부하에서만 빨간 시간 시험 넷이 커밋을 막아 약 21분을 썼다.** 사건과 따로 돌린 결과는 위 코드 리뷰 절의 마지막 문단에 있다. 부하에서만 빨간 시간 시험은 닫힌 token-expiry-test-load-margin이 끝이 열린 종류로 받아들여 닫은 종류이고(그 항목의 상태 줄), retro 5단계는 그 종류의 새 사례를 잇지 않고 새 항목도 쓰지 않으며 일지에만 적게 한다. 다시 열지는 사용자가 정한다. 같은 날 `origin/dev`에 든 serve-startup-test-load-margin(열림, 1회차)이 같은 종류의 다른 시험(`tests/test_serve_command.py`)을 다룬다. 이 브랜치에는 아직 없고 처방의 대상 파일이 달라 회차를 더하지 않았다. `.claude/rules/tests.md`의 시간 단언 규칙(홀로 돌린 시간의 넉넉한 배수)과 대 보면, `round_trip.py`의 5초는 시험이 고른 값이 아니라 클라이언트의 기본값이고, `test_job_lease.py`의 5초 상한은 시험 전체가 홀로 2.66초에 돈 것과 견줘 여유를 잰 적이 없다(상한이 재는 구간만 홀로 잰 값은 없다).
 
 ## 다음
 
-- 이 PR이 병합된 뒤 새로 열 세션은 없다. 프론티어는 그대로 `release-image`와 `search-eval`이고, release-image는 기능 계획 첫 문단대로 agent-os의 지시문을 기다린다. search-eval의 `ready-for-agent` 티켓은 06(PR 44)과 07·09·12처럼 각자 세션이 맡은 것이 있고, 그 세션들이 next-session으로 다음을 연다.
+- 이 PR이 병합된 뒤 새로 열 세션은 없다. 프론티어는 그대로 `release-image`와 `search-eval`이고, release-image는 기능 계획 첫 문단대로 agent-os의 지시문을 기다린다. search-eval의 티켓은 07·09·12처럼 각자 세션이 맡은 것이 있고(06은 PR 44로 병합됐다), 그 세션들이 next-session으로 다음을 연다.
 - 공개 시연(2027-01 초, `docs/PRD.md`)은 release-image에 걸려 있어, 이번 대기로 그 날짜가 agent-os release-image의 첫 판에도 걸린다. 그 저장소의 release-image는 티켓 열한 장이 병합 전이다. 일정을 다시 볼지는 사용자가 정한다.
 - 워크트리 `09-public-docs-documents`가 같은 `.scratch/plan-head.md`의 목표 배치 블록을 고친다. 나중에 병합하는 쪽은 `.scratch/plan.md`를 `uv run python tools/plan_table.py`로 다시 만든다.
 - 주 체크아웃 미갱신: 루트는 `dev`(97f9914)다. 병합 뒤 `tidy-checkouts`가 당긴다.
