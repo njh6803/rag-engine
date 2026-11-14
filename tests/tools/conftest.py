@@ -5,7 +5,13 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from tests.support.eval_world import DATA_DIR_ENV, DATABASE_ENV, EMBEDDING_ENV, World
+from tests.support.eval_world import (
+    DATA_DIR_ENV,
+    DATABASE_ENV,
+    EMBEDDING_ENV,
+    RERANKER_ENV,
+    World,
+)
 from tests.support.tei_server import serve_stub
 from tests.support.tei_stub import TeiStub
 
@@ -19,6 +25,24 @@ def tei_stub() -> TeiStub:
 @pytest.fixture
 def tei_url(tei_stub: TeiStub) -> Iterator[str]:
     with serve_stub(tei_stub) as url:
+        yield url
+
+
+@pytest.fixture
+def reranker_stub() -> TeiStub:
+    """전체 실행의 리랭커 스텁. 모델은 묶음 구성의 `reranker_model`과 같다. 시험이 `score_with`로
+    점수를 정한다."""
+    return TeiStub(model_id="BAAI/bge-reranker-v2-m3")
+
+
+@pytest.fixture
+def reranker_url(
+    reranker_stub: TeiStub, world: World, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[str]:
+    """리랭커 스텁을 띄우고 `RAG_EVAL_RERANKER_URL`을 준다."""
+    del world
+    with serve_stub(reranker_stub) as url:
+        monkeypatch.setenv(RERANKER_ENV, url)
         yield url
 
 

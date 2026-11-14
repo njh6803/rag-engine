@@ -1,4 +1,4 @@
-"""평가 도구 `tools/search_eval.py`의 `run --through fused`(티켓 search-eval 04).
+"""평가 도구 `tools/search_eval.py`의 `run --through fused`와 `rerank`(티켓 search-eval 04, 05).
 
 뒤에는 실제 테스트 PostgreSQL과 TEI 스텁을 붙이고 도구의 `main(argv)`를 부른다. 보고서의 숫자는
 스텁의 결정적 벡터(낱말 주머니)로 기대 근거의 순위가 정해지는 작은 묶음에서 손으로 계산한 값과
@@ -7,6 +7,7 @@
 되고, 합친 뒤는 두 쪽의 합집합을 RRF 순서로 줄 세운다(두 쪽에 다 든 조각이 앞선다).
 """
 
+import json
 import unicodedata
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -27,9 +28,15 @@ from tests.support.eval_bundle import (
     write_json,
     write_jsonl,
 )
-from tests.support.eval_world import DATA_DIR_ENV, DATABASE_ENV, EMBEDDING_ENV, World
+from tests.support.eval_world import (
+    DATA_DIR_ENV,
+    DATABASE_ENV,
+    EMBEDDING_ENV,
+    RERANKER_ENV,
+    World,
+)
 from tests.support.tei_server import serve_stub
-from tests.support.tei_stub import TeiStub
+from tests.support.tei_stub import SECRET_MESSAGE, TeiStub
 
 from rag_engine.adapters.ingest_command import ingest_path
 from rag_engine.adapters.settings import Settings
@@ -96,6 +103,39 @@ class _Meta(_Strict):
     commit: str | None
 
 
+class _Bin(_Strict):
+    lower: float
+    upper: float
+    reached: int
+    not_reached: int
+
+
+class _Threshold(_Strict):
+    min_score: float
+    hit_at_5: float
+    hit_at_10: float
+    empty_rate: float
+    mean_kept: float
+
+
+class _Distribution(_Strict):
+    queries: int
+    bins: list[_Bin]
+    thresholds: list[_Threshold]
+
+    def counts(self) -> dict[int, tuple[int, int]]:
+        """닿은 조각과 닿지 않은 조각이 하나라도 있는 구간의 번호(0부터)와 그 수."""
+        return {
+            number: (bin_.reached, bin_.not_reached)
+            for number, bin_ in enumerate(self.bins)
+            if bin_.reached or bin_.not_reached
+        }
+
+    def row(self, min_score: float) -> _Threshold:
+        (found,) = [row for row in self.thresholds if row.min_score == min_score]
+        return found
+
+
 class _Report(_Strict):
     format_version: str
     eval_set: _EvalSet
@@ -104,6 +144,7 @@ class _Report(_Strict):
     stages: list[str]
     rows: list[_Row]
     meta: _Meta
+    score_distribution: _Distribution | None = None
 
     def row(self, query_list: str, stage: str) -> _Row:
         (found,) = [r for r in self.rows if r.query_list == query_list and r.stage == stage]
@@ -141,6 +182,22 @@ def _run(bundle: Path, out: Path, *extra: str) -> int:
     return search_eval.main(["run", str(bundle), "--through", "fused", "--out", str(out), *extra])
 
 
+def _full_run(bundle: Path, out: Path) -> int:
+    return search_eval.main(["run", str(bundle), "--through", "rerank", "--out", str(out)])
+
+
+def _prefer_b(query: str, text: str) -> float:
+    """리랭커 스텁의 점수. 질의와 상관없이 `b` 문서의 조각을 높이 친다."""
+    del query
+    return 0.9 if PASSAGE_B in text else 0.2
+
+
+def _indexed_full_run(bundle: Path, out: Path) -> _Report:
+    assert _index(bundle) == 0
+    assert _full_run(bundle, out) == 0
+    return _report(out)
+
+
 def _report(out: Path) -> _Report:
     return _Report.model_validate_json((out / "report.json").read_text(encoding="utf-8"))
 
@@ -152,7 +209,7 @@ def _indexed_run(world: World, bundle: Path, out: Path) -> _Report:
     return _report(out)
 
 
-def test_index_뒤_run이_질의_목록마다_단계별_줄을_내고_리랭크_뒤_줄은_없다(
+def test_index_뒤_빠른_run이_질의_목록마다_단계별_줄을_내고_리랭크_뒤_줄은_없다(
     world: World, tmp_path: Path
 ) -> None:
     human = [*HUMAN, {"evidence_id": "q3", "query": QUERY_A}]
@@ -176,6 +233,10 @@ def test_index_뒤_run이_질의_목록마다_단계별_줄을_내고_리랭크_
     assert report.index.chunks == 2
     assert report.config["search_candidates"] == 50
     assert (tmp_path / "out" / "report.md").is_file()
+    # 점수 분포는 전체 실행의 칸이라 빠른 실행의 보고서에는 칸이 없다.
+    raw = json.loads((tmp_path / "out" / "report.json").read_text(encoding="utf-8"))
+    assert "score_distribution" not in raw
+    assert "점수 분포" not in (tmp_path / "out" / "report.md").read_text(encoding="utf-8")
 
 
 def test_지표는_손으로_계산한_값과_같다(world: World, tmp_path: Path) -> None:
@@ -487,19 +548,184 @@ def test_through가_하나가_아니면_아무것도_읽지_않고_2다(
     assert not (tmp_path / "out").exists()
 
 
-def test_through_rerank는_아직_없다고_알리고_보고서를_쓰지_않고_1이다(
-    world: World, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_리랭커_끝점이_없는_전체_실행은_빠진_이름을_알리고_아무것도_부르지_않고_1이다(
+    world: World,
+    tei_stub: TeiStub,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bundle = _bundle(tmp_path)
     assert _index(bundle) == 0
+    monkeypatch.delenv(RERANKER_ENV, raising=False)
     capsys.readouterr()
+    requests_before = len(tei_stub.requests)
 
-    code = search_eval.main(
-        ["run", str(bundle), "--through", "rerank", "--out", str(tmp_path / "out")]
+    assert _full_run(bundle, tmp_path / "out") == 1
+
+    assert RERANKER_ENV in capsys.readouterr().err
+    assert len(tei_stub.requests) == requests_before
+    assert not (tmp_path / "out").exists()
+    del world
+
+
+def test_빠른_실행은_리랭커_끝점이_없어도_돈다(
+    world: World, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(RERANKER_ENV, raising=False)
+
+    report = _indexed_run(world, _bundle(tmp_path), tmp_path / "out")
+
+    assert report.stages == ["vector", "keyword", "fused"]
+
+
+def test_전체_실행의_보고서는_리랭크_뒤_줄이_마지막_단계다(
+    world: World, reranker_url: str, tmp_path: Path
+) -> None:
+    keyword = [{"evidence_id": "q1", "query": "연차휴가 입사 발생"}]
+    bundle = _bundle(tmp_path, keyword=keyword)
+    del reranker_url
+
+    report = _indexed_full_run(bundle, tmp_path / "out")
+
+    assert report.format_version == "1.0.0"
+    assert report.stages == ["vector", "keyword", "fused", "rerank"]
+    assert [(row.query_list, row.stage) for row in report.rows] == [
+        (name, stage) for name in ("human", "keyword") for stage in report.stages
+    ]
+    markdown = (tmp_path / "out" / "report.md").read_text(encoding="utf-8")
+    assert "rerank" in markdown
+    assert "점수 분포" in markdown
+    del world
+
+
+def test_리랭크에서_순위가_바뀐_질의의_적중률이_리랭크_뒤_줄에_반영된다(
+    world: World, reranker_stub: TeiStub, reranker_url: str, tmp_path: Path
+) -> None:
+    """합친 뒤는 q1과 q2 모두 자기 문서가 1위다. 리랭커가 `b` 문서를 높이 치면 q2는 1위로 남고 q1의
+    `a` 문서는 2위로 밀린다. 리랭크 뒤: 적중률@1은 1/2, @3은 1, MRR은 (1 + 1/2) / 2다."""
+    reranker_stub.score_with = _prefer_b
+    del reranker_url
+
+    report = _indexed_full_run(_bundle(tmp_path), tmp_path / "out")
+
+    assert report.row("human", "fused").hit_at_1 == pytest.approx(1.0)
+    rerank = report.row("human", "rerank")
+    assert rerank.queries == 2
+    assert rerank.hit_at_1 == pytest.approx(0.5)
+    assert rerank.hit_at_3 == pytest.approx(1.0)
+    assert rerank.mrr == pytest.approx(0.75)
+    assert rerank.recall == pytest.approx(1.0)
+    assert rerank.ndcg_at_10 == pytest.approx((1 + 1 / 1.5849625007211563) / 2)
+    del world
+
+
+def test_리랭크_점수가_같으면_합친_순위_순으로_정한다(
+    world: World, reranker_stub: TeiStub, reranker_url: str, tmp_path: Path
+) -> None:
+    """리랭커가 모든 조각에 같은 점수를 주면 리랭크 뒤 줄이 합친 뒤 줄과 같다."""
+    reranker_stub.score_with = lambda query, text: 0.5
+    del reranker_url
+
+    report = _indexed_full_run(_bundle(tmp_path), tmp_path / "out")
+
+    assert report.row("human", "rerank") == report.row("human", "fused").model_copy(
+        update={"stage": "rerank"}
     )
+    del world
 
-    assert code == 1
-    assert "티켓 05" in capsys.readouterr().err
+
+def test_리랭커에는_질의와_온전한_절_경로를_붙인_조각_글을_후보_수만큼_한_번에_보낸다(
+    world: World, reranker_stub: TeiStub, reranker_url: str, tmp_path: Path
+) -> None:
+    del reranker_url
+
+    _indexed_full_run(_bundle(tmp_path), tmp_path / "out")
+
+    bodies = reranker_stub.bodies("/rerank")
+    assert len(bodies) == len(HUMAN)
+    assert [body["query"] for body in bodies] == [QUERY_A, QUERY_B]
+    for body in bodies:
+        # 합친 뒤의 후보는 두 문서의 조각 둘이다. 글은 검색과 같이 절 경로(문서의 제목)를 붙인다.
+        texts = body["texts"]
+        assert isinstance(texts, Sequence)
+        assert sorted(text for text in texts if isinstance(text, str)) == sorted(
+            [f"휴가\n\n{PASSAGE}.", f"출장\n\n{PASSAGE_B}."]
+        )
+    del world
+
+
+def test_score_distribution은_구간과_문턱별_값이_손으로_계산한_값과_같다(
+    world: World, reranker_stub: TeiStub, reranker_url: str, tmp_path: Path
+) -> None:
+    """점수는 `b`의 조각 0.9, `a`의 조각 0.2다. q1은 `a`의 조각에, q2는 `b`의 조각에 닿는다. 닿은
+    조각은 0.2(q1)와 0.9(q2), 닿지 않은 조각은 0.9(q1)와 0.2(q2)이다. 0.2는 구간 4(`[0.20, 0.25)`),
+    0.9는 구간 18(`[0.90, 0.95)`)이다."""
+    reranker_stub.score_with = _prefer_b
+    del reranker_url
+
+    report = _indexed_full_run(_bundle(tmp_path), tmp_path / "out")
+
+    distribution = report.score_distribution
+    assert distribution is not None
+    assert distribution.queries == 2
+    assert len(distribution.bins) == 20
+    assert len(distribution.thresholds) == 19
+    assert distribution.counts() == {4: (1, 1), 18: (1, 1)}
+    # 문턱 0.05~0.2: 조각 둘이 모두 남는다. 두 질의 모두 닿은 조각이 상위에 있다.
+    for min_score in (0.05, 0.1, 0.15, 0.2):
+        row = distribution.row(min_score)
+        assert (row.hit_at_5, row.hit_at_10, row.empty_rate, row.mean_kept) == (1.0, 1.0, 0.0, 2.0)
+    # 문턱 0.25~0.9: 0.9의 조각만 남는다. q1의 그 조각은 닿지 않아 q1이 놓친다.
+    for number in range(5, 19):
+        row = distribution.row(number / 20)
+        assert (row.hit_at_5, row.hit_at_10, row.empty_rate, row.mean_kept) == (0.5, 0.5, 0.0, 1.0)
+    # 문턱 0.95: 남는 조각이 없다.
+    row = distribution.row(0.95)
+    assert (row.hit_at_5, row.hit_at_10, row.empty_rate, row.mean_kept) == (0.0, 0.0, 1.0, 0.0)
+    # report.md에도 같은 표가 있다. 구간 표의 두 줄과 문턱 표의 세 줄이 손으로 계산한 값과 같다.
+    markdown = (tmp_path / "out" / "report.md").read_text(encoding="utf-8").splitlines()
+    assert "| 0.200~0.250 | 1 | 1 |" in markdown
+    assert "| 0.900~0.950 | 1 | 1 |" in markdown
+    assert "| 0.050 | 1.000 | 1.000 | 0.000 | 2.000 |" in markdown
+    assert "| 0.250 | 0.500 | 0.500 | 0.000 | 1.000 |" in markdown
+    assert "| 0.950 | 0.000 | 0.000 | 1.000 | 0.000 |" in markdown
+    del world
+
+
+def test_전체_실행의_보고서에도_질의의_글과_조각의_글이_없다(
+    world: World, reranker_url: str, tmp_path: Path
+) -> None:
+    del reranker_url
+
+    _indexed_full_run(_bundle(tmp_path), tmp_path / "out")
+
+    for name in ("report.json", "report.md"):
+        text = (tmp_path / "out" / name).read_text(encoding="utf-8")
+        assert QUERY_A not in text
+        assert PASSAGE not in text
+        assert PASSAGE_B not in text
+    del world
+
+
+def test_리랭커가_실패하면_보고서를_쓰지_않고_서버의_메시지를_옮기지_않고_1이다(
+    world: World,
+    reranker_stub: TeiStub,
+    reranker_url: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    bundle = _bundle(tmp_path)
+    assert _index(bundle) == 0
+    reranker_stub.fail("/rerank", 500)
+    capsys.readouterr()
+    del reranker_url
+
+    assert _full_run(bundle, tmp_path / "out") == 1
+
+    err = capsys.readouterr().err
+    assert "리랭크" in err
+    assert SECRET_MESSAGE not in err
     assert not (tmp_path / "out").exists()
     del world
 

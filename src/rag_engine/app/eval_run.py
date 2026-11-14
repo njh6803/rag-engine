@@ -1,10 +1,15 @@
-"""평가 유스케이스: 빠른 실행(티켓 search-eval 04, 명세 "진단용 검색과 단계").
+"""평가 유스케이스: 빠른 실행과 전체 실행(티켓 search-eval 04, 05, 명세 "진단용 검색과 단계").
 
 질의마다 실제 검색과 같은 준비를 한다. 기본 지식베이스의 현재 판에 적힌 모델·차원으로 질의를
 임베딩하고, 같은 키워드 토크나이저로 토큰을 뽑고, 설정의 후보 수와 `CandidateScan.EXACT`로
 `diagnose_candidates`를 한 번 부른다. 단계의 순위는 그 한 번의 결과에서 만든다. 벡터만은
 `vector_rank` 순, 키워드만은 `keyword_rank` 순, 합친 뒤는 `fused_rank`가 후보 수 이하인 줄의 그
 순위다. 키워드 토큰이 빈 질의는 키워드만 단계에서 결과가 없는 것으로 센다.
+
+빠른 실행(`run_fast_evaluation`)은 여기까지다. 전체 실행(`run_full_evaluation`)은 합친 뒤의 후보
+전부를 실제 검색과 같은 `Reranker` 포트로 채점해 리랭크 뒤 단계를 더한다. 그 순위는 점수 순이고
+점수가 같으면 합친 순위 순이며, 리랭커에 보내는 글은 검색과 같이 절 경로를 붙인 글이다. 후보
+전부의 점수와 닿았는지는 `QueryOutcome.scored`에 남아 점수 분포의 재료가 된다.
 
 검색 유스케이스를 부르지 않고 같은 준비(지식베이스와 현재 판 읽기, 질의 임베딩)를 이 모듈에서
 따로 한다. 검색 유스케이스는 `top_k`로 자른 결과만 돌려주어 단계의 순위를 주지 못하고, 시간
@@ -20,6 +25,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Final
 
 from rag_engine.app.default_records import DEFAULT_NAME
 from rag_engine.app.eval_metrics import passage_reaches
@@ -40,17 +46,23 @@ from rag_engine.domain.eval_set import (
     Expectation,
     PassageEvidence,
 )
-from rag_engine.domain.ports import EmbedderFor, KeywordTokenizer, UnitOfWork
+from rag_engine.domain.index_text import compose_index_text
+from rag_engine.domain.ports import EmbedderFor, KeywordTokenizer, Reranker, UnitOfWork
 
 type Reach = tuple[frozenset[int], ...]
 
 
 class Stage(StrEnum):
-    """검색 흐름에서 순위를 따로 재는 자리. 리랭크 뒤는 전체 실행이 더한다."""
+    """검색 흐름에서 순위를 따로 재는 자리. 리랭크 뒤는 전체 실행만 잰다."""
 
     VECTOR = "vector"
     KEYWORD = "keyword"
     FUSED = "fused"
+    RERANK = "rerank"
+
+
+FAST_STAGES: Final = (Stage.VECTOR, Stage.KEYWORD, Stage.FUSED)
+FULL_STAGES: Final = (*FAST_STAGES, Stage.RERANK)
 
 
 class EvalRunError(Exception):
@@ -65,14 +77,25 @@ class EvalRunDeps:
 
 
 @dataclass(frozen=True, slots=True)
+class ScoredCandidate:
+    """리랭크 뒤 순위의 조각 하나. 리랭커가 매긴 점수와 그 조각이 기대 근거에 하나라도 닿았는지다.
+    글이나 식별자는 싣지 않는다(원칙 V)."""
+
+    score: float
+    reached: bool
+
+
+@dataclass(frozen=True, slots=True)
 class QueryOutcome:
     """질의 하나의 단계별 결과. `reach[단계][i]`는 그 단계에서 순위 `i + 1`인 조각이 닿은 기대
-    근거의 번호(질문의 기대 근거 안의 자리) 집합이다. `expected`는 그 질문의 기대 근거 수다."""
+    근거의 번호(질문의 기대 근거 안의 자리) 집합이다. `expected`는 그 질문의 기대 근거 수다.
+    `scored`는 전체 실행에서만 차고, 합친 뒤의 후보 전부를 리랭크 뒤 순위 순으로 담는다."""
 
     query_list: str
     evidence_id: str
     expected: int
     reach: dict[Stage, Reach]
+    scored: tuple[ScoredCandidate, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +117,21 @@ async def run_fast_evaluation(
 ) -> EvalRunResult:
     """질의 목록의 모든 질의를 합친 뒤까지 평가한다. `candidates`는 `config.json`의
     `search_candidates`다."""
+    return await _evaluate(deps, eval_set, candidates=candidates, reranker=None)
+
+
+async def run_full_evaluation(
+    deps: EvalRunDeps, reranker: Reranker, eval_set: EvalSet, *, candidates: int
+) -> EvalRunResult:
+    """질의 목록의 모든 질의를 리랭크 뒤까지 평가한다. 합친 뒤의 후보 전부를 실제 검색과 같은
+    `Reranker` 포트로 채점한다. 리랭커의 모델은 지식베이스가 아니라 `config.json`의
+    `reranker_model`이라, 포트를 지을 때 호출하는 쪽이 정한다."""
+    return await _evaluate(deps, eval_set, candidates=candidates, reranker=reranker)
+
+
+async def _evaluate(
+    deps: EvalRunDeps, eval_set: EvalSet, *, candidates: int, reranker: Reranker | None
+) -> EvalRunResult:
     evidence = {item.id: item for item in eval_set.evidence}
     knowledge_base, version, summary = await _current_index(deps, eval_set)
     embedder = deps.embedder_for(version)
@@ -123,20 +161,43 @@ async def run_fast_evaluation(
                 )
             if not diagnosis.is_current:
                 raise EvalRunError("평가하는 사이 색인 판이 바뀌었다. 평가는 다시 하지 않는다")
+            reach = {
+                stage: _reach(item, stage_ranking(diagnosis.hits, stage, keywords, candidates))
+                for stage in FAST_STAGES
+            }
+            scored: tuple[ScoredCandidate, ...] = ()
+            if reranker is not None:
+                fused = stage_ranking(diagnosis.hits, Stage.FUSED, keywords, candidates)
+                ranked = await _rerank(reranker, query.query, fused)
+                reach[Stage.RERANK] = _reach(item, [hit for hit, _ in ranked])
+                scored = tuple(
+                    ScoredCandidate(score, bool(reached))
+                    for (_, score), reached in zip(ranked, reach[Stage.RERANK], strict=True)
+                )
             outcomes.append(
                 QueryOutcome(
                     query_list=query_list.name,
                     evidence_id=query.evidence_id,
                     expected=len(item.evidence),
-                    reach={
-                        stage: _reach(
-                            item, stage_ranking(diagnosis.hits, stage, keywords, candidates)
-                        )
-                        for stage in Stage
-                    },
+                    reach=reach,
+                    scored=scored,
                 )
             )
     return EvalRunResult(index=summary, outcomes=tuple(outcomes))
+
+
+async def _rerank(
+    reranker: Reranker, query: str, fused: Sequence[DiagnosedHit]
+) -> list[tuple[DiagnosedHit, float]]:
+    """합친 뒤의 후보 전부를 리랭크한다. 후보가 없으면 리랭커를 부르지 않는다. 실패하면 점수를
+    조용히 비우지 않고 평가를 끝낸다. 서버의 오류 메시지는 옮기지 않는다."""
+    if not fused:
+        return []
+    try:
+        scores = await reranker.rerank(query, rerank_texts(fused))
+    except (TransientFailure, PermanentFailure):
+        raise EvalRunError("후보를 리랭크하지 못했다") from None
+    return rerank_ranking(fused, scores)
 
 
 async def _current_index(
@@ -171,7 +232,10 @@ def _search_filter(value: EvalFilter | None) -> SearchFilter:
 def stage_ranking(
     hits: Sequence[DiagnosedHit], stage: Stage, keywords: Sequence[str], candidates: int
 ) -> list[DiagnosedHit]:
-    """단계의 순위 순으로 늘어선 줄. 합친 뒤는 `fused_rank`가 후보 수 이하인 줄만이다."""
+    """단계의 순위 순으로 늘어선 줄. 합친 뒤는 `fused_rank`가 후보 수 이하인 줄만이다. 리랭크
+    뒤는 점수가 있어야 만들 수 있어 `rerank_ranking`이 만든다."""
+    if stage is Stage.RERANK:
+        raise ValueError("리랭크 뒤 순위는 점수가 필요해 rerank_ranking이 만든다")
     if stage is Stage.VECTOR:
         vector = [hit for hit in hits if hit.vector_rank is not None]
         return sorted(vector, key=lambda hit: hit.vector_rank or 0)
@@ -182,6 +246,21 @@ def stage_ranking(
         return sorted(keyword, key=lambda hit: hit.keyword_rank or 0)
     fused = [hit for hit in hits if hit.fused_rank <= candidates]
     return sorted(fused, key=lambda hit: hit.fused_rank)
+
+
+def rerank_texts(hits: Sequence[DiagnosedHit]) -> list[str]:
+    """리랭커에 보내는 글. 검색(`app/search.py`의 `_rerank`)과 같이 절 경로를 온전히 붙인 글이다."""
+    return [compose_index_text(hit.hit.location.section, hit.hit.text) for hit in hits]
+
+
+def rerank_ranking(
+    fused: Sequence[DiagnosedHit], scores: Sequence[float]
+) -> list[tuple[DiagnosedHit, float]]:
+    """합친 뒤의 줄을 리랭크 점수가 큰 순서로 늘어놓는다. 점수가 같으면 합친 순위 순이다(명세
+    "진단용 검색과 단계"). `scores`는 `fused`의 줄마다 하나다."""
+    if len(scores) != len(fused):
+        raise ValueError(f"점수 {len(scores)}개가 줄 {len(fused)}개와 맞지 않는다")
+    return sorted(zip(fused, scores, strict=True), key=lambda pair: (-pair[1], pair[0].fused_rank))
 
 
 def _reach(item: EvidenceItem, ranked: Sequence[DiagnosedHit]) -> Reach:

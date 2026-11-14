@@ -11,6 +11,7 @@ from typing import Final
 DATABASE_ENV: Final = "RAG_EVAL_DATABASE_URL"
 DATA_DIR_ENV: Final = "RAG_EVAL_DATA_DIR"
 EMBEDDING_ENV: Final = "RAG_EVAL_EMBEDDING_URL"
+RERANKER_ENV: Final = "RAG_EVAL_RERANKER_URL"
 
 
 @dataclass(frozen=True, slots=True)
