@@ -262,17 +262,25 @@ def test_견줄_수_없는_까닭은_모두_모아_낸다() -> None:
 
 
 def test_새_보고서에_그_게이트가_보는_단계_줄이_없으면_견줄_수_없다고_낸다() -> None:
-    result = compare_reports(_report(stage="rerank"), _report(stage="fused"), Gate.FULL)
+    result = compare_reports(
+        _report(stage="rerank", files=FULL_FILES),
+        _report(stage="fused", files=FULL_FILES),
+        Gate.FULL,
+    )
 
-    assert not result.passed
-    assert any("rerank" in reason for reason in result.incomparable)
+    (reason,) = result.incomparable
+    assert reason.startswith("새 보고서에 질의 목록 human의 rerank 단계 줄이 없다"), reason
 
 
 def test_기준_보고서에_그_게이트가_보는_단계_줄이_없으면_견줄_수_없다고_낸다() -> None:
-    result = compare_reports(_report(stage="fused"), _report(stage="fused"), Gate.FULL)
+    result = compare_reports(
+        _report(stage="fused", files=FULL_FILES),
+        _report(stage="fused", files=FULL_FILES),
+        Gate.FULL,
+    )
 
-    assert not result.passed, f"그 단계 줄이 없는데 통과했다: {result.incomparable}"
-    assert any("기준 보고서" in reason for reason in result.incomparable)
+    (reason,) = result.incomparable
+    assert reason.startswith("기준 보고서에 rerank 단계 줄이 없다"), reason
 
 
 def test_새_보고서에_기준_보고서의_질의_목록이_없으면_견줄_수_없다고_낸다() -> None:

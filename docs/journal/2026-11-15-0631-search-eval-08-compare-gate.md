@@ -64,9 +64,20 @@
 
 PR 직전 리뷰가 밀 주장으로 넘기는 새 사실 문장은 둘이다. 하나는 `adapters/eval_compare.py` 독스트링의 "보고서의 조각 임베딩 해시는 `index`가 색인을 만든 때가 아니라 `run`이 도는 때의 디스크 바이트"이고, 다른 하나는 위 문구의 "빠른 게이트의 잡(같은 체크아웃에서 이어 도는 단계)에서는 열리지 않는 틈"이다. 앞의 것은 `inference_records.py`의 `_chunk_file_hashes` 독스트링("디스크의 바이트")과 대 봤고, 뒤의 것은 명세 162행의 빠른 게이트 잡 순서(`validate`, `index`, `validate --indexed`, `run --through fused`, `compare --gate fast`가 한 잡에서 차례로 돈다)에서 읽은 추론이다.
 
+## 봇 회차
+
+PR 49의 첫 푸시(헤드 `7aeac26`)에서 검사 여섯이 모두 SUCCESS였고(`CodeRabbit`, `claude-review`, `image`, `python`, `ticket`, `verify`), 두 봇이 모두 코멘트를 남겼다. 두 봇 모두 이것이 첫 회차다.
+
+- CodeRabbit(Nitpick 1건). 고쳤다. `tests/app/test_eval_compare.py`의 단계 줄 누락 시험 둘이 `Gate.FULL`을 쓰면서 `files`를 `FAST_FILES`로 두어, 앞 커밋의 수정(기준 쪽 해시가 없으면 견줄 수 없다고 낸다) 뒤로는 `rerank.jsonl` 해시 누락 문구로 통과하고 `_missing_rows`에 닿지 않았다. 이 지적은 앞 커밋의 수정이 시험 하나의 의미를 바꾼 결과라서 맞다. 두 시험에 `FULL_FILES`를 주고 단언을 단계 줄 누락 문구로 시작하는 한 줄(`startswith`)로 좁혔다. 확인으로 `_missing_rows`의 `if not expected:`를 손으로 `if False:`로 바꾸자 기준 쪽 시험이 `ValueError: not enough values to unpack`으로 빨개졌고, 되돌린 뒤 `git diff -- src`가 비었다.
+- claude-review(Critical·Major 없음, Minor 둘과 Nit 둘). 첫 회차의 Minor·Nit이라 지적마다 판단해 모두 보류했다.
+  - [Minor] `app/eval_compare.py`의 기록 파일 이름이 `adapters/inference_records.py`의 사본이다. 앱이 어댑터를 import할 수 없어 따로 적은 것이고 이름 원천을 `domain`에 두는 일은 티켓 14·15가 이어받는다(`다음` 절에 이미 적었다). 두 이름 목록을 맞대는 시험이 없는 것도 같은 일이다.
+  - [Minor] `_report_result`가 출력과 종료 코드를 함께 정하는 것은 스타일 판단이고 동작 결함이 없다. 이 PR에서는 고치지 않는다.
+  - [Nit] `MetricRow.stage`와 `MetricChange.metric`이 문자열인 것은 셀프 리뷰에서 이미 남긴 것이다(티켓 `## Comments`).
+  - [Nit] `_chunk_file_hashes`를 호출하는 자리를 한 곳으로 모으는 일은 독스트링 두 곳의 되풀이를 줄일 뿐이고 동작은 같다.
+
 ## 회고
 
-낸 후보 여섯. 승인 4, 기각 2, 넘김 없음.
+낸 후보 일곱. 승인 4, 기각 3, 넘김 없음.
 
 1. 통합 변이 셋(18~20)이 어긋났을 때 도구가 보여 주는 출력이 서버 로그의 꼬리라 단언 문구가 없었다. 표지를 고르려고 변이를 소스에 손으로 넣고 그 시험만 돌려 `E` 줄을 읽은 뒤 되돌렸다. → 승인. 층: 도구(`tools/mutate.py`). 사건: 위 한 바퀴(소스에 변이를 남긴 채 끝날 위험이 있는 손작업이었고 Grep으로 잔존 0을 확인했다). 간 자리: 대기열 `mutate-marker-discovery`의 9회차(5회차 이상이라 chore 배치 조건이다).
 2. 티켓 08 `## Comments`에 재지 않은 "전체 한 번에 15분 안팎"과, 없는 클래스 이름(`InferenceRecords`), 코드에 대 보지 않은 "원천"이라는 말을 적었고 두 축이 잡았다. → 승인. 층: 지침(이미 있는 근거 문장 지침을 어긴 사건이라 회차를 센다). 간 자리: 대기열 `measured-claim-beyond-probe`의 7회차.
@@ -74,6 +85,7 @@ PR 직전 리뷰가 밀 주장으로 넘기는 새 사실 문장은 둘이다. �
 4. 하락폭 경계 시험을 `0.82`와 `0.80` 같은 손으로 쓴 짧은 소수로만 써서, 실제 보고서의 `맞힌 수 / 질의 수` 값에서 깨지는 판정(정확히 2%p 하락이 실패로 읽혔다)을 놓쳤다. 명세 축이 Critical로 잡았다. → 승인. 층: `CODING_STANDARDS.md` 줄(자동 검사로 옮길 수 없는 판단이다. 리뷰가 잡도록 둔 기준이 아직 없어 회차를 센다). 간 자리: 새 대기열 `boundary-test-generated-values`(1회차).
 5. 훅과 가드가 그 자리에서 막거나 알렸다. 중간 문장이 영어로 나갔다고 `hook_midturn_korean`이 알렸고, 파이프 뒤 종료 코드를 `PreToolUse` 훅이 알렸고, 워크트리 가드가 복합 git 명령을 거부했으며, `.env`에 닿는 Grep glob을 훅이 막았다. → 기각. 이미 있는 훅이 그 자리에서 막거나 알렸다(05, 07 회고의 기각과 같은 모양).
 6. 편집기의 pyright 진단이 낡은 캐시나 서브에이전트의 스크래치 스크립트를 가리켰고 `uv run pyright`가 0 errors로 판정했다. → 기각. 손으로 친 검사가 판정자이고 사건의 비용이 없었다(07 회고 6과 같은 모양).
+7. PR 직전 리뷰를 반영한 수정(기준 쪽 해시가 없으면 견줄 수 없다고 낸다)이 `Gate.FULL`을 쓰는 앱 시험 둘의 통과 까닭을 바꿨고(`FAST_FILES`만 주어 단계 줄 검사에 닿지 않았다), 수정 뒤 변이 표를 다시 돌리지 않아 CodeRabbit이 잡았다. → 기각. 같은 실수의 첫 사건이고 손상이 아니며 리뷰(PR 봇)가 제 몫을 했다. 회차를 세지 않고 일지에만 남긴다.
 
 만료: `uv run python tools/queue_open_rows.py`와 `--ref origin/dev`가 모두 만료할 항목이 없다고 했다(`git fetch origin` 뒤). 회차 5 이상은 `mutate-marker-discovery`(9회차), `measured-claim-beyond-probe`(7회차), `crlf-from-script-edits`(6회차), `gate-masked-by-echo-chain`(6회차)이다.
 
