@@ -14,18 +14,21 @@
 것은 주소를 잘못 적는 실수다.
 """
 
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final
 from urllib.parse import parse_qs, urlsplit
 
+import httpx
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
 from rag_engine.adapters.settings import Settings
+from rag_engine.adapters.tei import TeiEmbedder, TeiEmbedderPool
+from rag_engine.domain.entities import IndexVersion
 from rag_engine.domain.eval_set import EvalConfig
 
 DATABASE_ENV: Final = "RAG_EVAL_DATABASE_URL"
@@ -156,3 +159,23 @@ def eval_settings(environment: EvalEnvironment, config: EvalConfig) -> Settings:
             for problem in error.errors()
         )
         raise EvalEnvironmentError(f"config.json의 값이 설정에 맞지 않는다: {problems}") from None
+
+
+def eval_embedder_pool(settings: Settings) -> TeiEmbedderPool:
+    """평가가 질의와 문서를 임베딩하는 끝점의 연결 풀이다. 쓰고 나면 `aclose()`로 닫는다."""
+    return TeiEmbedderPool(
+        lambda endpoint: httpx.AsyncClient(base_url=endpoint, timeout=settings.tei_timeout_seconds),
+        batch_size=settings.tei_batch_size,
+    )
+
+
+def eval_embedder_for(
+    pool: TeiEmbedderPool, environment: EvalEnvironment
+) -> Callable[[IndexVersion], TeiEmbedder]:
+    """판마다 그 판의 모델로 임베딩하되, 끝점은 판에 적힌 것이 아니라 환경의
+    `RAG_EVAL_EMBEDDING_URL`로 바꾼다."""
+
+    def embedder_for(version: IndexVersion) -> TeiEmbedder:
+        return pool(replace(version, embedding_endpoint=environment.embedding_url))
+
+    return embedder_for

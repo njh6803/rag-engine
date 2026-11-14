@@ -5,10 +5,11 @@
 관리자 페이지가 설치처의 평가에 다시 쓸 때 질문과 문서 내용이 보고서 파일로 번지지 않게 하기
 위해서다(원칙 V).
 
-이 판(`"1.0.0"`)의 칸은 `format_version`, `eval_set`, `config`, `index`, `stages`, `rows`, `meta`와,
-전체 실행(`stages`가 리랭크 뒤로 끝난다)에서만 `score_distribution`이다. 빠른 실행의 보고서에는
-`score_distribution` 칸이 없다. 유형 표지와 필터의 지표, 놓친 질의, 사람 판정, LLM 숫자, 추론 기록은
-그 칸을 받는 티켓이 같은 판에서 더한다(칸을 더하는 것은 판을 올리지 않는다).
+이 판(`"1.0.0"`)의 칸은 `format_version`, `eval_set`, `config`, `index`, `stages`, `rows`, `meta`,
+유형 표지별 지표 `by_tag`, 필터가 붙은 질의의 지표 `filtered`, 놓친 질의 `misses`와 그 까닭의 수
+`miss_counts`, 사람 판정의 수 `human_causes`와, 전체 실행(`stages`가 리랭크 뒤로 끝난다)에서만
+`score_distribution`이다. 빠른 실행의 보고서에는 `score_distribution` 칸이 없다. LLM 숫자와
+추론 기록은 그 칸을 받는 티켓이 같은 판에서 더한다(칸을 더하는 것은 판을 올리지 않는다).
 """
 
 from collections.abc import Sequence
@@ -16,14 +17,37 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
+from rag_engine.app.eval_breakdown import (
+    FilteredRow,
+    MissCounts,
+    MissRow,
+    TagRow,
+    filtered_rows,
+    human_cause_counts,
+    miss_counts,
+    miss_rows,
+    tag_rows,
+)
 from rag_engine.app.eval_metrics import StageMetrics, aggregate, score_query
-from rag_engine.app.eval_run import EvalRunResult, IndexSummary, Stage
+from rag_engine.app.eval_run import EvalRunResult, IndexSummary
 from rag_engine.app.eval_score_distribution import ScoreDistribution, build_score_distribution
+from rag_engine.app.eval_stages import Stage
 from rag_engine.domain.entities import JsonValue
-from rag_engine.domain.eval_set import EvalConfig, EvalSet
+from rag_engine.domain.eval_set import EvalConfig, EvalSet, config_values
 
 REPORT_FORMAT_VERSION: Final = "1.0.0"
 _METRIC_DIGITS: Final = 3
+_METRIC_HEADER: Final = (
+    "질의",
+    "적중률@1",
+    "@3",
+    "@5",
+    "@10",
+    "MRR",
+    "재현율",
+    "nDCG@10",
+    "nDCG 잘림",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,30 +71,14 @@ class EvalReport:
     index: IndexSummary
     stages: tuple[Stage, ...]
     rows: tuple[ReportRow, ...]
+    by_tag: tuple[TagRow, ...]
+    filtered: tuple[FilteredRow, ...]
+    misses: tuple[MissRow, ...]
+    miss_counts: MissCounts
+    human_causes: dict[str, int]
     run_at: datetime
     commit: str | None
     score_distribution: ScoreDistribution | None = None
-
-
-def config_values(config: EvalConfig, *, with_judge: bool) -> dict[str, JsonValue]:
-    """구성의 칸. 묶음의 내용 해시는 판정 칸(`judge_model`, `judge_prompt_version`)을 뺀 값을
-    쓴다. 두 칸은 검색의 숫자에 닿지 않는 참고 숫자의 열쇠이기 때문이다."""
-    values: dict[str, JsonValue] = {
-        "embedding_model": config.embedding_model,
-        "embedding_dimensions": config.embedding_dimensions,
-        "reranker_model": config.reranker_model,
-        "chunking": {
-            "strategy": config.chunking.strategy,
-            "max_tokens": config.chunking.max_tokens,
-            "overlap_tokens": config.chunking.overlap_tokens,
-        },
-        "search_candidates": config.search_candidates,
-        "tei_version": config.tei_version,
-    }
-    if with_judge:
-        values["judge_model"] = config.judge_model
-        values["judge_prompt_version"] = config.judge_prompt_version
-    return values
 
 
 def build_report(
@@ -82,6 +90,9 @@ def build_report(
     run_at: datetime,
     commit: str | None,
 ) -> EvalReport:
+    """`stages`의 마지막 단계(빠른 실행은 합친 뒤, 전체 실행은 리랭크 뒤)가 유형 표지와 필터 질의의
+    지표를 재는 단계다."""
+    last = stages[-1]
     rows: list[ReportRow] = []
     for query_list in eval_set.query_lists:
         for stage in stages:
@@ -104,6 +115,11 @@ def build_report(
         index=result.index,
         stages=tuple(stages),
         rows=tuple(rows),
+        by_tag=tuple(tag_rows(eval_set, result.outcomes, last)),
+        filtered=tuple(filtered_rows(result.outcomes, last)),
+        misses=tuple(miss_rows(result.outcomes)),
+        miss_counts=miss_counts(result.outcomes),
+        human_causes=human_cause_counts(eval_set),
         run_at=run_at,
         commit=commit,
         score_distribution=(
@@ -156,7 +172,7 @@ def _report_values(report: EvalReport) -> dict[str, JsonValue]:
             "questions": report.questions,
             "queries": report.queries,
         },
-        "config": config_values(report.config, with_judge=True),
+        "config": config_values(report.config),
         "index": {
             "schema_version": elements.schema_version,
             "embedding_model": elements.embedding_model,
@@ -167,15 +183,21 @@ def _report_values(report: EvalReport) -> dict[str, JsonValue]:
         },
         "stages": [stage.value for stage in report.stages],
         "rows": [_row_json(row) for row in report.rows],
+        "by_tag": [_tag_json(row) for row in report.by_tag],
+        "filtered": [_filtered_json(row) for row in report.filtered],
+        "misses": [_miss_json(row) for row in report.misses],
+        "miss_counts": {
+            "missed": report.miss_counts.missed,
+            "causes": {cause.value: n for cause, n in report.miss_counts.causes.items()},
+            "zero_overlap": report.miss_counts.zero_overlap,
+        },
+        "human_causes": dict(report.human_causes),
         "meta": {"run_at": report.run_at.isoformat(), "commit": report.commit},
     }
 
 
-def _row_json(row: ReportRow) -> dict[str, JsonValue]:
-    metrics = row.metrics
+def _metrics_json(metrics: StageMetrics) -> dict[str, JsonValue]:
     return {
-        "query_list": row.query_list,
-        "stage": row.stage.value,
         "queries": metrics.queries,
         "hit_at_1": metrics.hit_at_1,
         "hit_at_3": metrics.hit_at_3,
@@ -185,6 +207,38 @@ def _row_json(row: ReportRow) -> dict[str, JsonValue]:
         "recall": metrics.recall,
         "ndcg_at_10": metrics.ndcg_at_10,
         "ndcg_truncated": metrics.ndcg_truncated,
+    }
+
+
+def _row_json(row: ReportRow) -> dict[str, JsonValue]:
+    return {"query_list": row.query_list, "stage": row.stage.value, **_metrics_json(row.metrics)}
+
+
+def _tag_json(row: TagRow) -> dict[str, JsonValue]:
+    return {
+        "query_list": row.query_list,
+        "tag": row.tag,
+        "stage": row.stage.value,
+        **_metrics_json(row.metrics),
+    }
+
+
+def _filtered_json(row: FilteredRow) -> dict[str, JsonValue]:
+    return {
+        "query_list": row.query_list,
+        "stage": row.stage.value,
+        **_metrics_json(row.metrics),
+        "vector_short": row.vector_short,
+        "vector_short_rate": row.vector_short_rate,
+    }
+
+
+def _miss_json(row: MissRow) -> dict[str, JsonValue]:
+    return {
+        "query_list": row.query_list,
+        "evidence_id": row.evidence_id,
+        "cause": row.cause.value,
+        "word_overlap": row.word_overlap,
     }
 
 
@@ -203,10 +257,7 @@ def report_markdown(report: EvalReport) -> str:
         "",
         *_table(
             ("칸", "값"),
-            [
-                (name, _cell(value))
-                for name, value in config_values(report.config, with_judge=True).items()
-            ],
+            [(name, _cell(value)) for name, value in config_values(report.config).items()],
         ),
         "",
         "## 색인",
@@ -216,23 +267,63 @@ def report_markdown(report: EvalReport) -> str:
     for name in dict.fromkeys(row.query_list for row in report.rows):
         lines += ["", f"## 질의 목록 `{name}`", ""]
         lines += _table(
-            (
-                "단계",
-                "질의",
-                "적중률@1",
-                "@3",
-                "@5",
-                "@10",
-                "MRR",
-                "재현율",
-                "nDCG@10",
-                "nDCG 잘림",
-            ),
-            [_metric_cells(row) for row in report.rows if row.query_list == name],
+            ("단계", *_METRIC_HEADER),
+            [
+                (row.stage.value, *_metric_values(row.metrics))
+                for row in report.rows
+                if row.query_list == name
+            ],
         )
+    lines += _breakdown_markdown(report)
     if report.score_distribution is not None:
         lines += _distribution_markdown(report.score_distribution)
     return "\n".join(lines) + "\n"
+
+
+def _breakdown_markdown(report: EvalReport) -> list[str]:
+    """유형 표지, 필터 질의, 놓친 질의, 사람 판정의 구역. 지표는 마지막 단계(`stages`의 끝)
+    값이다."""
+    last = report.stages[-1].value
+    lines = ["", f"## 유형 표지별 지표 (단계 {last})", ""]
+    lines += _table(
+        ("질의 목록", "표지", *_METRIC_HEADER),
+        [(row.query_list, row.tag, *_metric_values(row.metrics)) for row in report.by_tag],
+    )
+    lines += ["", f"## 필터가 붙은 질의 (단계 {last})", ""]
+    lines += _table(
+        ("질의 목록", *_METRIC_HEADER, "벡터 후보가 모자란 질의", "모자란 비율"),
+        [
+            (
+                row.query_list,
+                *_metric_values(row.metrics),
+                str(row.vector_short),
+                _number(row.vector_short_rate),
+            )
+            for row in report.filtered
+        ],
+    )
+    counts = report.miss_counts
+    lines += ["", f"## 놓친 질의 {counts.missed}개", ""]
+    lines += _table(
+        ("탈락 지점", "질의 수"),
+        [(cause.value, str(count)) for cause, count in counts.causes.items()],
+    )
+    lines += ["", f"낱말 겹침이 0인 놓친 질의: {counts.zero_overlap}개", ""]
+    lines += _table(
+        ("질의 목록", "기대 근거", "탈락 지점", "낱말 겹침"),
+        [
+            (
+                row.query_list,
+                row.evidence_id,
+                row.cause.value,
+                "없음" if row.word_overlap is None else _number(row.word_overlap),
+            )
+            for row in report.misses
+        ],
+    )
+    lines += ["", "## 사람 판정 (확인된 줄만)", ""]
+    lines += _table(("까닭", "수"), [(cause, str(n)) for cause, n in report.human_causes.items()])
+    return lines
 
 
 def _distribution_markdown(distribution: ScoreDistribution) -> list[str]:
@@ -285,10 +376,8 @@ def _index_rows(report: EvalReport) -> list[tuple[str, str]]:
     ]
 
 
-def _metric_cells(row: ReportRow) -> tuple[str, ...]:
-    metrics = row.metrics
+def _metric_values(metrics: StageMetrics) -> tuple[str, ...]:
     return (
-        row.stage.value,
         str(metrics.queries),
         *(
             _number(value)
