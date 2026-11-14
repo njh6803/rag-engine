@@ -19,4 +19,5 @@
 ## Comments
 
 - 03이 04로 넘긴 일이다. 이 티켓은 `check_indexed`(`validate --indexed`)의 반환을 넓히지 않아 04가 하지 않았다. (오류, 경고) 쌍이 `check_passages`·`check_indexed_documents`·`check_indexed`에서는 이름 없는 튜플이고 `eval_validate.ValidationReport`에서만 타입인 것을, 이 티켓이 `check_indexed`나 쪽 증거 판정의 반환을 넓힐 때 타입으로 모은다. 넓힐 일이 없으면 모양 문제로 닫는다.
+- 04의 PR 봇 첫 회차(claude-review)가 낸 Minor를 04는 고치지 않고 06이 `--config`로 구성을 건드릴 때 본다. `adapters/eval_bundle_hash.py`가 해시의 구성 입력을 `app/eval_report.py`의 `config_values`로 만들어, 보고서에 구성 칸을 하나 더하면 내용 해시도 바뀐다. `--config`가 보고서의 `config`와 내용 해시를 쓴 구성으로 계산하게 하므로(위 수용 기준의 `--config` 항목), 그때 해시의 구성 칸 목록을 해시 쪽에 두거나 `domain.eval_set`의 `EvalConfig`가 내게 할지 정한다.
 - 04가 합친 뒤 단계의 순위를 `app/eval_run.py`의 `stage_ranking`으로 모은다. `--config`로 후보 수를 바꾼 실행의 시험은 이 함수의 걸러내기(`fused_rank`가 후보 수 이하)와 `eval_set.config.search_candidates`가 이어지는지를 본다. 04의 `run`이 `config.json`의 후보 수를 쓰는 길은 `run_fast_evaluation(..., candidates=...)`이다.

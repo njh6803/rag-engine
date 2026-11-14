@@ -10,6 +10,7 @@
 import unicodedata
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import LiteralString
 
 import psycopg
 import pytest
@@ -530,6 +531,45 @@ def test_현재_판의_요소가_구성과_다르면_평가하지_않고_1이다
     assert len(tei_stub.requests) == requests_before
     assert not (tmp_path / "out").exists()
     del world
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        "status = 'pending', built_content_hash = NULL",
+        "status = 'failed', built_content_hash = NULL, error_code = 'parse_failed'",
+        "built_content_hash = 'stale'",
+    ],
+    ids=["색인 대기", "색인 실패", "옛 내용으로 지은 상태"],
+)
+def test_색인이_끝나지_않은_문서가_있으면_질의를_임베딩하지_않고_1이다(
+    world: World,
+    tei_stub: TeiStub,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    update: LiteralString,
+) -> None:
+    """문서의 내용 해시는 올릴 때 저장되므로 색인이 안 끝난 문서도 묶음과 같다. 그 문서의 조각은
+    0개로 세어져 질의가 모두 놓친 것이 되고 보고서가 0으로 끝나므로, 문서마다 색인을 본다."""
+    bundle = _bundle(tmp_path)
+    assert _index(bundle) == 0
+    with psycopg.connect(world.database_url, autocommit=True) as connection:
+        connection.execute(
+            "UPDATE document_index_states SET "
+            + update
+            + " WHERE document_id = (SELECT id FROM documents WHERE key = 'a.docx')"
+        )
+    capsys.readouterr()
+    requests_before = len(tei_stub.requests)
+
+    assert _run(bundle, tmp_path / "out") == 1
+
+    err = capsys.readouterr().err
+    assert "a.docx" in err
+    assert "색인되어 있지 않다" in err
+    assert "sub/b.docx" not in err
+    assert len(tei_stub.requests) == requests_before
+    assert not (tmp_path / "out").exists()
 
 
 def test_키는_같고_내용_해시가_다른_문서가_든_데이터베이스에서는_질의를_임베딩하지_않고_1이다(

@@ -127,11 +127,11 @@ expect_output = ["has no attribute 'blocks'"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/check_indexed_documents.py"
-old = '''            if (
-                state is None
+old = '''    if (
+        state is None
 '''
-new = '''            if False and (
-                state is None
+new = '''    if False and (
+        state is None
 '''
 
 [[mutation]]

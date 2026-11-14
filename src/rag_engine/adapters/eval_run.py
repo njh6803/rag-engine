@@ -1,13 +1,14 @@
 """`run --through fused <묶음 폴더> --out <폴더>`의 조립(티켓 search-eval 04, 명세 "자리와 층").
 
 평가 전용 데이터베이스에 색인된 묶음을 평가해 `report.json`과 `report.md`를 쓴다. 순서는 이렇다.
-아래를 하나라도 어기면 질의를 임베딩하지 않고 보고서를 쓰지 않은 채 1을 낸다(3은 데이터베이스를
+아래를 하나라도 어기면 질의를 임베딩하지 않고 보고서를 쓰지 않은 채 1을 낸다(3과 4는 데이터베이스를
 읽어 판정한다).
 
 1. 평가 전용 환경(`read_eval_environment`. 접속하지 않고 이름의 규칙까지 본다).
 2. 묶음을 읽고 목록(`check_eval_set`)과 문서 파일(`check_bundle_files`)을 판정한다.
 3. 스키마가 올라 있는지, 그리고 데이터베이스가 이 묶음의 것인지(`check_database`. `index`가 시작할
    때 지나는 판정과 같다). 현재 판의 모델과 차원이 `config.json`과 다른 것도 거기서 걸린다.
+4. 묶음의 문서가 모두 현재 판에 지금 내용으로 색인되어 있는지(`check_documents_indexed`).
 
 평가가 끝난 뒤에만 보고서를 쓴다. 평가 도중 판이 바뀌거나 임베딩이 실패하면 보고서를 쓰지 않는다.
 질의를 임베딩하는 끝점은 판에 적힌 것이 아니라 환경의 `RAG_EVAL_EMBEDDING_URL`이다. 오류 문장은
@@ -15,6 +16,7 @@
 """
 
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -44,6 +46,7 @@ from rag_engine.adapters.settings import Settings
 from rag_engine.adapters.tei import TeiEmbedderPool
 from rag_engine.app.check_eval_database import DATABASE_SUBJECT
 from rag_engine.app.check_eval_set import check_eval_set
+from rag_engine.app.check_indexed_documents import check_documents_indexed
 from rag_engine.app.eval_report import build_report, report_json, report_markdown
 from rag_engine.app.eval_run import (
     EvalRunDeps,
@@ -62,10 +65,28 @@ REPORT_MARKDOWN: Final = "report.md"
 FAST_STAGES: Final = (Stage.VECTOR, Stage.KEYWORD, Stage.FUSED)
 _GIT_TIMEOUT_SECONDS: Final = 10
 _COMMIT_LENGTH: Final = 40
+# git이 읽을 저장소를 고르는 환경 변수. `tools/run_hooks.py`의 `REPO_LOCATION_VARS`와 같은 목록이다
+# (`adapters`는 `tools`를 import하지 못해 따로 적는다).
+_GIT_LOCATION_VARIABLES: Final = frozenset(
+    {
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_COMMON_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_PREFIX",
+    }
+)
 
 
 def current_commit(repository: Path) -> str | None:
-    """저장소의 `HEAD` 커밋. git이 없거나 저장소가 아니면 `None`이다."""
+    """저장소의 `HEAD` 커밋. git이 없거나 저장소가 아니면 `None`이다. 저장소를 고르는 환경 변수는
+    벗긴다. `git -C`를 줘도 `GIT_DIR`이 있으면 git이 그 저장소를 읽어, 훅 같은 다른 도구의 환경이
+    남은 셸에서는 보고서에 다른 저장소의 커밋이 적힌다."""
+    environment = {
+        name: value for name, value in os.environ.items() if name not in _GIT_LOCATION_VARIABLES
+    }
     try:
         done = subprocess.run(
             ["git", "-C", str(repository), "rev-parse", "HEAD"],
@@ -73,6 +94,7 @@ def current_commit(repository: Path) -> str | None:
             text=True,
             timeout=_GIT_TIMEOUT_SECONDS,
             check=False,
+            env=environment,
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -147,9 +169,10 @@ def _report_problems(problems: tuple[EvalProblem, ...]) -> int:
 
 
 async def _check_ready(database_url: str, eval_set: EvalSet) -> tuple[EvalProblem, ...]:
-    """`index`와 같은 판정(`check_database`)에 스키마가 올라 있는지를 더한다. `check_database`는
-    스키마를 올리기 전에 부르도록 빈 데이터베이스를 지나가게 두지만, 평가는 색인된 데이터베이스가
-    있어야 한다."""
+    """`index`와 같은 판정(`check_database`)에 스키마가 올라 있는지와 묶음의 문서가 모두 색인되어
+    있는지를 더한다. `check_database`는 스키마를 올리기 전에 부르도록 빈 데이터베이스를 지나가게
+    두지만, 평가는 색인된 데이터베이스가 있어야 한다. 문서의 색인은 질의를 임베딩하기 전에
+    본다. 색인이 끝나지 않은 문서는 조각이 0개로 세어져 질의가 모두 놓친 것이 된다."""
     engine = create_engine(database_url)
     try:
         state = await read_schema_state(engine)
@@ -159,7 +182,14 @@ async def _check_ready(database_url: str, eval_set: EvalSet) -> tuple[EvalProble
         return (
             EvalProblem(DATABASE_SUBJECT, "스키마가 올라 있지 않다. 먼저 index로 묶음을 색인한다"),
         )
-    return await check_database(database_url, eval_set)
+    problems = await check_database(database_url, eval_set)
+    if problems:
+        return problems
+    engine = create_engine(database_url)
+    try:
+        return await check_documents_indexed(PostgresUnitOfWork(engine), eval_set)
+    finally:
+        await engine.dispose()
 
 
 async def _evaluate(
