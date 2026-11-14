@@ -11,5 +11,17 @@
 - [ ] `documents.json`은 문서마다 `key`, `title`, `publisher`, `source_url`, `license`(`법령 등(저작권법 제7조)` 또는 `공공누리 제1유형`), `license_evidence`, `downloaded_at`, `sha256`(16진 소문자), `bytes`, `updated_at`(`YYYY-MM-DD`)을 든다. 이용 조건은 원문의 표시로 확인한 것만 적는다(`docs/agents/issue-tracker.md`의 프로브와 근거 절).
 - [ ] `eval-set.json`(`format_version` `"1.0.0"`, 질의 목록 둘의 자리)과 `config.json`(모든 칸. 첫 값은 제품의 기본값과 `tei_version`, `judge_model` `claude-opus-5-5`, `judge_prompt_version` 1)을 커밋한다. 질의 목록과 기대 근거 파일은 10이 채운다. `validate`의 파일 검사가 문서와 목록에 대해 통과한다.
 - [ ] 기본 구성으로 `index`를 돌려 조각 수를 세고 그 수를 이 티켓의 `## Comments`에 적는다. 3,000개를 넘으면 문서를 줄인 목록을 다시 사용자에게 보인다.
-- [ ] 새 최상위 폴더 `evals/`를 `README.md`의 트리와 `.scratch/plan-head.md`의 목표 배치에 더한다.
+- [x] 새 최상위 폴더 `evals/`를 `README.md`의 트리와 `.scratch/plan-head.md`의 목표 배치에 더한다.
 - [ ] 검사 넷이 초록이다.
+
+## Comments
+
+- 2026-11-14, 1차 확정(공공누리 제1유형 보고서 14개). 사용자가 후보 목록(HWPX 4, PDF 7, DOCX 3, 합 10,970,917바이트)을 본 뒤 "DOCX는 요약문 3개로 가고 법령은 21시 뒤에 이어 받을까요?"라는 물음에 "네, 그대로 진행", 이어서 "확정"이라고 답했다. 에이전트는 "확정"을 그 14개에 대한 확정으로 읽었다. 법령·행정규칙은 후보 목록을 아직 보이지 않았으므로 확정 대상이 아니다. 이 14개는 `evals/public-docs/documents/reports/`에 커밋했다.
+- 법령·행정규칙 후보는 보류 중이다. 국가법령정보센터(`law.go.kr`, `open.law.go.kr`)가 2026-11-13 21:00부터 11-14 21:00까지 시스템 점검 중이라(2026-11-14 13:48과 13:57에 `curl`로 `sorry.html` 응답을 손으로 봤다) 원문을 받지 못했다. 점검이 끝난 뒤 받아 목록을 사용자에게 보이고 멈춘다.
+- 14개의 이용 조건은 공공데이터포털의 파일데이터 상세 페이지(`https://www.data.go.kr/data/<번호>/fileData.do`)의 "이용허락범위" 칸과 JSON-LD `license.name`(`https://www.data.go.kr/catalog/<번호>/fileData.json`)이 모두 `공공저작물 : 출처표시 (제 1유형)`인 것으로 확인했다. 서브에이전트가 14개를 읽었고 에이전트가 JSON-LD를 14개 모두 다시 읽어 같은 문장을 손으로 봤다. 내려받은 파일 안에는 공공누리나 이용 조건 표시가 없다(서브에이전트가 파서로 푼 글에서 `공공누리|KOGL|출처표시|이용조건|이용허락|©|ⓒ|Copyright`를 찾아 없음을 손으로 확인했다). 그래서 `license_evidence`는 파일 안의 쪽이 아니라 포털 상세 페이지의 주소다.
+- `source_url`은 포털의 파일 내려받기 주소(`fileDownload.do?atchFileId=<FILE 번호>`)다. 14개를 이 주소로 다시 내려받아 처음 받은 파일과 sha256이 모두 같음을 손으로 봤다(2026-11-14).
+- `updated_at`은 포털의 "파일데이터명" 끝 `_YYYYMMDD`(자료 기준일)다. 파일 안의 날짜는 4개(기술기준 정비방안 제출문, 영향 분석 선행 연구 표지, AI 기반 제개정 연구 제출문, EDPB 웹 스크래핑 호의 `’26.7월`)만 서브에이전트가 파서 출력에서 읽어 같은 값임을 봤고, 나머지는 포털 값이다.
+- 파서로 파싱한 14개의 글자 수 합은 604,184자다(`.scratch/search-eval/probes/public-docs/parse_check.py`의 출력을 손으로 더했다). HWPX 파서는 쪽 번호를 내지 않아 쪽 수는 PDF만 안다. DOCX 셋은 한전원자력연료의 연구보고서 요약문 1쪽이고 표가 없다. 포털의 DOCX 파일데이터 59건 가운데 제1유형은 이 셋뿐이었다(서브에이전트가 JSON-LD 59건을 읽었다). 기관 누리집의 DOCX는 찾지 않았다.
+- 해양환경공단 「선박 기관고장 사례집」은 포털이 HWPX로 올렸지만 내려받은 내용은 PDF(`%PDF`로 시작)라 `.pdf`로 담았다.
+- 문서 파일은 `.gitattributes`에 `binary`로 둔다. `* text=auto eol=lf`가 줄바꿈을 바꾸면 `documents.json`의 `sha256`이 체크아웃마다 달라질 수 있기 때문이다. `documents.json`은 LF로 저장한다.
+- `validate evals/public-docs`(파일 검사)는 14개와 빈 `evidence.jsonl`, `queries-human.jsonl`, `queries-keyword.jsonl`에 대해 `문제 없음`, 종료 코드 0이다(손으로 봤다).

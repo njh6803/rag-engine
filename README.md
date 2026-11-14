@@ -70,6 +70,7 @@ tests/
   tools/       하네스 도구의 시험과 검색 평가 도구(`validate`, `index`)의 시험. `index`의 시험은 테스트 PostgreSQL이 필요하다
 compose.test.yml  테스트용 PostgreSQL(pgvector, 운영과 같은 이미지 판). 검사 러너가 없으면 띄운다
 compose.eval.yml  검색 평가 전용 PostgreSQL(데이터베이스 이름 rag_eval)과 임베딩 TEI. 머리 주석이 평가 전용 환경 변수 넷의 값을 적는다
+evals/         검색 평가 재료. `public-docs/`가 공공 문서 묶음(문서 파일 `documents/`, 문서 목록 `documents.json`, 머리 `eval-set.json`, 구성 `config.json`)이다. 문서마다 출처와 이용 조건을 목록에 적는다
 tools/         훅, 검사, 검사 러너, 검색 평가 도구(search_eval.py. `validate`가 묶음의 형식과 목록을 보고 `--indexed`가 색인 상태와 글귀를 보며, `index`가 묶음을 평가 전용 데이터베이스에 색인한다). 규약은 .claude/rules/tools.md
 docs/          헌법, ADR, PRD, 에이전트 문서, 일지
 .scratch/      로컬 마크다운 이슈 트래커(기능 계획, 티켓, 회고 대기열)
