@@ -388,7 +388,7 @@ def test_through가_하나가_아니면_아무것도_읽지_않고_2다(
     assert not (tmp_path / "out").exists()
 
 
-def test_리랭커_끝점이_없는_전체_실행은_빠진_이름을_알리고_아무것도_부르지_않고_1이다(
+def test_기록을_끈_전체_실행은_리랭커_끝점이_없으면_빠진_이름을_알리고_아무것도_부르지_않고_1이다(
     world: World,
     tei_stub: TeiStub,
     tmp_path: Path,
@@ -401,7 +401,7 @@ def test_리랭커_끝점이_없는_전체_실행은_빠진_이름을_알리고_
     capsys.readouterr()
     requests_before = len(tei_stub.requests)
 
-    assert run_full(bundle, tmp_path / "out") == 1
+    assert run_full(bundle, tmp_path / "out", "--records", "off") == 1
 
     assert RERANKER_ENV in capsys.readouterr().err
     assert len(tei_stub.requests) == requests_before

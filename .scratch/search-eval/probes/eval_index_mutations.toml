@@ -45,7 +45,7 @@ new = '''if False:'''
 name = "스키마의 판이 다른 데이터베이스를 받는다"
 tests = ["tests/tools/test_search_eval_index.py::test_스키마의_판이_이_체크아웃과_다르면_올리지_않고_거부한다"]
 expect = "red"
-expect_output = ["DuplicateTable"]
+expect_output = ["데이터베이스를 쓰지 못했다(ProgrammingError)"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/eval_database.py"
@@ -58,18 +58,19 @@ new = '''        if False:
 name = "데이터베이스 판정을 스키마를 올린 뒤로 미룬다"
 tests = ["tests/tools/test_search_eval_index.py::test_스키마의_판이_이_체크아웃과_다르면_올리지_않고_거부한다"]
 expect = "red"
-expect_output = ["DuplicateTable"]
+expect_output = ["데이터베이스를 쓰지 못했다(ProgrammingError)"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/eval_index.py"
-old = '''        problems = run_in_selector_loop(check_database(environment.database_url, eval_set))
-        if problems:
-            return _report(problems)
-        migrate_database(settings)'''
-new = '''        migrate_database(settings)
-        problems = run_in_selector_loop(check_database(environment.database_url, eval_set))
-        if problems:
-            return _report(problems)'''
+old = '''    problems = run_in_selector_loop(check_database(environment.database_url, eval_set))
+    if problems:
+        return _report(problems)
+    if records_run.mode'''
+new = '''    migrate_database(settings)
+    problems = run_in_selector_loop(check_database(environment.database_url, eval_set))
+    if problems:
+        return _report(problems)
+    if records_run.mode'''
 
 [[mutation]]
 name = "이름의 접두 규칙을 지운다"
@@ -278,8 +279,8 @@ expect_output = ["묶음을 2번 읽었다"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/eval_validate.py"
-old = '''    eval_set, problems = _read_and_check(folder)
+old = '''    eval_set, problems = _read_and_check(folder, compose_file)
     if eval_set is None:'''
-new = '''    problems = _read_and_check(folder)[1]
-    eval_set = _read_and_check(folder)[0]
+new = '''    problems = _read_and_check(folder, compose_file)[1]
+    eval_set = _read_and_check(folder, compose_file)[0]
     if eval_set is None:'''

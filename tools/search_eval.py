@@ -1,11 +1,14 @@
 """검색 평가 도구의 명령줄 입구(명세 `.scratch/search-eval/spec.md`의 "자리와 층").
 
     uv run python tools/search_eval.py validate <묶음 폴더> [--indexed]
-    uv run python tools/search_eval.py index <묶음 폴더> [--config <파일>]
+    uv run python tools/search_eval.py index <묶음 폴더> [--config <파일>] [기록 옵션]
     uv run python tools/search_eval.py run --through fused|rerank --out <폴더> <묶음 폴더>
-        [--config <파일>]
+        [--config <파일>] [기록 옵션]
     uv run python tools/search_eval.py inspect <묶음 폴더> <질의 목록 이름> <기대 근거 id>
         [--through fused|rerank] [--config <파일>]
+
+기록 옵션은 `--records read|write|off`(기본 `read`)와 `--tei-device cpu|gpu`다. 장치는 `write`가
+반드시 받고 다른 방식에서는 쓰지 않는다. `index`와 `run`만 받고 `inspect`는 기록을 쓰지 않는다.
 
 인자 해석과 조립만 한다. 묶음의 파일을 읽고 쓰는 코드는 `rag_engine.adapters`에, 값과 판정은
 `rag_engine.domain`과 `rag_engine.app`에 있다. `tools/`는 이미지에 실리지 않으므로(`.dockerignore`)
@@ -24,8 +27,8 @@
 `fused`(빠른 실행. 벡터만, 키워드만, 합친 뒤)와 `rerank`(전체 실행. 합친 뒤의 후보 전부를 리랭크한
 뒤까지와 리랭크 점수의 분포 `score_distribution`) 가운데 하나를 반드시 받는다. 빠지거나 둘 다 주면
 종료 코드 2다. 시작할 때 `index`와 같은 판정(평가 전용 이름, 데이터베이스 이름, 이 묶음의
-데이터베이스인지)을 지나야 돈다. 전체 실행은 리랭커 끝점 `RAG_EVAL_RERANKER_URL`이 없으면 그 이름을
-알리고 종료 코드 1이다.
+데이터베이스인지)을 지나야 돈다. 기록을 끈(`--records off`) 전체 실행은 리랭커 끝점
+`RAG_EVAL_RERANKER_URL`이 없으면 그 이름을 알리고 종료 코드 1이다.
 
 `inspect`는 질의 하나를 `run`과 같은 길로 돌려 그 질의의 글, 기대 근거, 단계마다의 상위 조각의 글을
 표준 출력에만 찍는다. 파일은 쓰지 않는다. `--through`는 `fused`(기본)와 `rerank` 가운데 하나다.
@@ -37,8 +40,19 @@
 
 데이터베이스에 붙는 하위 명령(`index`, `run`, `inspect`, `validate --indexed`)은 평가 전용 환경 변수
 `RAG_EVAL_DATABASE_URL`, `RAG_EVAL_DATA_DIR`, `RAG_EVAL_EMBEDDING_URL`(과 있으면
-`RAG_EVAL_RERANKER_URL`. 전체 실행은 이것이 반드시 있어야 한다)만 읽는다. 제품의 `RAG_*`와 작업
-폴더의 `.env`는 읽지 않는다.
+`RAG_EVAL_RERANKER_URL`. 기록을 끈 전체 실행만 이것이 반드시 있어야 한다)만 읽는다. 제품의 `RAG_*`와
+작업 폴더의 `.env`는 읽지 않는다.
+
+추론 기록(`--records`)은 모델이 계산한 임베딩과 리랭크 점수를 묶음의 `records/`에 저장해 다시 쓴다.
+`read`는 기록 파일을 고치지 않고, 기록에 있는 글은 모델을 부르지 않는다. 기록에 없어 새로 계산한
+임베딩이 100개를 넘으면 계산을 멈추고 1로 끝나며, 어느 명령을 `--records write`로 다시 돌려
+어느 파일을 커밋하는지 알린다. 리랭커 끝점이 없는 전체 실행도 기록에 없는 쌍 하나에서 같은 식으로
+끝난다. `write`는 종료 코드 0일 때만 그 명령이 주인인 파일(`index`는 조각, `run`은 질의, 전체
+실행은 리랭크도)을 이번 실행이 쓴 열쇠 전부로 다시 쓴다. `index --records write`는 문서가 없는
+데이터베이스에서만 돈다. `off`는 기록을 읽지도 쓰지도 않는다. 어느 장치(CPU나 GPU)의 TEI가
+계산했는지 평가 도구가 알아내는 길은 두지 않았다(TEI의 `/info`로 알 수 있는지는 재 보지 않았다).
+그래서 `write`는 `--tei-device`로 장치를 받아 `records.json`에 적는다. `validate`는 기록의 크기와
+판, 요청 지문, TEI의 판을 본다.
 
 종료 코드. 0은 문제 없음, 1은 묶음이나 색인의 오류(없는 폴더, 빠진 환경 변수도 든다), 2는 잘못된
 인자다.
@@ -56,6 +70,7 @@ from rag_engine.adapters.eval_index import index_bundle
 from rag_engine.adapters.eval_inspect import inspect_evaluation
 from rag_engine.adapters.eval_run import current_commit, run_evaluation
 from rag_engine.adapters.eval_validate import validate_bundle, validate_bundle_indexed
+from rag_engine.adapters.inference_records import RecordMode, RecordsOptions
 from rag_engine.app.eval_stages import Stage
 from rag_engine.domain.errors import ConfigurationError
 from rag_engine.domain.eval_set import EvalProblem
@@ -66,7 +81,10 @@ EXIT_OK: Final = 0
 EXIT_FAILED: Final = 1
 EXIT_USAGE: Final = 2
 THROUGH_CHOICES: Final = ("fused", "rerank")
+RECORDS_CHOICES: Final = tuple(mode.value for mode in RecordMode)
+DEVICE_CHOICES: Final = ("cpu", "gpu")
 REPOSITORY: Final = Path(__file__).resolve().parent.parent
+COMPOSE_FILE: Final = REPOSITORY / "compose.eval.yml"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -82,9 +100,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     index = commands.add_parser("index", help="묶음의 문서를 평가 전용 데이터베이스에 색인한다")
     index.add_argument("bundle", type=Path, help="묶음 폴더")
+    _add_records_options(index)
     _add_config(index)
     run = commands.add_parser("run", help="색인된 묶음을 평가해 보고서를 쓴다")
     run.add_argument("bundle", type=Path, help="묶음 폴더")
+    _add_records_options(run)
     run.add_argument(
         "--through",
         action="append",
@@ -110,6 +130,36 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _add_records_options(command: argparse.ArgumentParser) -> None:
+    command.add_argument(
+        "--records",
+        choices=RECORDS_CHOICES,
+        default=RecordMode.READ.value,
+        help="추론 기록의 방식. read(기본)는 기록을 읽기만 하고, write는 그 명령이 주인인"
+        " 기록 파일을 다시 쓰며, off는 기록을 읽지도 쓰지도 않는다",
+    )
+    command.add_argument(
+        "--tei-device",
+        choices=DEVICE_CHOICES,
+        default=None,
+        help="--records write가 records.json에 적을 TEI의 장치(write는 반드시 준다)",
+    )
+
+
+def _records_options(args: argparse.Namespace) -> RecordsOptions | None:
+    """`--records`와 `--tei-device`를 읽는다. `write`인데 장치가 없으면 알리고 `None`을 낸다."""
+    mode = RecordMode(str(args.records))
+    device = None if args.tei_device is None else str(args.tei_device)
+    if mode is RecordMode.WRITE and device is None:
+        print(
+            f"{TOOL}: --records write는 --tei-device cpu|gpu를 받아야 한다(records.json에 적을"
+            " 장치를 도구가 알아내지 않고 직접 받는다). 아무것도 쓰지 않았다",
+            file=sys.stderr,
+        )
+        return None
+    return RecordsOptions(mode=mode, device=device)
+
+
 def _add_config(command: argparse.ArgumentParser) -> None:
     command.add_argument(
         "--config",
@@ -126,30 +176,36 @@ def main(argv: Sequence[str]) -> int:
         # argparse가 사용법을 출력하고 낸 종료다. 도움말은 0이고 잘못된 인자는 2다.
         return stop.code if isinstance(stop.code, int) else EXIT_USAGE
     bundle: Path = args.bundle
-    if args.command == "run":
-        return _run(bundle, args.out, args.through, args.config)
+    if args.command == "validate":
+        indexed: bool = args.indexed
+        return _validate(bundle, indexed=indexed)
     if args.command == "inspect":
-        stage = _stage(args.through)
         return inspect_evaluation(
             bundle,
             args.query_list,
             args.evidence_id,
             os.environ,
-            through=stage,
+            through=_stage(args.through),
             config_file=args.config,
         )
-    if args.command == "index":
-        # 설정 오류는 `index_bundle`이 안에서 잡아 종료 코드로 낸다.
-        return index_bundle(bundle, os.environ, run_once_with_settings, config_file=args.config)
-    indexed: bool = args.indexed
-    return _validate(bundle, indexed=indexed)
+    records = _records_options(args)
+    if records is None:
+        return EXIT_USAGE
+    if args.command == "run":
+        return _run(bundle, args.out, args.through, args.config, records)
+    # 설정 오류는 `index_bundle`이 안에서 잡아 종료 코드로 낸다.
+    return index_bundle(
+        bundle, os.environ, run_once_with_settings, records=records, config_file=args.config
+    )
 
 
 def _stage(through: str) -> Stage:
     return Stage.RERANK if through == "rerank" else Stage.FUSED
 
 
-def _run(bundle: Path, out: Path, through: list[str], config_file: Path | None) -> int:
+def _run(
+    bundle: Path, out: Path, through: list[str], config_file: Path | None, records: RecordsOptions
+) -> int:
     if len(through) != 1:
         choices = " 또는 ".join(THROUGH_CHOICES)
         print(f"{TOOL} run: --through는 {choices} 가운데 하나를 한 번만 받는다", file=sys.stderr)
@@ -160,6 +216,7 @@ def _run(bundle: Path, out: Path, through: list[str], config_file: Path | None) 
         os.environ,
         through=_stage(through[0]),
         commit=current_commit(REPOSITORY),
+        records=records,
         config_file=config_file,
     )
 
@@ -172,13 +229,13 @@ def _validate(bundle: Path, *, indexed: bool) -> int:
     if indexed:
         try:
             environment = read_eval_environment(os.environ)
-            report = validate_bundle_indexed(bundle, environment)
+            report = validate_bundle_indexed(bundle, environment, COMPOSE_FILE)
         except (EvalEnvironmentError, ConfigurationError) as error:
             print(f"설정 오류: {error}", file=sys.stderr)
             return EXIT_FAILED
         problems, warnings = report.problems, report.warnings
     else:
-        problems = validate_bundle(bundle)
+        problems = validate_bundle(bundle, COMPOSE_FILE)
     for warning in warnings:
         print(f"경고\t{warning}", file=sys.stderr)
     if not problems:

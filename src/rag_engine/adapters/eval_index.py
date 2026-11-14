@@ -11,7 +11,16 @@
 2. 묶음을 읽고(`read_eval_set`) 문서 파일을 판정한다(`check_bundle_files`. 경로, 문서 목록의 모든
    파일이 있고 해시가 맞는지, 목록에 없는 파일이 없는지). 수집에는 해시를 대 본 그 바이트를 넘긴다.
    판정과 수집 사이에 파일이 바뀌어도 넘기는 바이트는 해시가 맞는다.
-3. 데이터베이스가 이 묶음의 것인지(`check_database`).
+3. 추론 기록을 읽을 수 있는지(`RecordsRun`. `records/`가 묶음 밖을 가리키지 않고 `records.json`의
+   형식이 맞는지).
+4. 데이터베이스가 이 묶음의 것인지(`check_database`). `--records write`는 문서가 하나도 없는
+   데이터베이스에서만 돈다. 문서가 든 데이터베이스에서는 아무것도 쓰지 않고 1을 낸다. 문서가 이미
+   색인되어 있으면 조각의 임베딩이 돌지 않아 기록에 담을 값이 모자라기 때문이다.
+
+추론 기록(`--records`)은 조각의 임베딩만 다룬다(주인 파일은 `chunk-embeddings`). 작업자의 조립이
+받는 걸이로 임베더를 내는 함수를 기록기로 감싼다. 기록의 값을 읽는 `read`는 기록 파일을 고치지 않고,
+기록에 없는 임베딩이 상한을 넘으면 그 작업이 실패해 1로 끝나며 어느 명령을 `--records write`로
+다시 돌려 어느 파일을 커밋하는지 알린다. `write`는 종료 코드 0일 때만 기록 파일을 쓴다.
 
 색인에 실패한 문서가 하나라도 있으면 1이다. 실패한 문서가 있어도 나머지는 색인한다.
 """
@@ -31,13 +40,20 @@ from sqlalchemy.exc import SQLAlchemyError
 from rag_engine.adapters.blob_store import LocalBlobStore
 from rag_engine.adapters.bundle_paths import BundlePathError, BundlePaths
 from rag_engine.adapters.eval_bundle_files import DOCUMENTS_FOLDER, check_bundle_files
-from rag_engine.adapters.eval_database import check_database
+from rag_engine.adapters.eval_database import check_database, has_documents
 from rag_engine.adapters.eval_environment import (
+    EvalEnvironment,
     EvalEnvironmentError,
     eval_settings,
     read_eval_environment,
 )
 from rag_engine.adapters.eval_set_reader import EvalSetFormatError, read_eval_set
+from rag_engine.adapters.inference_record_files import (
+    RecordKind,
+    RecordsFormatError,
+    failure_reason,
+)
+from rag_engine.adapters.inference_records import RecordMode, RecordsOptions, RecordsRun
 from rag_engine.adapters.log_format import request_id_var
 from rag_engine.adapters.postgres.bootstrap import migrate_database
 from rag_engine.adapters.postgres.engine import create_engine, run_in_selector_loop
@@ -47,8 +63,9 @@ from rag_engine.app.await_documents import wait_for_documents
 from rag_engine.app.ingest import IngestRequest, ingest_document
 from rag_engine.domain.entities import JsonValue
 from rag_engine.domain.errors import ConfigurationError, RequestError
-from rag_engine.domain.eval_set import EvalDocument, EvalProblem
+from rag_engine.domain.eval_set import EvalDocument, EvalProblem, EvalSet
 from rag_engine.domain.identifiers import new_id
+from rag_engine.domain.ports import EmbedderWrapper
 
 EXIT_OK: Final = 0
 EXIT_FAILED: Final = 1
@@ -57,8 +74,9 @@ _BYTES_PER_MB: Final = 1024 * 1024
 _NO_METADATA: Final[dict[str, JsonValue]] = {}
 
 # 작업자의 한 번 돌기 입구: 설정에 적힌 데이터베이스에서 꺼낼 수 있는 작업을 모두 처리하고 처리한
-# 수를 낸다(`rag_engine.worker.assembly.run_once_with_settings`).
-type ProcessJobs = Callable[[Settings], Awaitable[int]]
+# 수를 낸다(`rag_engine.worker.assembly.run_once_with_settings`). 둘째 인자는 임베더를 내는 함수를
+# 감싸는 걸이이고 `None`이면 감싸지 않는다.
+type ProcessJobs = Callable[[Settings, EmbedderWrapper | None], Awaitable[int]]
 
 
 def index_bundle(
@@ -66,6 +84,7 @@ def index_bundle(
     environ: Mapping[str, str],
     process_jobs: ProcessJobs,
     *,
+    records: RecordsOptions,
     config_file: Path | None = None,
 ) -> int:
     """종료 코드를 낸다. `config_file`(`--config`)을 주면 묶음의 `config.json` 대신 그 구성으로
@@ -89,12 +108,17 @@ def index_bundle(
     if problems:
         return _report(problems)
     try:
-        settings = eval_settings(environment, eval_set.config)
-        problems = run_in_selector_loop(check_database(environment.database_url, eval_set))
-        if problems:
-            return _report(problems)
-        migrate_database(settings)
-        return run_in_selector_loop(_ingest_and_process(settings, documents, process_jobs))
+        records_run = RecordsRun(
+            paths, eval_set.config, records, owned=(RecordKind.CHUNK_EMBEDDINGS,)
+        )
+    except (BundlePathError, RecordsFormatError, OSError) as error:
+        print(
+            f"추론 기록을 읽지 못했다: {failure_reason(error)}. 아무것도 쓰지 않았다",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    try:
+        code = _index_into_database(environment, eval_set, documents, process_jobs, records_run)
     except (EvalEnvironmentError, ConfigurationError) as error:
         print(f"설정 오류: {error}", file=sys.stderr)
         return EXIT_FAILED
@@ -102,6 +126,48 @@ def index_bundle(
         # 접속 실패의 메시지와 스택은 호스트와 사용자 이름을 싣는다(원칙 V). 오류의 종류만 알린다.
         print(f"데이터베이스를 쓰지 못했다({type(error).__name__})", file=sys.stderr)
         return EXIT_FAILED
+    return _finish(records_run, code)
+
+
+def _index_into_database(
+    environment: EvalEnvironment,
+    eval_set: EvalSet,
+    documents: list[tuple[EvalDocument, bytes]],
+    process_jobs: ProcessJobs,
+    records_run: RecordsRun,
+) -> int:
+    """스키마를 올리기 전의 판정(데이터베이스가 이 묶음의 것인지, `--records write`가 빈
+    데이터베이스인지)을 지나면 스키마를 올리고 문서를 색인한다. 종료 코드를 낸다."""
+    settings = eval_settings(environment, eval_set.config)
+    problems = run_in_selector_loop(check_database(environment.database_url, eval_set))
+    if problems:
+        return _report(problems)
+    if records_run.mode is RecordMode.WRITE and run_in_selector_loop(
+        has_documents(environment.database_url)
+    ):
+        print(
+            "--records write는 문서가 없는 데이터베이스에서만 돈다. 문서가 이미 색인되어 있으면"
+            " 조각의 임베딩이 돌지 않아 기록에 담을 값이 모자라다. 데이터베이스를 새로 만든 뒤"
+            " 다시 친다(docker compose -f compose.eval.yml down -v). 아무것도 쓰지 않았다",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    migrate_database(settings)
+    return run_in_selector_loop(_ingest_and_process(settings, documents, process_jobs, records_run))
+
+
+def _finish(records_run: RecordsRun, code: int) -> int:
+    """계산을 멈춘 기록의 안내를 내고, 종료 코드 0일 때만 기록 파일을 쓴다."""
+    for notice in records_run.notices():
+        print(notice, file=sys.stderr)
+    if code != EXIT_OK:
+        return code
+    try:
+        records_run.commit()
+    except (BundlePathError, OSError) as error:
+        print(f"추론 기록을 쓰지 못했다: {failure_reason(error)}", file=sys.stderr)
+        return EXIT_FAILED
+    return EXIT_OK
 
 
 def _report(problems: tuple[EvalProblem, ...]) -> int:
@@ -133,8 +199,13 @@ def _read_verified(
 
 
 async def _ingest_and_process(
-    settings: Settings, documents: list[tuple[EvalDocument, bytes]], process_jobs: ProcessJobs
+    settings: Settings,
+    documents: list[tuple[EvalDocument, bytes]],
+    process_jobs: ProcessJobs,
+    records_run: RecordsRun,
 ) -> int:
+    recorder = records_run.embedding(RecordKind.CHUNK_EMBEDDINGS)
+    wrap = None if recorder is None else recorder.wrap_factory
     request_id = new_id()
     reset = request_id_var.set(request_id)
     engine = create_engine(settings.database_url)
@@ -168,10 +239,10 @@ async def _ingest_and_process(
             labels[result.document_id] = document.key
 
         async def work_then_sleep(seconds: float) -> None:
-            await process_jobs(settings)
+            await process_jobs(settings, wrap)
             await asyncio.sleep(seconds)
 
-        await process_jobs(settings)
+        await process_jobs(settings, wrap)
         waited = await wait_for_documents(
             unit_of_work,
             list(labels),

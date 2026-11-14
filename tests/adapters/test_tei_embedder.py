@@ -8,7 +8,7 @@ import httpx
 import pytest
 from tests.support.tei_stub import SECRET_MESSAGE, TeiStub
 
-from rag_engine.adapters.tei import TeiEmbedder
+from rag_engine.adapters.tei import EMBEDDING_REQUEST, InferenceRequestShape, TeiEmbedder
 from rag_engine.domain.entities import JsonValue
 from rag_engine.domain.errors import ErrorCode, PermanentFailure, TransientFailure
 
@@ -75,6 +75,30 @@ async def test_첫_호출_전에_info를_한_번만_읽는다(make_embedder: Emb
 
     assert [request.path for request in stub.requests][0] == "/info"
     assert stub.count("/info") == 1
+
+
+async def test_추론_요청의_경로와_칸이_요청_지문의_원문과_같다(
+    make_embedder: EmbedderFactory,
+) -> None:
+    """요청 지문(`EMBEDDING_REQUEST`)은 기록이 어댑터의 변경을 알아보는 장치다. 실제로 보낸 요청이
+    그 자리의 값에서 벗어나면 지문이 요청을 대표하지 못한다."""
+    stub = TeiStub()
+
+    await make_embedder(stub).embed(["연차휴가 규정"])
+
+    (request,) = [r for r in stub.requests if r.path != "/info"]
+    assert request.path == EMBEDDING_REQUEST.path
+    extra = {name: value for name, value in request.body.items() if name not in {"input", "model"}}
+    assert extra == dict(EMBEDDING_REQUEST.fields)
+
+
+def test_요청_지문은_경로와_칸이_바뀌면_달라지고_칸의_순서에는_달라지지_않는다() -> None:
+    base = InferenceRequestShape("/a", {"x": True, "y": 1})
+
+    assert base.fingerprint() == InferenceRequestShape("/a", {"y": 1, "x": True}).fingerprint()
+    assert base.fingerprint() != InferenceRequestShape("/b", {"x": True, "y": 1}).fingerprint()
+    assert base.fingerprint() != InferenceRequestShape("/a", {"x": True, "y": 2}).fingerprint()
+    assert base.fingerprint() != InferenceRequestShape("/a", {"x": True}).fingerprint()
 
 
 async def test_info의_모델이_다르면_설정_불일치로_일시_실패이고_임베딩을_부르지_않는다(
