@@ -13,6 +13,7 @@ from typing import Final
 
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 MIGRATIONS_DIRECTORY: Final = Path(__file__).parent / "migrations"
 
@@ -25,6 +26,16 @@ def async_database_url(database_url: str) -> str:
     if not database_url.startswith(_SYNC_SCHEME):
         raise ValueError("접속 문자열은 postgresql:// 로 시작해야 한다")
     return _ASYNC_SCHEME + database_url.removeprefix(_SYNC_SCHEME)
+
+
+def head_revision() -> str:
+    """이 체크아웃이 올리는 스키마의 판(alembic 판의 머리). 데이터베이스에는 닿지 않는다."""
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
+    head = ScriptDirectory.from_config(config).get_current_head()
+    if head is None:
+        raise RuntimeError("alembic 판이 하나도 없다")
+    return head
 
 
 def upgrade_to_head(database_url: str) -> None:
