@@ -1,0 +1,129 @@
+# search-eval 04(`run --through fused`)가 더한 지표와 유스케이스의 변이.
+# 지표의 계산(이득 중복, 1에서 자르기, 이상적 순위의 상한, 적중률의 경계)과 유스케이스의 판정(글귀 적중의
+# 문서 일치, 판 전환 거부), 어댑터의 끝점 교체, 스키마가 없는 데이터베이스의 거부를 겨눈다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test \
+#       uv run python tools/mutate.py .scratch/search-eval/probes/eval_run_mutations.toml
+# 표면 시험이 성공한 실행의 stdout 줄(`보고서를 썼다`)은 시험 파일에 글자 그대로 없어서 표지로 쓴다.
+# 빨강의 표지는 시험 파일에 있으면 안 된다(도구가 거른다).
+
+[[mutation]]
+name = "같은 기대 근거에 다시 닿는 조각에도 이득을 더한다"
+tests = ["tests/app/test_eval_metrics.py::test_같은_기대_근거에_다시_닿는_조각은_이득을_더하지_않는다"]
+expect = "red"
+expect_output = ["ndcg_truncated=True"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_metrics.py"
+old = '''gain = len(reached_here - seen)'''
+new = '''gain = len(reached_here)'''
+
+[[mutation]]
+name = "nDCG를 1에서 자르지 않는다"
+tests = ["tests/app/test_eval_metrics.py::test_조각_하나가_기대_근거_둘에_닿으면_nDCG가_1에서_잘리고_잘린_질의로_센다"]
+expect = "red"
+expect_output = ["1.2262"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_metrics.py"
+old = '''ndcg=min(raw, 1.0),'''
+new = '''ndcg=raw,'''
+
+[[mutation]]
+name = "이상적인 순위를 기대 근거 수만큼 채우고 열에서 끊지 않는다"
+tests = ["tests/app/test_eval_metrics.py::test_이상적인_순위는_기대_근거가_열_개를_넘어도_열에서_끊는다"]
+expect = "red"
+expect_output = ["0.89"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_metrics.py"
+old = '''range(1, min(expected, TOP_K) + 1)'''
+new = '''range(1, expected + 1)'''
+
+[[mutation]]
+name = "적중률의 경계를 순위 미만으로 센다"
+tests = ["tests/app/test_eval_metrics.py::test_집계는_질의_수와_적중률과_MRR과_재현율과_nDCG와_잘린_수를_낸다"]
+expect = "red"
+expect_output = ["hit_at_1: 0.0 != 0.4"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_metrics.py"
+old = '''s.first_rank <= cutoff'''
+new = '''s.first_rank < cutoff'''
+
+[[mutation]]
+name = "평가 도중 판이 바뀌어도 질의를 끝까지 평가한다"
+tests = ["tests/tools/test_search_eval_run.py::test_평가_도중_판이_바뀌면_보고서를_쓰지_않고_1이다"]
+expect = "red"
+expect_output = ["보고서를 썼다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_run.py"
+old = '''if not diagnosis.is_current:'''
+new = '''if False:'''
+
+[[mutation]]
+name = "다른 문서의 같은 글귀도 닿은 것으로 센다"
+tests = ["tests/tools/test_search_eval_run.py::test_다른_문서의_같은_글귀는_닿지_않는다"]
+expect = "red"
+expect_output = ["보고서를 썼다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_run.py"
+old = '''        and hit_key == expectation.document
+'''
+new = ''''''
+
+[[mutation]]
+name = "질의를 판에 적힌 끝점으로 임베딩한다"
+tests = ["tests/tools/test_search_eval_run.py::test_run은_판에_적힌_끝점이_아니라_RAG_EVAL_EMBEDDING_URL로_질의를_임베딩한다"]
+expect = "red"
+expect_output = ["보고서를 썼다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_run.py"
+old = '''replace(version, embedding_endpoint=environment.embedding_url)'''
+new = '''version'''
+
+[[mutation]]
+name = "스키마가 없는 데이터베이스를 거부하지 않는다"
+tests = ["tests/tools/test_search_eval_run.py::test_스키마가_올라_있지_않은_데이터베이스에서는_평가하지_않고_1이다"]
+expect = "red"
+expect_output = ["평가하지 못했다("]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_run.py"
+old = '''    if state is SchemaState.EMPTY:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "합친 뒤 단계가 후보 수 밖의 줄도 순위에 넣는다"
+tests = ["tests/app/test_eval_run.py::test_합친_뒤는_합친_순위가_후보_수_밖인_줄을_뺀다"]
+expect = "red"
+expect_output = ["'a', 'd', 'c'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_run.py"
+old = '''hit.fused_rank <= candidates'''
+new = '''hit.fused_rank <= candidates + 99'''
+
+[[mutation]]
+name = "내용 해시가 판정 모델과 지시문의 판을 넣는다"
+tests = ["tests/adapters/test_eval_bundle_hash.py::test_판정_모델과_지시문의_판만_바뀐_묶음은_같은_해시다"]
+expect = "red"
+expect_output = ["AssertionError: assert '"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_hash.py"
+old = '''with_judge=False'''
+new = '''with_judge=True'''
+
+[[mutation]]
+name = "내용 해시가 구성을 정규화하지 않고 파일의 바이트로 넣는다"
+tests = ["tests/adapters/test_eval_bundle_hash.py::test_구성_파일의_칸_순서와_들여쓰기만_다르면_같은_해시다"]
+expect = "red"
+expect_output = ["AssertionError: assert '"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_hash.py"
+old = '''("config", config),'''
+new = '''("config", _read(paths, "config.json")),'''
