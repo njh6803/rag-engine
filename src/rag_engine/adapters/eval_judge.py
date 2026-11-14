@@ -5,8 +5,9 @@
 쌍만 Claude 판정기로 판정해 `judgments.jsonl`에 쌓는다. 아래를 하나라도 어기면 판정기를 부르지
 않고 1을 낸다. 순서는 이렇다.
 
-1. 평가 전용 환경(전체 실행은 리랭커 끝점도), 판정기의 설정 셋(`RAG_JUDGE_*`. 일부만 있으면 빠진
-   이름만 알린다), 묶음의 목록과 문서 파일.
+1. 평가 전용 환경(전체 실행은 리랭커 끝점도), 묶음의 목록과 문서 파일(`run`과 같은
+   `prepare_evaluation`. 구성은 `--config`로 준 파일이거나 묶음의 `config.json`이다), 판정기의
+   설정 셋(`RAG_JUDGE_*`. 일부만 있으면 빠진 이름만 알린다).
 2. `RAG_JUDGE_MODEL`이 `config.json`의 `judge_model`과, 어댑터의 지시문 판이
    `judge_prompt_version`과 같은지. 어긋난 둘의 이름을 알린다. 판정 파일의 열쇠가 이 둘이라, 어긋난
    채 쌓으면 `run`이 읽지 못하는 줄이 쌓인다.
@@ -26,23 +27,23 @@
 
 import sys
 from collections.abc import Mapping
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from rag_engine.adapters.bundle_paths import BundlePathError, BundlePaths
+from rag_engine.adapters.bundle_paths import BundlePathError
 from rag_engine.adapters.claude_judge import PROMPT_VERSION, ClaudeRelevanceJudge
-from rag_engine.adapters.eval_bundle_files import check_bundle_files
-from rag_engine.adapters.eval_environment import (
-    EvalEnvironment,
-    EvalEnvironmentError,
-    eval_settings,
-    read_eval_environment,
-    require_reranker_url,
+from rag_engine.adapters.eval_assembly import (
+    EXIT_FAILED,
+    EXIT_OK,
+    PreparedEvaluation,
+    check_ready,
+    evaluate,
+    prepare_evaluation,
+    report_problems,
 )
+from rag_engine.adapters.eval_environment import EvalEnvironmentError
 from rag_engine.adapters.eval_judgments_file import (
     JudgmentFileError,
     append_judgment,
@@ -51,8 +52,6 @@ from rag_engine.adapters.eval_judgments_file import (
     read_judgments,
     rewrite_sorted,
 )
-from rag_engine.adapters.eval_run import check_ready, evaluate, report_problems
-from rag_engine.adapters.eval_set_reader import EvalSetFormatError, read_eval_set
 from rag_engine.adapters.judge_settings import (
     MODEL_ENV,
     JudgeSettings,
@@ -60,7 +59,6 @@ from rag_engine.adapters.judge_settings import (
     read_judge_settings,
 )
 from rag_engine.adapters.postgres.engine import run_in_selector_loop
-from rag_engine.app.check_eval_set import check_eval_set
 from rag_engine.app.eval_judgments import (
     JUDGMENTS_FILE,
     JudgeOutcome,
@@ -71,12 +69,10 @@ from rag_engine.app.eval_judgments import (
     judge_pairs,
     pending_pairs,
 )
-from rag_engine.app.eval_run import JUDGED_TOP, EvalRunError, Stage
+from rag_engine.app.eval_run import JUDGED_TOP, EvalRunError
+from rag_engine.app.eval_stages import Stage
 from rag_engine.domain.errors import ConfigurationError, RagEngineError
-from rag_engine.domain.eval_set import EvalConfig, EvalSet
-
-EXIT_OK: Final = 0
-EXIT_FAILED: Final = 1
+from rag_engine.domain.eval_set import EvalConfig
 
 
 def run_judge(
@@ -86,38 +82,25 @@ def run_judge(
     through: Stage,
     approved: bool,
     prune: bool,
+    config_file: Path | None = None,
 ) -> int:
-    """`judge`의 종료 코드를 낸다. `approved`는 `--yes`다. 이벤트 루프를 스스로 열므로 실행 중인
-    루프 안에서는 부를 수 없다."""
-    if not folder.is_dir():
-        print(f"묶음 폴더가 없다: {folder}", file=sys.stderr)
+    """`judge`의 종료 코드를 낸다. `approved`는 `--yes`, `config_file`은 `--config`로 준 구성
+    파일이다. 이벤트 루프를 스스로 열므로 실행 중인 루프 안에서는 부를 수 없다."""
+    prepared = prepare_evaluation(folder, environ, through=through, config_file=config_file)
+    if prepared is None:
         return EXIT_FAILED
     try:
-        environment = read_eval_environment(environ)
-        reranker_url = require_reranker_url(environment) if through is Stage.RERANK else None
         judge_settings = read_judge_settings(environ)
-        paths = BundlePaths(folder)
-        eval_set = read_eval_set(paths)
-    except (EvalEnvironmentError, JudgeSettingsError) as error:
+    except JudgeSettingsError as error:
         print(error, file=sys.stderr)
         return EXIT_FAILED
-    except EvalSetFormatError as error:
-        return report_problems(error.problems)
-    problems = (*check_eval_set(eval_set), *check_bundle_files(paths, eval_set))
-    if problems:
-        return report_problems(problems)
-    config = eval_set.config
-    mismatches = _mismatches(judge_settings, config)
+    mismatches = _mismatches(judge_settings, prepared.eval_set.config)
     if mismatches:
         for mismatch in mismatches:
             print(mismatch, file=sys.stderr)
         return EXIT_FAILED
     try:
-        return _judge_bundle(
-            _Inputs(environment, reranker_url, judge_settings, paths, eval_set),
-            approved=approved,
-            prune=prune,
-        )
+        return _judge_bundle(prepared, judge_settings, approved=approved, prune=prune)
     except JudgmentFileError as error:
         print(error, file=sys.stderr)
         return EXIT_FAILED
@@ -133,49 +116,42 @@ def run_judge(
         return EXIT_FAILED
 
 
-@dataclass(frozen=True)
-class _Inputs:
-    """앞의 점검을 지난 입력. 데이터베이스에 붙는 단계부터 쓴다."""
-
-    environment: EvalEnvironment
-    reranker_url: str | None
-    judge_settings: JudgeSettings
-    paths: BundlePaths
-    eval_set: EvalSet
-
-
-def _judge_bundle(inputs: _Inputs, *, approved: bool, prune: bool) -> int:
+def _judge_bundle(
+    prepared: PreparedEvaluation, settings: JudgeSettings, *, approved: bool, prune: bool
+) -> int:
     """판정 파일을 읽고, 데이터베이스를 점검하고, 평가를 돌려 판정할 쌍을 정한 뒤 판정한다."""
-    config = inputs.eval_set.config
+    config = prepared.eval_set.config
     model, version = config.judge_model, config.judge_prompt_version
-    path = judgments_path(inputs.paths)
+    path = judgments_path(prepared.paths)
     existing = read_judgments(path) or []
-    problems = run_in_selector_loop(check_ready(inputs.environment.database_url, inputs.eval_set))
+    problems = run_in_selector_loop(
+        check_ready(prepared.environment.database_url, prepared.eval_set)
+    )
     if problems:
-        return report_problems(problems)
+        report_problems(problems)
+        return EXIT_FAILED
     if prune:
         removed = prune_judgments(path, model=model, prompt_version=version)
         print(f"{JUDGMENTS_FILE}에서 지금의 모델과 지시문 판에 맞지 않는 {removed}줄을 지웠다")
         existing = [
             item for item in existing if item.model == model and item.prompt_version == version
         ]
-    pairs, total = _pending(inputs, existing)
+    pairs, total = _pending(prepared, existing)
     _print_plan(pairs, total=total, model=model)
     if not pairs:
         return EXIT_OK
     if not approved:
         print("부르지 않았다. 부르려면 --yes를 붙여 다시 친다")
         return EXIT_OK
-    return _judge_and_record(inputs.judge_settings, pairs, path, model=model, version=version)
+    return _judge_and_record(settings, pairs, path, model=model, version=version)
 
 
-def _pending(inputs: _Inputs, existing: list[Judgment]) -> tuple[list[JudgmentPair], int]:
+def _pending(
+    prepared: PreparedEvaluation, existing: list[Judgment]
+) -> tuple[list[JudgmentPair], int]:
     """평가를 돌려 판정 파일에 없는 쌍과 마지막 단계의 상위 조합의 수를 낸다."""
-    config = inputs.eval_set.config
-    settings = eval_settings(inputs.environment, config)
-    result = run_in_selector_loop(
-        evaluate(inputs.environment, settings, inputs.eval_set, reranker_url=inputs.reranker_url)
-    )
+    config = prepared.eval_set.config
+    result = run_in_selector_loop(evaluate(prepared))
     pairs = pending_pairs(
         result.outcomes,
         existing,

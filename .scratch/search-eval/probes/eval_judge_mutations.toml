@@ -332,7 +332,9 @@ expect_output = ["test_search_eval_judge.py:530: AssertionError"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/eval_judge.py"
-old = '''problems = run_in_selector_loop(check_ready(inputs.environment.database_url, inputs.eval_set))'''
+old = '''problems = run_in_selector_loop(
+        check_ready(prepared.environment.database_url, prepared.eval_set)
+    )'''
 new = '''problems = ()'''
 
 [[mutation]]
@@ -345,3 +347,17 @@ expect_output = ["Right contains 5 more items, first extra item: 'h06'"]
 file = "src/rag_engine/app/eval_run.py"
 old = '''JUDGED_TOP: Final = 10'''
 new = '''JUDGED_TOP: Final = 5'''
+
+[[mutation]]
+name = "judge가 --config를 준비 단계에 넘기지 않는다"
+tests = [
+  "--show-capture=no",
+  "tests/tools/test_search_eval_judge.py::test_config로_준_구성의_판정_모델이_판정_파일의_열쇠가_되고_구성_없이는_어긋난다",
+]
+expect = "red"
+expect_output = ["test_search_eval_judge.py:796: AssertionError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_judge.py"
+old = '''prepared = prepare_evaluation(folder, environ, through=through, config_file=config_file)'''
+new = '''prepared = prepare_evaluation(folder, environ, through=through, config_file=None)'''

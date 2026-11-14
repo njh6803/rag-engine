@@ -12,13 +12,13 @@ from uuid import uuid4
 import pytest
 
 from rag_engine.app.eval_run import (
-    Stage,
     rerank_ranking,
     rerank_texts,
     sha256_text,
     stage_ranking,
     top_passages,
 )
+from rag_engine.app.eval_stages import Stage
 from rag_engine.domain.entities import BlockKind, ChunkLocation, DiagnosedHit, SearchHit
 
 

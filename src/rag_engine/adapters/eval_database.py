@@ -9,28 +9,29 @@
 문서가 색인되어 있지 않은 것이다. 오류 문장은 연결 문자열이 아니라 오류의 종류만 싣는다(원칙 V).
 """
 
-from dataclasses import replace
 from enum import Enum, auto
 from typing import Final
 
-import httpx
 import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from rag_engine.adapters.eval_environment import EvalEnvironment, eval_settings
+from rag_engine.adapters.eval_environment import (
+    EvalEnvironment,
+    eval_embedder_for,
+    eval_embedder_pool,
+    eval_settings,
+)
 from rag_engine.adapters.index_elements import compute_index_elements
 from rag_engine.adapters.postgres.engine import create_engine
 from rag_engine.adapters.postgres.migrate import head_revision
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
-from rag_engine.adapters.tei import TeiEmbedder, TeiEmbedderPool
 from rag_engine.app.check_eval_database import (
     DATABASE_SUBJECT,
     check_default_records_input,
     check_eval_database,
 )
 from rag_engine.app.check_indexed_documents import check_indexed_documents
-from rag_engine.domain.entities import IndexVersion
 from rag_engine.domain.errors import RagEngineError
 from rag_engine.domain.eval_set import EvalProblem, EvalSet
 
@@ -100,14 +101,9 @@ async def check_indexed(
     """`validate --indexed`의 판정. (오류, 경고)를 낸다."""
     settings = eval_settings(environment, eval_set.config)
     engine = create_engine(environment.database_url)
-    pool = TeiEmbedderPool(
-        lambda endpoint: httpx.AsyncClient(base_url=endpoint, timeout=settings.tei_timeout_seconds),
-        batch_size=settings.tei_batch_size,
-    )
-
-    def meter_for(version: IndexVersion) -> TeiEmbedder:
-        # 평가는 판에 적힌 끝점이 아니라 환경의 끝점으로 센다.
-        return pool(replace(version, embedding_endpoint=environment.embedding_url))
+    pool = eval_embedder_pool(settings)
+    # 평가는 판에 적힌 끝점이 아니라 환경의 끝점으로 센다.
+    meter_for = eval_embedder_for(pool, environment)
 
     try:
         if await read_schema_state(engine) is not SchemaState.CURRENT:

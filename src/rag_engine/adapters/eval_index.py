@@ -61,15 +61,22 @@ _NO_METADATA: Final[dict[str, JsonValue]] = {}
 type ProcessJobs = Callable[[Settings], Awaitable[int]]
 
 
-def index_bundle(folder: Path, environ: Mapping[str, str], process_jobs: ProcessJobs) -> int:
-    """종료 코드를 낸다. 이벤트 루프를 스스로 열므로 실행 중인 루프 안에서는 부를 수 없다."""
+def index_bundle(
+    folder: Path,
+    environ: Mapping[str, str],
+    process_jobs: ProcessJobs,
+    *,
+    config_file: Path | None = None,
+) -> int:
+    """종료 코드를 낸다. `config_file`(`--config`)을 주면 묶음의 `config.json` 대신 그 구성으로
+    색인한다. 이벤트 루프를 스스로 열므로 실행 중인 루프 안에서는 부를 수 없다."""
     if not folder.is_dir():
         print(f"묶음 폴더가 없다: {folder}", file=sys.stderr)
         return EXIT_FAILED
     try:
         environment = read_eval_environment(environ)
         paths = BundlePaths(folder)
-        eval_set = read_eval_set(paths)
+        eval_set = read_eval_set(paths, config_file=config_file)
     except EvalEnvironmentError as error:
         print(error, file=sys.stderr)
         return EXIT_FAILED

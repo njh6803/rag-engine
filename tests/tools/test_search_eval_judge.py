@@ -71,6 +71,7 @@ JUDGE_CONFIG: dict[str, JsonValue] = {
     "judge_prompt_version": "1",
 }
 JUDGMENTS = "judgments.jsonl"
+OTHER_MODEL = "claude-other-model"
 
 
 class _Strict(BaseModel):
@@ -775,4 +776,28 @@ def test_judge는_평가_전용_이름이_빠지면_부르지_않고_빠진_이�
 
     assert DATABASE_ENV in capsys.readouterr().err
     assert claude_stub.count() == 0
+    del world, claude_url
+
+
+def test_config로_준_구성의_판정_모델이_판정_파일의_열쇠가_되고_구성_없이는_어긋난다(
+    world: World,
+    claude_url: str,
+    claude_stub: ClaudeStub,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    bundle = _prepared(tmp_path, claude_stub)
+    other = tmp_path / "other-config.json"
+    other.write_text(json.dumps({**JUDGE_CONFIG, "judge_model": OTHER_MODEL}), encoding="utf-8")
+    monkeypatch.setenv(JUDGE_MODEL_ENV, OTHER_MODEL)
+    capsys.readouterr()
+
+    assert _judge(bundle, "--yes", "--config", str(other)) == 0
+
+    assert {(line.model, line.prompt_version) for line in _lines(bundle)} == {(OTHER_MODEL, "1")}
+    assert all(request.body["model"] == OTHER_MODEL for request in claude_stub.requests)
+    capsys.readouterr()
+    assert _judge(bundle, "--yes") == 1
+    assert "judge_model" in capsys.readouterr().err
     del world, claude_url

@@ -68,10 +68,9 @@ expect = "red"
 expect_output = ["보고서를 썼다"]
 
 [[mutation.edit]]
-file = "src/rag_engine/app/eval_run.py"
-old = '''        and hit_key == expectation.document
-'''
-new = ''''''
+file = "src/rag_engine/app/eval_metrics.py"
+old = '''    if key != expectation.document:'''
+new = '''    if False:'''
 
 [[mutation]]
 name = "질의를 판에 적힌 끝점으로 임베딩한다"
@@ -80,7 +79,7 @@ expect = "red"
 expect_output = ["보고서를 썼다"]
 
 [[mutation.edit]]
-file = "src/rag_engine/adapters/eval_run.py"
+file = "src/rag_engine/adapters/eval_environment.py"
 old = '''replace(version, embedding_endpoint=environment.embedding_url)'''
 new = '''version'''
 
@@ -91,7 +90,7 @@ expect = "red"
 expect_output = ["평가하지 못했다("]
 
 [[mutation.edit]]
-file = "src/rag_engine/adapters/eval_run.py"
+file = "src/rag_engine/adapters/eval_assembly.py"
 old = '''    if state is SchemaState.EMPTY:'''
 new = '''    if False:'''
 
@@ -114,8 +113,8 @@ expect_output = ["AssertionError: assert '"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/eval_bundle_hash.py"
-old = '''with_judge=False'''
-new = '''with_judge=True'''
+old = '''from rag_engine.domain.eval_set import EvalSet, search_config_values'''
+new = '''from rag_engine.domain.eval_set import EvalSet, config_values as search_config_values'''
 
 [[mutation]]
 name = "내용 해시가 구성을 정규화하지 않고 파일의 바이트로 넣는다"
