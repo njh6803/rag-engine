@@ -61,6 +61,12 @@ PR #42, 첫 푸시 9c0a53d에서 두 봇이 처음 리뷰했다(CodeRabbit은 `@
 - 이 반영이 새로 쓴 사실 문장(다음 회차 봇이 겨냥할 것): `check_documents_indexed`와 `_check_ready`의 독스트링("문서의 내용 해시는 올릴 때 저장되므로 색인이 대기 중이거나 실패한 문서도 묶음과 같다"), `adapters/eval_run.py` 모듈 독스트링의 4번 항목, `current_commit` 독스트링("`git -C`를 줘도 `GIT_DIR`이 있으면 git이 그 저장소를 읽는다")과 `_GIT_LOCATION_VARIABLES` 주석("`tools/run_hooks.py`의 `REPO_LOCATION_VARS`와 같은 목록이다"), 티켓 04와 06의 `## Comments`의 새 항목.
 - 다시 돌린 것: `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`(0 errors), `uv run lint-imports`, 새 시험과 `tests/tools/test_search_eval_run.py`·`test_search_eval_index.py`·`tests/adapters/test_eval_run_commit.py` 92 passed. 전체 시험은 커밋의 pre-commit이 돈다. 첫 커밋 시도는 전체 시험(`pytest` 427초)을 모두 통과한 뒤 03의 변이 표 한 항목(10번, 색인 상태와 파싱 결과 판정을 지운다)이 옮겨 간 원문을 찾지 못해 막혔다(회고 9). 원문의 들여쓰기를 고친 뒤 두 표(`eval_index_mutations.toml` 23, `eval_run_mutations.toml` 11)가 `--check`로 원문이 한 번씩 있고, 10번 변이를 실제로 돌려 기대대로 빨강이다(`1 failed`).
 
+### 둘째 푸시(42b9f64)의 봇 회차
+
+- CodeRabbit은 `@coderabbitai review` 뒤에도 시간당 한도(`Review rate limited`)에 걸려 리뷰가 없었다. 첫 회차의 푸시와 한 시간이 지나지 않았다. 회차로 세지 않고, 마지막으로 리뷰받은 커밋은 9c0a53d다.
+- claude-review 둘째 회차: Critical과 Major는 없었고 Minor 셋과 Nit 하나를 냈다. 둘째 회차라 고치지 않고 지적마다 보류 이유를 PR 코멘트에 남겼다. 새로 나온 것은 `config_values(config, *, with_judge: bool)`의 불리언 인자(표준 `CODING_STANDARDS.md`의 "불리언 플래그 인자를 만들지 않는다")뿐이고, 첫 회차에서 남긴 해시와 `config_values`의 결합과 같은 자리라 06이 구성을 건드릴 때 함께 쪼갠다(티켓 06 `## Comments`). 나머지는 첫 회차에서 남긴 Minor와 같다.
+- 이 푸시에서 고친 것은 없다. 일지와 티켓 06만 고쳐 푸시한다. 그 푸시로 도는 리뷰의 새 Minor는 일지에 다시 적지 않고 PR 코멘트에만 남긴다.
+
 ## 회고
 
 낸 후보 열. 승인 3, 기각 7, 넘김 없음.
@@ -82,7 +88,7 @@ PR #42, 첫 푸시 9c0a53d에서 두 봇이 처음 리뷰했다(CodeRabbit은 `@
 ## 다음
 
 - 이 PR이 병합되면 티켓 04는 끝이다. 05가 `--through rerank`를 더한다(지금은 05가 더한다는 안내와 함께 종료 코드 1이다). 05는 평가 끝점을 쓰는 셋째 자리라, `TeiEmbedderPool` 짓기와 끝점 교체의 되풀이를 그때 모은다.
-- 06이 읽을 것: 티켓 06의 `## Comments`. 03의 Minor 셋(이름 없는 `(오류, 경고)` 튜플, 읽기 트랜잭션 안의 토큰 세기 등)과, `--config`로 바꾼 후보 수가 `stage_ranking`의 걸러내기에 이어지는지 보는 시험이다.
+- 06이 읽을 것: 티켓 06의 `## Comments`. 03의 Minor 셋(이름 없는 `(오류, 경고)` 튜플, 읽기 트랜잭션 안의 토큰 세기 등)과, `--config`로 바꾼 후보 수가 `stage_ranking`의 걸러내기에 이어지는지 보는 시험이다. 봇 회차가 낸 것도 있다. 내용 해시가 보고서 모듈의 `config_values`에 기대는 결합과 그 함수의 불리언 인자 `with_judge`를 `--config`가 구성의 경로를 건드릴 때 함께 쪼갠다.
 - 이번 PR이 남긴 Minor 다섯(위 PR 직전 리뷰)은 어느 티켓도 맡지 않았다. 해시의 이중 읽기와 `report.md` 이스케이프는 06이나 07이 보고서를 건드릴 때 같이 본다.
 - 02에서 이어진 것: PR #40 봇 회차의 보류 둘(`_entries`의 출력 인자 변경, `_read_miss_reviews`의 이중 경로 검사)은 04가 그 파일을 넓히지 않아 건드리지 않았다. 변이 표 둘의 윈도 전용 표지는 리눅스에서 다시 골라야 한다.
 - 03에서 이어진 것: `index_bundle`의 `except` 갈래 되풀이와 `_ingest_and_process`의 한 함수 안 추상화 수준은 `index`의 단계가 늘 때 나눈다(티켓 03 `## Comments`).
