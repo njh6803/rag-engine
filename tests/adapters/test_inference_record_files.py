@@ -218,6 +218,28 @@ def test_쓰기는_임시_파일이_묶음_밖을_가리키는_링크여도_거�
     assert not (bundle / "records" / "records.json").exists()
 
 
+def test_쓰기는_임시_파일이_묶음_안의_다른_자리를_가리키는_링크여도_거부하고_아무것도_쓰지_않는다(
+    tmp_path: Path,
+) -> None:
+    bundle = tmp_path / "bundle"
+    (bundle / "records").mkdir(parents=True)
+    documents = bundle / "documents"
+    documents.mkdir()
+    make_folder_link(bundle / "records" / "rerank.jsonl.tmp", documents)
+
+    with pytest.raises(BundlePathError, match="임시 파일"):
+        write_record_files(
+            BundlePaths(bundle),
+            RecordKind.RERANK,
+            {"rerank.jsonl": render_rerank_file({"a": 1.0})},
+            _entry(RecordKind.RERANK, 1),
+        )
+
+    assert list(documents.iterdir()) == []
+    assert not (bundle / "records" / "rerank.jsonl").exists()
+    assert not (bundle / "records" / "records.json").exists()
+
+
 def test_manifest는_파일_이름_순으로_정렬해_쓴다() -> None:
     manifest = Manifest(
         format_version=FORMAT_VERSION,

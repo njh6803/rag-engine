@@ -15,7 +15,7 @@
 - `adapters/tei.py`: `InferenceRequestShape`(임베딩과 리랭크의 요청 경로와 칸을 한 자리에 두고 요청을 그것으로 짓는다). `domain/ports.py`: `EmbedderWrapper`. `worker/assembly.py`: 작업자는 기록을 모르고 그 걸이만 연다.
 - `adapters/eval_index.py`, `eval_run.py`, `eval_validate.py`, `eval_database.py`(`has_documents`), `eval_environment.py`, `app/eval_report.py`(`records` 칸), `tools/search_eval.py`(`--records`, `--tei-device`), `README.md`, `compose.eval.yml`.
 - 시험: `tests/tools/test_search_eval_records.py`(표면 시험 30), `tests/adapters/test_inference_records.py`, `test_inference_record_files.py`(새 파일), 어댑터 시험(`test_tei_embedder.py`, `test_tei_reranker.py`), 지원(`tests/support/eval_bundle.py`).
-- 변이 표 `.scratch/search-eval/probes/eval_records_mutations.toml`(25).
+- 변이 표 `.scratch/search-eval/probes/eval_records_mutations.toml`(26).
 
 ## 정한 것
 
@@ -42,6 +42,14 @@
 - 실제 TEI(Docker와 GPU)를 띄운 실행은 하지 않았다.
 - 첫 커밋 시도가 둘로 막혔다. 하나는 변이 표 훅(`tools/mutate.py --staged`)이다. 내 표 열둘의 표지가 pytest의 단언 풀이 줄(`assert 0 == 1` 꼴)이라 대기열 517이 알렸고, 03 표의 변이 둘은 내가 `eval_index.py`와 `eval_validate.py`를 고쳐 원문이 사라져 있었다. 나는 `--check`만 돌렸고 `--staged`는 돌리지 않았다. 시험 단언에 값을 실은 메시지(`assert code == 1, f"…종료 코드: {code}"`)를 더하고 그 문구를 표지로 골랐다. 바뀐 변이 열둘을 실제로 돌려 모두 기대대로 빨갰다(`PYTHONUTF8=1 … uv run python tools/mutate.py <표> 5 7 8 …`). 03 표의 두 변이는 원문을 현재 소스에 맞췄고, 변이 둘(4, 5)의 표지는 `DuplicateTable`에서 `데이터베이스를 쓰지 못했다(ProgrammingError)`로 바꿨다. 03 표 전체를 돌려 보니 변이 12(`제품 설정이 작업 폴더의 .env를 읽는다`)가 기대 빨강인데 초록이었다. 설정 객체에 `env_file=None`이 dev에 이미 있어서 `dotenv_settings`를 되살려도 `.env`가 열리지 않는 동치 변이이고, 이 PR이 만든 것이 아니라 손대지 않았다.
 - 다른 하나는 pytest 시험 하나(`test_dev의_유무를_조회하다_시간을_넘기면_재지_않는다`)이다. 앞의 손으로 돌린 러너에서도 빨갰다가 단독에서는 통과한 것과 같은 시험이라, 두 번째 빨강에서 추측하지 않고 코드를 읽었다. 시간 제한 0.0001초가 걸리려면 `git`이 끝나기 전에 부모가 `communicate`에 들어가야 하는데, 부하에서 부모가 멈추면 그렇지 못하다(스크래치 스크립트로 재현했다. `Popen` 직후 멈춤이 없으면 5번 모두 `TimeoutExpired`, 0.5초 멈추면 5번 모두 정상 종료). 대기열 `load-time-assertion-margins`의 사례로 더했고 이 PR에서 시험은 고치지 않는다.
+
+## PR 직전 리뷰
+
+`coderabbit-review` 에이전트가 CodeRabbit CLI 0.7.5(`coderabbit review --agent --committed --base origin/dev`)를 돌렸다. `--committed`와 `--include-untracked`는 같이 쓸 수 없어 미추적 파일이 없는 상태에서 뒤의 것을 뺐다. 지적은 7건이고 Critical은 없었다. 좌석은 `not assigned`였는데 리뷰는 끝까지 돌았다.
+
+- 고친 것: 임시 파일 경로가 묶음 안의 다른 자리(최종 파일이나 문서 파일)로 풀리는 링크이면 그 자리에 쓰고 끝의 `unlink`가 지우던 것. 셀프 리뷰의 첫 수정은 묶음 밖 링크만 막았다. 같은 시험(`test_쓰기는_임시_파일이_묶음_안의_다른_자리를_가리키는_링크여도_거부하고_아무것도_쓰지_않는다`)이 고치기 전에 빨갰고(링크가 가리킨 폴더에 쓰려다 `PermissionError`) `_target`이 임시 경로가 최종 경로 바로 옆의 `<이름>.tmp`가 아니면 거부하게 고친 뒤 초록이다. 변이 26(그 판정을 `if False:`로 바꾼다)이 기대한 빨강이다.
+- 남긴 것: 교체 중간의 실패로 파일 세트가 서로 다른 세대가 되는 것(셀프 리뷰가 이미 남긴 항목과 같다). `run`이 기록을 읽기 전에 크기 상한을 보지 않는 것과 `records.json` 읽기에 상한이 없는 것(명세 `[정함]` 기록 파일 항목이 20MB를 `validate`의 몫으로 정했다). `write`가 장치가 달라도 옛 값을 옮기고 `device`를 이번 `--tei-device`로 적는 것(티켓 14에 적었다). `run --records read`가 요청 지문과 TEI 판의 불일치를 보지 않는 것(빠른 게이트가 `validate`를 먼저 돌리는 설계이고, 티켓 08에 적었다).
+- 이 반영이 새로 쓴 사실 문장(밀 주장): `inference_record_files.py`의 `_target`과 `check_writable` 독스트링, 티켓 07 `## Comments`의 PR 직전 리뷰 문단, 티켓 14의 `## Comments`, 티켓 08의 새 체크박스.
 
 ## 회고
 

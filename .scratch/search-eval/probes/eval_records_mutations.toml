@@ -298,5 +298,16 @@ expect_output = ["PermissionError"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/inference_record_files.py"
-old = '''        paths.resolve(f"{RECORDS_FOLDER}/{name}{TEMPORARY_SUFFIX}"),'''
-new = '''        paths.resolve(f"{RECORDS_FOLDER}/{name}").with_name(f"{name}{TEMPORARY_SUFFIX}"),'''
+old = '''    temporary = paths.resolve(f"{RECORDS_FOLDER}/{name}{TEMPORARY_SUFFIX}")'''
+new = '''    temporary = paths.resolve(f"{RECORDS_FOLDER}/{name}").with_name(f"{name}{TEMPORARY_SUFFIX}")'''
+
+[[mutation]]
+name = "임시 파일이 묶음 안의 다른 자리로 풀려도 받는다"
+tests = ["tests/adapters/test_inference_record_files.py::test_쓰기는_임시_파일이_묶음_안의_다른_자리를_가리키는_링크여도_거부하고_아무것도_쓰지_않는다"]
+expect = "red"
+expect_output = ["PermissionError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_record_files.py"
+old = '''    if temporary != path.with_name(f"{path.name}{TEMPORARY_SUFFIX}"):'''
+new = '''    if False:'''

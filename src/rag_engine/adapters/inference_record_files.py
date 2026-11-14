@@ -28,7 +28,7 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from rag_engine.adapters.bundle_paths import BundlePaths
+from rag_engine.adapters.bundle_paths import BundlePathError, BundlePaths
 
 RECORDS_FOLDER: Final = "records"
 MANIFEST_NAME: Final = "records.json"
@@ -198,9 +198,10 @@ def write_record_files(
 
 
 def check_writable(paths: BundlePaths, kind: RecordKind) -> None:
-    """`kind`의 기록 파일과 `records.json`을 쓸 경로(임시 파일 포함)가 묶음 안인지 본다. 묶음
-    밖을 가리키면 `BundlePathError`다. 아무것도 쓰지 않는다. 종류가 여럿인 명령이 첫 종류를 쓴 뒤에
-    다음 종류의 경로에서 거부해 반쪽만 쓰는 일을 막으려고, 쓰기 전에 모두 부른다."""
+    """`kind`의 기록 파일과 `records.json`을 쓸 경로(임시 파일 포함)가 묶음 안이고 임시 파일이
+    최종 파일 바로 옆인지 본다. 아니면 `BundlePathError`다. 아무것도 쓰지 않는다. 종류가 여럿인
+    명령이 첫 종류를 쓴 뒤에 다음 종류의 경로에서 거부해 반쪽만 쓰는 일을 막으려고, 쓰기 전에 모두
+    부른다."""
     for name in (*record_files(kind), MANIFEST_NAME):
         _target(paths, name, b"")
 
@@ -238,13 +239,18 @@ class _Target:
 
 
 def _target(paths: BundlePaths, name: str, data: bytes) -> _Target:
-    """`records/<name>`과 그 임시 파일 경로를 묶음의 경로 판정에 건다. 임시 파일이 묶음 밖을
-    가리키는 링크이면 그 링크로 쓰게 되므로, 최종 경로와 똑같이 판정한다."""
-    return _Target(
-        paths.resolve(f"{RECORDS_FOLDER}/{name}"),
-        paths.resolve(f"{RECORDS_FOLDER}/{name}{TEMPORARY_SUFFIX}"),
-        data,
-    )
+    """`records/<name>`과 그 임시 파일 경로를 묶음의 경로 판정에 건다. 임시 파일이 링크이면 그 링크
+    로 쓰게 되므로, 묶음 밖을 가리키면 최종 경로와 똑같이 거부하고, 묶음 안이어도 풀린 경로가
+    최종 경로 바로 옆의 `<이름>.tmp`가 아니면(최종 파일이나 문서 파일 같은 다른 자리로 풀리면)
+    거부한다. 그대로 쓰면 그 다른 자리를 덮어쓰고 끝의 `unlink`가 지운다."""
+    path = paths.resolve(f"{RECORDS_FOLDER}/{name}")
+    temporary = paths.resolve(f"{RECORDS_FOLDER}/{name}{TEMPORARY_SUFFIX}")
+    if temporary != path.with_name(f"{path.name}{TEMPORARY_SUFFIX}"):
+        raise BundlePathError(
+            f"{RECORDS_FOLDER}/{name}{TEMPORARY_SUFFIX}은(는) 링크를 풀면 다른 자리를 가리킨다."
+            " 기록의 임시 파일은 최종 파일 바로 옆이어야 한다"
+        )
+    return _Target(path, temporary, data)
 
 
 def _replace(target: _Target) -> None:
