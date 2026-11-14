@@ -106,6 +106,12 @@ PR #47(헤드 070562b)에 CodeRabbit이 인라인 다섯 건을, claude-review�
   - claude-review Minor 둘(`judge_pairs`의 `nonlocal` 계수기, `approved`와 `prune`의 불리언 인자)과 Nit 둘(`finally: rewrite_sorted`가 `JudgeRunError`를 가리는 것, 어댑터 생성자가 전역 로거 수준을 바꾸는 것): 모두 Minor·Nit이고 동작이 틀린 곳이 아니라 읽기 쉬움의 지적이라 이 PR에서 고치지 않고 "다음" 절에 넘긴다. 불리언 인자는 "다음"에 이미 있던 항목이고, `nonlocal` 계수기와 `finally`가 `JudgeRunError`를 가리는 것은 이번에 더했다. 전역 로거 수준은 어댑터 독스트링이 의도로 적고 있어 서버에 붙이는 시점에 조립 함수로 옮긴다.
 - 이 반영이 새로 쓴 사실 문장은 아래 목록에 더했다.
 
+### 둘째 회차(헤드 5de0fcd, 07 병합 뒤)
+
+CI는 모두 통과했고 CodeRabbit이 인라인 한 건(Minor)을 냈다. 둘째 회차부터는 Critical·Major만 고치므로 코드는 바꾸지 않았다.
+
+- CodeRabbit Minor(`messages.create` 응답의 JSON 파싱 오류가 `PermanentFailure`로 바뀌지 않는다): SDK가 200 응답의 본문이 JSON이 아닐 때 `json.JSONDecodeError`(`ValueError`)를 `anthropic.AnthropicError` 밖으로 올린다는 지적이다. 앞서 보류한 JSON `null` 본문과 같은 갈래(200인데 읽을 수 없는 본문)이고, 이 경우도 설치된 SDK로 재현하지 않았다. 맞다면 `judge()`의 `except`에 `ValueError`를 더하는 한 줄 고침이고(타입 우회가 아니다), 그때는 가짜 끝점이 JSON이 아닌 200 본문을 낼 수 있게 하는 시험이 먼저다. 다음 절에 넘긴다.
+
 ## 병합 2(2026-11-15, 티켓 07의 `origin/dev` 합치기)
 
 봇 첫 회차 반영을 푸시한 뒤 `wait_ci`가 "충돌"로 끝났다(`mergeStateStatus`가 `DIRTY`). 그 사이 티켓 07(#48, 추론 기록)이 `dev`에 병합되어 같은 평가 파일을 건드렸다. `git merge origin/dev`로 합쳤고 충돌은 다섯 파일이었다.
@@ -175,6 +181,6 @@ PR #47(헤드 070562b)에 CodeRabbit이 인라인 다섯 건을, claude-review�
 
 - 이 PR이 병합되면 티켓 12는 끝이다. 06이 먼저 병합되어 `judge`의 `--config`는 이 PR에서 더했다(위 병합 절). 티켓 07이 같은 파일(`tools/search_eval.py`, `app/eval_report.py`, `adapters/eval_run.py`)을 건드리면 `EvalReport.llm`, `adapters/eval_run.py`의 `_llm_numbers`, `eval_judge.py`가 `eval_assembly`의 공용 길을 쓰는 것을 읽는다.
 - 사람이 고른 표본 40개와 LLM 판정의 일치 확인은 이 티켓이 아니라 티켓 13(`.scratch/search-eval/issues/13-first-judge-run.md`)의 몫이다(이번 실제 호출은 여섯 쌍의 응답 모양 확인이었다).
-- `judge`를 다음에 건드리는 티켓이 함께 볼 Minor(이번 셀프 리뷰가 남겼다): `approved`와 `prune`이 `run_judge`에서 `_judge_bundle`로 키워드 전용으로 지나가는 것, `run_judge`의 `except` 넷의 되풀이, `app/eval_judgments.py`가 고르기와 숫자 세기와 호출을 한 모듈에서 맡고 모델·판의 필터가 세 곳에 있는 것, 쓰다 죽어 마지막 줄이 잘린 `judgments.jsonl`을 사람이 손으로 고쳐야 하는 것, SDK 밖의 예외(잘못된 `RAG_JUDGE_URL`의 HTTP 오류 따위)가 두 실패로 바뀌지 않는 것. 봇 첫 회차가 더한 것: `judge_pairs`의 안쪽 함수가 `nonlocal`로 계수기를 바꾸는 출력 인자 꼴(claude-review Minor), `_judge_and_record`의 `finally: rewrite_sorted`가 예외를 내면 `JudgeRunError`를 가리는 것(Nit), 어댑터 생성자가 프로세스 전역 로거 수준을 바꾸는 것(Nit, 서버에 붙일 때 조립 함수로 옮긴다), `messages.create`가 `Message`가 아닌 값(JSON `null` 본문)을 돌려줄 때 `_verdict`가 `AttributeError`를 내는 것(CodeRabbit Minor, 타입 우회 없이는 막을 수 없어 막는 방법부터 정한다), 같은 묶음에서 `judge` 둘을 동시에 돌릴 때 판정 파일의 읽기와 교체 경합(CodeRabbit Major, 위 보류).
+- `judge`를 다음에 건드리는 티켓이 함께 볼 Minor(이번 셀프 리뷰가 남겼다): `approved`와 `prune`이 `run_judge`에서 `_judge_bundle`로 키워드 전용으로 지나가는 것, `run_judge`의 `except` 넷의 되풀이, `app/eval_judgments.py`가 고르기와 숫자 세기와 호출을 한 모듈에서 맡고 모델·판의 필터가 세 곳에 있는 것, 쓰다 죽어 마지막 줄이 잘린 `judgments.jsonl`을 사람이 손으로 고쳐야 하는 것, SDK 밖의 예외(잘못된 `RAG_JUDGE_URL`의 HTTP 오류 따위)가 두 실패로 바뀌지 않는 것. 봇 첫 회차가 더한 것: `judge_pairs`의 안쪽 함수가 `nonlocal`로 계수기를 바꾸는 출력 인자 꼴(claude-review Minor), `_judge_and_record`의 `finally: rewrite_sorted`가 예외를 내면 `JudgeRunError`를 가리는 것(Nit), 어댑터 생성자가 프로세스 전역 로거 수준을 바꾸는 것(Nit, 서버에 붙일 때 조립 함수로 옮긴다), `messages.create`가 `Message`가 아닌 값(JSON `null` 본문)을 돌려줄 때 `_verdict`가 `AttributeError`를 내는 것(CodeRabbit Minor, 타입 우회 없이는 막을 수 없어 막는 방법부터 정한다), 200 응답의 본문이 JSON이 아닐 때 `json.JSONDecodeError`가 `AnthropicError` 밖으로 올라 실행이 멈추는 것(둘째 회차의 CodeRabbit Minor, 같은 갈래이므로 위와 함께 가짜 끝점으로 재현한 뒤 `judge()`에 `ValueError`를 잡는 갈래를 더한다), 같은 묶음에서 `judge` 둘을 동시에 돌릴 때 판정 파일의 읽기와 교체 경합(CodeRabbit Major, 위 보류).
 - 회차 5 이상인 열린 항목이 셋이다(`measured-claim-beyond-probe` 6회차, `mutate-marker-discovery` 6회차, `crlf-from-script-edits` 5회차). search-eval의 마지막 티켓 뒤에 `next-session` 결정표가 chore 배치로 고른다.
 - 전체 `uv run pytest`는 커밋의 pre-commit이 돈다. 부하에서 `ReadTimeout`이 다시 나면 `load-readtimeout-flake`의 사건이다(이 PR의 첫 커밋 시도에서 계약 시험 둘이 2회차였다). 두 번째 커밋 시도에서도 pre-commit 전체 pytest가 5건(`tests/test_serve_command.py` 1, `tests/contract/test_delete_restore.py` 2, `tests/contract/test_first_round_trip.py` 2)을 `ReadTimeout`과 서버 기동 30초 초과로 빨갛게 냈고(4165 passed, 20분 31초) 그 파일 셋을 홀로 돌리니 19개 모두 초록이었다(3분 59초). 그래서 항목이 3회차다. 이 항목은 3회차부터 사례를 고치지 않고 종류 전체를 없애거나 받아들인다. 혼자 다시 돌려 지나가면 막지 않기는 게이트를 느슨하게 하는 길이라 넘김이고, 종류 전체를 없애는 고침(서버를 띄우는 시험의 시간 제한을 부하 여유로 한 곳에서 정하기 따위)은 이 PR이 아니라 chore가 정한다.
