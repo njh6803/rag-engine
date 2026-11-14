@@ -5,6 +5,7 @@
 """
 
 from rag_engine.domain.eval_set import (
+    JUDGE_CONFIG_KEYS,
     ChunkingConfig,
     EvalConfig,
     config_values,
@@ -44,3 +45,11 @@ def test_보고서의_구성_값은_검색_구성의_값에_판정_칸을_더한
     )
     assert values["judge_model"] == "claude-판정"
     assert values["judge_prompt_version"] == "1"
+
+
+def test_판정_칸의_이름_상수는_보고서가_더하는_칸과_같다() -> None:
+    """`compare`는 이 상수로 보고서의 `config`에서 판정 칸을 뺀다. 구성에 판정 칸이 늘어 상수를
+    고치지 않으면 `compare`가 그 칸을 검색 구성으로 견주어 조용히 어긋나므로 이 시험이 빨개진다."""
+    added = set(config_values(CONFIG)) - set(search_config_values(CONFIG))
+
+    assert added == set(JUDGE_CONFIG_KEYS)

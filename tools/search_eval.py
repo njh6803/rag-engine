@@ -8,6 +8,7 @@
         [--config <파일>]
     uv run python tools/search_eval.py inspect <묶음 폴더> <질의 목록 이름> <기대 근거 id>
         [--through fused|rerank] [--config <파일>]
+    uv run python tools/search_eval.py compare --gate fast|full <보고서> <묶음 폴더>
 
 기록 옵션은 `--records read|write|off`(기본 `read`)와 `--tei-device cpu|gpu`다. 장치는 `write`가
 반드시 받고 다른 방식에서는 쓰지 않는다. `index`와 `run`만 받고 `inspect`와 `judge`는 기록 옵션을
@@ -71,8 +72,19 @@
 그래서 `write`는 `--tei-device`로 장치를 받아 `records.json`에 적는다. `validate`는 기록의 크기와
 판, 요청 지문, TEI의 판을 본다.
 
-종료 코드. 0은 문제 없음, 1은 묶음이나 색인의 오류(없는 폴더, 빠진 환경 변수도 든다), 2는 잘못된
-인자다.
+`compare`는 데이터베이스와 TEI 없이 `run`이 쓴 보고서(`report.json`이나 그것이 든 폴더)를 묶음
+폴더의 기준 보고서와 견준다. `--gate fast`는 `baseline-fast.json`의 합친 뒤 줄과, `--gate full`은
+`baseline-full.json`의 리랭크 뒤 줄과 본다. 질의 목록마다 상위 5 적중률이 2%p, MRR이 0.02를 넘어
+떨어지면 1로 끝나고 표준 오류에 질의 목록, 지표, 기준값, 새 값, 차의 표를 찍는다(정확히 그만큼은
+통과한다). 묶음의 내용 해시, 구성(`judge_model`과 `judge_prompt_version`을 뺀 칸), 그 게이트가 읽는
+기록 파일(조각과 질의의 임베딩, 전체 게이트는 리랭크 점수도)의 해시가 다르거나 기준 보고서가 없으면
+숫자를 견주지 않고 1로 끝나며 기준 보고서를 갱신해야 한다고 알린다. 하락폭 넘게 오른 숫자는
+통과시키되 기준 보고서를 갱신하라고 알린다. 보고서의 `meta`는 견주지 않는다. `compare`는 기록 파일의
+해시만 견주고 요청 지문과 TEI 판의 불일치는 보지 않는다. 그것은 `validate`의 몫이라 빠른 게이트는
+`validate`를 `run`보다 앞에 둔다.
+
+종료 코드. 0은 문제 없음, 1은 묶음이나 색인의 오류(없는 폴더, 빠진 환경 변수도 든다)나 게이트 실패,
+2는 잘못된 인자다.
 """
 
 import argparse
@@ -82,6 +94,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
+from rag_engine.adapters.eval_compare import compare_command
 from rag_engine.adapters.eval_environment import EvalEnvironmentError, read_eval_environment
 from rag_engine.adapters.eval_index import index_bundle
 from rag_engine.adapters.eval_inspect import inspect_evaluation
@@ -89,6 +102,7 @@ from rag_engine.adapters.eval_judge import run_judge
 from rag_engine.adapters.eval_run import current_commit, run_evaluation
 from rag_engine.adapters.eval_validate import validate_bundle, validate_bundle_indexed
 from rag_engine.adapters.inference_records import RecordMode, RecordsOptions
+from rag_engine.app.eval_compare import Gate
 from rag_engine.app.eval_stages import Stage
 from rag_engine.domain.errors import ConfigurationError
 from rag_engine.domain.eval_set import EvalProblem
@@ -101,6 +115,7 @@ EXIT_USAGE: Final = 2
 THROUGH_CHOICES: Final = ("fused", "rerank")
 RECORDS_CHOICES: Final = tuple(mode.value for mode in RecordMode)
 DEVICE_CHOICES: Final = ("cpu", "gpu")
+GATE_CHOICES: Final = tuple(gate.value for gate in Gate)
 REPOSITORY: Final = Path(__file__).resolve().parent.parent
 COMPOSE_FILE: Final = REPOSITORY / "compose.eval.yml"
 
@@ -167,6 +182,17 @@ def _parser() -> argparse.ArgumentParser:
         help="fused(기본)나 rerank(리랭커 끝점이 필요하다)",
     )
     _add_config(inspect)
+    compare = commands.add_parser(
+        "compare", help="보고서를 기준 보고서와 견줘 하락폭을 넘으면 실패한다"
+    )
+    compare.add_argument(
+        "--gate",
+        required=True,
+        choices=GATE_CHOICES,
+        help="fast(baseline-fast.json의 합친 뒤 줄)나 full(baseline-full.json의 리랭크 뒤 줄)",
+    )
+    compare.add_argument("report", type=Path, help="견줄 보고서(report.json이나 그것이 든 폴더)")
+    compare.add_argument("bundle", type=Path, help="기준 보고서가 든 묶음 폴더")
     return parser
 
 
@@ -216,6 +242,9 @@ def main(argv: Sequence[str]) -> int:
         # argparse가 사용법을 출력하고 낸 종료다. 도움말은 0이고 잘못된 인자는 2다.
         return stop.code if isinstance(stop.code, int) else EXIT_USAGE
     bundle: Path = args.bundle
+    if args.command == "compare":
+        report: Path = args.report
+        return compare_command(report, bundle, Gate(str(args.gate)), TOOL)
     if args.command == "validate":
         indexed: bool = args.indexed
         return _validate(bundle, indexed=indexed)
