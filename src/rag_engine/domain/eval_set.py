@@ -133,6 +133,11 @@ class EvalConfig:
     judge_prompt_version: str
 
 
+# `config_values`가 `search_config_values`에 더하는 판정 칸의 이름이다. 보고서의 `config` 칸에서
+# 검색 구성만 골라 견주는 쪽(`compare`)이 쓴다.
+JUDGE_CONFIG_KEYS: Final = ("judge_model", "judge_prompt_version")
+
+
 def search_config_values(config: EvalConfig) -> dict[str, JsonValue]:
     """검색의 숫자에 닿는 구성의 칸. 묶음의 내용 해시와 `compare`의 구성 비교가 쓴다. 판정 칸
     (`judge_model`, `judge_prompt_version`)은 검색의 숫자에 닿지 않는 참고 숫자의 열쇠라서 뺀다."""

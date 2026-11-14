@@ -1,0 +1,255 @@
+# search-eval 08(`compare`)의 변이.
+# 하락폭의 경계(넘을 때만 실패, 오를 때도 같은 경계), 십진수로 빼는 것, 두 지표의 하락폭, 게이트마다
+# 보는 단계와 기록 파일(빠른 게이트는 리랭크 기록을 보지 않고 전체 게이트는 본다), 판정 칸 둘을 뺀 구성
+# 견줌, 내용 해시, 줄이 없는 보고서의 거부, 기준 보고서의 경로 판정, 보고서 폴더 인자, 갱신 안내와
+# 실패 종료 코드, 그리고 `run`의 보고서가 읽지 않은 조각 임베딩 기록 파일의 해시를 싣는 것을 겨눈다.
+# 표면 시험(`tests/tools/test_search_eval_compare.py`)과 앱 시험(`tests/app/test_eval_compare.py`)은
+# 구현 전에 썼고 모듈이 없다는 이유로 빨갛게 확인했다. 그 빨강은 구현의 까닭이 아니므로 이 표가 구현을
+# 틀리게 했을 때 시험이 실패하는 것으로 확인한다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test \
+#       uv run python tools/mutate.py .scratch/search-eval/probes/eval_compare_mutations.toml
+# 빨강의 표지는 시험 파일에 있으면 안 된다(도구가 거른다).
+
+[[mutation]]
+name = "하락이 하락폭과 같아도 실패로 센다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ['baseline=0.82, new=0.8)']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''            if gap > threshold:'''
+new = '''            if gap >= threshold:'''
+
+[[mutation]]
+name = "상승이 하락폭과 같아도 오른 것으로 센다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ['Left contains one more item: MetricChange(']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''            elif -gap > threshold:'''
+new = '''            elif -gap >= threshold:'''
+
+[[mutation]]
+name = "차의 반올림을 소수 둘째 자리로 거칠게 한다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ["not enough values to unpack (expected 1, got 0)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''_GAP_PRECISION: Final = Decimal("1e-9")'''
+new = '''_GAP_PRECISION: Final = Decimal("1e-2")'''
+
+[[mutation]]
+name = "MRR의 하락폭을 0.2로 키운다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ['not enough values to unpack (expected 1, got 0)']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''MRR_DROP: Final = Decimal("0.02")'''
+new = '''MRR_DROP: Final = Decimal("0.2")'''
+
+[[mutation]]
+name = "상위 5 적중률의 하락폭을 0.2로 키운다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ['not enough values to unpack (expected 1, got 0)']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''HIT_AT_5_DROP: Final = Decimal("0.02")'''
+new = '''HIT_AT_5_DROP: Final = Decimal("0.2")'''
+
+[[mutation]]
+name = "전체 게이트도 합친 뒤 줄을 본다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ['not enough values to unpack (expected 1, got 0)']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''        return Stage.RERANK if self is Gate.FULL else Stage.FUSED'''
+new = '''        return Stage.FUSED'''
+
+[[mutation]]
+name = "전체 게이트가 리랭크 기록의 해시를 보지 않는다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ['not enough values to unpack (expected 1, got 0)']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''        return (*_EMBEDDING_FILES, _RERANK_FILE) if self is Gate.FULL else _EMBEDDING_FILES'''
+new = '''        return _EMBEDDING_FILES'''
+
+[[mutation]]
+name = "빠른 게이트가 리랭크 기록의 해시도 본다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ["Left contains one more item: '기록 파일 records/rerank.jsonl의 해시가 다르다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''        return (*_EMBEDDING_FILES, _RERANK_FILE) if self is Gate.FULL else _EMBEDDING_FILES'''
+new = '''        return (*_EMBEDDING_FILES, _RERANK_FILE)'''
+
+[[mutation]]
+name = "조각 임베딩 기록의 해시를 보지 않는다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ['not enough values to unpack (expected 1, got 0)']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''    for kind in ("chunk-embeddings", "query-embeddings")'''
+new = '''    for kind in ("query-embeddings",)'''
+
+[[mutation]]
+name = "구성을 견줄 때 판정 칸 둘도 본다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ["Left contains one more item: '구성이 다르다: judge_model"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''if name not in JUDGE_CONFIG_KEYS}'''
+new = '''if name not in ()}'''
+
+[[mutation]]
+name = "묶음의 내용 해시를 견주지 않는다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ['baseline=0.9, new=0.1)']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''    if baseline.content_hash != new.content_hash:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "기준 보고서에 그 단계 줄이 없어도 견준다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ["그 단계 줄이 없는데 통과했다: ()"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''    if not expected:
+        return [f"기준 보고서에'''
+new = '''    if False:
+        return [f"기준 보고서에'''
+
+[[mutation]]
+name = "새 보고서에 질의 목록의 줄이 없어도 견준다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ["KeyError: ('human', 'rerank')"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''        if name not in present
+'''
+new = '''        if False
+'''
+
+[[mutation]]
+name = "기준 보고서를 경로 판정 없이 연다"
+tests = ["tests/tools/test_search_eval_compare.py"]
+expect = "red"
+expect_output = ['기준 보고서가 없다: baseline-fast.json']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_compare.py"
+old = '''        path = BundlePaths(bundle).resolve(gate.baseline_file)'''
+new = '''        path = bundle / gate.baseline_file'''
+
+[[mutation]]
+name = "보고서 자리에 폴더를 받지 않는다"
+tests = ["tests/tools/test_search_eval_compare.py"]
+expect = "red"
+expect_output = ["보고서 폴더를 준 실행의 종료 코드: 1"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_compare.py"
+old = '''    new_path = report / REPORT_FILE if report.is_dir() else report'''
+new = '''    new_path = report'''
+
+[[mutation]]
+name = "하락폭 넘게 올라도 갱신 안내를 내지 않는다"
+tests = ["tests/tools/test_search_eval_compare.py"]
+expect = "red"
+expect_output = ['통과: 게이트 fast에서 baseline-fast.json보다 하락폭을 넘어 떨어진 숫자가 없다']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_compare.py"
+old = '''    if result.rises:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "하락폭을 넘는 하락도 종료 코드 0으로 끝낸다"
+tests = ["tests/tools/test_search_eval_compare.py"]
+expect = "red"
+expect_output = ["하락폭을 넘는 하락의 종료 코드: 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_compare.py"
+old = '''        for line in _table(result.drops):
+            print(line, file=sys.stderr)
+        return EXIT_FAILED'''
+new = '''        for line in _table(result.drops):
+            print(line, file=sys.stderr)
+        return EXIT_OK'''
+
+[[mutation]]
+name = "run의 보고서가 읽지 않은 조각 임베딩 기록의 해시를 싣지 않는다"
+tests = ["tests/tools/test_search_eval_compare_records.py"]
+expect = "red"
+expect_output = ["KeyError: 'records/chunk-embeddings.keys'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''        if RecordKind.CHUNK_EMBEDDINGS in self._owned:
+            return {}'''
+new = '''        if True:
+            return {}'''
+
+[[mutation]]
+name = "write의 보고서만 조각 임베딩 기록의 해시를 싣지 않는다"
+tests = ["tests/tools/test_search_eval_compare_records.py"]
+expect = "red"
+expect_output = ["KeyError: 'records/chunk-embeddings.keys'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''            hashes.update(self._chunk_file_hashes())
+            return dict(sorted(hashes.items()))'''
+new = '''            return dict(sorted(hashes.items()))'''
+
+[[mutation]]
+name = "조각 임베딩 기록 파일이 없는 묶음에서도 해시를 읽으려 한다"
+tests = ["tests/tools/test_search_eval_records.py"]
+expect = "red"
+expect_output = ["추론 기록을 읽지 못했다: FileNotFoundError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/inference_records.py"
+old = '''            if path.is_file():
+                found['''
+new = '''            if True:
+                found['''
+
+[[mutation]]
+name = "차를 소수 아홉째 자리로 반올림하지 않는다"
+tests = ["tests/app/test_eval_compare.py"]
+expect = "red"
+expect_output = ["실패로 읽혔다: [("]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_compare.py"
+old = '''    return exact.quantize(_GAP_PRECISION)'''
+new = '''    return exact'''

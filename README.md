@@ -71,7 +71,7 @@ tests/
 compose.test.yml  테스트용 PostgreSQL(pgvector, 운영과 같은 이미지 판). 검사 러너가 없으면 띄운다
 compose.eval.yml  검색 평가 전용 PostgreSQL(데이터베이스 이름 rag_eval)과 임베딩 TEI. 머리 주석이 평가 전용 환경 변수 넷의 값을 적는다
 evals/         검색 평가 재료. `public-docs/`가 공공 문서 묶음(문서 파일 `documents/`, 문서 목록 `documents.json`, 머리 `eval-set.json`, 구성 `config.json`)이다. 문서마다 출처와 이용 조건을 목록에 적는다
-tools/         훅, 검사, 검사 러너, 검색 평가 도구(search_eval.py. `validate`가 묶음의 형식과 목록을 보고 `--indexed`가 색인 상태와 글귀를 보며, `index`가 묶음을 평가 전용 데이터베이스에 색인하며, `run --through fused`가 벡터만·키워드만·합친 뒤 세 단계의 지표를, `run --through rerank`가 리랭크 뒤 단계와 리랭크 점수의 분포까지 더해 `report.json`과 `report.md`로 쓰고, 보고서는 놓친 질의의 탈락 지점과 낱말 겹침, 유형 표지와 필터 질의의 지표, 사람 판정의 수도 싣는다. `inspect`가 질의 하나의 글과 단계별 상위 조각을 표준 출력에 찍고, `index`와 `run`과 `inspect`는 `--config <파일>`로 다른 구성을 받는다. `index`와 `run`의 `--records read|write|off`가 모델이 계산한 임베딩과 리랭크 점수를 묶음의 `records/`에 저장해 다시 쓴다). 규약은 .claude/rules/tools.md
+tools/         훅, 검사, 검사 러너, 검색 평가 도구(search_eval.py. `validate`가 묶음의 형식과 목록을 보고 `--indexed`가 색인 상태와 글귀를 보며, `index`가 묶음을 평가 전용 데이터베이스에 색인하며, `run --through fused`가 벡터만·키워드만·합친 뒤 세 단계의 지표를, `run --through rerank`가 리랭크 뒤 단계와 리랭크 점수의 분포까지 더해 `report.json`과 `report.md`로 쓰고, 보고서는 놓친 질의의 탈락 지점과 낱말 겹침, 유형 표지와 필터 질의의 지표, 사람 판정의 수도 싣는다. `inspect`가 질의 하나의 글과 단계별 상위 조각을 표준 출력에 찍고, `index`와 `run`과 `inspect`는 `--config <파일>`로 다른 구성을 받는다. `index`와 `run`의 `--records read|write|off`가 모델이 계산한 임베딩과 리랭크 점수를 묶음의 `records/`에 저장해 다시 쓴다. `compare --gate fast|full`이 보고서를 묶음의 기준 보고서와 견줘 하락폭을 넘거나 견줄 수 없으면 실패한다). 규약은 .claude/rules/tools.md
 docs/          헌법, ADR, PRD, 에이전트 문서, 일지
 .scratch/      로컬 마크다운 이슈 트래커(기능 계획, 티켓, 회고 대기열)
 ```
