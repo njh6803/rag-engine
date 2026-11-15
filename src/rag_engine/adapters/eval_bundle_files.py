@@ -1,7 +1,8 @@
 """평가 세트 묶음의 파일 판정(명세 "평가 세트의 형식"의 `validate`가 보는 것, 티켓 search-eval 02).
 
 데이터베이스 없이 묶음의 폴더만 본다. 문서 목록의 모든 파일이 `documents/`에 있고 해시가 맞는지,
-목록에 없는 파일이 `documents/`에 없는지, 문서 파일의 합이 30MB 이하인지, 도구가 묶음에서 여는
+목록에 없는 파일이 `documents/`에 없는지, 문서 파일의 합이 30MB 이하인지(머리의 `local_only`가
+참인, 저장소에 커밋하지 않는 참고 묶음은 이 상한을 걸지 않는다), 도구가 묶음에서 여는
 이름이 정해진 파일(`records/`와 그 안의 기록 파일, `judgments.jsonl`, 기준 보고서)이 묶음 밖을
 가리키지 않는지다. 읽는 파일만이 아니라 쓸 파일도 같은 판정을 지난다(`BundlePaths`).
 
@@ -20,7 +21,13 @@ from pathlib import Path
 from typing import Final
 
 from rag_engine.adapters.bundle_paths import BundlePathError, BundlePaths
-from rag_engine.domain.eval_set import MAX_DOCUMENT_BYTES, EvalDocument, EvalProblem, EvalSet
+from rag_engine.domain.eval_set import (
+    MAX_DOCUMENT_BYTES,
+    BundleScope,
+    EvalDocument,
+    EvalProblem,
+    EvalSet,
+)
 
 DOCUMENTS_FOLDER: Final = "documents"
 _CHUNK_BYTES: Final = 1024 * 1024
@@ -42,7 +49,7 @@ def check_bundle_files(paths: BundlePaths, eval_set: EvalSet) -> tuple[EvalProbl
     total = sum(size for size, _ in checked)
     problems = [problem for _, found in checked for problem in found]
     problems.extend(_undeclared(paths, {document.key for document in eval_set.documents}))
-    if total > MAX_DOCUMENT_BYTES:
+    if total > MAX_DOCUMENT_BYTES and eval_set.scope is not BundleScope.LOCAL_ONLY:
         problems.append(
             EvalProblem(
                 f"{DOCUMENTS_FOLDER}/",
