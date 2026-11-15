@@ -275,7 +275,9 @@ class RecordsRun:
 
     def summary(self) -> RecordsSummary:
         """보고서의 `records` 칸. 읽은 수와 새로 계산한 수, 이번 실행의 값이 나온 기록 파일마다의
-        sha256이다. `write`는 다시 쓸 파일의 해시다. `off`는 비었다."""
+        sha256이다. `write`는 다시 쓸 파일의 해시다. 이 명령이 주인이 아닌 조각 임베딩 기록 파일은
+        디스크에 있으면 그 해시도 싣는다(`compare`가 쓴다). `records.json`이 없는 `read`와 `off`는
+        비었다."""
         recorders = [*self._embeddings.values(), *([self._rerank] if self._rerank else [])]
         return RecordsSummary(
             read=sum(recorder.read_count for recorder in recorders),
@@ -362,6 +364,7 @@ class RecordsRun:
             hashes[f"{RECORDS_FOLDER}/{MANIFEST_NAME}"] = hashlib.sha256(
                 manifest.render()
             ).hexdigest()
+            hashes.update(self._chunk_file_hashes())
             return dict(sorted(hashes.items()))
         if self._manifest is None:
             return {}
@@ -371,12 +374,29 @@ class RecordsRun:
             for name in record_files(kind):
                 path = self._paths.resolve(f"{RECORDS_FOLDER}/{name}")
                 hashes[f"{RECORDS_FOLDER}/{name}"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        hashes.update(self._chunk_file_hashes())
         if hashes:
             manifest_path = self._paths.resolve(f"{RECORDS_FOLDER}/{MANIFEST_NAME}")
             hashes[f"{RECORDS_FOLDER}/{MANIFEST_NAME}"] = hashlib.sha256(
                 manifest_path.read_bytes()
             ).hexdigest()
         return dict(sorted(hashes.items()))
+
+    def _chunk_file_hashes(self) -> dict[str, str]:
+        """주인이 아닌 명령이 보고서에 싣는 조각 임베딩 기록 파일의 해시(디스크의 바이트, 티켓
+        search-eval 08). 조각 임베딩은 `index`가 읽고 쓰는 파일이라 `run`의 기록기는 값을 읽지
+        않지만, 기록을 손으로 고쳐도 `compare`가 알도록 `run`의 보고서가 그 해시를 싣는다. 값이
+        아니라 파일의 바이트만 보므로 모델 이름이나 차원이 구성과 다른 파일도 싣는다. 파일이 없으면
+        싣지 않는다. 부르는 쪽(`_file_hashes`)이 `records.json`이 없는 `read`에서는 이 함수까지 오지
+        않으므로 그 실행의 보고서에는 조각 파일의 해시도 없다."""
+        if RecordKind.CHUNK_EMBEDDINGS in self._owned:
+            return {}
+        found: dict[str, str] = {}
+        for name in record_files(RecordKind.CHUNK_EMBEDDINGS):
+            path = self._paths.resolve(f"{RECORDS_FOLDER}/{name}")
+            if path.is_file():
+                found[f"{RECORDS_FOLDER}/{name}"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        return found
 
 
 def request_fingerprint(kind: RecordKind) -> str:

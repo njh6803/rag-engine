@@ -65,8 +65,10 @@ class ReportRow:
 @dataclass(frozen=True, slots=True)
 class RecordsSummary:
     """이번 실행이 추론 기록에서 읽은 열쇠의 수와 새로 계산한 열쇠의 수, 값이 나온 기록 파일마다의
-    sha256이다(묶음 폴더 기준 경로 → 16진 소문자 글). 기록을 쓰지 않은 실행(`--records off`)은
-    기록 계층을 거치지 않아 두 수를 세지 않으므로 0이고 파일이 없다."""
+    sha256이다(묶음 폴더 기준 경로 → 16진 소문자 글). `run`이 읽지 않는 조각 임베딩 기록 파일도
+    디스크에 있으면 그 해시를 싣는다(`compare`가 견준다). 다만 `records.json`이 없어 기록을 읽지
+    못하는 `read`는 어느 파일의 해시도 싣지 않는다. 기록을 쓰지 않은 실행(`--records off`)은 기록
+    계층을 거치지 않아 두 수를 세지 않으므로 0이고 파일이 없다."""
 
     read: int
     computed: int
@@ -432,7 +434,7 @@ def _records_markdown(records: RecordsSummary) -> list[str]:
         ),
     ]
     if records.files:
-        lines += ["", *_table(("읽은 기록 파일", "sha256"), sorted(records.files.items()))]
+        lines += ["", *_table(("기록 파일", "sha256"), sorted(records.files.items()))]
     return lines
 
 
