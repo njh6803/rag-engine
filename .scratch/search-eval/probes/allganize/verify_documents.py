@@ -60,12 +60,13 @@ def verify(out: Path) -> int:
         if not path.exists():
             continue
         with pdfplumber.open(path) as pdf:
-            page_words = [_words(page.extract_text() or "") for page in pdf.pages]
-            chars = sum(len(page.extract_text() or "") for page in pdf.pages)
+            texts = [page.extract_text() or "" for page in pdf.pages]
+        page_words = [_words(text) for text in texts]
+        chars = sum(len(text) for text in texts)
         best: list[float] = []
         at_page: list[float] = []
         for question in questions:
-            if question["target_file_name"] != row["file_name"]:
+            if question["target_file_name"].strip() != row["file_name"]:
                 continue
             if question["context_type"].strip() == "image":
                 continue

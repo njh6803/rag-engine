@@ -133,7 +133,7 @@ def _write_missing(out: Path, rows: list[dict[str, str]], report: list[str]) -> 
     """받지 못했고 질문이 달린 문서의 목록 `missing.tsv`를 쓴다. `fetch_landing.py`와 사람이
     읽는다."""
     asked = Counter(
-        row["target_file_name"] for row in _read_rows(out / "rag_evaluation_result.csv")
+        row["target_file_name"].strip() for row in _read_rows(out / "rag_evaluation_result.csv")
     )
     lines = ["번호\t도메인\t질문수\t쪽수\t파일 이름(데이터셋)\t출처 주소\t자동 결과"]
     for line, row in zip(report, rows, strict=True):
@@ -153,6 +153,14 @@ def _page_number(text: str) -> int | None:
 def convert(out: Path, bundle: Path, exclude: frozenset[int]) -> int:
     documents = _read_rows(out / "documents.csv")
     questions = _read_rows(out / "rag_evaluation_result.csv")
+    outside = sorted(index for index in exclude if not 1 <= index <= len(documents))
+    if outside:
+        print(f"--exclude 번호가 1~{len(documents)} 밖이다: {outside}", file=sys.stderr)
+        return 1
+    if bundle.exists() and any(bundle.iterdir()):
+        # 이미 든 옛 PDF가 남아 `validate`가 "목록에 없는 파일"로 거부하는 것을 막는다.
+        print(f"--bundle 폴더가 비어 있지 않다. 새 폴더를 주거나 비운다: {bundle}", file=sys.stderr)
+        return 1
     today = datetime.now(tz=_KST).date().isoformat()
     kept: dict[str, tuple[int, dict[str, str], bytes]] = {}
     for index, row in enumerate(documents, start=1):
