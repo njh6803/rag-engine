@@ -1,0 +1,4 @@
+platform: Windows-10-10.0.19045-SP0, 논리 코어 16 (GPU turing-1.9.4, GTX 1660 Ti, --max-batch-tokens 4096)
+model_id: BAAI/bge-reranker-v2-m3, max_client_batch_size: 32
+리랭크: 쌍 96개를 배치 32로 60.8s, 1.58쌍/s (배치마다 20.1~20.4s)
+  어림: 질의 300개에 후보 50개씩 쌍 15000개면 158분

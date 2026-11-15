@@ -1,0 +1,8 @@
+platform: Windows-10-10.0.19045-SP0, 논리 코어 16 (GPU turing-1.9.4, GTX 1660 Ti, --max-batch-tokens 4096)
+model_id: BAAI/bge-m3, max_client_batch_size: 32, max_input_length: 4096
+조각 글 하나: 936자, 471토큰(특수 토큰 포함)
+조각 임베딩: 192개를 배치 32로 120.2s, 1.60개/s (배치마다 19.9~20.2s)
+  어림: 조각 1000개면 10.4분
+  어림: 조각 3000개면 31.3분
+  어림: 조각 6000개면 62.6분
+질의 임베딩: 30개를 하나씩, 중앙값 77ms, 최대 157ms
