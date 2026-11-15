@@ -1,0 +1,326 @@
+{
+  "format_version": "1.0.0",
+  "eval_set": {
+    "name": "allganize-rag-ko",
+    "format_version": "1.0.0",
+    "content_hash": "b4e20d227759c50e128a46fb27df87fb0ffcb5b2592d4c04f39022b6452559e6",
+    "documents": 41,
+    "questions": 174,
+    "queries": 174
+  },
+  "config": {
+    "embedding_model": "BAAI/bge-m3",
+    "embedding_dimensions": 1024,
+    "reranker_model": "BAAI/bge-reranker-v2-m3",
+    "chunking": {
+      "strategy": "structure_first",
+      "max_tokens": 512,
+      "overlap_tokens": 64
+    },
+    "search_candidates": 50,
+    "tei_version": "1.9.4",
+    "judge_model": "claude-opus-5-5",
+    "judge_prompt_version": "1"
+  },
+  "index": {
+    "schema_version": 1,
+    "embedding_model": "BAAI/bge-m3",
+    "embedding_dimensions": 1024,
+    "chunking_hash": "4181387325cdee16cb3a9b25c5b2c5f453f52a1088d781afe6dd61edfd1e5528",
+    "tokenizer_version": "kiwipiepy 0.24.1; kiwipiepy_model 0.24.0; keyword-rules 1",
+    "chunks": 1197
+  },
+  "stages": [
+    "vector",
+    "keyword",
+    "fused"
+  ],
+  "rows": [
+    {
+      "query_list": "human",
+      "stage": "vector",
+      "queries": 174,
+      "hit_at_1": 0.5804597701149425,
+      "hit_at_3": 0.7586206896551724,
+      "hit_at_5": 0.7873563218390804,
+      "hit_at_10": 0.8275862068965517,
+      "mrr": 0.6719508301404854,
+      "recall": 0.8275862068965517,
+      "ndcg_at_10": 0.7100841729379485,
+      "ndcg_truncated": 0
+    },
+    {
+      "query_list": "human",
+      "stage": "keyword",
+      "queries": 174,
+      "hit_at_1": 0.45977011494252873,
+      "hit_at_3": 0.6264367816091954,
+      "hit_at_5": 0.6609195402298851,
+      "hit_at_10": 0.735632183908046,
+      "mrr": 0.5546136653895275,
+      "recall": 0.735632183908046,
+      "ndcg_at_10": 0.598358542489099,
+      "ndcg_truncated": 0
+    },
+    {
+      "query_list": "human",
+      "stage": "fused",
+      "queries": 174,
+      "hit_at_1": 0.603448275862069,
+      "hit_at_3": 0.735632183908046,
+      "hit_at_5": 0.7701149425287356,
+      "hit_at_10": 0.8218390804597702,
+      "mrr": 0.6791324575807335,
+      "recall": 0.8218390804597702,
+      "ndcg_at_10": 0.7136332567457668,
+      "ndcg_truncated": 0
+    }
+  ],
+  "by_tag": [
+    {
+      "query_list": "human",
+      "tag": "figure",
+      "stage": "fused",
+      "queries": 42,
+      "hit_at_1": 0.35714285714285715,
+      "hit_at_3": 0.4523809523809524,
+      "hit_at_5": 0.47619047619047616,
+      "hit_at_10": 0.5476190476190477,
+      "mrr": 0.4200680272108843,
+      "recall": 0.5476190476190477,
+      "ndcg_at_10": 0.45044425379200037,
+      "ndcg_truncated": 0
+    },
+    {
+      "query_list": "human",
+      "tag": "table",
+      "stage": "fused",
+      "queries": 28,
+      "hit_at_1": 0.6071428571428571,
+      "hit_at_3": 0.7857142857142857,
+      "hit_at_5": 0.8214285714285714,
+      "hit_at_10": 0.8928571428571429,
+      "mrr": 0.708971088435374,
+      "recall": 0.8928571428571429,
+      "ndcg_at_10": 0.7536854922313674,
+      "ndcg_truncated": 0
+    }
+  ],
+  "filtered": [],
+  "misses": [
+    {
+      "query_list": "human",
+      "evidence_id": "finance-001",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-002",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-003",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-004",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-005",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-006",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-007",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-008",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-021",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-022",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-023",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-024",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-025",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-026",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-027",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "finance-028",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "public-001",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "public-030",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "public-035",
+      "cause": "no_matching_chunk",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "public-036",
+      "cause": "no_matching_chunk",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "medical-003",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "medical-009",
+      "cause": "no_matching_chunk",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "medical-020",
+      "cause": "no_matching_chunk",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "medical-023",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "law-004",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "law-009",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "law-020",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "law-024",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "law-027",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "law-028",
+      "cause": "not_in_candidates",
+      "word_overlap": null
+    },
+    {
+      "query_list": "human",
+      "evidence_id": "law-042",
+      "cause": "lost_in_fusion",
+      "word_overlap": null
+    }
+  ],
+  "miss_counts": {
+    "missed": 31,
+    "causes": {
+      "no_matching_chunk": 4,
+      "not_in_candidates": 16,
+      "lost_in_fusion": 11,
+      "lost_in_rerank": 0
+    },
+    "zero_overlap": 0
+  },
+  "human_causes": {
+    "multi_document": 0,
+    "no_context": 0,
+    "other": 0,
+    "table_or_figure": 0,
+    "vocabulary": 0
+  },
+  "llm": null,
+  "llm_unavailable": "judgments.jsonl이 없다. judge로 판정을 쌓은 뒤에 run을 다시 친다",
+  "records": {
+    "read": 0,
+    "computed": 0,
+    "files": {}
+  },
+  "meta": {
+    "run_at": "2026-11-15T09:49:22.533303+00:00",
+    "commit": "63fb219afaac8bdecf3adfd49d51c5cd1de9fdb9"
+  }
+}
