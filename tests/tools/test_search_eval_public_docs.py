@@ -27,6 +27,7 @@ RECORDS = (
     "chunk-embeddings.f32",
     "query-embeddings.keys",
     "query-embeddings.f32",
+    "rerank.jsonl",
 )
 
 

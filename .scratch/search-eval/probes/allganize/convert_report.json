@@ -1,0 +1,24 @@
+{
+  "dataset": "allganize/RAG-Evaluation-Dataset-KO",
+  "revision": "35db50ff8739d78b11ee68b6f4ef04a95862a504",
+  "documents_total": 64,
+  "documents_kept": 41,
+  "excluded_documents": [
+    5
+  ],
+  "questions_total": 300,
+  "questions_kept": 174,
+  "questions_skipped": {
+    "document_not_fetched": 121,
+    "document_excluded": 3,
+    "document_not_listed": 1,
+    "page_missing": 1
+  },
+  "kept_by_domain": {
+    "finance": 28,
+    "public": 36,
+    "medical": 23,
+    "law": 52,
+    "commerce": 35
+  }
+}

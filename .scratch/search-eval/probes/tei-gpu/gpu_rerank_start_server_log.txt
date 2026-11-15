@@ -1,0 +1,31 @@
+2026-11-15T06:24:39.604688Z  INFO text_embeddings_router: router/src/main.rs:216: Args { model_id: "BAA*/***-********-*2-m3", revision: None, tokenization_workers: None, dtype: None, served_model_name: None, pooling: None, max_concurrent_requests: 512, max_batch_tokens: 4096, max_batch_requests: None, max_client_batch_size: 32, auto_truncate: true, default_prompt_name: None, default_prompt: None, dense_path: None, hf_api_token: None, hf_token: None, hostname: "efe27a90383d", port: 80, uds_path: "/tmp/text-embeddings-inference-server", huggingface_hub_cache: Some("/data"), payload_limit: 2000000, api_key: None, json_output: false, disable_spans: false, otlp_endpoint: None, otlp_service_name: "text-embeddings-inference.server", prometheus_port: 9000, cors_allow_origin: None }
+2026-11-15T06:24:39.895140Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:42: Starting download
+2026-11-15T06:24:39.895234Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `1_Pooling/config.json`
+2026-11-15T06:24:40.254581Z  WARN download_artifacts: text_embeddings_core::download: core/src/download.rs:50: Download failed: request error: HTTP status client error (404 Not Found) for url (https://huggingface.co/BAAI/bge-reranker-v2-m3/resolve/main/1_Pooling/config.json)
+2026-11-15T06:24:40.254852Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `sentence_bert_config.json`
+2026-11-15T06:24:40.473895Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `sentence_roberta_config.json`
+2026-11-15T06:24:40.721220Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `sentence_distilbert_config.json`
+2026-11-15T06:24:40.927554Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `sentence_camembert_config.json`
+2026-11-15T06:24:41.138059Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `sentence_albert_config.json`
+2026-11-15T06:24:41.334777Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `sentence_xlm-roberta_config.json`
+2026-11-15T06:24:41.534678Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `sentence_xlnet_config.json`
+2026-11-15T06:24:41.729188Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `config_sentence_transformers.json`
+2026-11-15T06:24:41.937902Z  WARN download_artifacts: text_embeddings_core::download: core/src/download.rs:65: Download failed: request error: HTTP status client error (404 Not Found) for url (https://huggingface.co/BAAI/bge-reranker-v2-m3/resolve/main/config_sentence_transformers.json)
+2026-11-15T06:24:41.937958Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `config.json`
+2026-11-15T06:24:41.938355Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `tokenizer.json`
+2026-11-15T06:24:41.939261Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:72: Model artifacts downloaded in 2.046116167s
+2026-11-15T06:24:52.110014Z  WARN text_embeddings_router: router/src/lib.rs:216: Could not find a Sentence Transformers config
+2026-11-15T06:24:52.110081Z  WARN text_embeddings_router: router/src/lib.rs:227: The maximum input length is `8192` which exceeds `--max-batch-tokens=4096`. Input sequences will be truncated to `4096` tokens, as `--auto-truncate` is either not provided (defaults to true) or provided as true. To avoid truncation, increase `--max-batch-tokens` to at least `8192` and set `--auto-truncate false`.
+2026-11-15T06:24:52.110091Z  INFO text_embeddings_router: router/src/lib.rs:234: Maximum number of tokens per request: 4096
+2026-11-15T06:24:52.111823Z  INFO text_embeddings_core::tokenization: core/src/tokenization.rs:38: Starting 15 tokenization workers
+2026-11-15T06:24:52.112178Z  INFO text_embeddings_router: router/src/lib.rs:284: Starting model backend
+2026-11-15T06:24:52.112239Z  INFO text_embeddings_backend: backends/src/lib.rs:672: Downloading `model.safetensors`
+2026-11-15T06:24:52.113662Z  INFO text_embeddings_backend: backends/src/lib.rs:507: Model weights downloaded in 1.418825ms
+2026-11-15T06:24:52.113770Z  INFO download_dense_modules: text_embeddings_backend: backends/src/lib.rs:843: Downloading `modules.json`
+2026-11-15T06:24:52.319448Z  INFO text_embeddings_backend: backends/src/lib.rs:519: Dense modules downloaded in 205.701999ms
+2026-11-15T06:24:52.320308Z  WARN text_embeddings_backend_candle: backends/candle/src/lib.rs:229: The `config.json` contains `hidden_act=gelu` and GeLU + tanh approximation will be used instead of exact GeLU (aka. GeLU erf), which might lead to subtle differences with Transformers or Sentence Transformers outputs which use exact GeLU when `hidden_act=gelu`, unless specified otherwise. GeLU + tanh is more efficient and more consistent across devices (e.g., cuBLASLt comes with fused GeLU + tanh), and will have negligible impact on the inference quality.
+2026-11-15T06:24:57.761484Z  INFO text_embeddings_backend_candle: backends/candle/src/lib.rs:429: Starting Bert model on Cuda(CudaDevice(DeviceId(1)))
+2026-11-15T06:26:33.045747Z  INFO text_embeddings_router: router/src/lib.rs:302: Warming up model
+2026-11-15T06:26:41.347530Z  WARN text_embeddings_router: router/src/lib.rs:367: Invalid hostname, defaulting to 0.0.0.0
+2026-11-15T06:26:41.352411Z  INFO text_embeddings_router::http::server: router/src/http/server.rs:1878: Starting HTTP server: 0.0.0.0:80
+2026-11-15T06:26:41.352448Z  INFO text_embeddings_router::http::server: router/src/http/server.rs:1879: Ready

@@ -1,0 +1,26 @@
+2026-11-15T06:19:30.947105Z  INFO text_embeddings_router: router/src/main.rs:216: Args { model_id: "BAA*/**e-m3", revision: None, tokenization_workers: None, dtype: None, served_model_name: None, pooling: None, max_concurrent_requests: 512, max_batch_tokens: 4096, max_batch_requests: None, max_client_batch_size: 32, auto_truncate: true, default_prompt_name: None, default_prompt: None, dense_path: None, hf_api_token: None, hf_token: None, hostname: "25678a22e524", port: 80, uds_path: "/tmp/text-embeddings-inference-server", huggingface_hub_cache: Some("/data"), payload_limit: 2000000, api_key: None, json_output: false, disable_spans: false, otlp_endpoint: None, otlp_service_name: "text-embeddings-inference.server", prometheus_port: 9000, cors_allow_origin: None }
+2026-11-15T06:19:31.261715Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:42: Starting download
+2026-11-15T06:19:31.261972Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `1_Pooling/config.json`
+2026-11-15T06:19:31.264282Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `sentence_bert_config.json`
+2026-11-15T06:19:31.264389Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `config_sentence_transformers.json`
+2026-11-15T06:19:31.264700Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `config.json`
+2026-11-15T06:19:31.264900Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:18: Downloading `tokenizer.json`
+2026-11-15T06:19:31.265645Z  INFO download_artifacts: text_embeddings_core::download: core/src/download.rs:72: Model artifacts downloaded in 3.933757ms
+2026-11-15T06:19:40.585465Z  WARN text_embeddings_router: router/src/lib.rs:227: The maximum input length is `8192` which exceeds `--max-batch-tokens=4096`. Input sequences will be truncated to `4096` tokens, as `--auto-truncate` is either not provided (defaults to true) or provided as true. To avoid truncation, increase `--max-batch-tokens` to at least `8192` and set `--auto-truncate false`.
+2026-11-15T06:19:40.585570Z  INFO text_embeddings_router: router/src/lib.rs:234: Maximum number of tokens per request: 4096
+2026-11-15T06:19:40.586712Z  INFO text_embeddings_core::tokenization: core/src/tokenization.rs:38: Starting 15 tokenization workers
+2026-11-15T06:19:40.587321Z  INFO text_embeddings_router: router/src/lib.rs:284: Starting model backend
+2026-11-15T06:19:40.587369Z  INFO text_embeddings_backend: backends/src/lib.rs:672: Downloading `model.safetensors`
+2026-11-15T06:19:40.948055Z  WARN text_embeddings_backend: backends/src/lib.rs:675: Could not download `model.safetensors`: request error: HTTP status client error (404 Not Found) for url (https://huggingface.co/BAAI/bge-m3/resolve/main/model.safetensors)
+2026-11-15T06:19:40.948420Z  INFO text_embeddings_backend: backends/src/lib.rs:680: Downloading `model.safetensors.index.json`
+2026-11-15T06:19:41.148473Z  WARN text_embeddings_backend: backends/src/lib.rs:499: safetensors weights not found. Using `pytorch_model.bin` instead. Model loading will be significantly slower.
+2026-11-15T06:19:41.148516Z  INFO text_embeddings_backend: backends/src/lib.rs:500: Downloading `pytorch_model.bin`
+2026-11-15T06:19:41.149230Z  INFO text_embeddings_backend: backends/src/lib.rs:507: Model weights downloaded in 561.856466ms
+2026-11-15T06:19:41.149524Z  INFO download_dense_modules: text_embeddings_backend: backends/src/lib.rs:843: Downloading `modules.json`
+2026-11-15T06:19:41.151446Z  INFO text_embeddings_backend: backends/src/lib.rs:519: Dense modules downloaded in 2.172552ms
+2026-11-15T06:19:41.153437Z  WARN text_embeddings_backend_candle: backends/candle/src/lib.rs:229: The `config.json` contains `hidden_act=gelu` and GeLU + tanh approximation will be used instead of exact GeLU (aka. GeLU erf), which might lead to subtle differences with Transformers or Sentence Transformers outputs which use exact GeLU when `hidden_act=gelu`, unless specified otherwise. GeLU + tanh is more efficient and more consistent across devices (e.g., cuBLASLt comes with fused GeLU + tanh), and will have negligible impact on the inference quality.
+2026-11-15T06:19:43.511169Z  INFO text_embeddings_backend_candle: backends/candle/src/lib.rs:429: Starting Bert model on Cuda(CudaDevice(DeviceId(1)))
+2026-11-15T06:21:37.501780Z  INFO text_embeddings_router: router/src/lib.rs:302: Warming up model
+2026-11-15T06:21:46.998726Z  WARN text_embeddings_router: router/src/lib.rs:367: Invalid hostname, defaulting to 0.0.0.0
+2026-11-15T06:21:47.019825Z  INFO text_embeddings_router::http::server: router/src/http/server.rs:1878: Starting HTTP server: 0.0.0.0:80
+2026-11-15T06:21:47.019864Z  INFO text_embeddings_router::http::server: router/src/http/server.rs:1879: Ready
