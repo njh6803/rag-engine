@@ -39,6 +39,14 @@
 
 `git fetch origin`으로 보니 `origin/dev`가 티켓 08(#49, `compare --gate`)을 받아 앞서 있었다. `git merge origin/dev`는 `README.md`의 `evals/`와 `tools/` 두 줄에서만 충돌했다. 두 줄은 서로 다른 쪽이 고친 것이라 `evals/` 줄은 이 PR의 판(기록 파일 설명 포함)을, `tools/` 줄은 08의 판(`compare --gate` 문장 포함)을 남겼다. `.scratch/plan.md`는 `plan_table.py`를 다시 돌려도 달라지지 않았다.
 
+## PR 직전 리뷰
+
+`coderabbit-review` 에이전트가 `coderabbit review --agent --committed --base origin/dev`를 돌렸다. CLI 0.7.5, `Seat: not assigned`, 종료 코드 0으로 `review_completed`, 파일 15개, 지적 1건이다(한도 초과나 거절은 없었다). Critical과 Major는 0건이다. 중점으로 준 항목은 에이전트가 직접 대 봤다. 비밀과 개인 정보가 데이터 파일에 실리지 않았고, 시험이 윈도 전용 가정 없이 임시 복사본에만 쓰며, 기록 파일 크기(2178×1024×4 등)와 시험 단언 문구가 `validate_bundle`의 실제 출력과 글자 그대로 같고, 티켓 Comments의 2193 대 2178 문장이 코드와 맞다는 보고다(에이전트가 돌린 값이고 이 세션에서 다시 돌리지는 않았다).
+
+- 남겼다. [Minor] `labr-01`의 사람 질문이 "수습 중인 근로자에게 수습 후 3개월 동안은"이라 적었는데 기대 근거의 글귀는 "수습을 시작한 날부터 3개월 이내"다. 질문의 "수습 후"는 수습이 끝난 뒤로 읽혀 근거와 어긋난다(두 파일의 79줄을 직접 읽어 맞는 것을 확인했다. 키워드형 질의에는 이 문제가 없다). 사용자가 검수표를 보고 "그대로 확정"한 문구이고, 바꾸면 `records/query-embeddings.*`를 GPU로 다시 만들어야 해서 이 PR에서는 고치지 않는다. 아래 "다음"에 넘겼다.
+- 남겼다. [Nit] 시험의 `manifest.write_text`가 윈도에서 `\r\n`으로 쓰는 것과 `iterdir()`의 순서가 파일 시스템마다 다른 것은 임시 복사본에서만 쓰고 어느 파일이든 해시 변조가 잡히므로 결과가 같아 두었다.
+- 새로 쓴 사실 문장은 이 절뿐이고, 고친 코드나 파일은 없다.
+
 ## 회고
 
 후보 네 개를 냈고 승인 0, 기각 4, 넘김 0이다. 승인된 것이 없어 대기열에 새로 쓴 항목과 회차를 더한 항목은 없다. 만료할 항목도 없었다(`queue_open_rows.py`를 작업 폴더 기준과 `--ref origin/dev` 기준으로 돌렸고 두 출력이 같았다).
@@ -53,4 +61,5 @@
 - 이 PR이 병합되면 티켓 10은 끝이고 `.scratch/search-eval/plan.md`에 `끝` 줄은 아직 없다(열린 티켓이 여럿이다). 티켓 11(빠른 게이트의 CI, `baseline-fast.json`)이 열린다. 선행 조건 08과 10이 모두 병합됐다. 티켓 14(GPU 리랭크 기록)도 10만 기다려 열린다. 둘은 서로 막지 않으므로 나란히 돌 수 있다.
 - 티켓 11은 `run --through fused`의 보고서를 기준 보고서로 커밋하고 `compare --gate fast`를 CI 잡에 건다. `records/`의 판이 바뀌면(TEI 판, 구성) 기록을 다시 만들어야 하고, 그때도 GPU 이미지가 필요하다. CPU TEI는 평가 도구의 시간 제한(`tei_timeout_seconds` 60초)에 걸려 `index`가 끝나지 않는다(티켓 09 `## Comments`).
 - 기대 근거나 질문을 고치면 `records/`의 질의 기록과 기준 보고서가 함께 어긋난다. 티켓 13이 판정 표본을 보고 기대 근거를 고치면 티켓 11의 `baseline-fast.json`을 함께 갱신한다(티켓 13의 Blocked by).
+- `labr-01`의 사람 질문 문구("수습 후 3개월 동안은")가 근거의 "수습을 시작한 날부터 3개월 이내"와 어긋난다(PR 직전 리뷰의 Minor 보류). 티켓 11이 `baseline-fast.json`을 만들기 전에 "수습을 시작한 날부터 3개월 동안은" 꼴로 고치고 `run --through fused --records write --tei-device gpu`로 질의 기록(`query-embeddings.*`)만 다시 만든다(이 세션에서 49초). 문구를 사용자가 확정했으므로 고칠 때 사용자에게 한 줄로 알린다. 티켓 13이 기대 근거를 고칠 때 함께 고치는 길도 있다.
 - 이 세션이 만든 임시 compose(`compose-gpu.yml`)는 커밋하지 않았다. 같은 구성으로 기록을 다시 만들 때는 `compose.eval.yml`에서 TEI 이미지를 `turing-1.9.4`와 GPU 예약으로 바꾸고 모델 캐시 볼륨을 이미 받아 둔 것으로 지정한다.
