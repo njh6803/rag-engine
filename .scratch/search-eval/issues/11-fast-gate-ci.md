@@ -4,7 +4,7 @@
 
 **Blocked by:** 08 (`compare`), 10 (질문과 임베딩 기록)
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] 경로 판정은 `tools/`의 순수 함수다(명세 "CI 게이트와 기준 보고서"). 평가하는 경로는 `src/`, `pyproject.toml`, `uv.lock`, `evals/`, `tools/search_eval.py`, `compose.eval.yml`, `.github/workflows/ci.yml`이다. 함수는 이벤트 셋을 받는다. PR이면 merge-base부터의 `git diff --name-only --no-renames`로 정하고(이름을 바꾼 파일은 옛 경로와 새 경로를 모두 판정한다), 푸시와 `workflow_dispatch`면 늘 평가하며, PR에서 merge-base나 바뀐 경로를 읽지 못하면 평가한다. `tests/tools/`가 이 셋과 목록, 그리고 `src/`의 파일을 목록 밖으로 옮긴 경우가 평가하는 것을 시험한다.
 - [ ] `.github/workflows/ci.yml`에 잡 하나를 더한다. PR(base가 dev든 main이든)과 dev·main 푸시에서 늘 시작하고, 첫 스텝이 경로 판정으로 평가할지를 정하며, 평가하지 않으면 나머지 스텝을 스텝의 조건(`if`)으로 넘긴 채 성공으로 끝난다. 체크아웃은 merge-base를 구할 만큼 역사를 받는다. `verify`의 판정 줄은 고치지 않고 `needs`에 잡 이름만 더한다.
@@ -18,3 +18,9 @@
 - [ ] `docs/constitution/operations.md`의 CI 절(적중률이 기준치 아래로 떨어질 때라는 문장)을 게이트가 선 동작으로 고칠 문장의 초안을 사용자에게 보이고 **멈춘다**. 헌법의 개정은 사용자가 승인한다(헌법 거버넌스, PR #38 봇 첫 회차의 지적). 승인을 받은 뒤 고치고, 승인을 `## Comments`에 사용자의 글 그대로 적으며, 헌법 판을 patch로 올린다(`docs/constitution/README.md`의 `**Version**` 줄. 판을 올린 까닭은 그 README가 정한 대로 ADR 이력이나 그 PR의 일지에 적는다). `ci.yml`의 머리 주석(느린 검사를 main PR에만 둘지를 설계에 미룬 문장)도 고친다. 이 티켓이 헌법을 바꾸는 티켓을 첫 티켓으로 두는 규칙의 예외인 까닭은 명세 Further Notes에 있다.
 - [ ] 게이트가 빨강일 때 에이전트는 기준 보고서를 스스로 갱신하지 않고 멈춰 보고한다.
 - [ ] 검사 넷이 초록이다.
+
+## Comments
+
+- 2026-11-15, 포크 PR의 캐시 오염. GitHub 공식 문서 "Dependency caching reference"(`docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching`)를 `curl`로 내려받아 읽었다. 읽은 자리는 "Restrictions for accessing a cache"와 "Cache access for low-trust workflow triggers"다. 앞 절은 실행이 현재 브랜치와 기본 브랜치의 캐시를 복원할 수 있고, PR이면 base 브랜치의 캐시도 복원할 수 있다고 적는다. 뒤 절은 기본 브랜치 범위에 캐시를 만들거나 덮어쓸 수 있는 계기가 `push`, `workflow_dispatch`, `repository_dispatch`, `delete`, `registry_package`, `page_build`, `schedule`뿐이고, `pull_request`는 그 제한을 받지 않는다고 적는다. 이유는 같은 절의 문장 "Caches created by a `pull_request` run are already scoped to the merge ref (`refs/pull/.../merge`) and cannot be written to the default branch’s scope"이다. 그래서 포크 PR이 만든 캐시는 PR의 병합 ref에 묶여 dev의 캐시 범위를 덮어쓰지 못하고, 이 잡의 계기(`pull_request`, `push`, `workflow_dispatch`)는 모두 그 제한 안이다. 같은 문서는 캐시 내용이 서명되거나 검증되지 않는다고도 적는다("Best practices for using caches securely"). 이 잡이 `actions/cache`로 직접 두는 것은 Hugging Face의 `BAAI/bge-m3` 모델 파일뿐이다(`setup-uv`의 `enable-cache`가 uv의 캐시를 복원하고 저장하는 것은 `python` 잡과 같다). 이 잡의 권한은 `contents: read`뿐이고 비밀을 쓰지 않는다. 같은 키를 복원하는 다른 워크플로가 있는지는 `.github/workflows/`를 훑어 없음을 봤다.
+- 경로 판정은 `tools/eval_gate_paths.py`(표준 라이브러리만 쓴다. 잡의 첫 스텝이 uv 준비 전에 `python3`로 부른다)와 `tests/tools/test_eval_gate_paths.py`(49개)다. 변이 열 `.scratch/search-eval/probes/eval_gate_paths_mutations.toml`의 열 개가 모두 기대대로 빨개졌다(처음에 하나가 초록으로 살아남았다. `merge-base`는 구했는데 `diff`가 실패하는 길을 시험이 보지 않아서였고, 시험을 더해 잡았다).
+- `compose.eval.yml`의 TEI 모델 볼륨을 `${RAG_EVAL_TEI_DATA:-eval-tei-data}`로 바꿨다. 기본은 이름 있는 볼륨 그대로이고, CI는 그 환경 변수에 절대 경로를 주어 그 폴더를 `actions/cache`로 복원하고 저장한다.

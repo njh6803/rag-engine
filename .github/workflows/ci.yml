@@ -1,5 +1,6 @@
 # 로컬 pre-commit과 같은 검사. 훅은 각자 설치해야 하므로 CI가 최종 판정이다. 파이썬(python), 컨테이너 이미지(image),
-# 커밋 검사(ticket)가 잡 셋으로 함께 돌고, 필수 검사는 그 결과를 모으는 verify 하나다(docs/constitution/operations.md).
+# 커밋 검사(ticket), 검색 평가의 빠른 게이트(eval-fast)가 잡 넷으로 함께 돌고, 필수 검사는 그 결과를 모으는 verify
+# 하나다(docs/constitution/operations.md).
 # 잡을 더하면 verify 의 needs 에 넣는다. 빠뜨리면 verify 가 빨갛다.
 # 체크아웃하는 잡은 모두 persist-credentials: false 다. 모두 PR 의 코드를 짓고 돌리는데 체크아웃 뒤에 github.com 을 상대로
 # 한 git 명령(push, 인증된 fetch)이 없어서, 체크아웃 토큰을 .git/config 에 남기지 않는다(CWE-522).
@@ -10,13 +11,18 @@
 name: ci
 
 # 개발 브랜치 dev 가 서면(ADR 0016) 티켓 PR 은 dev 로, 출시 PR(dev→main)과 핫픽스는 main 으로 간다. PR 은 base 를
-# 가리지 않고 dev PR 과 main PR 이 같은 잡(python, image, ticket)과 그 결과를 모으는 verify 를 돈다. main PR 에만 도는
-# 잡이 지금 없기 때문이다(ADR 0016 "main PR 에만 도는 잡이 지금 없다"). 푸시는 main 과 dev 둘이다. 느린 검사를 main PR 에만
-# 둘지는 그 검사를 더하는 기능(search-eval, release-image)의 설계가 정하고, 그때 이 주석을 고친다.
+# 가리지 않고 dev PR 과 main PR 이 같은 잡(python, image, ticket, eval-fast)과 그 결과를 모으는 verify 를 돈다. 푸시는
+# main 과 dev 둘이다. 검색 평가의 빠른 게이트(eval-fast)는 검색에 영향을 주는 경로가 바뀐 PR 과 모든 푸시, 수동 실행에서
+# 평가하고(경로의 목록과 판정은 tools/eval_gate_paths.py), 나머지 PR 에서는 잡이 평가 스텝을 건너뛴 채 성공으로 끝난다.
+# 잡을 건너뛰면 verify 가 빨강으로 세기 때문이다. main PR 에만 도는 잡은 아직 없다(ADR 0016). 전체 게이트(search-eval
+# 15)가 main PR 과 수동 실행에서만 도는 잡을 처음으로 더하고, 그때 이 주석을 고친다.
+# 수동 실행(workflow_dispatch)은 `gh workflow run ci.yml --ref <브랜치>` 로 dev 와 main 이 아닌 브랜치에서 띄운다. dev 나
+# main 에서 띄우면 그 브랜치의 푸시와 같은 concurrency 그룹이라 서로 취소한다.
 on:
   push:
     branches: [main, dev]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -118,6 +124,105 @@ jobs:
           echo "::stop-commands::$marker"
           python3 tools/check_ticket.py --ci
 
+  # 검색 평가의 빠른 게이트(search-eval 11, ADR 0018). 평가 전용 compose(compose.eval.yml)로 PostgreSQL 과 임베딩 TEI 를
+  # 띄우고 공공 문서 묶음을 색인해 빠른 실행(run --through fused)의 보고서를 기준 보고서(baseline-fast.json)와 견준다.
+  # 추론 기록(records/)을 읽으므로 기록에 있는 글에는 모델을 부르지 않는다. 늘 시작하고, 체크아웃 다음 스텝
+  # (tools/eval_gate_paths.py)이 평가할지를 정한다. 평가하지 않으면 나머지 스텝을 스텝의 조건(if)으로 넘긴 채 성공으로
+  # 끝난다. 잡 자체를 건너뛰면 verify 가 빨강으로 세기 때문이다. 체크아웃은 merge-base 를 구하도록 전체 역사를 받는다.
+  # 모델 파일(bge-m3)은 actions/cache 에 둔다(setup-uv 의 enable-cache 가 uv 의 캐시를 복원하고 저장하는 것은 python 잡과
+  # 같다). 키는 config.json 의 임베딩 모델과 TEI 판으로 만들어 판정 칸 같은 모델과 무관한 칸이 바뀌어도 캐시가 바뀌지
+  # 않는다. 모델을 다 받은 뒤(TEI 가 healthy 가 된 뒤)에만 저장해 부분 폴더가 같은 키로 굳지 않게 한다.
+  # 포크 PR 이 캐시를 오염시킬 수 있는지는 GitHub 문서 "Dependency caching
+  # reference"(docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)의 "Restrictions for accessing a
+  # cache"와 "Cache access for low-trust workflow triggers"를 읽었다. pull_request 가 만든 캐시는 병합 ref(refs/pull/…/merge)에
+  # 묶여 기본 브랜치의 범위에 쓰지 못하고, 기본 브랜치의 범위에 쓸 수 있는 계기는 push 와 workflow_dispatch 등뿐이다.
+  # 이 잡의 계기는 pull_request, push, workflow_dispatch 라 포크 PR 이 dev 의 캐시를 덮어쓰지 못한다.
+  eval-fast:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: "1"
+      RAG_EVAL_DATABASE_URL: postgresql://rag_eval:rag_eval@127.0.0.1:55433/rag_eval
+      RAG_EVAL_EMBEDDING_URL: http://127.0.0.1:18083
+      RAG_EVAL_DATA_DIR: /tmp/rag-eval-data
+      RAG_EVAL_TEI_DATA: /tmp/rag-eval-tei
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # PR 값은 env 로 넘기고 식을 스크립트에 바로 펼치지 않는다(사용자가 정하는 head_ref 의 바로 펼침은 zizmor 가 주입으로
+      # 잡고, 두 SHA 는 잡지 않지만 같은 모양을 지킨다). 바뀐 경로의 이름이 워크플로 명령으로 읽히지 않게 출력 동안 명령
+      # 해석을 멈춘다(ticket 잡과 같다).
+      - id: paths
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          marker=$(uuidgen)
+          echo "::stop-commands::$marker"
+          python3 tools/eval_gate_paths.py
+          echo "::$marker::"
+      - if: steps.paths.outputs.evaluate == 'true'
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv python install 3.12
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv sync --frozen
+      - if: steps.paths.outputs.evaluate == 'true'
+        id: model
+        run: >
+          python3 -c "import json;
+          c = json.load(open('evals/public-docs/config.json', encoding='utf-8'));
+          print('key=eval-tei-%s-%s' % (c['embedding_model'].replace('/', '-'), c['tei_version']))"
+          >> "$GITHUB_OUTPUT"
+      - if: steps.paths.outputs.evaluate == 'true'
+        id: tei-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/rag-eval-tei
+          key: ${{ steps.model.outputs.key }}
+      - if: steps.paths.outputs.evaluate == 'true'
+        id: tei
+        run: |
+          mkdir -p "$RAG_EVAL_DATA_DIR" "$RAG_EVAL_TEI_DATA"
+          docker compose -f compose.eval.yml up -d --wait
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv run python tools/search_eval.py validate evals/public-docs
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv run python tools/search_eval.py index evals/public-docs --records read
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv run python tools/search_eval.py validate evals/public-docs --indexed
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: >
+          uv run python tools/search_eval.py run evals/public-docs
+          --through fused --records read --out eval-out
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv run python tools/search_eval.py compare eval-out evals/public-docs --gate fast
+      # 보고서 둘(report.json, report.md)은 게이트가 빨강이어도 올린다. 첫 기준 보고서는 이 산출물로 만든다.
+      - if: ${{ !cancelled() && steps.paths.outputs.evaluate == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          # 실패한 잡만 다시 돌린 시도가 같은 실행(run)에 같은 이름으로 올리면 v4 가 거부하므로 시도 번호를 붙인다.
+          name: eval-fast-report-${{ github.run_attempt }}
+          path: eval-out/
+          if-no-files-found: warn
+          retention-days: 30
+      # TEI 가 모델 폴더에 쓴 파일은 root 소유라 저장 스텝(러너 사용자)이 읽지 못할 수 있다. 컨테이너를 내리고 소유를
+      # 돌려 둔 뒤 저장한다. 게이트가 빨강이어도 TEI 가 healthy 가 된(모델을 다 받은) 뒤라면 모델 캐시는 저장한다. 같은 키로
+      # 이미 저장되어 있으면 건너뛴다.
+      - if: ${{ !cancelled() && steps.tei.outcome == 'success' && steps.tei-cache.outputs.cache-hit != 'true' }}
+        run: |
+          docker compose -f compose.eval.yml down
+          sudo chown -R "$(id -u):$(id -g)" "$RAG_EVAL_TEI_DATA"
+      - if: ${{ !cancelled() && steps.tei.outcome == 'success' && steps.tei-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/rag-eval-tei
+          key: ${{ steps.model.outputs.key }}
+
   # 필수 검사. 건너뛴 잡은 필수 검사여도 성공으로 보고되고(GitHub 문서), 앞 잡이 실패하면 needs 로 이은 잡은
   # 기본적으로 건너뛴다. 그래서 always() 로 언제나 돌고, needs 의 결과가 모두 success 일 때만 초록이다.
   # failure 뿐 아니라 cancelled 와 skipped 도 빨강이다.
@@ -130,7 +235,7 @@ jobs:
   # 필수 검사 밖이다.
   verify:
     if: always()
-    needs: [python, image, ticket]
+    needs: [python, image, ticket, eval-fast]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

@@ -52,8 +52,10 @@ services:
     command: ["--model-id", "BAAI/bge-m3", "--port", "80", "--max-batch-tokens", "4096"]
     ports:
       - "127.0.0.1:18083:80"
+    # 모델 캐시 자리. 기본은 이름 있는 볼륨이고, RAG_EVAL_TEI_DATA 에 절대 경로를 주면 그 폴더를 마운트한다
+    # (CI 의 eval-fast 잡이 그 폴더를 actions/cache 로 복원하고 저장한다).
     volumes:
-      - eval-tei-data:/data
+      - ${RAG_EVAL_TEI_DATA:-eval-tei-data}:/data
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:80/health || exit 1"]
       interval: 5s
