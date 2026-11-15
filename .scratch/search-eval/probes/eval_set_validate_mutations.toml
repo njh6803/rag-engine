@@ -36,8 +36,8 @@ expect_output = ["묶음의 오류 1건"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/eval_bundle_files.py"
-old = '''if total > MAX_DOCUMENT_BYTES:'''
-new = '''if total >= MAX_DOCUMENT_BYTES:'''
+old = '''if total > MAX_DOCUMENT_BYTES and eval_set.scope is not BundleScope.LOCAL_ONLY:'''
+new = '''if total >= MAX_DOCUMENT_BYTES and eval_set.scope is not BundleScope.LOCAL_ONLY:'''
 
 [[mutation]]
 name = "30MB를 넘는 문서 파일의 합을 받는다"
@@ -47,8 +47,30 @@ expect_output = ["문제 없음: "]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/eval_bundle_files.py"
-old = '''if total > MAX_DOCUMENT_BYTES:'''
+old = '''if total > MAX_DOCUMENT_BYTES and eval_set.scope is not BundleScope.LOCAL_ONLY:'''
 new = '''if False:'''
+
+[[mutation]]
+name = "커밋하는 묶음의 합 상한을 푼다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["문제 없음: "]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_files.py"
+old = '''eval_set.scope is not BundleScope.LOCAL_ONLY:'''
+new = '''eval_set.scope is not BundleScope.COMMITTED:'''
+
+[[mutation]]
+name = "local_only 묶음에도 합 상한을 건다"
+tests = ["tests/tools/test_search_eval.py"]
+expect = "red"
+expect_output = ["묶음의 오류 1건"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_bundle_files.py"
+old = ''' and eval_set.scope is not BundleScope.LOCAL_ONLY:'''
+new = ''':'''
 
 [[mutation]]
 name = "문서 해시를 견주지 않는다"

@@ -353,6 +353,48 @@ def test_문서_파일의_합이_정확히_30MB이면_받는다(bundle: Path) ->
     assert _validate(bundle) == 0
 
 
+def test_local_only_묶음은_문서_파일의_합이_30MB를_넘어도_받는다(bundle: Path) -> None:
+    edit_json(bundle / "eval-set.json", {"local_only": True})
+    _add_filler(bundle, MAX_DOCUMENT_BYTES - len(BODY_A) - len(BODY_B) + 1)
+
+    assert _validate(bundle) == 0
+
+
+def test_local_only_묶음도_문서_파일의_해시가_다르면_거부한다(
+    bundle: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    edit_json(bundle / "eval-set.json", {"local_only": True})
+    (bundle / "documents" / "a.docx").write_bytes(BODY_A + b"!")
+
+    _rejected(bundle, capsys, "a.docx", "해시")
+
+
+def test_local_only_묶음도_목록에_없는_파일이_documents에_있으면_거부한다(
+    bundle: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    edit_json(bundle / "eval-set.json", {"local_only": True})
+    (bundle / "documents" / "sub" / "끼어든.docx").write_bytes(b"x")
+
+    _rejected(bundle, capsys, "sub/끼어든.docx", "목록에 없는 파일")
+
+
+def test_local_only가_불리언이_아니면_거부한다(
+    bundle: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    edit_json(bundle / "eval-set.json", {"local_only": "true"})
+
+    _rejected(bundle, capsys, "eval-set.json", "local_only")
+
+
+def test_이_저장소의_커밋하는_공공_문서_묶음은_local_only를_켜지_않는다() -> None:
+    """커밋하는 묶음이 이 칸으로 합 상한을 피하지 못하게 한다(명세 "설정 실험과 참고 측정")."""
+    header = Path(__file__).resolve().parents[2] / "evals" / "public-docs" / "eval-set.json"
+
+    content = read_json(header)
+    assert isinstance(content, dict)
+    assert "local_only" not in content
+
+
 def _add_filler(bundle: Path, size: int) -> None:
     """`filler.bin`을 `size` 바이트로 지어 문서 목록에 더한다."""
     data = bytes(size)

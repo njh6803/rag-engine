@@ -15,7 +15,8 @@ from rag_engine.domain.entities import JsonValue
 # 도구가 받는 묶음 형식의 major다. major가 다른 판의 묶음은 거부한다.
 SUPPORTED_FORMAT_MAJOR: Final = 1
 
-# 문서 파일의 합 상한이다(명세 "공공 문서 묶음"의 규모. 30MB).
+# 문서 파일의 합 상한이다(명세 "공공 문서 묶음"의 규모. 30MB). 저장소에 커밋하지 않는 묶음
+# (`BundleScope.LOCAL_ONLY`)에는 걸지 않는다.
 MAX_DOCUMENT_BYTES: Final = 30 * 1024 * 1024
 
 # 유형 표지의 낱말 넷(명세 "평가 세트의 형식").
@@ -32,6 +33,13 @@ class QueryStyle(StrEnum):
 
     QUESTION = "question"
     KEYWORD = "keyword"
+
+
+class BundleScope(StrEnum):
+    """묶음을 저장소에 커밋하는지. 커밋하지 않는 참고 묶음은 문서 파일의 합 상한을 걸지 않는다."""
+
+    COMMITTED = "committed"
+    LOCAL_ONLY = "local_only"
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,3 +193,4 @@ class EvalSet:
     evidence: tuple[EvidenceItem, ...]
     query_lists: tuple[QueryList, ...]
     miss_reviews: tuple[MissReview, ...]
+    scope: BundleScope = BundleScope.COMMITTED

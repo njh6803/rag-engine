@@ -25,6 +25,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter,
 from rag_engine.adapters.bundle_paths import BundlePathError, BundlePaths
 from rag_engine.domain.eval_set import (
     SUPPORTED_FORMAT_MAJOR,
+    BundleScope,
     ChunkingConfig,
     EvalConfig,
     EvalDocument,
@@ -109,6 +110,7 @@ class _Header(_Model):
     documents: str
     evidence: str
     query_lists: list[_QueryListRef]
+    local_only: bool = False
 
 
 class _Chunking(_Model):
@@ -214,6 +216,7 @@ def read_eval_set(paths: BundlePaths, *, config_file: Path | None = None) -> Eva
         evidence=evidence,
         query_lists=query_lists,
         miss_reviews=reviews,
+        scope=BundleScope.LOCAL_ONLY if header.local_only else BundleScope.COMMITTED,
     )
 
 
