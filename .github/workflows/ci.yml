@@ -1,6 +1,6 @@
 # 로컬 pre-commit과 같은 검사. 훅은 각자 설치해야 하므로 CI가 최종 판정이다. 파이썬(python), 컨테이너 이미지(image),
-# 커밋 검사(ticket), 검색 평가의 빠른 게이트(eval-fast)가 잡 넷으로 함께 돌고, 필수 검사는 그 결과를 모으는 verify
-# 하나다(docs/constitution/operations.md).
+# 커밋 검사(ticket), 검색 평가의 빠른 게이트(eval-fast)와 전체 게이트(eval-full)가 잡 다섯으로 함께 돌고, 필수 검사는
+# 그 결과를 모으는 verify 하나다(docs/constitution/operations.md).
 # 잡을 더하면 verify 의 needs 에 넣는다. 빠뜨리면 verify 가 빨갛다.
 # 체크아웃하는 잡은 모두 persist-credentials: false 다. 모두 PR 의 코드를 짓고 돌리는데 체크아웃 뒤에 github.com 을 상대로
 # 한 git 명령(push, 인증된 fetch)이 없어서, 체크아웃 토큰을 .git/config 에 남기지 않는다(CWE-522).
@@ -11,13 +11,16 @@
 name: ci
 
 # 개발 브랜치 dev 가 서면(ADR 0016) 티켓 PR 은 dev 로, 출시 PR(dev→main)과 핫픽스는 main 으로 간다. PR 은 base 를
-# 가리지 않고 dev PR 과 main PR 이 같은 잡(python, image, ticket, eval-fast)과 그 결과를 모으는 verify 를 돈다. 푸시는
-# main 과 dev 둘이다. 검색 평가의 빠른 게이트(eval-fast)는 검색에 영향을 주는 경로가 바뀐 PR 과 모든 푸시, 수동 실행에서
-# 평가하고(경로의 목록과 판정은 tools/eval_gate_paths.py), 나머지 PR 에서는 잡이 평가 스텝을 건너뛴 채 성공으로 끝난다.
-# 잡을 건너뛰면 verify 가 빨강으로 세기 때문이다. main PR 에만 도는 잡은 아직 없다(ADR 0016). 전체 게이트(search-eval
-# 15)가 main PR 과 수동 실행에서만 도는 잡을 처음으로 더하고, 그때 이 주석을 고친다.
+# 가리지 않고 dev PR 과 main PR 이 같은 잡(python, image, ticket, eval-fast, eval-full)과 그 결과를 모으는 verify 를
+# 돈다. 푸시는 main 과 dev 둘이다. 검색 평가의 빠른 게이트(eval-fast)는 검색에 영향을 주는 경로가 바뀐 PR 과 모든 푸시,
+# 수동 실행에서 평가하고(경로의 목록과 판정은 tools/eval_gate_paths.py), 나머지 PR 에서는 잡이 평가 스텝을 건너뛴 채
+# 성공으로 끝난다. 잡을 건너뛰면 verify 가 빨강으로 세기 때문이다. 전체 게이트(eval-full, search-eval 15)는 base 가
+# main 인 PR 과 수동 실행에서만 평가하고(같은 파일의 EVAL_GATE=full 판정), 그 밖(dev 로 가는 PR 과 푸시)에서는 같은 식으로
+# 평가 스텝을 건너뛴 채 성공으로 끝난다. dev 로 가는 PR 은 리랭크 기록과 baseline-full.json 을 맞추지 않고 병합될 수 있어,
+# 출시 PR 앞에서 맞추는 절차를 next-session 의 merge.md "출시 PR" 이 적는다.
 # 수동 실행(workflow_dispatch)은 `gh workflow run ci.yml --ref <브랜치>` 로 dev 와 main 이 아닌 브랜치에서 띄운다. dev 나
-# main 에서 띄우면 그 브랜치의 푸시와 같은 concurrency 그룹이라 서로 취소한다.
+# main 에서 띄우면 그 브랜치의 푸시와 같은 concurrency 그룹이라 서로 취소한다. 푸시는 main 과 dev 만 CI 를 띄우므로 다른
+# 브랜치에서 앞 실행을 취소하려면 같은 브랜치로 수동 실행을 한 번 더 띄운다.
 on:
   push:
     branches: [main, dev]
@@ -223,6 +226,86 @@ jobs:
           path: /tmp/rag-eval-tei
           key: ${{ steps.model.outputs.key }}
 
+  # 검색 평가의 전체 게이트(search-eval 15, ADR 0018). 빠른 게이트와 같은 차례로 공공 문서 묶음을 색인하고 전체 실행(run
+  # --through rerank)의 보고서를 기준 보고서(baseline-full.json)의 리랭크 뒤 줄과 견준다. CI 는 리랭커를 띄우지 않는다
+  # (compose.eval.yml 도 띄우지 않는다). RAG_EVAL_RERANKER_URL 을 주지 않으므로 리랭크 점수는 리랭크 기록(rerank.jsonl)
+  # 에서만 읽고, 기록에 없는 쌍이 하나라도 있으면 실패한다. 늘 시작하고, 체크아웃 다음 스텝(EVAL_GATE=full)이 평가할지를
+  # 정한다. base 가 main 인 PR 과 수동 실행에서만 평가하고, 그 밖(dev 로 가는 PR, 푸시)에서는 나머지 스텝을 스텝의 조건
+  # (if)으로 넘긴 채 성공으로 끝난다. 잡 자체를 건너뛰면 verify 가 빨강으로 센다. main 푸시에서는 평가하지 않는다(main 은
+  # 최신 기준을 강제해 PR 의 머리가 곧 병합된 내용이다). 바뀐 경로를 보지 않으므로 merge-base 가 필요 없어 얕은 체크아웃이다.
+  # 모델 파일은 eval-fast 와 같은 캐시 키로 복원만 한다. 저장은 eval-fast 가 맡는다(두 잡이 같은 키를 동시에 저장하려
+  # 하지 않게 한다). 캐시 오염에 대한 읽은 문서와 결론은 eval-fast 의 주석과 같다(이 잡의 계기도 pull_request, push,
+  # workflow_dispatch 이고 권한은 contents: read 뿐이며 비밀을 쓰지 않는다).
+  eval-full:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: "1"
+      RAG_EVAL_DATABASE_URL: postgresql://rag_eval:rag_eval@127.0.0.1:55433/rag_eval
+      RAG_EVAL_EMBEDDING_URL: http://127.0.0.1:18083
+      RAG_EVAL_DATA_DIR: /tmp/rag-eval-data
+      RAG_EVAL_TEI_DATA: /tmp/rag-eval-tei
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      # PR 값은 env 로 넘기고 식을 스크립트에 바로 펼치지 않는다(eval-fast 와 같다).
+      - id: paths
+        env:
+          EVAL_GATE: full
+          PR_BASE_REF: ${{ github.base_ref }}
+        run: |
+          marker=$(uuidgen)
+          echo "::stop-commands::$marker"
+          python3 tools/eval_gate_paths.py
+          echo "::$marker::"
+      - if: steps.paths.outputs.evaluate == 'true'
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv python install 3.12
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv sync --frozen
+      - if: steps.paths.outputs.evaluate == 'true'
+        id: model
+        run: >
+          python3 -c "import json;
+          c = json.load(open('evals/public-docs/config.json', encoding='utf-8'));
+          print('key=eval-tei-%s-%s' % (c['embedding_model'].replace('/', '-'), c['tei_version']))"
+          >> "$GITHUB_OUTPUT"
+      - if: steps.paths.outputs.evaluate == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/rag-eval-tei
+          key: ${{ steps.model.outputs.key }}
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: |
+          mkdir -p "$RAG_EVAL_DATA_DIR" "$RAG_EVAL_TEI_DATA"
+          docker compose -f compose.eval.yml up -d --wait
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv run python tools/search_eval.py validate evals/public-docs
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv run python tools/search_eval.py index evals/public-docs --records read
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv run python tools/search_eval.py validate evals/public-docs --indexed
+      # RAG_EVAL_RERANKER_URL 이 없으므로 리랭크 점수를 기록에서만 읽는다. 기록에 없는 쌍이 하나라도 있으면 종료 코드 1이다.
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: >
+          uv run python tools/search_eval.py run evals/public-docs
+          --through rerank --records read --out eval-out
+      - if: steps.paths.outputs.evaluate == 'true'
+        run: uv run python tools/search_eval.py compare eval-out evals/public-docs --gate full
+      # 보고서 둘(report.json, report.md)은 게이트가 빨강이어도 올린다. 첫 기준 보고서는 이 산출물로 만든다.
+      - if: ${{ !cancelled() && steps.paths.outputs.evaluate == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          # 실패한 잡만 다시 돌린 시도가 같은 실행(run)에 같은 이름으로 올리면 v4 가 거부하므로 시도 번호를 붙인다.
+          name: eval-full-report-${{ github.run_attempt }}
+          path: eval-out/
+          if-no-files-found: warn
+          retention-days: 30
+
   # 필수 검사. 건너뛴 잡은 필수 검사여도 성공으로 보고되고(GitHub 문서), 앞 잡이 실패하면 needs 로 이은 잡은
   # 기본적으로 건너뛴다. 그래서 always() 로 언제나 돌고, needs 의 결과가 모두 success 일 때만 초록이다.
   # failure 뿐 아니라 cancelled 와 skipped 도 빨강이다.
@@ -235,7 +318,7 @@ jobs:
   # 필수 검사 밖이다.
   verify:
     if: always()
-    needs: [python, image, ticket, eval-fast]
+    needs: [python, image, ticket, eval-fast, eval-full]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

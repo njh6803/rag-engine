@@ -4,7 +4,7 @@
 
 **Blocked by:** 11 (빠른 게이트와 `workflow_dispatch` 계기), 14 (리랭크 기록)
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] `.github/workflows/ci.yml`에 잡 하나를 더한다. 빠른 게이트와 같은 방법으로 늘 시작하고, base가 main인 PR과 `workflow_dispatch`에서만 평가하며 그 밖에는 스텝의 조건으로 넘긴 채 성공으로 끝난다. main 푸시에서는 평가하지 않는다. `verify`의 `needs`에 잡 이름만 더한다(명세 "전체 게이트와 리랭커"의 전체 게이트의 모양 항목).
 - [ ] 잡의 차례는 빠른 게이트와 같고 `run --through rerank`와 `compare --gate full`만 다르다. 리랭커의 끝점을 주지 않아, 기록에 없는 쌍이 하나라도 있으면 실패한다. 보고서 둘을 산출물로 올린다.
