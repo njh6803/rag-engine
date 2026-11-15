@@ -1,0 +1,21 @@
+{
+  "files": {
+    "chunk-embeddings": {
+      "count": 2178,
+      "device": "gpu",
+      "dimensions": 1024,
+      "model": "BAAI/bge-m3",
+      "request_fingerprint": "676849a42fa1ca785564c6b745105ee053f726840055acc466aa4b9795b994b1",
+      "tei_version": "1.9.4"
+    },
+    "query-embeddings": {
+      "count": 310,
+      "device": "gpu",
+      "dimensions": 1024,
+      "model": "BAAI/bge-m3",
+      "request_fingerprint": "676849a42fa1ca785564c6b745105ee053f726840055acc466aa4b9795b994b1",
+      "tei_version": "1.9.4"
+    }
+  },
+  "format_version": "1.0.0"
+}
