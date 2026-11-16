@@ -1,0 +1,20 @@
+{"id": "noans-01", "kind": "off_domain", "query": "종합소득세 신고는 몇 월까지 해야 하나요?", "absence_terms": ["종합소득세"]}
+{"id": "noans-02", "kind": "off_domain", "query": "음주운전으로 적발되면 벌금이 얼마나 나오나요?", "absence_terms": ["음주운전"]}
+{"id": "noans-03", "kind": "off_domain", "query": "국민연금은 몇 살부터 받을 수 있나요?", "absence_terms": ["국민연금"]}
+{"id": "noans-04", "kind": "off_domain", "query": "건축 허가를 받으려면 어떤 서류를 내야 하나요?", "absence_terms": ["건축허가", "건축 허가"]}
+{"id": "noans-05", "kind": "off_domain", "query": "상속세에서 배우자 공제는 최대 얼마인가요?", "absence_terms": ["상속세"]}
+{"id": "noans-06", "kind": "off_domain", "query": "항공기 수하물이 분실되면 항공사가 배상하는 한도는 얼마인가요?", "absence_terms": ["수하물"]}
+{"id": "noans-07", "kind": "off_domain", "query": "특허를 출원하고 나서 심사 청구는 몇 년 안에 해야 하나요?", "absence_terms": ["심사청구", "심사 청구"]}
+{"id": "noans-08", "kind": "off_domain", "query": "건강보험료는 어떻게 계산하나요?", "absence_terms": ["건강보험료"]}
+{"id": "noans-09", "kind": "off_domain", "query": "병역법상 대체복무 기간은 얼마인가요?", "absence_terms": ["대체복무"]}
+{"id": "noans-10", "kind": "off_domain", "query": "대학 입시에서 수시모집과 정시모집은 어떻게 다른가요?", "absence_terms": ["수시모집"]}
+{"id": "noans-11", "kind": "near_domain", "query": "집을 구할 때 부동산 중개보수는 최대 얼마까지 낼 수 있나요?", "absence_terms": ["중개보수"]}
+{"id": "noans-12", "kind": "near_domain", "query": "육아휴직은 자녀가 몇 살일 때까지 쓸 수 있나요?", "absence_terms": ["육아휴직"]}
+{"id": "noans-13", "kind": "near_domain", "query": "실업급여는 퇴직한 뒤 얼마 동안 받을 수 있나요?", "absence_terms": ["실업급여"]}
+{"id": "noans-14", "kind": "near_domain", "query": "저작권 등록을 신청할 때 수수료는 얼마인가요?", "absence_terms": ["등록 수수료", "등록수수료"]}
+{"id": "noans-15", "kind": "near_domain", "query": "택배 물품이 배송 중에 파손됐을 때 택배사의 배상 기준은 무엇인가요?", "absence_terms": ["택배"]}
+{"id": "noans-16", "kind": "near_domain", "query": "선원은 하루에 최대 몇 시간까지 일할 수 있나요?", "absence_terms": ["선원"]}
+{"id": "noans-17", "kind": "near_domain", "query": "해외 직구 상품에는 관세가 어떻게 부과되나요?", "absence_terms": ["관세"]}
+{"id": "noans-18", "kind": "near_domain", "query": "퇴직금은 평균임금으로 어떻게 계산하나요?", "absence_terms": ["퇴직금"]}
+{"id": "noans-19", "kind": "near_domain", "query": "인터넷 게시글로 명예를 훼손당했을 때 작성자의 신원은 어떻게 알아내나요?", "absence_terms": ["신원", "발신자 정보"]}
+{"id": "noans-20", "kind": "near_domain", "query": "인공위성 발사 허가는 어느 기관에 신청하나요?", "absence_terms": ["발사"]}
