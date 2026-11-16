@@ -26,6 +26,16 @@
 
 - `/code-review`(표준 축과 명세 축, 둘 다 서브에이전트)를 돌려 지적을 코드와 문서에 반영했다. 반영하지 않은 것: `eval-full` 스텝 60줄이 `eval-fast`와 겹치는 것(티켓이 "차례는 빠른 게이트와 같다"고 요구해 같은 차례를 유지했다), `decide`와 `decide_full`의 이름이 비대칭인 것(독스트링이 설명한다), `pull_request`에 `edited`가 없는 것(위 "정한 것").
 
+## PR 직전 리뷰
+
+- `coderabbit-review` 에이전트를 돌렸으나 이 보고에서는 CodeRabbit CLI를 돌리지 않았다고 했고(읽기와 실행 대조만 했다), 실질은 `bug-perf-review`와 같은 축의 대조다. 밀 주장은 에이전트가 `decide_full`을 이벤트 6종과 base 6종으로 불러 보고, `gh run view --json jobs`로 티켓 Comments의 실행 기록을 다시 읽어 맞다고 확인했다. Critical은 없었다.
+- Major 하나: `merge.md` 전제 확인 3의 재실행이 같은 브랜치를 다시 띄우면 새 실행이 등록되기 전에 앞 실행(failure나 cancelled)을 새 판정으로 읽는다. → 다시 띄울 때마다 새 시각의 이름으로 새 임시 브랜치를 올리게 고쳤다.
+- Minor 넷을 고쳤다. 진행 중인 맞추기 티켓을 어디서 찾는지(`origin/dev`와 base가 dev인 열린 PR의 머리, 첫 줄 `# <번호>: 기록과 기준 맞추기`)와 누가 만드는지, `gh run cancel`이 이미 끝난 실행에서 실패해도 무시하고 임시 브랜치를 지운다, 대기는 foreground `sleep`이 막혀 있어 `Monitor`의 until 루프로 한다, 기다리는 동안 dev가 움직였는지 `origin/dev^{tree}`를 다시 대 본다.
+- ADR 0018 새 이력의 "빨강이면 GPU로 다시 만든다"가 `merge.md`보다 단순하다는 지적을 받아, `compare` 메시지로 까닭을 가르고 품질 저하는 조사라는 `merge.md`의 갈래를 그대로 옮겼다. 사용자가 승인한 초안의 한 문장을 `merge.md`와 맞춘 정정이다.
+- Nit 둘: `merge.md`의 "20분짜리 실행"을 실측(실행 43766794021의 `python` 잡까지 약 11분)으로 고쳤다. 원격 `scratch/15-gate-drop`은 이 PR이 병합되기 전에 지운다.
+- 남긴 것: PR의 base를 dev에서 main으로 바꿨을 때 CI가 다시 도는지 확인하지 않은 위험은 독스트링과 ADR 이력에 이미 적었다(열린 위험).
+- `/security-review`: 확신 8 이상의 취약점 0건. 워크플로 주입(`github.base_ref`를 env로 넘기고 `::stop-commands::`로 감쌈), 권한(`contents: read`, `pull_request_target` 없음, 비밀 없음), 캐시 복원만 하는 것, `GITHUB_OUTPUT`에 고정 한 줄만 쓰는 것을 확인했다. 참고로 `eval-fast`와 같은 캐시 키를 복원하므로 그쪽의 캐시 오염 가능성을 상속하지만 새 경로는 아니다.
+
 ## 부하 시간 시험의 새 사례 (일지에만 남김)
 
 이 변경은 `tools/`, `tests/tools/`, CI, 문서만 바꾸는데, 커밋의 pre-commit(전체 pytest가 15~26분, 다른 세션이 여럿 돌던 때)에서 서로 다른 시험이 번갈아 빨갰다. 시도마다 다음 시험이 실패했다: `tests/app/test_worker_service.py`의 10초 기한 시험, `tests/test_serve_command.py`의 30초 기동 기한(세 번), `tests/contract/test_search_complete.py`의 MCP 클라이언트 `ReadTimeout`, `tests/app/test_job_lease.py`의 5초 상한(6.53초), `tests/adapters/test_postgres_engine.py`의 연결 상한 시험. `test_serve_command`는 같은 시험이 반복 실패해 작업 규약 6에 따라 진단했고, 홀로 돌리면 통과했다(2 passed, 5분 34초). 사용자가 2026-11-15에 이 종류를 다시 열지 않기로 했으므로 시험을 고치지 않고 같은 커밋을 다시 시도했다(훅은 건너뛰지 않았다).

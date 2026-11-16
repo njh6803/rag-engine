@@ -4,7 +4,7 @@
 
 **Blocked by:** 11 (빠른 게이트와 `workflow_dispatch` 계기), 14 (리랭크 기록)
 
-**Status:** in-progress
+**Status:** done
 
 - [x] `.github/workflows/ci.yml`에 잡 하나를 더한다. 빠른 게이트와 같은 방법으로 늘 시작하고, base가 main인 PR과 `workflow_dispatch`에서만 평가하며 그 밖에는 스텝의 조건으로 넘긴 채 성공으로 끝난다. main 푸시에서는 평가하지 않는다. `verify`의 `needs`에 잡 이름만 더한다(명세 "전체 게이트와 리랭커"의 전체 게이트의 모양 항목).
 - [x] 잡의 차례는 빠른 게이트와 같고 `run --through rerank`와 `compare --gate full`만 다르다. 리랭커의 끝점을 주지 않아, 기록에 없는 쌍이 하나라도 있으면 실패한다. 보고서 둘을 산출물로 올린다.
@@ -12,7 +12,7 @@
 - [x] 첫 `baseline-full.json`: 이 브랜치(dev가 아닌 브랜치)에서 `gh workflow run ci.yml --ref <브랜치>`로 수동 실행을 띄우고, 올라온 산출물의 `report.json`을 사용자에게 보이고 **멈춘다**. 승인을 받은 뒤 커밋하고 승인을 `## Comments`에 사용자의 글 그대로 적는다.
 - [x] 출시 절차에 맞추는 PR을 적는다(명세의 dev와 main 사이에서 기록과 기준을 맞추는 절차 항목). 합친 뒤의 후보를 바꾸는 변경이나 묶음을 고친 변경이 dev에 들어갔으면, 출시 PR 앞에 GPU가 있는 기계에서 `run --through rerank --records write`로 `rerank.jsonl`을 다시 만들고, 그 브랜치의 수동 실행이 올린 보고서로 `baseline-full.json`을 갈아 승인을 받는 PR을 하나 둔다. 적는 자리는 `.claude/skills/next-session/merge.md`의 "출시 PR" 절이고, main에서 딴 핫픽스가 후보를 바꿀 때도 같다는 것을 함께 적는다. 하네스 문서를 고치므로 `CLAUDE.md` 작업 규약 4대로 그 절차를 인용하는 곳을 grep한다.
 - [ ] 실행 기록: base가 dev인 PR에서 이 잡이 평가하지 않고 `verify`가 초록인 것과, 수동 실행에서 평가하는 것, 리랭크 뒤 숫자를 일부러 떨어뜨린 커밋의 수동 실행에서 빨강인 것을 실행의 주소로 `## Comments`에 남긴다(명세 Testing Decisions의 게이트 잡 항목). 떨어뜨린 커밋은 병합하지 않는다.
-- [ ] 검사 넷이 초록이다.
+- [x] 검사 넷이 초록이다.
 
 ## Comments
 
@@ -23,6 +23,10 @@
 ### 2026-11-16 `concurrency` 취소 관찰
 
 티켓은 "같은 브랜치에 푸시를 이어 넣어" 앞 실행을 취소하게 하라고 적었으나, 이 저장소의 `ci.yml`은 `push`를 main과 dev에서만 받으므로 다른 브랜치의 푸시는 CI를 띄우지 않는다. 그래서 같은 `--ref`로 수동 실행을 연달아 두 번 띄웠다. 앞 실행 43768005935(<https://github.com/njh6803/rag-engine/actions/runs/43768005935>)가 뒤 실행 43768046697에 취소됐다. 취소된 실행의 잡은 `python`·`eval-full`·`image`·`eval-fast`가 `cancelled`, `ticket`이 `success`(이미 끝나 있었다), `verify`가 `failure`다. 다른 잡이 성공하지 못했으므로 `verify`가 빨강으로 끝나는 것이 맞고, 취소된 실행이 초록으로 남아 병합을 허용하는 일은 없다. 뒤 실행은 관찰만 하고 취소했다.
+
+### 2026-11-16 실행 기록: 리랭크 뒤 숫자를 떨어뜨린 커밋의 수동 실행
+
+`baseline-full.json`의 리랭크 줄 상위 5 적중률과 MRR을 0.05씩 올린 임시 커밋 `70bbfc2`(`human`·`keyword` 두 질의 목록, 네 숫자, 서식은 그대로)를 만들어 분리 HEAD에서 커밋하고(브랜치 이름이 티켓을 가리켜야 하는 `check-ticket`은 분리 HEAD에서 지나간다) `scratch/15-gate-drop`으로 올려 `gh workflow run ci.yml --ref scratch/15-gate-drop`으로 수동 실행했다. 실행 43811661719(<https://github.com/njh6803/rag-engine/actions/runs/43811661719>)에서 `eval-full`이 `compare --gate full`에서 실패했고 `python`·`image`·`ticket`·`eval-fast`는 성공, `verify`는 실패다. 로그의 문장은 "게이트 full: 하락폭을 넘어 떨어진 숫자가 4개 있다. 하락폭은 상위 5 적중률 2%p, MRR 0.02이고 정확히 그만큼은 통과한다"이고, 네 줄은 `human`·`keyword`의 `hit_at_5`(차 0.038709677)와 `mrr`(차 0.049999843, 0.049999664)다. 이 임시 브랜치는 병합하지 않고 실행 기록을 남긴 뒤 원격에서 지웠다. 이 기록도 검색 코드를 망가뜨려 만든 것이 아니라 기준의 숫자를 올려 게이트의 하락 판정 동작만 보인 것이다(티켓 11 Comments의 같은 한계). 실제 품질 저하를 이 게이트가 잡는지는 이 기록으로 보지 못했다.
 
 ### 2026-11-16 첫 `baseline-full.json` 승인
 
