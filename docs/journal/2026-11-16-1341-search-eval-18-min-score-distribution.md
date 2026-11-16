@@ -20,7 +20,7 @@
 ## 검증
 
 - `uv run ruff check .`과 `uv run ruff format --check .`가 초록이다. 커밋의 pre-commit(검사 러너 포함)이 통과했다. `tools/check_adr_pointers.py`와 `tools/plan_table.py --check`가 종료 코드 0이다.
-- 프로브의 변수 이름 하나(`lose`를 `answerable`로)를 측정 뒤에 고쳤다. 동작은 같지만 평가 환경을 이미 내려서 프로브를 다시 돌리지 않았다. 출력 파일은 고치기 전 코드가 낸 것이다.
+- 프로브를 측정 뒤에 세 곳 고쳤다. 변수 이름 하나(`lose`를 `answerable`로)와, PR 봇 첫 회차가 낸 둘(`check_ready`를 `guarded`로 감쌌고, 기대 근거에 닿은 후보가 없을 때 분위 계산을 건너뛴다)이다. 성공 경로의 동작은 같지만 평가 환경을 이미 내려서 프로브를 다시 돌리지 않았다. 출력 파일은 고치기 전 코드가 낸 것이다. 고친 파일은 ruff 검사와 포맷 검사, pyright가 깨끗하다.
 
 ## 셀프 리뷰
 
@@ -38,6 +38,15 @@
 - 고친 것. (1) 티켓 20의 "마이그레이션 0002가 같은 선례다"가 0002의 실제 내용(`jobs`에 색인을 더한다. 코드를 읽었다)과 이번 변경(`knowledge_bases`에 널 허용 칸)의 표가 달라 선례의 범위를 "색인 판의 요소를 바꾸지 않는 마이그레이션이 `SCHEMA_VERSION`을 올리지 않는 선례"로 좁혔다. 같은 지적이 2026-11-13 명세 리뷰(`2026-11-13-1716-search-eval-tickets.md`)에도 있었고 그때는 명세에 남겼다. (2) ADR 0017 이력의 한계 절에 프로브가 끝점으로 새로 계산한 쌍 1,207개를 더했다(`no_answer_scores_out.txt` 첫 줄). 답 없는 질의 20개 × 후보 50개 = 1,000쌍을 빼면 207쌍이고, 진단으로 센 214쌍과 같은 쌍인지는 맞춰 보지 않았다고 적었다.
 - 남긴 것. 프로브 README 행에는 214 대 1,207을 따로 더하지 않았다. ADR 한계 절이 같은 사실을 적고 README 행은 그 ADR을 가리키기 때문이다.
 
+## PR 봇 회차
+
+PR [56](https://github.com/njh6803/rag-engine/pull/56)의 첫 회차다. 검사 7개(CodeRabbit, claude-review, eval-fast, image, python, ticket, verify)가 모두 통과했다. claude-review는 지적 없음에 Nit 하나(프로브의 분위 뽑기가 내림이라 근삿값)였고 고치지 않았다. CodeRabbit이 인라인 둘을 냈고 둘 다 프로브 `probe_no_answer.py`다.
+
+- Major: `check_ready`가 `guarded` 밖에서 돌아 접속 실패의 메시지와 스택이 호스트와 사용자 이름을 실을 수 있다(원칙 V). `guarded`의 독스트링(`eval_assembly.py`)이 같은 위험을 적고 있어 맞는 지적이다. `guarded`로 감쌌다.
+- Minor: 기대 근거에 닿은 후보가 없으면 `reached_only[...]`가 `IndexError`를 낸다. 빈 목록이면 분위를 내지 않는 문장을 찍도록 고쳤다.
+
+고친 것이 프로브뿐이고 성공 경로가 같아 PR 본문의 범위는 넓히지 않았다.
+
 ## 회고
 
 후보 5개, 판정은 승인 3, 기각 2, 넘김 0이다. 만료할 항목은 없었다(`uv run python tools/queue_open_rows.py`).
@@ -50,6 +59,7 @@
 
 ## 다음
 
+- 주 체크아웃 미갱신: 루트는 dev. 병합 뒤 `tidy-checkouts`가 당기고 병합된 워크트리를 지운다.
 - 티켓 `.scratch/search-eval/issues/20-min-score-argument.md`가 `ready-for-agent`다. 시작 전에 티켓 17(리랭커 켬·끔 실험)의 결정을 확인한다. 17이 결정 전이면 ADR 0017 이력의 전제로 진행하고, 리랭커를 끄는 기본으로 결정됐으면 사용자에게 먼저 묻는다.
 - 열린 티켓은 15(전체 게이트 CI), 16, 13, 17이다. 병합 뒤의 순서는 `uv run python tools/plan_table.py`가 만든 전체 계획을 읽는다. 티켓 15는 이 PR이 Comments에 메모를 더했고 형제 워크트리 `15-full-gate-ci`도 같은 파일을 고치므로 병합 때 글 충돌이 날 수 있다.
 - 티켓 15의 메모. 같은 묶음, 같은 조각 수인데도 평가 데이터베이스를 새로 만들면 질의 310개 가운데 122개에서 후보 1~7개(합계 214쌍)가 리랭크 기록에 없었다. 전체 게이트가 `--records read`로 돌면 같은 일이 난다. 까닭은 조사하지 않았다.

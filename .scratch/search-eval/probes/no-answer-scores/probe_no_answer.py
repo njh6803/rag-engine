@@ -91,9 +91,14 @@ def main() -> int:
     )
     if prepared is None:
         return 1
-    problems = run_in_selector_loop(
-        check_ready(prepared.environment.database_url, prepared.eval_set)
+    problems = guarded(
+        lambda: run_in_selector_loop(
+            check_ready(prepared.environment.database_url, prepared.eval_set)
+        ),
+        prepared.records_run,
     )
+    if problems is None:
+        return 1
     if problems:
         report_problems(problems)
         return 1
@@ -134,9 +139,12 @@ def main() -> int:
         print(f"{quantile:.2f} 분위 {ordered[int(quantile * (len(ordered) - 1))]:.3f}")
     reached_only = sorted(best for _, best, _ in answerable if best is not None)
     print(f"\n기대 근거에 닿은 후보가 후보 50개 안에 있는 질의 {len(reached_only)}개")
-    for quantile in (0.05, 0.10, 0.25, 0.50, 0.75):
-        value = reached_only[int(quantile * (len(reached_only) - 1))]
-        print(f"닿은 후보의 최고 점수 {quantile:.2f} 분위 {value:.3f}")
+    if reached_only:
+        for quantile in (0.05, 0.10, 0.25, 0.50, 0.75):
+            value = reached_only[int(quantile * (len(reached_only) - 1))]
+            print(f"닿은 후보의 최고 점수 {quantile:.2f} 분위 {value:.3f}")
+    else:
+        print("닿은 후보가 하나도 없어 분위를 내지 않는다")
     return 0
 
 
