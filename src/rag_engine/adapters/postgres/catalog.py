@@ -41,6 +41,7 @@ def _knowledge_base(row: sa.RowMapping) -> KnowledgeBase:
         ),
         current_index_version_id=row["current_index_version_id"],
         is_default=row["is_default"],
+        min_score=row["min_score"],
     )
 
 
@@ -57,6 +58,7 @@ def _knowledge_base_values(knowledge_base: KnowledgeBase) -> dict[str, object]:
         "chunk_tokens": knowledge_base.chunking.max_tokens,
         "chunk_overlap_tokens": knowledge_base.chunking.overlap_tokens,
         "is_default": knowledge_base.is_default,
+        "min_score": knowledge_base.min_score,
     }
 
 

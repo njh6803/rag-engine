@@ -40,6 +40,7 @@ def make_knowledge_base(name: str = "kb", *, is_default: bool = False) -> Knowle
         chunking=CHUNKING,
         current_index_version_id=None,
         is_default=is_default,
+        min_score=None,
     )
 
 

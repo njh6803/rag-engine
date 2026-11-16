@@ -1,0 +1,136 @@
+# 티켓 20(검색의 `min_score`)이 더한 시험의 변이. 시험을 구현과 함께 썼고 변이마다 빨강을 따로 본 적이 없어 변이로 본다.
+# 표지는 pytest가 단언이 어긋날 때 찍는 차이 문구다(시험 이름은 늘 실려 표지가 되지 못한다).
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test
+#       uv run python tools/mutate.py .scratch/search-eval/probes/min_score_mutations.toml
+
+[[mutation]]
+name = "같은 점수의 조각까지 뺀다"
+tests = ["tests/app/test_search_min_score.py"]
+expect = "red"
+expect_output = ['''Right contains one more item: 0.5''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    return tuple(hit for hit in hits if hit.score >= min_score)'''
+new = '''    return tuple(hit for hit in hits if hit.score > min_score)'''
+
+[[mutation]]
+name = "RRF 점수로 거른다"
+tests = ["tests/app/test_search_min_score.py::test_최소_점수는_리랭크_점수와_맞대고_RRF_점수로는_거르지_않는다"]
+expect = "red"
+expect_output = ['''Right contains 2 more items, first extra item: 0.5''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    return tuple(hit for hit in hits if hit.score >= min_score)'''
+new = '''    return tuple(hit for hit in hits if hit.rrf_score >= min_score)'''
+
+[[mutation]]
+name = "범위 검사를 부정형으로 써 nan이 지나간다"
+tests = ["tests/app/test_search_min_score.py"]
+expect = "red"
+expect_output = ['''DID NOT RAISE''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    if min_score is not None and not 0 <= min_score <= 1:'''
+new = '''    if min_score is not None and (min_score < 0 or min_score > 1):'''
+
+[[mutation]]
+name = "범위의 위 끝을 보지 않는다"
+tests = ["tests/app/test_search_min_score.py"]
+expect = "red"
+expect_output = ['''DID NOT RAISE''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    if min_score is not None and not 0 <= min_score <= 1:'''
+new = '''    if min_score is not None and not 0 <= min_score:'''
+
+[[mutation]]
+name = "기본값이 요청 인자를 이긴다"
+tests = ["tests/app/test_search_min_score.py"]
+expect = "red"
+expect_output = ['''Right contains one more item: 0.5''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''        return knowledge_base.min_score if given is None else given'''
+new = '''        return given if knowledge_base.min_score is None else knowledge_base.min_score'''
+
+[[mutation]]
+name = "리랭커가 없는 지식베이스의 요청 인자를 거부하지 않는다"
+tests = ["tests/app/test_search_min_score.py"]
+expect = "red"
+expect_output = ['''DID NOT RAISE''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    if request.min_score is not None:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "리랭커가 없고 기본값만 있는 행을 그냥 지나간다"
+tests = ["tests/app/test_search_min_score.py"]
+expect = "red"
+expect_output = ['''DID NOT RAISE''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/search.py"
+old = '''    if knowledge_base.min_score is not None:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "기본 지식베이스 설정이 리랭커 없는 최소 점수를 거부하지 않는다"
+tests = ["tests/adapters/test_settings.py"]
+expect = "red"
+expect_output = ['''DID NOT RAISE''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/settings.py"
+old = '''        if self.default_min_score is not None and not has_reranker:'''
+new = '''        if False:'''
+
+[[mutation]]
+name = "카탈로그가 최소 점수를 쓰지 않는다"
+tests = ["tests/adapters/test_unit_of_work.py"]
+expect = "red"
+expect_output = ['''At index 0 diff: None != 0.3''']
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/catalog.py"
+old = '''        "min_score": knowledge_base.min_score,
+'''
+new = ''''''
+
+[[mutation]]
+name = "migrate를 다시 돌려도 지식베이스의 최소 점수를 설정에 맞추지 않는다"
+tests = ["tests/test_migrate_command.py"]
+expect = "red"
+expect_output = ['''At index 1 diff: None != 0.3''']
+
+[[mutation.edit]]
+file = "src/rag_engine/app/default_records.py"
+old = '''        min_score=settings.min_score,
+    )
+
+
+async def _lock_default_knowledge_base'''
+new = '''    )
+
+
+async def _lock_default_knowledge_base'''
+
+[[mutation]]
+name = "도구가 min_score를 요청에 싣지 않는다"
+tests = ["tests/contract/test_search_min_score.py"]
+expect = "red"
+expect_output = ['''At index 1 diff: 1 != 0''']
+timeout = 900
+
+[[mutation.edit]]
+file = "src/rag_engine/server/search_tool.py"
+old = '''        min_score=min_score,
+    )'''
+new = '''        min_score=None,
+    )'''
