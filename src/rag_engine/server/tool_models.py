@@ -24,7 +24,10 @@ from pydantic import (
 
 from rag_engine.domain.entities import BlockKind
 
-FORMAT_VERSION: Final = "1.0.0"
+# 1.1.0은 `search`의 입력 인자 `min_score`를 더했다. 입력 인자를 더하는 것도 minor다(ADR 0015
+# 이력 2026-11-12). 옛 서버는 모르는 인자를 조용히 버리므로 클라이언트는 이 판으로 서버가 인자를
+# 아는지 가른다.
+FORMAT_VERSION: Final = "1.1.0"
 
 
 def _to_utc(value: datetime) -> datetime:

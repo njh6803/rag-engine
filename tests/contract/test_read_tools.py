@@ -83,7 +83,7 @@ async def test_도구_목록은_셋이고_모두_읽기_전용_표지와_판이_
         assert schema["properties"].keys() == models[name].model_json_schema()["properties"].keys()
 
 
-async def test_세_도구의_결과가_스키마와_형식의_판_1_0_0에_맞는다(round_trip: RoundTrip) -> None:
+async def test_세_도구의_결과가_스키마와_형식의_판_1_1_0에_맞는다(round_trip: RoundTrip) -> None:
     document_id = await _document_id(round_trip, *휴가)
 
     searched = output(await round_trip.search("연차휴가"))
@@ -93,7 +93,7 @@ async def test_세_도구의_결과가_스키마와_형식의_판_1_0_0에_맞�
     assert [searched.format_version, document.format_version, listed.format_version] == [
         FORMAT_VERSION
     ] * 3
-    assert FORMAT_VERSION == "1.0.0"
+    assert FORMAT_VERSION == "1.1.0"
 
 
 async def test_get_document는_문서_정보와_조각_수를_싣고_글은_요청할_때만_싣는다(

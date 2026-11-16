@@ -232,6 +232,24 @@ async def test_카탈로그는_원천과_그룹과_지식베이스를_이름으�
         assert await catalog.list_knowledge_bases_of_group(group.id) == [knowledge_base]
 
 
+async def test_카탈로그는_지식베이스의_최소_점수를_더할_때와_고칠_때_저장하고_다시_읽는다(
+    engine: AsyncEngine,
+) -> None:
+    unit_of_work = PostgresUnitOfWork(engine)
+    knowledge_base = replace(make_knowledge_base("default", is_default=True), min_score=0.3)
+    async with unit_of_work.begin() as transaction:
+        await transaction.catalog.add_knowledge_base(knowledge_base)
+
+    async with unit_of_work.begin() as transaction:
+        added = await transaction.catalog.get_knowledge_base("default")
+        await transaction.catalog.update_knowledge_base(replace(knowledge_base, min_score=None))
+    async with unit_of_work.begin() as transaction:
+        cleared = await transaction.catalog.get_knowledge_base("default")
+
+    assert added is not None and cleared is not None
+    assert (added.min_score, cleared.min_score) == (0.3, None)
+
+
 async def test_같은_이름을_다시_더해도_먼저_있던_행이_남는다(engine: AsyncEngine) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
     first = Group(new_id(), "default", "처음")

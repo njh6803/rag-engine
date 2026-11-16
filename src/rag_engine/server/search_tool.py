@@ -37,6 +37,12 @@ _DESCRIPTION: Final = (
     "지식베이스에서 질의와 가까운 문서 조각을 찾는다. 결과마다 근거 위치(쪽, 절, 블록)와"
     " 문서의 갱신일, 점수가 붙고 점수가 큰 순서다. 지식베이스를 주지 않으면 기본 지식베이스를 쓴다."
     " filter로 그룹과 갱신일 기간을 좁힐 수 있다."
+    " min_score(0 이상 1 이하)를 주면 리랭크 점수가 그 값보다 낮은 조각을 결과에서 뺀다."
+    " 같은 점수는 남고, 남은 조각이 없으면 오류가 아니라 빈 결과다."
+    " 주지 않으면 지식베이스의 기본값을 따르고 기본값도 없으면 거르지 않는다."
+    " 0을 주면 기본값을 덮어 거르지 않는다."
+    " 점수가 리랭크 점수인 지식베이스(리랭커가 있는 것)에만 쓸 수 있고,"
+    " 리랭커가 없는 지식베이스에 주면 invalid_argument로 거부한다."
 )
 
 
@@ -97,6 +103,7 @@ def _request(
     top_k: int,
     knowledge_base: str | None,
     search_filter: SearchFilterInput | None,
+    min_score: float | None,
 ) -> SearchRequest:
     given = search_filter or SearchFilterInput()
     return SearchRequest(
@@ -107,6 +114,7 @@ def _request(
         groups=None if given.groups is None else tuple(given.groups),
         updated_after=_instant(given.updated_after),
         updated_before=_instant(given.updated_before),
+        min_score=min_score,
     )
 
 
@@ -127,12 +135,18 @@ def register_search_tool(mcp: MCPServer, deps: SearchDeps, *, default_top_k: int
         top_k: int | None = None,
         knowledge_base: str | None = None,
         filter: SearchFilterInput | None = None,
+        min_score: float | None = None,
     ) -> Annotated[CallToolResult, SearchOutput]:
         scope = request_scope(ctx)
 
         async def call() -> CallToolResult:
             request = _request(
-                scope, query, default_top_k if top_k is None else top_k, knowledge_base, filter
+                scope,
+                query,
+                default_top_k if top_k is None else top_k,
+                knowledge_base,
+                filter,
+                min_score,
             )
             started = time.perf_counter()
             found = await search_documents(deps, request)

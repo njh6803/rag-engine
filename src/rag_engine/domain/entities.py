@@ -124,6 +124,10 @@ class KnowledgeBase:
     chunking: ChunkingConfig
     current_index_version_id: UUID | None
     is_default: bool
+    # 검색의 최소 점수 기본값(0 이상 1 이하). 요청 인자가 없을 때 쓰고 `None`이면 거르지 않는다.
+    # 리랭크 점수에 거는 값이라 리랭커가 없는 지식베이스에는 둘 수 없다. 색인 판의 요소가 아니다
+    # (ADR 0017).
+    min_score: float | None
 
 
 @dataclass(frozen=True, slots=True)

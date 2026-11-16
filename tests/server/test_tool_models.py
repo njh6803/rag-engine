@@ -41,8 +41,8 @@ def _result() -> SearchResult:
     )
 
 
-def test_첫_판의_format_version은_1_0_0이다() -> None:
-    assert FORMAT_VERSION == "1.0.0"
+def test_format_version은_입력_인자_min_score를_더한_1_1_0이다() -> None:
+    assert FORMAT_VERSION == "1.1.0"
 
 
 @pytest.mark.parametrize("model", [SearchOutput, DocumentOutput, KnowledgeBasesOutput])
@@ -60,7 +60,7 @@ def test_검색_출력은_판과_쓴_지식베이스와_결과를_담는다() ->
 
     dumped = output.model_dump(mode="json")
 
-    assert dumped["format_version"] == "1.0.0"
+    assert dumped["format_version"] == "1.1.0"
     assert dumped["knowledge_base"] == "default"
     assert set(dumped["results"][0]) == {
         "chunk_id",

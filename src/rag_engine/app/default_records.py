@@ -27,7 +27,8 @@ DEFAULT_NAME = "default"
 @dataclass(frozen=True, slots=True)
 class DefaultKnowledgeBaseSettings:
     """기본 지식베이스를 만드는 설정(`RAG_DEFAULT_*`). 리랭커가 없으면 끝점과 모델이 모두
-    `None`이다."""
+    `None`이다. `min_score`는 검색의 최소 점수 기본값이고 `None`이면 거르지 않는다. 리랭커가 없는데
+    값이 있는 조합은 설정을 읽는 쪽이 거부한다."""
 
     embedding_url: str
     embedding_model: str
@@ -35,6 +36,7 @@ class DefaultKnowledgeBaseSettings:
     reranker_url: str | None
     reranker_model: str | None
     chunking: ChunkingConfig
+    min_score: float | None
 
 
 async def ensure_default_records(
@@ -100,6 +102,7 @@ def _new_knowledge_base(settings: DefaultKnowledgeBaseSettings) -> KnowledgeBase
         chunking=settings.chunking,
         current_index_version_id=None,
         is_default=True,
+        min_score=settings.min_score,
     )
 
 
@@ -114,6 +117,7 @@ def _with_settings(
         reranker_endpoint=settings.reranker_url,
         reranker_model=settings.reranker_model,
         chunking=settings.chunking,
+        min_score=settings.min_score,
     )
 
 
