@@ -16,7 +16,13 @@ import sys
 from pathlib import Path
 
 import pytest
-from tools.eval_gate_paths import EVALUATED_PATHS, changed_paths, decide, should_evaluate
+from tools.eval_gate_paths import (
+    EVALUATED_PATHS,
+    changed_paths,
+    decide,
+    decide_full,
+    should_evaluate,
+)
 
 from tools import eval_gate_paths
 
@@ -340,6 +346,161 @@ def test_진입점은_검색_코드가_바뀐_PR_에서_true_를_쓴다(tmp_path
             "PR_HEAD_SHA": head,
             "GITHUB_OUTPUT": str(out),
         },
+    )
+    assert result.returncode == 0, result.stderr
+    assert out.read_text(encoding="utf-8") == "evaluate=true\n"
+
+
+# ---- 전체 게이트(search-eval 15): 이벤트와 PR 의 base 브랜치만 본다 ----
+
+
+def test_수동_실행은_base_와_무관하게_전체_게이트를_평가한다() -> None:
+    assert decide_full("workflow_dispatch", "")[0] is True
+    assert decide_full("workflow_dispatch", "dev")[0] is True
+
+
+def test_base_가_main_인_PR_은_전체_게이트를_평가한다() -> None:
+    assert decide_full("pull_request", "main")[0] is True
+
+
+@pytest.mark.parametrize(
+    "base",
+    ["dev", "feature/x", "hotfix/y", "Main", "main2", "origin/main", "refs/heads/main", " main"],
+)
+def test_base_가_main_이_아닌_PR_은_전체_게이트를_평가하지_않는다(base: str) -> None:
+    assert decide_full("pull_request", base)[0] is False
+
+
+def test_PR_의_base_를_읽지_못하면_전체_게이트를_평가한다() -> None:
+    assert decide_full("pull_request", "")[0] is True
+
+
+@pytest.mark.parametrize("base", ["", "main", "dev"])
+def test_푸시는_main_푸시도_전체_게이트를_평가하지_않는다(base: str) -> None:
+    assert decide_full("push", base)[0] is False
+
+
+@pytest.mark.parametrize("event", ["", "schedule", "pull_request_target", "issue_comment"])
+def test_알지_못하는_이벤트는_전체_게이트를_평가한다(event: str) -> None:
+    assert decide_full(event, "dev")[0] is True
+
+
+@pytest.mark.parametrize(
+    ("event", "base", "evaluate", "reason_part"),
+    [
+        ("workflow_dispatch", "", True, "workflow_dispatch 는 늘 평가한다"),
+        ("pull_request", "main", True, "base 가 main 인 PR 이라 평가한다"),
+        ("pull_request", "dev", False, "base 가 dev 인 PR 은 빠른 게이트만 본다"),
+        ("pull_request", "", True, "PR 의 base 를 읽지 못해 평가한다"),
+        ("push", "", False, "푸시에서는 평가하지 않는다"),
+        ("schedule", "", True, "알지 못하는 이벤트(schedule)"),
+        ("", "", True, "알지 못하는 이벤트(빈 값)"),
+    ],
+)
+def test_전체_게이트의_판정은_이유를_함께_낸다(
+    event: str, base: str, *, evaluate: bool, reason_part: str
+) -> None:
+    decided, reason = decide_full(event, base)
+    assert decided is evaluate
+    assert reason_part in reason
+
+
+def test_main_이_EVAL_GATE_full_의_main_PR_에서_true_를_쓴다(tmp_path: Path) -> None:
+    out = tmp_path / "out.txt"
+    env = {
+        "EVAL_GATE": "full",
+        "GITHUB_EVENT_NAME": "pull_request",
+        "PR_BASE_REF": "main",
+        "GITHUB_OUTPUT": str(out),
+    }
+    assert eval_gate_paths.main(env=env, repo=tmp_path) == 0
+    assert out.read_text(encoding="utf-8") == "evaluate=true\n"
+
+
+def test_main_이_EVAL_GATE_full_의_dev_PR_에서_경로를_보지_않고_false_를_쓴다(
+    tmp_path: Path,
+) -> None:
+    repo = _저장소(tmp_path)
+    base = _분기한다(repo)
+    (repo / "src" / "a.py").write_text("x = 2\n" * 40, encoding="utf-8")
+    head = _커밋한다(repo, "src")
+    out = tmp_path / "out.txt"
+    env = {
+        "EVAL_GATE": "full",
+        "GITHUB_EVENT_NAME": "pull_request",
+        "PR_BASE_REF": "dev",
+        "PR_BASE_SHA": base,
+        "PR_HEAD_SHA": head,
+        "GITHUB_OUTPUT": str(out),
+    }
+    assert eval_gate_paths.main(env=env, repo=repo) == 0
+    assert out.read_text(encoding="utf-8") == "evaluate=false\n"
+
+
+def test_main_이_EVAL_GATE_full_의_수동_실행에서_true_를_쓴다(tmp_path: Path) -> None:
+    out = tmp_path / "out.txt"
+    env = {"EVAL_GATE": "full", "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_OUTPUT": str(out)}
+    assert eval_gate_paths.main(env=env, repo=tmp_path) == 0
+    assert out.read_text(encoding="utf-8") == "evaluate=true\n"
+
+
+def test_main_이_EVAL_GATE_full_의_푸시에서_false_를_쓴다(tmp_path: Path) -> None:
+    out = tmp_path / "out.txt"
+    env = {"EVAL_GATE": "full", "GITHUB_EVENT_NAME": "push", "GITHUB_OUTPUT": str(out)}
+    assert eval_gate_paths.main(env=env, repo=tmp_path) == 0
+    assert out.read_text(encoding="utf-8") == "evaluate=false\n"
+
+
+@pytest.mark.parametrize("gate", ["", "fast"])
+def test_main_은_EVAL_GATE_가_없거나_fast_면_빠른_게이트로_가른다(
+    tmp_path: Path, gate: str
+) -> None:
+    out = tmp_path / "out.txt"
+    env = {"GITHUB_EVENT_NAME": "push", "GITHUB_OUTPUT": str(out)}
+    if gate:
+        env["EVAL_GATE"] = gate
+    assert eval_gate_paths.main(env=env, repo=tmp_path) == 0
+    assert out.read_text(encoding="utf-8") == "evaluate=true\n"
+
+
+def test_main_은_알지_못하는_EVAL_GATE_를_알리고_2로_끝나며_출력을_쓰지_않는다(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "out.txt"
+    env = {"EVAL_GATE": "ful", "GITHUB_EVENT_NAME": "push", "GITHUB_OUTPUT": str(out)}
+    code = eval_gate_paths.main(env=env, repo=tmp_path)
+    assert code == 2, f"알지 못하는 EVAL_GATE 가 종료 코드 {code} 로 끝났다"
+    assert not out.exists()
+    err = capsys.readouterr().err
+    assert "EVAL_GATE" in err
+    assert "받은 값: ful" in err
+    assert "fast" in err
+    assert "full" in err
+
+
+def test_진입점은_CI_가_부르는_꼴로_dev_PR_에서_전체_게이트를_false_로_쓴다(tmp_path: Path) -> None:
+    out = tmp_path / "out.txt"
+    result = _진입점을_부른다(
+        tmp_path,
+        {
+            "EVAL_GATE": "full",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "PR_BASE_REF": "dev",
+            "GITHUB_OUTPUT": str(out),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert "evaluate=false" in result.stdout
+    assert out.read_text(encoding="utf-8") == "evaluate=false\n"
+
+
+def test_진입점은_CI_가_부르는_꼴로_수동_실행에서_전체_게이트를_true_로_쓴다(
+    tmp_path: Path,
+) -> None:
+    out = tmp_path / "out.txt"
+    result = _진입점을_부른다(
+        tmp_path,
+        {"EVAL_GATE": "full", "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_OUTPUT": str(out)},
     )
     assert result.returncode == 0, result.stderr
     assert out.read_text(encoding="utf-8") == "evaluate=true\n"
