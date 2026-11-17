@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     default_embedding_url: str | None = None
     default_embedding_model: str = "BAAI/bge-m3"
     default_embedding_dimensions: int = Field(default=1024, gt=0)
+    # 기본 설치는 리랭커를 켜지 않는다(ADR 0010 이력 2026-11-17). 켜는 설치가 끝점을 적는다.
     default_reranker_url: str | None = None
     default_reranker_model: str = "BAAI/bge-reranker-v2-m3"
     # 기본 지식베이스의 검색 최소 점수. 비우면 거르지 않는다. 범위 밖과 `nan`·`inf`는 설정 오류다.

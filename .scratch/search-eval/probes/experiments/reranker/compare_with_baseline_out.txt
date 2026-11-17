@@ -1,0 +1,9 @@
+fast rows: 같다
+fast by_tag: 같다
+fast filtered: 같다
+full rows: 같다
+full by_tag: 같다
+full filtered: 같다
+full misses: 같다
+full miss_counts: 같다
+full score_distribution: 같다
