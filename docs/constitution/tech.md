@@ -18,7 +18,7 @@
 | 설정 | pydantic-settings. 환경 변수 `RAG_*`, `.env`, 비밀 파일. ADR 0015 |
 | 관리자 페이지 | admin 설계 인터뷰가 정한다(pnpm과 Next의 웹 워크스페이스, 또는 서버가 그리는 단순한 화면). 정하면 ADR과 함께 이 칸을 고친다 |
 | 관리 명령 | 표준 라이브러리 argparse. 범위는 서버 없이 해야 하는 것(`serve`, `worker`, `migrate`, `bootstrap-token`)과 `ingest <경로>`이고, 나머지 쓰기는 관리 API다. 명령은 REST와 같은 app 층 유스케이스를 부르고 같은 연결 문자열로 데이터베이스에 직접 붙는다(ADR 0007) |
-| 컨테이너 | Docker 이미지. 서버와 작업자 이미지 둘(ADR 0007). 컨테이너는 root가 아닌 사용자로 돈다. 단독 compose의 기본 컨테이너는 서버, 작업자, PostgreSQL, 임베딩 TEI 넷이고 리랭커 TEI는 켜는 설치가 프로필로 더한다. 메모리 예산은 TEI 둘을 모두 띄운 설치의 32GB 기준(최소 16GB). 판 태그, 단독 compose, SBOM과 CVE 스캔은 release-image가 정한다 |
+| 컨테이너 | Docker 이미지. 서버와 작업자 이미지 둘(ADR 0007). 컨테이너는 root가 아닌 사용자로 돈다. 단독 compose의 기본 컨테이너는 프록시(nginx), 서버, 작업자, PostgreSQL, 임베딩 TEI 다섯이고 서버 앞에 한 번 도는 마이그레이션 서비스를 둔다. 리랭커 TEI는 켜는 설치가 프로필로 더한다. 밖으로 여는 포트는 프록시의 443 하나이고 프록시가 TLS를 끝낸다. 메모리 예산은 TEI 둘을 모두 띄운 설치의 32GB 기준(최소 16GB). 제품 판은 main이 움직이고 지난 제품 판 뒤로 제품 변경이 있을 때 CI가 내고, 이미지 둘을 Docker Hub의 `njh6803/rag-engine-server`와 `njh6803/rag-engine-worker`에 판 태그로 올리며 이미지마다 SBOM과 취약점 점검 결과를 낸다. 보증하는 환경은 리눅스 x86-64의 Docker Engine과 Docker Compose다. ADR 0020. 워크플로와 점검 도구는 release-image의 티켓이 들이며 이 칸에 적는다 |
 | 원격·CI | GitHub, GitHub Actions(ubuntu, uv). 로컬 훅과 같은 검사, 계약 시험, 이미지 빌드가 돌고 필수 검사 `verify`가 결과를 모은다(`docs/constitution/operations.md`) |
 | 로깅 | 표준 라이브러리 logging에 우리 포매터를 붙여 JSON Lines를 stdout으로 낸다(ADR 0015). 무엇을 남기지 않는지는 원칙 V |
 
