@@ -3,6 +3,10 @@
 조각 쓰기는 그 (문서, 판)의 옛 조각을 지우고 새 조각을 넣는다. 색인 상태와 파싱 결과는 덮어쓴다.
 검색 질의는 벡터와 키워드 후보를 SQL 하나로 모아 RRF(`1/(60+순위)`의 합)로 합치고, 벡터 질의는 03이
 만든 판의 HNSW 부분 색인을 탄다(같은 캐스트 `embedding::vector(D)`).
+
+끝의 진단용 검색 시험은 search-eval 01 몫이다(명세 "진단용 검색과 단계"). 진단용 검색은 같은 SQL
+뼈대에서 합친 뒤의 자르기만 빼고 단계마다의 순위를 싣는다. 계획을 고르는 `CandidateScan.EXACT`는
+HNSW 색인을 쓰지 않는 계획으로 돌고, 그 설정은 호출 밖으로 새지 않는다.
 """
 
 from dataclasses import replace
@@ -11,6 +15,7 @@ from uuid import UUID
 
 import psycopg
 import pytest
+import sqlalchemy as sa
 from sqlalchemy import Connection, event
 from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.records import (
@@ -22,9 +27,11 @@ from tests.records import (
 )
 
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
+from rag_engine.adapters.postgres.vector_index import PostgresVectorIndex
 from rag_engine.domain.entities import (
     Block,
     BlockKind,
+    CandidateScan,
     Chunk,
     ChunkLocation,
     Document,
@@ -690,3 +697,277 @@ async def test_색인_상태를_모두_지우면_판과_상관없이_그_문서�
             "SELECT document_id FROM document_index_states ORDER BY index_version_id"
         ).fetchall()
     assert rows == [(other.id,), (other.id,)]
+
+
+async def _spread_world(engine: AsyncEngine) -> _World:
+    """그룹 둘에 걸친 조각 여덟 개. 벡터는 질의 (1, 0, 0)에서 거리가 서로 다르고 키워드는 짝수
+    조각만 든다. 후보 수를 3으로 주면 벡터와 키워드 후보가 일부만 겹친다."""
+    world = await _world(engine)
+    personnel = await _other_group(world, "인사")
+    for group, key in ((world.group, "기본.docx"), (personnel, "인사.docx")):
+        document = await _document_in(world, group, key)
+        tilt = 0.1 if group is world.group else 0.15
+        await world.write(
+            document,
+            *[
+                world.chunk(
+                    document,
+                    n,
+                    f"{key} 글 {n}",
+                    (1.0, 0.2 * (n + 1), tilt * (4 - n)),
+                    "찾는말" if n % 2 == 0 else "무관",
+                )
+                for n in range(4)
+            ],
+        )
+    return world
+
+
+@pytest.mark.parametrize("keywords", [("찾는말",), ()], ids=["키워드_있음", "키워드_빈_질의"])
+@pytest.mark.parametrize("filter_kind", ["없음", "그룹"], ids=["필터_없음", "그룹_필터"])
+async def test_진단용_검색의_합친_순위가_후보_수_이하인_줄은_검색의_후보와_순서와_점수까지_같다(
+    engine: AsyncEngine, keywords: tuple[str, ...], filter_kind: str
+) -> None:
+    world = await _spread_world(engine)
+    query = replace(world.query((1.0, 0.0, 0.0), keywords), candidates=3)
+    if filter_kind == "그룹":
+        query = replace(query, filter=SearchFilter(group_ids=(world.group.id,)))
+
+    async with world.unit_of_work.begin() as transaction:
+        searched = await transaction.index.search_candidates(query)
+        diagnosed = await transaction.index.diagnose_candidates(query, scan=CandidateScan.INDEX)
+
+    head = [line for line in diagnosed.hits if line.fused_rank <= query.candidates]
+    assert [(hit.chunk_id, hit.text, hit.rrf_score) for hit in searched.hits] == [
+        (line.hit.chunk_id, line.hit.text, line.hit.rrf_score) for line in head
+    ]
+    assert len(head) == len(searched.hits) > 0
+    assert diagnosed.is_current is searched.is_current is True
+
+
+async def test_진단용_검색은_벡터와_키워드_후보의_합집합_전부를_단계마다의_순위와_함께_낸다(
+    engine: AsyncEngine,
+) -> None:
+    world = await _world(engine)
+    document = await world.document()
+    await world.write(
+        document,
+        world.chunk(document, 0, "벡터 쪽", (1.0, 0.0, 0.0), "무관"),
+        world.chunk(document, 1, "키워드 쪽", (0.0, 1.0, 0.0), "찾는말"),
+        world.chunk(document, 2, "어디에도 없음", (0.0, 0.0, 1.0), "무관"),
+    )
+    query = replace(world.query((1.0, 0.0, 0.0), ("찾는말",)), candidates=1)
+
+    async with world.unit_of_work.begin() as transaction:
+        diagnosed = await transaction.index.diagnose_candidates(query, scan=CandidateScan.INDEX)
+
+    # 후보 수가 1이라 벡터 후보는 "벡터 쪽"뿐이고 키워드 후보는 "키워드 쪽"뿐이다. 합집합은 둘이고
+    # 점수가 같아 조각 ID 순으로 끊는다(`search_candidates`와 같은 규칙).
+    by_text = {line.hit.text: line for line in diagnosed.hits}
+    assert set(by_text) == {"벡터 쪽", "키워드 쪽"}
+    vector_side, keyword_side = by_text["벡터 쪽"], by_text["키워드 쪽"]
+    assert (vector_side.vector_rank, vector_side.keyword_rank) == (1, None)
+    assert (keyword_side.vector_rank, keyword_side.keyword_rank) == (None, 1)
+    assert (vector_side.ordinal, keyword_side.ordinal) == (0, 1)
+    assert [line.fused_rank for line in diagnosed.hits] == [1, 2]
+    assert diagnosed.hits[0].hit.chunk_id == min(
+        vector_side.hit.chunk_id, keyword_side.hit.chunk_id
+    )
+
+
+async def test_진단용_검색에서_키워드_토큰이_없으면_키워드_순위는_모두_없다(
+    engine: AsyncEngine,
+) -> None:
+    world = await _world(engine)
+    document = await world.document()
+    await world.write(
+        document,
+        world.chunk(document, 0, "가", (1.0, 0.0, 0.0), "가"),
+        world.chunk(document, 1, "나", (0.0, 1.0, 0.0), "나"),
+    )
+
+    async with world.unit_of_work.begin() as transaction:
+        diagnosed = await transaction.index.diagnose_candidates(
+            world.query((1.0, 0.0, 0.0), ()), scan=CandidateScan.INDEX
+        )
+
+    assert [
+        (line.hit.text, line.vector_rank, line.keyword_rank, line.fused_rank)
+        for line in diagnosed.hits
+    ] == [("가", 1, None, 1), ("나", 2, None, 2)]
+
+
+async def test_진단용_검색은_검색과_같은_규칙으로_ef_search와_반복_스캔을_건다(
+    engine: AsyncEngine,
+) -> None:
+    world = await _world(engine)
+    seen: list[str] = []
+
+    def capture(
+        connection: Connection, cursor: object, statement: str, parameters: object, *rest: object
+    ) -> None:
+        if "set_config" in statement:
+            seen.append(repr(parameters))
+
+    async def settings_for(search_filter: SearchFilter) -> list[str]:
+        seen.clear()
+        query = replace(world.query((1.0, 0.0, 0.0), ()), candidates=7, filter=search_filter)
+        async with world.unit_of_work.begin() as transaction:
+            await transaction.index.diagnose_candidates(query, scan=CandidateScan.INDEX)
+        return list(seen)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", capture)
+    try:
+        unfiltered = await settings_for(SearchFilter())
+        filtered = await settings_for(SearchFilter(updated_after=NOW))
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", capture)
+
+    assert any("hnsw.ef_search" in text and "'7'" in text for text in unfiltered)
+    assert not any("iterative_scan" in text for text in unfiltered)
+    assert any("iterative_scan" in text and "relaxed_order" in text for text in filtered)
+
+
+async def test_진단용_검색은_정확_스캔일_때만_색인_스캔을_끄고_호출_끝에_되돌린다(
+    engine: AsyncEngine,
+) -> None:
+    # 계획 시험(EXPLAIN)은 시험용 메서드만 본다. 실제 호출이 `scan`을 따르는지는 호출이 거는
+    # 설정으로 본다.
+    world = await _world(engine)
+    seen: list[str] = []
+
+    def capture(
+        connection: Connection, cursor: object, statement: str, parameters: object, *rest: object
+    ) -> None:
+        if "set_config" in statement and "enable_indexscan" in repr(parameters):
+            seen.append(repr(parameters))
+
+    async def settings_for(scan: CandidateScan) -> list[str]:
+        seen.clear()
+        async with world.unit_of_work.begin() as transaction:
+            await transaction.index.diagnose_candidates(world.query((1.0, 0.0, 0.0), ()), scan=scan)
+        return list(seen)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", capture)
+    try:
+        indexed = await settings_for(CandidateScan.INDEX)
+        exact = await settings_for(CandidateScan.EXACT)
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", capture)
+
+    assert indexed == []
+    assert ["'off'" in text for text in exact] == [True, False]
+    assert "'on'" in exact[1]
+
+
+async def _twenty_chunks(engine: AsyncEngine) -> _World:
+    world = await _world(engine)
+    document = await world.document()
+    await world.write(
+        document,
+        *[world.chunk(document, n, f"글 {n}", (1.0, float(n), 0.0), "공통") for n in range(20)],
+    )
+    return world
+
+
+async def test_정확_스캔의_계획에는_판의_HNSW_부분_색인이_없고_색인_스캔의_계획에는_있다(
+    engine: AsyncEngine,
+) -> None:
+    world = await _twenty_chunks(engine)
+    query = world.query((1.0, 0.0, 0.0), ("공통",))
+    index_name = f"ix_chunks_hnsw_{world.version.id.hex}"
+
+    async with world.unit_of_work.begin() as transaction:
+        exact = await transaction.index.explain_diagnosis(query, scan=CandidateScan.EXACT)
+    async with world.unit_of_work.begin() as transaction:
+        indexed = await transaction.index.explain_diagnosis(query, scan=CandidateScan.INDEX)
+
+    assert index_name not in exact
+    assert index_name in indexed
+
+
+async def test_정확_스캔_호출_뒤에도_같은_트랜잭션의_색인_스캔과_검색은_HNSW_색인을_쓴다(
+    engine: AsyncEngine,
+) -> None:
+    world = await _twenty_chunks(engine)
+    query = world.query((1.0, 0.0, 0.0), ("공통",))
+    index_name = f"ix_chunks_hnsw_{world.version.id.hex}"
+
+    async with world.unit_of_work.begin() as transaction:
+        before = await transaction.index.explain_diagnosis(query, scan=CandidateScan.EXACT)
+        await transaction.index.diagnose_candidates(query, scan=CandidateScan.EXACT)
+        diagnosed = await transaction.index.explain_diagnosis(query, scan=CandidateScan.INDEX)
+        searched = await transaction.index.explain_search(query)
+
+    assert index_name not in before
+    assert index_name in diagnosed
+    assert index_name in searched
+
+
+async def test_정확_스캔의_벡터_순위는_거리_순과_같다(engine: AsyncEngine) -> None:
+    world = await _twenty_chunks(engine)
+    query = world.query((1.0, 0.0, 0.0), ())
+
+    async with world.unit_of_work.begin() as transaction:
+        diagnosed = await transaction.index.diagnose_candidates(query, scan=CandidateScan.EXACT)
+
+    ranked = sorted(
+        (line for line in diagnosed.hits if line.vector_rank is not None),
+        key=lambda line: line.vector_rank or 0,
+    )
+    # 질의 (1, 0, 0)과의 코사인 거리는 (1, n, 0)의 n이 클수록 멀다. 후보 수 10만큼이 든다.
+    assert [line.hit.text for line in ranked] == [f"글 {n}" for n in range(10)]
+    assert [line.vector_rank for line in ranked] == list(range(1, 11))
+
+
+async def test_진단용_검색도_질의한_판이_전환되면_is_current가_거짓이다(
+    engine: AsyncEngine,
+) -> None:
+    world = await _world(engine)
+    other = await _with_building_version(world)
+
+    async with world.unit_of_work.begin() as transaction:
+        before = await transaction.index.diagnose_candidates(
+            world.query((1.0, 0.0, 0.0), ()), scan=CandidateScan.EXACT
+        )
+        await transaction.catalog.switch_current_version(world.version.knowledge_base_id, other.id)
+    async with world.unit_of_work.begin() as transaction:
+        after = await transaction.index.diagnose_candidates(
+            world.query((1.0, 0.0, 0.0), ()), scan=CandidateScan.EXACT
+        )
+
+    assert (before.is_current, after.is_current) == (True, False)
+
+
+def _index_scans(database_url: str, version: IndexVersion) -> int:
+    """판의 HNSW 부분 색인이 지금까지 스캔된 횟수(통계 보기)."""
+    with psycopg.connect(database_url, autocommit=True) as connection:
+        row = connection.execute(
+            "SELECT idx_scan FROM pg_stat_user_indexes WHERE indexrelname = %s",
+            [f"ix_chunks_hnsw_{version.id.hex}"],
+        ).fetchone()
+    assert row is not None
+    return row[0]
+
+
+async def test_같은_연결에서_두_계획을_열_번_넘게_번갈아_불러도_정확_스캔만_색인을_타지_않는다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    # psycopg는 같은 문장을 다섯 번 돌리면 서버에 준비시키고 서버는 그 뒤 일반 계획을 쓴다. 일반
+    # 계획은 `enable_indexscan` 설정이 바뀌어도 다시 짜지 않으므로, 두 계획이 같은 문장 글을 쓰면
+    # 한쪽 계획이 다른 쪽 호출에 눌러앉는다.
+    world = await _twenty_chunks(engine)
+    query = world.query((1.0, 0.0, 0.0), ())
+    before = _index_scans(empty_database_url, world.version)
+    rounds = 8
+
+    async with engine.connect() as connection, connection.begin():
+        index = PostgresVectorIndex(connection)
+        for _ in range(rounds):
+            await index.diagnose_candidates(query, scan=CandidateScan.INDEX)
+            await index.diagnose_candidates(query, scan=CandidateScan.EXACT)
+        await connection.execute(sa.text("SELECT pg_stat_force_next_flush()"))
+
+    # 색인을 탄 것은 `INDEX` 호출뿐이어야 한다.
+    scans = _index_scans(empty_database_url, world.version) - before
+    assert scans == rounds, f"색인 스캔 {scans}회, 기대 {rounds}회"

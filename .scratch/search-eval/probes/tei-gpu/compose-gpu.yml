@@ -1,0 +1,90 @@
+# 개발 PC의 GPU로 추론 기록을 만들 때 띄우는 평가 전용 compose(search-eval 14). `compose.eval.yml`과 다른 것은 셋이다.
+# 임베딩 TEI가 GPU 이미지(`turing-1.9.4`)이고 `--gpus all`을 받으며, 리랭커 TEI(`BAAI/bge-reranker-v2-m3`)가
+# 프로필 `rerank`로 더해졌고, 모델 캐시가 이 PC에 이미 있는 외부 볼륨 `search-eval-tei-probe-data`다(프로젝트
+# 이름도 `rag-engine-eval-gpu`로 달라 컨테이너와 데이터베이스 볼륨이 `compose.eval.yml`의 것과 섞이지 않는다). 이 파일은
+# 기록을 만드는 사람의 도구이고 CI나 배포 구성에 들어가지 않는다(명세 "전체 게이트와 리랭커": GPU 이미지를 배포 구성에
+# 넣는 일은 이 기능의 범위 밖이다).
+#
+# 모델 캐시 볼륨을 처음 만드는 기계라면 `docker volume create search-eval-tei-probe-data`로 만들고, 처음 띄울 때
+# 허깅페이스에서 받는다(bge-m3와 리랭커 각각 약 2.3GB).
+#
+# 띄우기(Git Bash, 저장소 루트):
+#   docker ps                       # 다른 세션의 TEI가 떠 있지 않은지 본다. GPU는 세션 사이에 나눠 쓴다
+#   docker compose -f .scratch/search-eval/probes/tei-gpu/compose-gpu.yml up -d --wait
+#   docker compose -f .scratch/search-eval/probes/tei-gpu/compose-gpu.yml --profile rerank up -d --wait
+# 평가 도구의 환경 변수(`compose.eval.yml` 머리 주석과 같고 리랭커의 끝점만 포트가 다르다):
+#   RAG_EVAL_DATABASE_URL=postgresql://rag_eval:rag_eval@127.0.0.1:55433/rag_eval
+#   RAG_EVAL_DATA_DIR=<빈 폴더>
+#   RAG_EVAL_EMBEDDING_URL=http://127.0.0.1:18083
+#   RAG_EVAL_RERANKER_URL=http://127.0.0.1:18084   # 기록을 끈 전체 실행만 반드시 받는다
+# 끝나면 `--profile rerank down -v`로 평가 데이터베이스 볼륨을 지운다(프로필 없이 `down`을 치면 리랭커가 남는다). 모델 캐시는 외부 볼륨이라 `down -v`가 지우지 않는다.
+#
+# `--max-batch-tokens 4096`은 `compose.eval.yml`과 같다. 이 GPU(GTX 1660 Ti, VRAM 6GB)에서 임베딩 기록을 만든 티켓 10도
+# 그 값으로 만들었다.
+name: rag-engine-eval-gpu
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    environment:
+      POSTGRES_USER: rag_eval
+      POSTGRES_PASSWORD: rag_eval
+      POSTGRES_DB: rag_eval
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - eval-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U rag_eval -d rag_eval"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:turing-1.9.4
+    command: ["--model-id", "BAAI/bge-m3", "--port", "80", "--max-batch-tokens", "4096"]
+    ports:
+      - "127.0.0.1:18083:80"
+    volumes:
+      - eval-tei-data:/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:80/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 240
+      start_period: 10s
+
+  reranker:
+    profiles: ["rerank"]
+    image: ghcr.io/huggingface/text-embeddings-inference:turing-1.9.4
+    command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--port", "80", "--max-batch-tokens", "4096"]
+    ports:
+      - "127.0.0.1:18084:80"
+    volumes:
+      - eval-tei-data:/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:80/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 240
+      start_period: 10s
+
+volumes:
+  eval-postgres:
+  eval-tei-data:
+    external: true
+    name: search-eval-tei-probe-data

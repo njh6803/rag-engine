@@ -1,2 +1,4 @@
 * text=auto eol=lf
 tests/fixtures/*.pdf binary
+evals/public-docs/documents/** binary
+evals/public-docs/records/*.f32 binary

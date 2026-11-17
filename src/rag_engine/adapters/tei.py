@@ -10,6 +10,8 @@
 """
 
 import asyncio
+import hashlib
+import json
 import logging
 import math
 from collections.abc import Callable, Mapping, Sequence
@@ -48,6 +50,40 @@ _MAX_BODY_BYTES: Final = 1_000_000
 # 글을 자를 때 조각 하나의 글자 수 상한. 글자 하나가 UTF-8로 최대 4바이트라 이 수만큼이면 본문
 # 상한 안에 든다.
 _MAX_SLICE_CHARS: Final = _MAX_BODY_BYTES // 4
+
+
+@dataclass(frozen=True, slots=True)
+class InferenceRequestShape:
+    """추론 요청의 경로와, 본문에서 글·질의·모델 이름을 뺀 칸. 어댑터가 요청을 이것으로 짓고,
+    추론 기록이 이것의 지문을 `records.json`에 적어 어댑터가 요청을 짓는 방식의 변경을 알아본다
+    (명세 search-eval "추론 기록"). 지문은 경로와 칸을 정렬한 JSON의 sha256이다."""
+
+    path: str
+    fields: Mapping[str, JsonValue]
+
+    def fingerprint(self) -> str:
+        canonical = json.dumps(
+            {"path": self.path, "fields": dict(self.fields)},
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+# 임베딩 요청은 `input`(글)과 `model`에 이 칸을 더한다. 더하는 칸이 없다.
+EMBEDDING_REQUEST: Final = InferenceRequestShape("/v1/embeddings", {})
+
+# 리랭크 요청은 `query`와 `texts`에 이 칸을 더한다.
+RERANK_REQUEST: Final = InferenceRequestShape(
+    "/rerank",
+    {
+        "truncate": True,
+        "truncation_direction": "Right",
+        "raw_scores": False,
+        "return_text": False,
+    },
+)
 
 
 class _Info(BaseModel):
@@ -119,7 +155,9 @@ class TeiEmbedder:
         vectors: list[tuple[float, ...]] = []
         for batch in _batches(texts, size=limits.batch_size, max_bytes=_MAX_BODY_BYTES):
             content = await self._send(
-                "POST", "/v1/embeddings", {"input": batch, "model": self._model}
+                "POST",
+                EMBEDDING_REQUEST.path,
+                {"input": batch, "model": self._model, **EMBEDDING_REQUEST.fields},
             )
             vectors.extend(self._vectors(_parse(_EmbeddingResponse, content), len(batch)))
         return vectors
@@ -257,15 +295,8 @@ class TeiReranker:
             content = await _request(
                 self._client,
                 "POST",
-                "/rerank",
-                {
-                    "query": query,
-                    "texts": batch,
-                    "truncate": True,
-                    "truncation_direction": "Right",
-                    "raw_scores": False,
-                    "return_text": False,
-                },
+                RERANK_REQUEST.path,
+                {"query": query, "texts": batch, **RERANK_REQUEST.fields},
                 server=_RERANKER,
             )
             ranks = _parse(_RERANK_RESPONSE, content, server=_RERANKER)

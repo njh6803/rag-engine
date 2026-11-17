@@ -168,6 +168,18 @@ def empty_database_url(database_url: str) -> Iterator[str]:
 
 
 @pytest.fixture
+def empty_eval_database_url(database_url: str) -> Iterator[str]:
+    """평가 도구가 붙는 빈 데이터베이스를 하나 만들고 끝나면 지운다. 평가 전용 데이터베이스는 이름이
+    `rag_eval`로 시작하고(명세 search-eval "평가 전용 데이터베이스"), 뒤에 무작위 토막을 붙인다."""
+    name = f"rag_eval_{uuid4().hex}"
+    _create_database(database_url, name)
+    try:
+        yield replace_database(database_url, name)
+    finally:
+        _drop_database(database_url, name)
+
+
+@pytest.fixture
 async def engine(empty_database_url: str) -> AsyncIterator[AsyncEngine]:
     """스키마만 올린 빈 데이터베이스에 붙은 엔진. `migrate`의 기본 레코드는 없다."""
     await asyncio.to_thread(upgrade_to_head, empty_database_url)

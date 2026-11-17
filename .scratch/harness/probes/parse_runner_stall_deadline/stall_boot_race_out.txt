@@ -1,0 +1,6 @@
+기한 2초, 동시 1개: {'parse_failed': 1}, 최대 소요 0.67초
+기한 10초, 동시 1개: {'parse_failed': 1}, 최대 소요 0.66초
+기한 2초, 동시 16개: {'parse_timeout': 9, 'parse_failed': 7}, 최대 소요 2.34초
+기한 10초, 동시 16개: {'parse_failed': 16}, 최대 소요 2.62초
+기한 2초, 동시 32개: {'parse_timeout': 29, 'parse_failed': 3}, 최대 소요 2.39초
+기한 10초, 동시 32개: {'parse_failed': 32}, 최대 소요 5.58초

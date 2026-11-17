@@ -1,0 +1,11 @@
+embed BAAI/bge-m3 texts 8 seconds 64.3
+embed BAAI/bge-m3 texts 8 seconds 39.9
+in-process same_1 vs same_1 identical True max_abs_diff 0.0 min_cosine 0.9999999999999998
+in-process same_1 vs same_2 identical True max_abs_diff 0.0 min_cosine 0.9999999999999998
+in-process same_1 vs reversed identical True max_abs_diff 0.0 min_cosine 0.9999999999999998
+in-process same_1 vs halves identical True max_abs_diff 0.0 min_cosine 0.9999999999999998
+restart same_1 vs same_1 identical True max_abs_diff 0.0 min_cosine 0.9999999999999998
+restart same_1 vs same_2 identical True max_abs_diff 0.0 min_cosine 0.9999999999999998
+restart same_1 vs reversed identical True max_abs_diff 0.0 min_cosine 0.9999999999999998
+restart same_1 vs halves identical True max_abs_diff 0.0 min_cosine 0.9999999999999998
+embed alone vs mixed-length batch identical True max_abs_diff 0.0 min_cosine 0.9999999999999998

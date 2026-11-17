@@ -124,6 +124,10 @@ class KnowledgeBase:
     chunking: ChunkingConfig
     current_index_version_id: UUID | None
     is_default: bool
+    # 검색의 최소 점수 기본값(0 이상 1 이하). 요청 인자가 없을 때 쓰고 `None`이면 거르지 않는다.
+    # 리랭크 점수에 거는 값이라 리랭커가 없는 지식베이스에는 둘 수 없다. 색인 판의 요소가 아니다
+    # (ADR 0017).
+    min_score: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -427,3 +431,36 @@ class SearchCandidates:
 
     is_current: bool
     hits: tuple[SearchHit, ...]
+
+
+class CandidateScan(StrEnum):
+    """진단용 검색이 벡터 후보를 뽑는 계획(명세 "진단용 검색과 단계"). `INDEX`는 실제 검색과 같은
+    판의 HNSW 색인 계획이다. `EXACT`는 그 색인을 쓰지 않아 모든 조각과의 거리로 정확히 뽑는다.
+    HNSW 색인은 지을 때마다 다른 후보를 낼 수 있어 평가는 `EXACT`로 단계의 순위를 낸다."""
+
+    INDEX = "index"
+    EXACT = "exact"
+
+
+@dataclass(frozen=True, slots=True)
+class DiagnosedHit:
+    """진단용 검색의 줄 하나. 후보(`hit`)에 단계마다의 순위를 더한 것이다. `ordinal`은 그 문서
+    안에서 조각의 순번이고, `vector_rank`와 `keyword_rank`는 그 쪽 후보에 들지 못했으면 `None`이다.
+    `fused_rank`는 합집합 안에서 RRF 점수 순으로 매긴 1부터의 순위다. 리랭크 점수는 `hit`에 평가
+    유스케이스가 `dataclasses.replace`로 붙인다."""
+
+    hit: SearchHit
+    ordinal: int
+    vector_rank: int | None
+    keyword_rank: int | None
+    fused_rank: int
+
+
+@dataclass(frozen=True, slots=True)
+class SearchDiagnosis:
+    """진단용 검색의 결과. `hits`는 벡터 후보와 키워드 후보의 합집합 전부(많아야 후보 수의 두
+    배)를 `fused_rank` 순으로 담는다. `fused_rank`가 후보 수 이하인 줄이 `search_candidates`의
+    후보와 같다. `is_current`의 뜻은 `SearchCandidates`와 같다."""
+
+    is_current: bool
+    hits: tuple[DiagnosedHit, ...]

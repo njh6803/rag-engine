@@ -1,0 +1,155 @@
+# search-eval 06(놓친 까닭, 나눠 본 숫자, `inspect`, `--config`)이 더한 판정의 변이.
+# 탈락 지점의 차례(후보 → 합치기 → 리랭크), 낱말 겹침의 분모, 쪽으로 적은 기대 근거의 닿음, 겹침이 없는
+# 질의를 0으로 세는 길, 사람 판정의 확인 여부, 유형 표지의 걸러내기, 마지막 단계의 선택, 필터 질의의
+# 벡터 후보 판정, 그리고 `--config`가 쓰이는지를 겨눈다.
+# 실행: PYTHONUTF8=1 RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test \
+#       uv run python tools/mutate.py .scratch/search-eval/probes/eval_misses_mutations.toml
+# 표면 시험이 DB를 쓰는 변이(11, 12)는 한 시험에 1~2분이 든다.
+# 빨강의 표지는 시험 파일에 있으면 안 된다(도구가 거른다).
+
+[[mutation]]
+name = "합친 순위가 후보 수 밖이어도 리랭커에 들어간 것으로 본다"
+tests = ["tests/app/test_eval_misses.py::test_전체_실행에서_합친_순위가_후보_수_밖이면_lost_in_fusion이다"]
+expect = "red"
+expect_output = ["<MissCause.LOST_IN_RERANK: 'lost_in_rerank'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_misses.py"
+old = '''reranked = any(hit.fused_rank <= candidates for hit in candidate_hits)'''
+new = '''reranked = True'''
+
+[[mutation]]
+name = "빠른 실행에서도 리랭크에서 밀린 것으로 센다"
+tests = ["tests/app/test_eval_misses.py::test_합친_순위가_후보_수_안이어도_빠른_실행이면_lost_in_fusion이다"]
+expect = "red"
+expect_output = ["<MissCause.LOST_IN_RERANK: 'lost_in_rerank'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_misses.py"
+old = '''if last_stage is Stage.RERANK and reranked:'''
+new = '''if reranked:'''
+
+[[mutation]]
+name = "닿는 조각이 후보에 들지 못한 것을 합치기에서 밀린 것으로 센다"
+tests = ["tests/app/test_eval_misses.py::test_닿는_조각이_후보에_들지_못했으면_not_in_candidates다"]
+expect = "red"
+expect_output = ["<MissCause.LOST_IN_FUSION: 'lost_in_fusion'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_misses.py"
+old = '''    if not candidate_hits:
+        return MissCause.NOT_IN_CANDIDATES'''
+new = '''    if False:
+        return MissCause.NOT_IN_CANDIDATES'''
+
+[[mutation]]
+name = "낱말 겹침의 분모를 글귀의 토큰 수로 한다"
+tests = ["tests/app/test_eval_misses.py::test_낱말_겹침은_질의의_키워드_토큰_가운데_글귀의_토큰에_든_것의_비율이다"]
+expect = "red"
+expect_output = ["0.6666666666666666 == 0.5"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_misses.py"
+old = '''return len(query_tokens & passage_tokens) / len(query_tokens)'''
+new = '''return len(query_tokens & passage_tokens) / len(passage_tokens)'''
+
+[[mutation]]
+name = "쪽으로 적은 기대 근거를 조각의 첫 블록의 쪽만 본다"
+tests = ["tests/app/test_eval_misses.py::test_쪽으로_적은_기대_근거는_덮은_블록의_쪽이_기대한_쪽인_조각이_닿는다"]
+expect = "red"
+expect_output = ["Extra items in the right set"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_metrics.py"
+old = '''for ordinal in range(first, last + 1)'''
+new = '''for ordinal in range(first, first + 1)'''
+
+[[mutation]]
+name = "낱말 겹침이 없는 놓친 질의도 겹침이 0인 수에 센다"
+tests = ["tests/app/test_eval_breakdown.py::test_낱말_겹침이_값이_없는_놓친_질의는_겹침이_0인_수에_넣지_않는다"]
+expect = "red"
+expect_output = ["zero_overlap=3"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_breakdown.py"
+old = '''if miss.word_overlap == 0.0'''
+new = '''if miss.word_overlap != 1.0'''
+
+[[mutation]]
+name = "사람 판정에서 확인되지 않은 줄도 센다"
+tests = ["tests/app/test_eval_breakdown.py::test_사람_판정은_확인된_줄만_까닭마다_센다"]
+expect = "red"
+expect_output = ["{'table_or_figure': 1} != {'table_or_figure': 0}"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_breakdown.py"
+old = '''for review in eval_set.miss_reviews if review.confirmed]'''
+new = '''for review in eval_set.miss_reviews]'''
+
+[[mutation]]
+name = "유형 표지를 가리지 않고 질의 목록의 모든 질의를 센다"
+tests = ["tests/app/test_eval_breakdown.py::test_유형_표지마다_질의_목록별로_마지막_단계의_지표를_낸다"]
+expect = "red"
+expect_output = ["'figure', <Stage.FUSED: 'fused'>, 3)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_breakdown.py"
+old = '''metrics = _metrics([o for o in in_list if tag in tags.get(o.evidence_id, ())], stage)'''
+new = '''metrics = _metrics(in_list, stage)'''
+
+[[mutation]]
+name = "유형 표지와 필터 질의의 지표를 첫 단계에 대해 낸다"
+tests = ["tests/app/test_eval_report.py::test_전체_실행의_지표는_리랭크_뒤_단계에_대해_낸다"]
+expect = "red"
+expect_output = ["['vector'] == ['rerank']"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_report.py"
+old = '''    last = stages[-1]
+    rows: list[ReportRow] = []'''
+new = '''    last = stages[0]
+    rows: list[ReportRow] = []'''
+
+[[mutation]]
+name = "정확 스캔과 같은 후보 수여도 모자란 것으로 센다"
+tests = ["tests/app/test_eval_breakdown.py::test_정확_스캔도_후보를_채우지_못한_질의는_모자란_것으로_세지_않는다"]
+expect = "red"
+expect_output = ["index_vectors=2).short"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_run.py"
+old = '''return self.index_vectors < self.expected_vectors'''
+new = '''return self.index_vectors <= self.expected_vectors'''
+
+[[mutation]]
+name = "필터 질의의 벡터 후보를 색인 스캔이 아니라 정확 스캔으로 재 본다"
+tests = ["tests/tools/test_search_eval_filter_probe.py::test_색인_스캔의_벡터_후보가_정확_스캔보다_적은_필터_질의만_모자란_것으로_센다"]
+expect = "red"
+expect_output = ["{'q1': False} != {'q1': True}"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/eval_run.py"
+old = '''self.deps, self.index, prepared, candidates=self.candidates, scan=CandidateScan.INDEX'''
+new = '''self.deps, self.index, prepared, candidates=self.candidates, scan=CandidateScan.EXACT'''
+
+[[mutation]]
+name = "--config로 준 구성 파일을 읽지 않고 묶음의 config.json만 쓴다"
+tests = ["tests/tools/test_search_eval_misses.py::test_후보_수를_줄인_구성은_후보에_들지_못한_조각을_not_in_candidates로_센다"]
+expect = "red"
+expect_output = ["50 == 1"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_assembly.py"
+old = '''eval_set = read_eval_set(paths, config_file=config_file)'''
+new = '''eval_set = read_eval_set(paths)'''
+
+[[mutation]]
+name = "표준 출력이 표현하지 못하는 글자를 바꾸지 않고 그대로 인코딩한다"
+tests = ["tests/adapters/test_eval_inspect.py::test_cp949로_표현할_수_없는_글자는_물음표로_바꿔_쓰고_나머지는_그대로_쓴다"]
+expect = "red"
+expect_output = ["UnicodeEncodeError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/eval_inspect.py"
+old = '''errors="replace"'''
+new = '''errors="strict"'''

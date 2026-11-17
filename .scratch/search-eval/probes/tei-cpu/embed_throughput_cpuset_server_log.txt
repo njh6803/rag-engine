@@ -1,0 +1,8 @@
+2026-11-12T17:13:05.024364Z  INFO text_embeddings_backend: backends/src/lib.rs:755: Successfully downloaded `onnx/model.onnx_data` in 0.000377743 s
+2026-11-12T17:13:05.025701Z  INFO text_embeddings_backend: backends/src/lib.rs:755: Successfully downloaded `onnx/model.onnx` in 0.007036892 s
+2026-11-12T17:21:47.004442Z  INFO embed{total_time="85.896636873s" tokenization_time="237.720584ms" queue_time="40.914149955s" inference_time="17.659116563s"}
+2026-11-12T17:22:45.718275Z  INFO embed{total_time="58.691252718s" tokenization_time="63.160836ms" queue_time="23.440055781s" inference_time="13.086927462s"}
+2026-11-12T17:23:42.110711Z  INFO embed{total_time="56.38572132s" tokenization_time="23.554007ms" queue_time="22.65387977s" inference_time="12.254517422s"}
+2026-11-12T17:24:58.825484Z  INFO embed{total_time="76.70780964s" tokenization_time="23.190193ms" queue_time="28.799096232s" inference_time="17.033234246s"}
+2026-11-12T17:26:14.561699Z  INFO embed{total_time="75.735069487s" tokenization_time="32.766146ms" queue_time="30.549702343s" inference_time="16.507196853s"}
+2026-11-12T17:27:48.445673Z  INFO embed{total_time="93.787054925s" tokenization_time="85.351851ms" queue_time="31.804834072s" inference_time="20.294209526s"}

@@ -1,0 +1,155 @@
+{"evidence_id": "priv-01", "query": "14세 미만 아동 법정대리인 동의"}
+{"evidence_id": "priv-02", "query": "처리방침 계약 내용 불일치 적용"}
+{"evidence_id": "priv-03", "query": "고의 과실 유출 손해배상 한도"}
+{"evidence_id": "priv-04", "query": "개인정보 열람 요구 처리 기간"}
+{"evidence_id": "priv-05", "query": "종이 문서 개인정보 파기 방법"}
+{"evidence_id": "priv-06", "query": "영향평가 대상 민감정보 고유식별정보 5만명"}
+{"evidence_id": "priv-07", "query": "비밀번호 저장 일방향 암호화"}
+{"evidence_id": "priv-08", "query": "공공시스템 침투 테스트 외부 전문기관"}
+{"evidence_id": "priv-09", "query": "소자장비 자기장 저장장치 삭제 파기"}
+{"evidence_id": "priv-10", "query": "공공시스템 지정 제외 시스템"}
+{"evidence_id": "priv-11", "query": "목적 외 이용 공고 게재 기간"}
+{"evidence_id": "priv-12", "query": "개인정보 처리 방법 고시 재검토 주기"}
+{"evidence_id": "priv-13", "query": "불필요 개인정보 파기 기한 표준지침"}
+{"evidence_id": "priv-14", "query": "정보주체 이외 수집 출처 통지 기한"}
+{"evidence_id": "priv-15", "query": "유출 대응 매뉴얼 마련 대상"}
+{"evidence_id": "priv-16", "query": "처리방침 변경 내용 공개 방법"}
+{"evidence_id": "priv-17", "query": "AI 학습 목적 제한 포괄적 목적"}
+{"evidence_id": "priv-18", "query": "EDPB 스크래핑 데이터 정확성 조치"}
+{"evidence_id": "priv-19", "query": "EDPB 스크래핑 보안 조치 데이터 오염"}
+{"evidence_id": "priv-20", "query": "폐쇄형 커뮤니티 스크래핑 정당한 이익"}
+{"evidence_id": "priv-21", "query": "EDPS DPO 해임 사전 자문 견책"}
+{"evidence_id": "priv-22", "query": "EDPS 제3국 정보 전송 행정협정"}
+{"evidence_id": "priv-23", "query": "개인정보 유출 신고 기관 기한"}
+{"evidence_id": "priv-24", "query": "접속기록 보관 기간 점검 항목"}
+{"evidence_id": "priv-25", "query": "운전면허번호 고유식별정보 해당 근거"}
+{"evidence_id": "priv-26", "query": "민감정보 처리 제한 개인정보 보호법 EDPB"}
+{"evidence_id": "open-01", "query": "정보공개 이의신청 기한"}
+{"evidence_id": "open-02", "query": "정보공개심의회 위원 수"}
+{"evidence_id": "open-03", "query": "제3자 비공개 요청 공개 실시일 간격"}
+{"evidence_id": "open-04", "query": "정보공개위원회 회의 개최 주기"}
+{"evidence_id": "open-05", "query": "정보공개 비용 납부 후 공개 기한"}
+{"evidence_id": "open-06", "query": "공공데이터 제공거부 분쟁조정 신청 기한"}
+{"evidence_id": "open-07", "query": "공공데이터 가공 요약 제공 의무"}
+{"evidence_id": "open-08", "query": "공공데이터포털 운영 부처"}
+{"evidence_id": "open-09", "query": "공공데이터 제공중단 통보 이용자 범죄 악용"}
+{"evidence_id": "open-10", "query": "공공데이터 목록 등록 기한 행정안전부장관"}
+{"evidence_id": "open-11", "query": "정보공개 결정기간 연장 업무량 폭주"}
+{"evidence_id": "open-12", "query": "학술연구 비영리단체 정보공개 수수료 감면"}
+{"evidence_id": "open-13", "query": "용인시 파일데이터 활용건수 1위"}
+{"evidence_id": "open-14", "query": "용인시 자동차 등록현황 활용건수"}
+{"evidence_id": "open-15", "query": "선박검사증서 유효기간 최장"}
+{"evidence_id": "open-16", "query": "선박 인화점 60도 미만 연료유"}
+{"evidence_id": "open-17", "query": "여객선 정의 승선 인원 기준"}
+{"evidence_id": "open-18", "query": "주기관 시동불량 원인 저유황 연료유"}
+{"evidence_id": "open-19", "query": "저유황유 금속분 알루미나 실리카 기준"}
+{"evidence_id": "open-20", "query": "육상 전원 최대 수용전력 사고"}
+{"evidence_id": "open-21", "query": "긴급대응협력관 지정 변경 통보 기한"}
+{"evidence_id": "open-22", "query": "긴급구조지원기관 교육 시기 주기"}
+{"evidence_id": "open-23", "query": "긴급구조 대응 3단계 기준 소방서"}
+{"evidence_id": "open-24", "query": "긴급대응기관협의회 개최 횟수"}
+{"evidence_id": "open-25", "query": "전라남도 대응3단계 운영 현황 연도별"}
+{"evidence_id": "open-26", "query": "긴급복구 상호협조 책임기관"}
+{"evidence_id": "cult-01", "query": "저작권 발생 시기 등록 절차"}
+{"evidence_id": "cult-02", "query": "저작재산권 보호기간 사망 후"}
+{"evidence_id": "cult-03", "query": "법정손해배상 저작물당 최대 금액"}
+{"evidence_id": "cult-04", "query": "한국저작권위원회 위원 구성 인원"}
+{"evidence_id": "cult-05", "query": "저작물 공정이용 일반 조건"}
+{"evidence_id": "cult-06", "query": "저작권 분쟁 조정 기관 조정 기간"}
+{"evidence_id": "cult-07", "query": "시각장애인 등 범위 독서 장애"}
+{"evidence_id": "cult-08", "query": "위원회 비상근위원 보수 실비"}
+{"evidence_id": "cult-09", "query": "도서관등 복제 시설 범위 비영리"}
+{"evidence_id": "cult-10", "query": "문화진흥 기본계획 수립 주기"}
+{"evidence_id": "cult-11", "query": "한국문화관광연구원 명칭 사용 금지"}
+{"evidence_id": "cult-12", "query": "문화가 있는 날 지정 요일"}
+{"evidence_id": "cult-13", "query": "문화소외계층 문화향유 지원 문화누리카드"}
+{"evidence_id": "cult-14", "query": "문화영향평가 수행기관 지정 유효기간"}
+{"evidence_id": "cult-15", "query": "정정보도 청구 기간 피해자"}
+{"evidence_id": "cult-16", "query": "정정보도 청구 수용 여부 통지 기한"}
+{"evidence_id": "cult-17", "query": "언론중재위원회 위원 정수 위촉"}
+{"evidence_id": "cult-18", "query": "언론 보도 원칙 코로나19 대응 평가"}
+{"evidence_id": "cult-19", "query": "코로나19 60대 이상 1순위 매체 비율"}
+{"evidence_id": "cult-20", "query": "20대 코로나19 1순위 인터넷 포털 비율"}
+{"evidence_id": "cult-21", "query": "코로나19 지상파TV 긍정 평가 50대"}
+{"evidence_id": "cult-22", "query": "코로나19 확실한 정보 보도 응답 비율"}
+{"evidence_id": "cult-23", "query": "통합문화이용권 세대당 지원금 2013 2014"}
+{"evidence_id": "cult-24", "query": "프랑크푸르트 패스 1인 가구 최저 순소득"}
+{"evidence_id": "cult-25", "query": "통합문화이용권 이용자 개인별 카드 선호 비율"}
+{"evidence_id": "cult-26", "query": "문화누리카드 추가시장 소외수준 중위소득 50% 소요예산"}
+{"evidence_id": "labr-01", "query": "수습 근로자 3개월 최저임금 감액"}
+{"evidence_id": "labr-02", "query": "최저임금 주지 의무 게시 기한"}
+{"evidence_id": "labr-03", "query": "주택임대차 보증금 월차임 전환 산정률"}
+{"evidence_id": "labr-04", "query": "상가임대차 월차임 전환 산정률 배수"}
+{"evidence_id": "labr-05", "query": "서울 주택임대차 보증금 중 일정액 우선변제"}
+{"evidence_id": "labr-06", "query": "서울 상가임대차 적용범위 보증금액 초과"}
+{"evidence_id": "labr-07", "query": "연차휴가 임금 통상임금 평균임금 지급일"}
+{"evidence_id": "labr-08", "query": "임금 지연이자 이율 상한"}
+{"evidence_id": "labr-09", "query": "해고예고 30일 통상임금 지급"}
+{"evidence_id": "labr-10", "query": "야간근로 가산임금 통상임금 비율"}
+{"evidence_id": "labr-11", "query": "부당해고 구제신청 기간 노동위원회"}
+{"evidence_id": "labr-12", "query": "경영상 해고 신고 99명 이하 사업장"}
+{"evidence_id": "labr-13", "query": "사용증명서 청구 자격 기한"}
+{"evidence_id": "labr-14", "query": "최저임금 소정근로시간 불이행 임금 지급"}
+{"evidence_id": "labr-15", "query": "상여금 최저임금 산입 제외 월 환산액"}
+{"evidence_id": "labr-16", "query": "최저임금 결정 시한 고용노동부장관"}
+{"evidence_id": "labr-17", "query": "기간제근로자 2년 초과 근로계약 간주"}
+{"evidence_id": "labr-18", "query": "차별적 처우 시정신청 기한 노동위원회"}
+{"evidence_id": "labr-19", "query": "주택임대차 대항력 인도 주민등록 전입신고"}
+{"evidence_id": "labr-20", "query": "주택임대차 계약갱신요구권 1회 존속기간"}
+{"evidence_id": "labr-21", "query": "임차권등기명령 신청 보증금 미반환 법원"}
+{"evidence_id": "labr-22", "query": "임차인 2명 이상 가정공동생활 보증금 합산"}
+{"evidence_id": "labr-23", "query": "주택임대차분쟁조정위원회 조정신청 방법 구두"}
+{"evidence_id": "labr-24", "query": "상가임대차 계약갱신요구권 10년 전체 임대차기간"}
+{"evidence_id": "labr-25", "query": "상가임대차 차임연체 3기 계약 해지"}
+{"evidence_id": "labr-26", "query": "권리금 회수 방해 손해배상액 상한"}
+{"evidence_id": "cons-01", "query": "광고와 다른 상품 청약철회 기간"}
+{"evidence_id": "cons-02", "query": "온라인 인터페이스 미리 체크 선택항목"}
+{"evidence_id": "cons-03", "query": "쇼핑몰 후기 게시기간 삭제 기준 공개"}
+{"evidence_id": "cons-04", "query": "전자상거래 광고 기록 보존 기간"}
+{"evidence_id": "cons-05", "query": "통신판매업자 변경신고 기한"}
+{"evidence_id": "cons-06", "query": "통신판매업 신고 개인 사업자 신원정보"}
+{"evidence_id": "cons-07", "query": "무료 유료 정기결제 전환 동의 기간"}
+{"evidence_id": "cons-08", "query": "약관 심사청구 한국소비자원 설립 목적"}
+{"evidence_id": "cons-09", "query": "호스팅 신원정보 요청 분쟁조정기구 대통령령"}
+{"evidence_id": "cons-10", "query": "소비자원 피해구제 합의 실패 분쟁조정 신청"}
+{"evidence_id": "cons-11", "query": "물품 중대한 결함 사업자 보고 의무"}
+{"evidence_id": "cons-12", "query": "소비자정책 기본계획 수립 주기"}
+{"evidence_id": "cons-13", "query": "약관 설명의무 위반 효과"}
+{"evidence_id": "cons-14", "query": "약관 해석 불명확 고객 유리"}
+{"evidence_id": "cons-15", "query": "약관 해제권 해지권 배제 무효 조항"}
+{"evidence_id": "cons-16", "query": "표준약관 권고 불이행 공정거래위원회 제정"}
+{"evidence_id": "cons-17", "query": "할부계약 청약철회 기간 기산일"}
+{"evidence_id": "cons-18", "query": "할부거래업자 계약 해제 최고 절차"}
+{"evidence_id": "cons-19", "query": "할부금 연체 기한의 이익 상실 요건"}
+{"evidence_id": "cons-20", "query": "할부대금채권 소멸시효 기간"}
+{"evidence_id": "cons-21", "query": "필거링 제조이력 관리시스템 플랜트 통합관리"}
+{"evidence_id": "cons-22", "query": "지지격자 형상 피복관 마모 기본 모델"}
+{"evidence_id": "cons-23", "query": "지지격자 용접 Nd:YAG 레이저 단종"}
+{"evidence_id": "radi-01", "query": "타 부처 기술기준 법령체계 고시 건수"}
+{"evidence_id": "radi-02", "query": "난이도별 처리기한 시험방법 제개정"}
+{"evidence_id": "radi-03", "query": "기술기준 개정 절차 규제심사 기간"}
+{"evidence_id": "radi-04", "query": "무선설비규칙 전부개정 장 조문 수"}
+{"evidence_id": "radi-05", "query": "전문인력풀 경력등급 구분"}
+{"evidence_id": "radi-06", "query": "위성망 지구국 국제등록 조정기간 비교"}
+{"evidence_id": "radi-07", "query": "WRC-27 의제 월면 월궤도 통신 작업반"}
+{"evidence_id": "radi-08", "query": "ITU-R SG4 Question UHDTV 위성방송 작업반"}
+{"evidence_id": "radi-09", "query": "NEONSAT 위성망 등록자료 제출일"}
+{"evidence_id": "radi-10", "query": "한국 인도네시아 위성망 조정회의 완료 건수"}
+{"evidence_id": "radi-11", "query": "리커트 평가 결과 평균 4.6 합의도"}
+{"evidence_id": "radi-12", "query": "병행 평가 방법 장점 단점 비교"}
+{"evidence_id": "radi-13", "query": "델파이 전문가 패널 선정 인원 기준"}
+{"evidence_id": "radi-14", "query": "행정명령 14094 규제 중대성 기준 상향"}
+{"evidence_id": "radi-15", "query": "의견 표 Ku대역 제약 의견유형 반영여부"}
+{"evidence_id": "radi-16", "query": "메타데이터 예시 작성부서 담당자"}
+{"evidence_id": "radi-17", "query": "AI 단정적 응답 미확정 기준 위험"}
+{"evidence_id": "radi-18", "query": "선로설비 절연저항 기준 측정"}
+{"evidence_id": "radi-19", "query": "전력유도 제한치 상시 유도위험종전압"}
+{"evidence_id": "radi-20", "query": "구내용 이동통신설비 설치대상 건축물 연면적"}
+{"evidence_id": "radi-21", "query": "주파수할당 이용기간 최장 연수"}
+{"evidence_id": "radi-22", "query": "심사 주파수할당 심사사항"}
+{"evidence_id": "radi-23", "query": "우주국 개설조건 원격조작 기능"}
+{"evidence_id": "radi-24", "query": "주파수 재할당 신청 기한"}
+{"evidence_id": "radi-25", "query": "위성운용계획 제출 요청 시기"}
+{"evidence_id": "radi-26", "query": "위성주파수이용권 양도 임대 제한기간"}
+{"evidence_id": "radi-27", "query": "가격경쟁 주파수할당 보증금 최저경쟁가격"}
+{"evidence_id": "radi-28", "query": "무선설비 정의 기술기준 적용대상 모호"}

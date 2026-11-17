@@ -1,0 +1,4 @@
+2026-11-12T19:38:11.198041Z  INFO text_embeddings_router: router/src/lib.rs:284: Starting model backend
+2026-11-12T19:38:13.129214Z  INFO text_embeddings_backend_candle: backends/candle/src/lib.rs:429: Starting Bert model on Cuda(CudaDevice(DeviceId(1)))
+2026-11-12T19:38:19.345758Z ERROR text_embeddings_backend: backends/src/lib.rs:567: Could not start Candle backend: Could not start backend: DriverError(CUDA_ERROR_UNSUPPORTED_PTX_VERSION, "the provided PTX was compiled with an unsupported toolchain.") when loading cast_f32_f16
+Error: Could not create backend

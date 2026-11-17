@@ -1,0 +1,228 @@
+# search-eval 11(`tools/eval_gate_paths.py`, 빠른 게이트의 경로 판정)의 변이.
+# 푸시와 수동 실행이 경로를 보지 않는 것, PR 에서 바뀐 경로를 읽지 못하거나 비었을 때와 알지 못하는 이벤트의 닫힘,
+# 폴더 항목의 접두 경계(`srcs/`), 이름 바꾸기 찾기를 끄는 `--no-renames`, merge-base 부터 읽는 것, `-z` 로 받는
+# 한글 경로를 겨눈다. 시험(`tests/tools/test_eval_gate_paths.py`)은 구현 전에 썼고 모듈이 없다는 이유로 빨갛게
+# 확인했다. 그 빨강은 구현의 까닭이 아니므로 이 표가 구현을 틀리게 했을 때 시험이 실패하는 것으로 확인한다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/search-eval/probes/eval_gate_paths_mutations.toml
+# 빨강의 표지는 시험 파일에 있으면 안 된다(도구가 거른다).
+
+[[mutation]]
+name = "푸시도 바뀐 경로를 보고 가른다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert False is True"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''    if event_name != PULL_REQUEST:
+'''
+new = '''    if event_name != PULL_REQUEST and event_name not in ALWAYS_EVENTS:
+'''
+
+[[mutation]]
+name = "PR 에서 바뀐 경로를 읽지 못했거나 비었으면 평가하지 않는다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert False is True"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''        return True, "PR 에서 바뀐 경로를 읽지 못했거나 비어 있어 평가한다"'''
+new = '''        return False, "PR 에서 바뀐 경로를 읽지 못했거나 비어 있어 평가한다"'''
+
+[[mutation]]
+name = "알지 못하는 이벤트는 평가하지 않는다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert False is True"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''        return True, f"알지 못하는 이벤트({event_name or '빈 값'})라 평가한다"'''
+new = '''        return False, f"알지 못하는 이벤트({event_name or '빈 값'})라 평가한다"'''
+
+[[mutation]]
+name = "푸시의 이유 문구가 알지 못하는 이벤트의 것으로 나간다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["알지 못하는 이벤트(push)라 평가한다"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''        if event_name in ALWAYS_EVENTS:'''
+new = '''        if event_name not in ALWAYS_EVENTS:'''
+
+[[mutation]]
+name = "평가하는 경로의 이유 문구에서 바뀐 경로를 뺀다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["in '평가하는 경로가 바뀌었다: '"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''        return True, f"평가하는 경로가 바뀌었다: {', '.join(hits[:5])}"'''
+new = '''        return True, "평가하는 경로가 바뀌었다: "'''
+
+[[mutation]]
+name = "폴더 항목의 끝 슬래시를 떼어 이름이 같은 다른 폴더까지 평가한다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert True is False"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''            if path.startswith(entry):'''
+new = '''            if path.startswith(entry.rstrip("/")):'''
+
+[[mutation]]
+name = "파일 항목을 접두로 견준다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert True is False"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''        elif path == entry:'''
+new = '''        elif path.startswith(entry):'''
+
+[[mutation]]
+name = "이름 바꾸기 찾기를 켠 채 바뀐 경로를 읽는다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["Right contains one more item: 'src/a.py'"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''"--name-only", "--no-renames", merge_base.strip(), head'''
+new = '''"--name-only", merge_base.strip(), head'''
+
+[[mutation]]
+name = "merge-base 가 아니라 base 의 끝에서 바로 견준다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["Left contains one more item: 'src/b.py'"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''"--name-only", "--no-renames", merge_base.strip(), head'''
+new = '''"--name-only", "--no-renames", base, head'''
+
+[[mutation]]
+name = "경로를 -z 없이 받아 한글 이름이 따옴표로 감싸인다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["At index 0 diff:"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''"diff", "-z", "--name-only"'''
+new = '''"diff", "--name-only"'''
+
+[[mutation]]
+name = "커밋을 읽지 못해도 빈 목록으로 읽는다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert [] is None"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''    if out is None:
+        return None
+    return [path'''
+new = '''    if out is None:
+        return []
+    return [path'''
+
+[[mutation]]
+name = "출력 파일에 false 를 거꾸로 쓴다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["+ evaluate=true"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''    line = f"evaluate={'true' if evaluate else 'false'}"'''
+new = '''    line = "evaluate=true"'''
+
+# ---- search-eval 15: 전체 게이트의 판정(`decide_full`)과 `EVAL_GATE` 선택 ----
+# 푸시에서는 평가하지 않는 것, base 가 main 이 아닌 PR 을 평가하지 않는 것, 읽지 못한 base 와 알지 못하는 이벤트의
+# 닫힘, 수동 실행의 평가, `EVAL_GATE=full` 이 전체 게이트의 판정으로 가는 것, 알지 못하는 값의 거부를 겨눈다.
+
+[[mutation]]
+name = "전체 게이트가 푸시에서도 평가한다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert True is False"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''        return False, "푸시에서는 평가하지 않는다(main 은 PR 의 머리가 곧 병합된 내용이다)"'''
+new = '''        return True, "푸시에서는 평가하지 않는다(main 은 PR 의 머리가 곧 병합된 내용이다)"'''
+
+[[mutation]]
+name = "전체 게이트가 base 가 main 이 아닌 PR 도 평가한다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert True is False"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''        return False, f"base 가 {base_ref} 인 PR 은 빠른 게이트만 본다"'''
+new = '''        return True, f"base 가 {base_ref} 인 PR 은 빠른 게이트만 본다"'''
+
+[[mutation]]
+name = "전체 게이트가 읽지 못한 PR 의 base 를 평가하지 않는다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert False is True"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''            return True, "PR 의 base 를 읽지 못해 평가한다"'''
+new = '''            return False, "PR 의 base 를 읽지 못해 평가한다"'''
+
+[[mutation]]
+name = "전체 게이트가 수동 실행을 평가하지 않는다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert False is True"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''        return True, "workflow_dispatch 는 늘 평가한다"'''
+new = '''        return False, "workflow_dispatch 는 늘 평가한다"'''
+
+[[mutation]]
+name = "전체 게이트가 알지 못하는 이벤트를 평가하지 않는다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["assert False is True"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''병합된 내용이다)"
+    return True, f"알지 못하는 이벤트({event_name or '빈 값'})라 평가한다"'''
+new = '''병합된 내용이다)"
+    return False, f"알지 못하는 이벤트({event_name or '빈 값'})라 평가한다"'''
+
+[[mutation]]
+name = "EVAL_GATE=full 이어도 빠른 게이트의 판정으로 간다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["+ evaluate=true"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''    if gate == "full":'''
+new = '''    if gate == "none":'''
+
+[[mutation]]
+name = "알지 못하는 EVAL_GATE 를 빠른 게이트로 읽는다"
+tests = ["tests/tools/test_eval_gate_paths.py"]
+expect = "red"
+expect_output = ["알지 못하는 EVAL_GATE 가 종료 코드 0 로 끝났다"]
+
+[[mutation.edit]]
+file = "tools/eval_gate_paths.py"
+old = '''    if gate not in GATES:'''
+new = '''    if gate not in GATES and False:'''

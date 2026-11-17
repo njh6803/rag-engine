@@ -17,7 +17,9 @@
 
 import re
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import AsyncGenerator, Sequence
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 from uuid import UUID
@@ -30,13 +32,16 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from rag_engine.adapters.postgres import tables
 from rag_engine.domain.entities import (
     BlockKind,
+    CandidateScan,
     Chunk,
     ChunkLocation,
+    DiagnosedHit,
     Document,
     IndexState,
     IndexStateStatus,
     IndexVersion,
     SearchCandidates,
+    SearchDiagnosis,
     SearchFilter,
     SearchHit,
     SearchQuery,
@@ -64,8 +69,20 @@ def _vector_literal(vector: Sequence[float]) -> str:
     return "[" + ",".join(repr(value) for value in vector) + "]"
 
 
-def search_sql(query: SearchQuery) -> str:
-    """후보를 모으는 문장. 매개변수는 `:vector`, `:candidates`, 키워드가 있을 때의 `:keywords`다."""
+@dataclass(frozen=True, slots=True)
+class _CandidateParts:
+    """`search_sql`과 `diagnosis_sql`이 함께 쓰는 뼈대. 벡터 쪽과 키워드 쪽의 CTE, 둘을 잇는 글,
+    조각 id와 RRF 점수와 키워드 순위를 내는 식이다. 두 문장이 다른 곳은 합친 뒤의 자르기와 마지막
+    `SELECT`뿐이다(명세 "진단용 검색과 단계")."""
+
+    ctes: list[str]
+    joined: str
+    chunk_id: str
+    score: str
+    keyword_rank: str
+
+
+def _candidate_parts(query: SearchQuery) -> _CandidateParts:
     version = query.index_version_id
     knowledge_base = query.knowledge_base_id
     vector_expression = f"c.embedding::vector({query.dimensions})"
@@ -82,40 +99,89 @@ def search_sql(query: SearchQuery) -> str:
         f" FROM chunks c WHERE c.index_version_id = '{version}' AND {in_groups}{filters}"
         f" ORDER BY {vector_expression} <=> CAST(:vector AS vector) LIMIT :candidates)"
     ]
-    if query.keywords:
-        ctes.append(
-            "kw AS (SELECT c.id,"
-            " row_number() OVER (ORDER BY ts_rank_cd(c.keywords, q.query) DESC, c.id) AS rank"
-            " FROM chunks c, to_tsquery('simple', :keywords) AS q(query)"
-            f" WHERE c.index_version_id = '{version}' AND c.keywords @@ q.query"
-            f" AND {in_groups}{filters}"
-            " ORDER BY ts_rank_cd(c.keywords, q.query) DESC, c.id LIMIT :candidates)"
+    if not query.keywords:
+        return _CandidateParts(
+            ctes=ctes,
+            joined="vec",
+            chunk_id="vec.id",
+            score=f"1.0 / ({_RRF_RANK_CONSTANT} + vec.rank)",
+            keyword_rank="CAST(NULL AS bigint)",
         )
-        joined = "vec FULL OUTER JOIN kw ON vec.id = kw.id"
-        chunk_id = "COALESCE(vec.id, kw.id)"
-        score = (
+    ctes.append(
+        "kw AS (SELECT c.id,"
+        " row_number() OVER (ORDER BY ts_rank_cd(c.keywords, q.query) DESC, c.id) AS rank"
+        " FROM chunks c, to_tsquery('simple', :keywords) AS q(query)"
+        f" WHERE c.index_version_id = '{version}' AND c.keywords @@ q.query"
+        f" AND {in_groups}{filters}"
+        " ORDER BY ts_rank_cd(c.keywords, q.query) DESC, c.id LIMIT :candidates)"
+    )
+    return _CandidateParts(
+        ctes=ctes,
+        joined="vec FULL OUTER JOIN kw ON vec.id = kw.id",
+        chunk_id="COALESCE(vec.id, kw.id)",
+        score=(
             f"COALESCE(1.0 / ({_RRF_RANK_CONSTANT} + vec.rank), 0)"
             f" + COALESCE(1.0 / ({_RRF_RANK_CONSTANT} + kw.rank), 0)"
-        )
-    else:
-        joined = "vec"
-        chunk_id = "vec.id"
-        score = f"1.0 / ({_RRF_RANK_CONSTANT} + vec.rank)"
-    ctes.append(
-        f"fused AS (SELECT {chunk_id} AS id, ({score})::float8 AS score FROM {joined}"
-        " ORDER BY score DESC, id LIMIT :candidates)"
+        ),
+        keyword_rank="kw.rank",
     )
+
+
+def _final_select(query: SearchQuery, extra_columns: str, order_by: str) -> str:
+    """합친 `fused` CTE에 조각, 문서, 원천의 칸을 붙이고 질의한 판이 현재 판인지 읽는 마지막
+    `SELECT`. 후보가 없어도 `is_current`를 읽도록 한 줄은 늘 나온다."""
     return (
-        f"WITH {', '.join(ctes)}"
-        f" SELECT (SELECT current_index_version_id = '{version}' FROM knowledge_bases"
-        f" WHERE id = '{knowledge_base}') AS is_current,"
+        f" SELECT (SELECT current_index_version_id = '{query.index_version_id}'"
+        f" FROM knowledge_bases WHERE id = '{query.knowledge_base_id}') AS is_current,"
         " c.id, c.document_id, s.name AS source, d.key, d.title, c.text, c.location,"
         " c.updated_at, c.effective_date, c.access_groups, d.metadata, f.score"
-        " FROM (SELECT 1) AS one LEFT JOIN fused f ON true"
+        + extra_columns
+        + " FROM (SELECT 1) AS one LEFT JOIN fused f ON true"
         " LEFT JOIN chunks c ON c.id = f.id"
         " LEFT JOIN documents d ON d.id = c.document_id"
         " LEFT JOIN sources s ON s.id = d.source_id"
-        " ORDER BY f.score DESC NULLS LAST, c.id"
+        f" ORDER BY {order_by}"
+    )
+
+
+def search_sql(query: SearchQuery) -> str:
+    """후보를 모으는 문장. 매개변수는 `:vector`, `:candidates`, 키워드가 있을 때의 `:keywords`다."""
+    parts = _candidate_parts(query)
+    fused = (
+        f"fused AS (SELECT {parts.chunk_id} AS id, ({parts.score})::float8 AS score"
+        f" FROM {parts.joined} ORDER BY score DESC, id LIMIT :candidates)"
+    )
+    return f"WITH {', '.join([*parts.ctes, fused])}" + _final_select(
+        query, "", "f.score DESC NULLS LAST, c.id"
+    )
+
+
+def diagnosis_sql(query: SearchQuery, scan: CandidateScan) -> str:
+    """진단용 문장. 벡터와 키워드 후보의 합집합을 자르지 않고 단계마다의 순위를 싣는다. 점수가 같은
+    줄은 `search_sql`과 같은 규칙(조각 id 순)으로 끊어 `fused_rank`를 매긴다. 매개변수는
+    `search_sql`과 같다.
+
+    글 앞에 `scan`을 적은 주석을 붙인다. 계획을 고르는 `enable_indexscan`은 `SET LOCAL`이라 문장
+    글에 나타나지 않는다. psycopg는 같은 문장을 다섯 번 넘게 돌리면 서버에 준비시키고 서버는 그 뒤
+    일반 계획을 쓰는데, 일반 계획은 그 설정이 바뀌어도 다시 짜지 않는다. 두 계획이 같은 글을 쓰면
+    한쪽 계획이 다른 쪽 호출에 눌러앉아 `EXACT`가 색인을 탄다(같은 연결에서 번갈아 불러 재현했다).
+    주석이 다르면 서버가 다른 문장으로 준비시켜 계획이 `scan`마다 따로 굳는다."""
+    parts = _candidate_parts(query)
+    scored = (
+        f"scored AS (SELECT {parts.chunk_id} AS id, ({parts.score})::float8 AS score,"
+        f" vec.rank AS vector_rank, {parts.keyword_rank} AS keyword_rank FROM {parts.joined})"
+    )
+    fused = (
+        "fused AS (SELECT id, score, vector_rank, keyword_rank,"
+        " row_number() OVER (ORDER BY score DESC, id) AS fused_rank FROM scored)"
+    )
+    return (
+        f"/* scan={scan.value} */ WITH {', '.join([*parts.ctes, scored, fused])}"
+        + _final_select(
+            query,
+            ", c.ordinal, f.vector_rank, f.keyword_rank, f.fused_rank",
+            "f.fused_rank NULLS LAST, c.id",
+        )
     )
 
 
@@ -431,17 +497,35 @@ class PostgresVectorIndex:
         states = tables.document_index_states
         await self._connection.execute(sa.delete(states).where(states.c.document_id == document_id))
 
-    async def search_candidates(self, query: SearchQuery) -> SearchCandidates:
-        # `hnsw.ef_search`의 기본 40은 후보 50개를 채우지 못한다(명세 "검색 흐름"). 트랜잭션
-        # 안에서만 바꾼다.
-        await self._connection.execute(
-            sa.select(sa.func.set_config("hnsw.ef_search", str(query.candidates), sa.true()))
-        )
+    async def _set_local(self, name: str, value: str) -> None:
+        await self._connection.execute(sa.select(sa.func.set_config(name, value, sa.true())))
+
+    async def _apply_search_settings(self, query: SearchQuery) -> None:
+        """검색 문장과 진단 문장이 함께 거는 HNSW 설정. 트랜잭션 안에서만 바꾼다."""
+        # `hnsw.ef_search`의 기본 40은 후보 50개를 채우지 못한다(명세 "검색 흐름").
+        await self._set_local("hnsw.ef_search", str(query.candidates))
         if query.filter.is_active:
             # 필터가 좁으면 색인 스캔이 후보 수를 채우기 전에 끝난다. 반복 스캔이 더 읽게 한다.
-            await self._connection.execute(
-                sa.select(sa.func.set_config("hnsw.iterative_scan", "relaxed_order", sa.true()))
-            )
+            await self._set_local("hnsw.iterative_scan", "relaxed_order")
+
+    @asynccontextmanager
+    async def _scan_plan(self, scan: CandidateScan) -> AsyncGenerator[None]:
+        """`EXACT`이면 몸통이 도는 동안 색인 스캔을 꺼 HNSW 색인을 쓰지 않는 계획을 고르게 한다.
+        `SET LOCAL`은 트랜잭션이 끝날 때까지 남으므로 몸통이 끝나면 끄기 전 값으로 되돌려, 같은
+        트랜잭션에서 뒤에 부른 검색이 HNSW 계획을 쓰게 한다. 몸통에서 데이터베이스 오류가 나면
+        트랜잭션이 어차피 되돌려지므로 되돌리지 않고 오류를 그대로 올린다."""
+        if scan is CandidateScan.INDEX:
+            yield
+            return
+        previous = str(
+            await self._connection.scalar(sa.select(sa.func.current_setting("enable_indexscan")))
+        )
+        await self._set_local("enable_indexscan", "off")
+        yield
+        await self._set_local("enable_indexscan", previous)
+
+    async def search_candidates(self, query: SearchQuery) -> SearchCandidates:
+        await self._apply_search_settings(query)
         result = await self._connection.execute(
             sa.text(search_sql(query)), _search_parameters(query)
         )
@@ -449,6 +533,34 @@ class PostgresVectorIndex:
         is_current: bool = rows[0]["is_current"] is True
         hits = tuple(self._hit(row) for row in rows if row["id"] is not None)
         return SearchCandidates(is_current=is_current, hits=hits)
+
+    async def diagnose_candidates(
+        self, query: SearchQuery, *, scan: CandidateScan
+    ) -> SearchDiagnosis:
+        await self._apply_search_settings(query)
+        async with self._scan_plan(scan):
+            result = await self._connection.execute(
+                sa.text(diagnosis_sql(query, scan)), _search_parameters(query)
+            )
+            rows = result.mappings().all()
+        is_current: bool = rows[0]["is_current"] is True
+        lines = tuple(self._diagnosed_hit(row) for row in rows if row["id"] is not None)
+        return SearchDiagnosis(is_current=is_current, hits=lines)
+
+    async def explain_diagnosis(self, query: SearchQuery, *, scan: CandidateScan) -> str:
+        """진단 문장의 계획을 글로 낸다. 시험이 `scan`마다 판의 HNSW 부분 색인을 쓰는지 본다.
+        `INDEX`는 작은 표에서도 색인을 고르게 `explain_search`처럼 순차 스캔을 끄고 트랜잭션이
+        끝날 때까지 그대로 둔다. `EXACT`는 실제 호출과 같은 설정으로 계획을 보려고 순차 스캔을
+        끄지 않는다. 그래서 `INDEX`의 계획을 본 뒤 같은 트랜잭션에서 `EXACT`의 계획을 보면 안
+        된다."""
+        if scan is CandidateScan.INDEX:
+            await self._connection.execute(sa.text("SET LOCAL enable_seqscan = off"))
+        async with self._scan_plan(scan):
+            rows = await self._connection.execute(
+                sa.text("EXPLAIN " + diagnosis_sql(query, scan)), _search_parameters(query)
+            )
+            plan = "\n".join(row[0] for row in rows)
+        return plan
 
     async def explain_search(self, query: SearchQuery) -> str:
         """검색 문장의 계획을 글로 낸다. 시험이 판의 HNSW 부분 색인을 쓰는지 본다. 작은 표에서도
@@ -478,6 +590,16 @@ class PostgresVectorIndex:
             sa.text(f"EXPLAIN EXECUTE explain_search({arguments})")
         )
         return "\n".join(row[0] for row in rows)
+
+    @classmethod
+    def _diagnosed_hit(cls, row: sa.RowMapping) -> DiagnosedHit:
+        return DiagnosedHit(
+            hit=cls._hit(row),
+            ordinal=row["ordinal"],
+            vector_rank=row["vector_rank"],
+            keyword_rank=row["keyword_rank"],
+            fused_rank=row["fused_rank"],
+        )
 
     @staticmethod
     def _hit(row: sa.RowMapping) -> SearchHit:

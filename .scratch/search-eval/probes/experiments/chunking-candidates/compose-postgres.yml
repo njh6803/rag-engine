@@ -1,0 +1,28 @@
+# 설정 실험(search-eval 16) 전용 PostgreSQL. 실험마다 데이터베이스를 새로 만들어야 해서(구성이 다른 데이터베이스를
+# 도구가 거부한다) 서버 하나에 `rag_eval_<구성 이름>` 데이터베이스를 여러 개 만든다. 다른 평가 스택과 섞이지 않게
+# 프로젝트 이름과 포트(55463)를 따로 쓴다. 이미지는 `compose.eval.yml`과 같다.
+#   docker compose -f .scratch/search-eval/probes/experiments/chunking-candidates/compose-postgres.yml up -d --wait
+#   docker compose -f .scratch/search-eval/probes/experiments/chunking-candidates/compose-postgres.yml down -v   # 끝나면
+# 임베딩 끝점은 이 파일이 띄우지 않는다. 실험은 `.scratch/search-eval/probes/tei-gpu/compose-gpu.yml`의 임베딩 TEI
+# (`turing-1.9.4`, `BAAI/bge-m3`, `--max-batch-tokens 4096`)와 같은 서버에 붙었다(README.md의 "돌린 명령").
+name: rag-engine-eval-exp16
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    environment:
+      POSTGRES_USER: rag_eval
+      POSTGRES_PASSWORD: rag_eval
+      POSTGRES_DB: rag_eval
+    ports:
+      - "127.0.0.1:55463:5432"
+    volumes:
+      - eval-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U rag_eval -d rag_eval"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  eval-postgres:

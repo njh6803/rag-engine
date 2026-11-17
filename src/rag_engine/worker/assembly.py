@@ -34,6 +34,7 @@ from rag_engine.adapters.settings import Settings
 from rag_engine.adapters.tei import TeiEmbedderPool
 from rag_engine.app.index_document import IndexDocumentDeps
 from rag_engine.app.retry_policy import RetryPolicy
+from rag_engine.domain.ports import EmbedderWrapper
 from rag_engine.worker.processing import run_once
 from rag_engine.worker.service import WorkerConfig, serve
 from rag_engine.worker.signals import stop_on_signals
@@ -47,9 +48,13 @@ def worker_id() -> str:
     return f"{socket.gethostname()}-{os.getpid()}"
 
 
-async def run_once_with_settings(settings: Settings) -> int:
-    """꺼낼 수 있는 작업을 모두 처리하고 처리한 수를 낸다."""
-    async with _assembled(settings) as deps:
+async def run_once_with_settings(
+    settings: Settings, wrap_embedder_for: EmbedderWrapper | None = None
+) -> int:
+    """꺼낼 수 있는 작업을 모두 처리하고 처리한 수를 낸다. `wrap_embedder_for`를 주면 임베더를
+    내는 함수를 그것으로 감싼다(평가 도구가 추론 기록을 끼우는 걸이고, 작업자는 무엇을 감싸는지
+    모른다)."""
+    async with _assembled(settings, wrap_embedder_for) as deps:
         return await run_once(
             deps, worker_id=worker_id(), lease_seconds=float(settings.job_lease_seconds)
         )
@@ -75,7 +80,9 @@ async def run_worker(settings: Settings) -> int:
 
 
 @asynccontextmanager
-async def _assembled(settings: Settings) -> AsyncGenerator[IndexDocumentDeps]:
+async def _assembled(
+    settings: Settings, wrap_embedder_for: EmbedderWrapper | None = None
+) -> AsyncGenerator[IndexDocumentDeps]:
     """설정에서 어댑터를 만들어 유스케이스에 건넬 묶음을 낸다. 작업자는 서버 없이 따로 돌 수 있어
     로깅을 여기서 설정한다. 블록을 나가면 TEI 클라이언트와 엔진을 닫는다."""
     configure_logging(settings.log_format)
@@ -101,7 +108,7 @@ async def _assembled(settings: Settings) -> AsyncGenerator[IndexDocumentDeps]:
             max_unzipped_mb=settings.parse_max_unzipped_mb,
             max_compression_ratio=settings.parse_max_compression_ratio,
         ),
-        embedder_for=embedders,
+        embedder_for=embedders if wrap_embedder_for is None else wrap_embedder_for(embedders),
         chunker_for=chunker_for,
         tokenize_keywords=tokenize_keywords,
         now=lambda: datetime.now(UTC),

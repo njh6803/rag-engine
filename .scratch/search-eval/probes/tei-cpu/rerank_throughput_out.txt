@@ -1,0 +1,4 @@
+platform: Windows-10-10.0.19045-SP0, 논리 코어 16 (컨테이너는 코어 4개)
+model_id: BAAI/bge-reranker-v2-m3, max_client_batch_size: 32
+리랭크: 쌍 96개를 배치 32로 785.5s, 0.12쌍/s (배치마다 200.6~297.6s)
+  어림: 질의 300개에 후보 50개씩 쌍 15000개면 2046분

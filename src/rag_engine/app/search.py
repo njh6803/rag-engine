@@ -8,6 +8,12 @@
 아니면 `search_unavailable`이다. 지식베이스에 리랭커가 있으면 후보 전부를 리랭크해 점수 순으로
 바꾸고, 리랭커가 실패해도 RRF로 대신하지 않고 `search_unavailable`이다. 시간 제한을 넘겨도 같다.
 
+최소 점수(ADR 0017)는 리랭크 점수가 그 값보다 낮은 조각을 `top_k`로 자르기 앞에서 뺀다(같은 점수는
+남는다). 요청 인자가 있으면 그 값이, 없으면 지식베이스의 기본값이, 둘 다 없으면 거르지 않는다. 0
+이상 1 이하의 유한한 값만 받는다. 리랭커가 없는 지식베이스에 요청의 값을 주면(0도)
+`invalid_argument`이고, 요청 인자 없이 리랭커가 빈 채 기본값이 있는 행은 `search_unavailable`이다.
+남은 조각이 없으면 오류가 아니라 빈 결과다.
+
 점수는 리랭크 점수이고 리랭커가 없으면 RRF 점수다. 순위는 1부터다. 질의 글은 어디에도 남기지 않는다
 (원칙 V). 지연은 호출한 쪽이 로그로 남긴다.
 """
@@ -64,7 +70,8 @@ class SearchRequest:
 
     `groups`는 그룹 이름이다. `None`이나 빈 묶음이면 그룹으로 거르지 않고, 없는 이름은 아무
     문서에도 맞지 않는다. `updated_after`는 그 시각을 포함하고 `updated_before`는 포함하지 않으며
-    오프셋이 있는 시각이다.
+    오프셋이 있는 시각이다. `min_score`는 요청이 준 최소 점수이고 `None`이면 지식베이스의 기본값을
+    따른다.
     """
 
     query: str
@@ -74,6 +81,7 @@ class SearchRequest:
     groups: tuple[str, ...] | None = None
     updated_after: datetime | None = None
     updated_before: datetime | None = None
+    min_score: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +119,13 @@ def _validate(deps: SearchDeps, request: SearchRequest) -> None:
         raise RequestError(
             ErrorCode.INVALID_ARGUMENT, f"top_k는 1 이상 {deps.max_top_k} 이하여야 한다"
         )
+    # 범위를 긍정형으로 써야 `nan`이 걸린다. `nan`은 어느 비교도 거짓이라 `x < 0 or x > 1`은
+    # 지나가고, `inf`도 이 식이 막는다. 오류에 값을 싣지 않는다.
+    min_score = request.min_score
+    if min_score is not None and not 0 <= min_score <= 1:
+        raise RequestError(
+            ErrorCode.INVALID_ARGUMENT, "min_score는 0 이상 1 이하의 유한한 수여야 한다"
+        )
 
 
 async def _search_within_limit(deps: SearchDeps, request: SearchRequest) -> SearchResults:
@@ -121,6 +136,8 @@ async def _search_within_limit(deps: SearchDeps, request: SearchRequest) -> Sear
             knowledge_base = await _pick_knowledge_base(transaction.catalog, request)
             version = await _current_version(transaction.catalog, knowledge_base)
             group_ids = await _group_ids(transaction.catalog, request.groups)
+        reranker = deps.reranker_for(knowledge_base)
+        min_score = _effective_min_score(request, knowledge_base, reranker)
         if version is None:
             return SearchResults(knowledge_base.name, (), SearchTimings(0.0, 0.0, 0.0))
 
@@ -152,21 +169,50 @@ async def _search_within_limit(deps: SearchDeps, request: SearchRequest) -> Sear
             )
         sql_ms += (time.perf_counter() - started) * _MS_PER_SECOND
         if found.is_current:
-            hits, rerank_ms = await _rank(deps, knowledge_base, request.query, found.hits)
+            hits, rerank_ms = await _rank(reranker, request.query, found.hits)
             return SearchResults(
                 knowledge_base.name,
-                hits[: request.top_k],
+                _at_least(hits, min_score)[: request.top_k],
                 SearchTimings(embedding_ms, sql_ms, rerank_ms),
             )
     raise RequestError(ErrorCode.SEARCH_UNAVAILABLE, "색인 판이 바뀌는 중이라 검색하지 못했다")
 
 
+def _effective_min_score(
+    request: SearchRequest, knowledge_base: KnowledgeBase, reranker: Reranker | None
+) -> float | None:
+    """이 검색에 걸 최소 점수. 요청 인자가 지식베이스의 기본값을 이긴다(0도 이긴다). 최소 점수는
+    리랭크 점수에 거는 값이라 리랭커가 없으면, 요청이 준 값은 `invalid_argument`로 거부하고(거른다고
+    잘못 믿지 않게) 요청 인자 없이 기본값만 있는 행은 `search_unavailable`이다. 둘이 겹치면 요청
+    인자 쪽을 먼저 거부한다."""
+    if reranker is not None:
+        given = request.min_score
+        return knowledge_base.min_score if given is None else given
+    if request.min_score is not None:
+        raise RequestError(
+            ErrorCode.INVALID_ARGUMENT, "리랭커가 없는 지식베이스에는 min_score를 줄 수 없다"
+        )
+    if knowledge_base.min_score is not None:
+        raise RequestError(
+            ErrorCode.SEARCH_UNAVAILABLE,
+            "지식베이스에 최소 점수가 설정되어 있는데 리랭커가 없어 검색하지 못했다",
+        )
+    return None
+
+
+def _at_least(hits: tuple[SearchHit, ...], min_score: float | None) -> tuple[SearchHit, ...]:
+    """점수가 `min_score`보다 낮은 조각을 뺀다. 같은 점수는 남고 순서는 그대로다. `None`이면 거르지
+    않는다."""
+    if min_score is None:
+        return hits
+    return tuple(hit for hit in hits if hit.score >= min_score)
+
+
 async def _rank(
-    deps: SearchDeps, knowledge_base: KnowledgeBase, query: str, hits: tuple[SearchHit, ...]
+    reranker: Reranker | None, query: str, hits: tuple[SearchHit, ...]
 ) -> tuple[tuple[SearchHit, ...], float]:
-    """지식베이스에 리랭커가 있으면 후보 전부를 리랭크해 점수 순으로 바꾸고 걸린 시간(ms)을 함께
-    낸다. 없으면 RRF 순서 그대로이고 시간은 0이다."""
-    reranker = deps.reranker_for(knowledge_base)
+    """리랭커가 있으면 후보 전부를 리랭크해 점수 순으로 바꾸고 걸린 시간(ms)을 함께 낸다. 없으면 RRF
+    순서 그대로이고 시간은 0이다."""
     if reranker is None or not hits:
         return hits, 0.0
     started = time.perf_counter()

@@ -1,6 +1,6 @@
 # spec-review-transition-crossing: 명세 셀프 리뷰 두 축과 CLI가 못 본 상태 전이의 교차·잔류 결함 여덟을 PR 봇이 냈다
 
-**상태:** 열림
+**상태:** 닫힘 (.scratch/harness/issues/code-review-transition-crossing.md, 2026-11-13, 명세 축 브리프 절에 상태를 정한 명세에 한해 전이의 교차와 잔류 상태를 밟으라는 조건부 한 줄(d)을 더했다)
 **어디로:** `.claude/skills/code-review/SKILL.md` 명세 축 브리프에 한 줄(명세가 상태(문서·색인 상태·작업·색인 판)를 정하면 전이마다 다른 전이와의 동시 교차와 실패·중단 뒤의 잔류 상태를 밟아, 지운 것이 되살아나거나 전환이 영영 막히는 자리를 낸다)
 **승인:** 자체 승인 2026-11-10, 8회차(더하는 것이라 다섯 번째에 반영한다. 회차 5를 넘어 next-session 결정표의 chore 배치가 고른다), 일지 2026-11-10-0118-core-spec.md, ADR 불필요
 

@@ -19,14 +19,21 @@ rag-engine 에 없어 뺐다. 명령 위치에 선 것만 센다 — `uv run …
 위치다. 판정 둘.
 - 게이트가 파이프(`|`)의 마지막이 아닌 자리에 있다. 서브셸 안이어도 본다. 그 파이프의 종료 코드는
   마지막 명령의 것이다.
-- `$?` 마다 본다 — 그 바로 앞 조각이 게이트가 아니고 그 앞 어딘가에 게이트가 있다. `$?` 는
-  바로 앞 명령의 것이라 게이트의 결과가 아니다(대기열 11 — `&&` 체인 뒤의 `$?`). 파이프 경고가
-  이미 있으면 같은 원인이라 이 경고는 내지 않는다.
+- `$?` 마다 본다 — 그 바로 앞 조각이 게이트가 아니고 그 앞 어딘가에 아직 읽히지 않은 게이트가
+  있다. `$?` 는 바로 앞 명령의 것이라 게이트의 결과가 아니다(대기열 11 — `&&` 체인 뒤의 `$?`).
+  게이트 바로 다음 조각이 `$?` 를 읽었으면 그 게이트는 읽힌 것이다. 그 뒤 다른 명령 다음의 `$?` 는
+  그 명령의 종료 코드를 읽는 것이라 경고하지 않는다(대기열 gate-pipe-read-status — `ruff …;
+  echo ruff=$?; plan_table.py …; echo plan=$?`). 다만 읽힌 것으로 세는 것은 `;`·개행·`||` 로
+  이어진 읽기뿐이다. `&&` 로 이어진 읽기(`pytest && echo $?`)는 게이트가 실패하면 건너뛰어지고,
+  `&` 뒤의 `$?`(`pytest & echo $?`)는 백그라운드 기동의 0이라 읽힌 것으로 세지 않는다(`||` 뒤
+  읽기는 게이트가 실패해야 실행되니 읽힌 것이다). 파이프 경고가 이미 있으면 같은 원인이라 이 경고는
+  내지 않는다.
 인용 구간은 지우지 않고 자리표시자 `_` 로 바꾼다. 지우면 `--project "경로" pytest` 의 pytest 가 옵션
 값 자리로 밀려 명령 위치를 잃는다(PR #91 리뷰).
 못 보는 것: `set -o pipefail` 이 켜진 파이프(그래도 경고한다 — 거짓 양성), `2>&1 | tee` 처럼 결과를
 버리지 않는 파이프(그래도 경고한다), 래퍼 스크립트 안의 게이트, `$PIPESTATUS`, PowerShell 의
-`$LASTEXITCODE`(이 훅은 Bash 매처다).
+`$LASTEXITCODE`(이 훅은 Bash 매처다). 게이트 바로 다음 조각에 `$?` 가 들었으면 그 종료 코드를 실제로
+쓰는지는 보지 않고 읽은 것으로 센다(`pytest; true $?; other; echo $?` 는 조용하다 — 거짓 음성).
 """
 
 from __future__ import annotations
@@ -51,7 +58,11 @@ _CHAIN = re.compile(r"\|\||&&|(?<![<>|])&(?!&)|[;\n]")
 # 파이프 하나. `||` 는 _CHAIN 이 이미 갈랐다.
 _PIPE = re.compile(r"(?<!\|)\|(?!\|)")
 # `$?` 판정용 조각 경계. _CHAIN 에 파이프를 더한 것이다 — 파이프 뒤의 명령도 "바로 앞 명령" 이다.
-_SEGMENT = re.compile(r"\|\||&&|(?<![<>])[&|]|[;\n]")
+# 캡처 그룹이라 split 결과가 조각과 경계를 번갈아 낸다(경계의 종류는 `&&` 뒤 읽기를 가르는 데 쓴다).
+_SEGMENT = re.compile(r"(\|\||&&|(?<![<>])[&|]|[;\n])")
+# 게이트 바로 다음 조각의 `$?` 가 게이트의 결과를 읽게 되는 경계. 허용 목록이라 그 밖의 경계(`&&`,
+# `&`, `|`)는 읽힌 것으로 세지 않는다. `||` 뒤의 읽기는 게이트가 실패해야 실행되니 읽은 것이다.
+_READING_JOINERS = frozenset({";", "\n", "||"})
 _PREFIX = re.compile(r"^(?:\s+|[({]|[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*")
 _REDIRECT_HINT = (
     "출력을 줄이려면 파이프 대신 파일로 리다이렉트하고(`> <스크래치 경로>/gate.log 2>&1`),"
@@ -101,22 +112,42 @@ def _pipe_warnings(text: str) -> list[str]:
 def _exit_code_warnings(text: str) -> list[str]:
     if "$?" not in text:
         return []
-    segments = [_PREFIX.sub("", s, count=1) for s in _SEGMENT.split(text)]
+    parts = _SEGMENT.split(text)
+    segments = [_PREFIX.sub("", s, count=1) for s in parts[0::2]]
+    joiners = parts[1::2]  # joiners[i] 가 segments[i] 와 segments[i + 1] 을 잇는다.
     warnings: list[str] = []
     for index, segment in enumerate(segments):
         if "$?" not in segment:
             continue
-        gates = [i for i, s in enumerate(segments[:index]) if is_gate(s)]
-        if not gates or gates[-1] == index - 1:
+        if index == 0 or is_gate(segments[index - 1]):
             continue
+        # 바로 다음 조각이 `$?` 를 읽은 게이트는 결과가 이미 읽혔다. 그 뒤 다른 명령 다음의
+        # `$?` 는 그 명령의 종료 코드를 읽는 것이라 게이트의 결과를 가리지 않는다. 다만 `&&` 로
+        # 이어진 읽기는 게이트가 실패하면 건너뛰어지고 `&` 뒤의 `$?` 는 백그라운드 기동의 0이라,
+        # `;`·개행·`||` 로 이어진 읽기만 읽힌 것으로 센다.
+        unread_gates = [
+            i
+            for i in range(index - 1)
+            if is_gate(segments[i]) and not _is_read(segments[i + 1], joiners[i])
+        ]
+        if not unread_gates:
+            continue
+        gate = segments[unread_gates[-1]].strip()
         warning = (
             "`$?` 바로 앞 명령이 게이트가 아니다. `$?` 는 마지막 명령의 종료 코드라 앞의 게이트"
-            f"(`{segments[gates[-1]].strip()}`)의 결과가 아니다(CLAUDE.md 환경 함정). 판정 명령"
+            f"(`{gate}`)의 결과가 아니다(CLAUDE.md 환경 함정). 판정 명령"
             f" 뒤에서 바로 읽거나 파이프·체인 없이 돌린다. {_REDIRECT_HINT}"
         )
         if warning not in warnings:
             warnings.append(warning)
     return warnings
+
+
+def _is_read(segment: str, joiner: str) -> bool:
+    """게이트 다음 조각이 게이트의 `$?` 를 읽는가. 게이트의 결과를 잇는 경계만 읽힌 것으로 센다.
+
+    `&&` 뒤의 읽기는 게이트가 실패하면 건너뛰고, `&` 뒤의 `$?` 는 백그라운드 기동의 0이다."""
+    return "$?" in segment and joiner in _READING_JOINERS
 
 
 def _without_heredoc_bodies(command: str) -> list[str]:

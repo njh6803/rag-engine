@@ -1,0 +1,20 @@
+ pgvector 
+----------
+ 0.8.7
+(1 row)
+
+ setseed 
+---------
+ 
+(1 row)
+
+ lists_differ_a_b | top10_differ_a_b | lists_differ_a_exact 
+------------------+------------------+----------------------
+               25 |                6 |                   99
+(1 row)
+
+ sets_differ_a_b | sets_differ_a_exact | min_overlap_a_b | mean_overlap_a_b 
+-----------------+---------------------+-----------------+------------------
+              25 |                  99 |              43 |            49.55
+(1 row)
+
