@@ -1,18 +1,21 @@
 # release-image: 판마다 검색 서버와 수집 작업자의 이미지를 내고, 자기 PostgreSQL을 띄우는 단독 compose로 깨끗한 VM에 설치된다
 **슬라이스:** 2
 **Blocked by:** core
+**설계:** ADR 0020. 일지 `docs/journal/2026-11-17-1716-release-image-design.md`
 
-이 기능의 설계 인터뷰는 하네스 규약의 원천인 agent-os(ADR 0016 Consequences "원칙 III")가 판 내기 워크플로를 짓고 실제로 돌려 본 뒤에 연다. 사용자가 2026-11-11 그 저장소의 세션에서 그렇게 정했다(그 저장소의 일지 `docs/journal/2026-11-11-1532-release-image-design-round3.md`의 "사용자가 정했다: agent-os에서 먼저 짓고 돌려 본 뒤 옮긴다" 절). 그 저장소의 release-image에서 첫 판 내기를 지켜본 세션이 이 저장소의 세션에 줄 지시문을 사용자에게 내고(그 저장소의 release-image 명세 "rag-engine에 줄 지시문(넘겨받은 것)" 절), 그 지시문이 agent-os ADR 0043과 agent-os ADR 0056을 입력으로 받는 짧은 설계 인터뷰를 열게 한다. 지시문은 이 저장소가 따로 정할 것(그 명세의 같은 절과 같은 일지의 "사용자가 물었다" 절)을 싣고, 그 저장소의 규약 ADR을 따른다고 적고 다른 점만 적는 얇은 ADR 한 장을 두라고 한다(ADR 0016과 같은 꼴. 같은 일지의 "인계한 세션에서 사용자가 정했다" 절). 아래의 넘긴 것 문단들도 그 인터뷰의 입력이다. 그래서 이 기능이 프론티어에 오르고 명세와 설계 줄이 없어도 그 지시문이 오기 전에는 설계 인터뷰를 열지 않는다. 그사이 이 기능을 다음 작업으로 받은 세션은 인터뷰를 열지 않고 사용자에게 이 대기를 알린다. 순서를 다시 바꾸는 것은 사용자가 정한다(같은 일지의 "사용자가 물었다" 절). 다른 저장소의 기능은 Blocked by 줄에 적을 수 없어(`tools/plan_table.py` 독스트링의 프론티어 항목) 이 문단이 그 대기를 적는다. 지시문을 받아 설계 인터뷰를 마친 세션이 설계 줄을 적으며 이 문단과 `.scratch/plan-head.md` 순서 절의 같은 문단을 걷는다.
+설계(ADR 0020, 2026-11-17)가 정한 것: 판 내기는 agent-os의 ADR 0056을 따른다. main이 움직일 때 CI가 제품 판을 내고, 정식 판 0.1.0 전에는 출시 후보(`0.1.0-rc.N`)만 난다. 이미지 둘은 Docker Hub의 `njh6803/rag-engine-server`와 `njh6803/rag-engine-worker`에 올린다. 단독 compose는 프록시(nginx)를 더해 443 하나만 밖으로 연다. 올릴 때 운영자가 손댈 것이 있는 변경은 PR 제목에 느낌표를 붙이고, 마이그레이션, 재색인이 필요한 변경, 계약의 앞자리를 올리는 변경은 언제나 그렇게 한다. 단독 compose를 띄우는 느린 시험은 agent-os와 같이 main으로 가는 PR과 main 푸시에서만 돈다. 워크플로와 도구는 agent-os의 것을 복사해 이 저장소의 값으로 고친다. 첫 정식 판은 release-0-1이 낸다. 사람 몫 가운데 Docker Hub 저장소 둘, 접근 토큰, GitHub 환경 `release`는 이 기능의 출시 PR을 병합하기 전에, squash 제목 설정은 PR 제목 검사를 옮기는 티켓을 병합하기 전에 끝나 있어야 한다(ADR 0020 Consequences "사람 몫"). 아래의 넘긴 것 문단들은 명세의 입력이다.
 
 검색 서버와 수집 작업자의 이미지를 판 태그로 내고, 자기 PostgreSQL을 함께 띄우는 단독 compose와 설치 안내를 낸다. 관리자 페이지의 이미지와 서버 경로 원천의 볼륨은 admin과 source-sync가 이 행의 규칙으로 더한다. 단독 compose에서도 밖으로 여는 포트는 하나로 하고, MCP 경로, 수집 API, 관리 API(admin 뒤에는 관리자 페이지도)는 경로로 나눈다. 컨테이너는 root가 아닌 사용자로 돌고, 이미지마다 취약점 점검 결과(SBOM과 CVE 스캔)를 낸다. 폐쇄망 설치를 위해 이미지를 파일로 내보내는 방법(`docker save`)과, 임베딩 모델 파일을 함께 옮기는 절차를 안내에 적는다.
 
-core 명세(`.scratch/core/spec.md`, 2026-11-10)가 넘긴 것: 서버와 작업자 이미지를 둘로 가르는 Dockerfile 변경(core는 킥오프의 Dockerfile 하나에서 `rag-engine worker` 명령이 돌게만 한다), 임베딩·리랭커 TEI 컨테이너 둘과 마이그레이션 서비스의 compose 항목(리랭커 TEI는 기본 설치에서 켜지 않고 켜는 설치가 compose 프로필로 더한다. 켜는 설치의 후보 수와 검색 시간 제한 안내도 설치 안내에 적는다. search-eval 티켓 17이 정했고 ADR 0010 이력 2026-11-17이 적는다. 기본 컨테이너는 서버, 작업자, PostgreSQL, 임베딩 TEI 넷이다), 모델 파일의 폐쇄망 반입, 메모리 예산(32GB 기준, 16GB 최소)의 문서화.
+core 명세(`.scratch/core/spec.md`, 2026-11-10)가 넘긴 것: 서버와 작업자 이미지를 둘로 가르는 Dockerfile 변경(core는 킥오프의 Dockerfile 하나에서 `rag-engine worker` 명령이 돌게만 한다), 임베딩·리랭커 TEI 컨테이너 둘과 마이그레이션 서비스의 compose 항목(리랭커 TEI는 기본 설치에서 켜지 않고 켜는 설치가 compose 프로필로 더한다. 켜는 설치의 후보 수와 검색 시간 제한 안내도 설치 안내에 적는다. search-eval 티켓 17이 정했고 ADR 0010 이력 2026-11-17이 적는다. 기본 컨테이너는 그때 서버, 작업자, PostgreSQL, 임베딩 TEI 넷이었고, 이 기능의 설계가 프록시를 더해 다섯으로 정했다. ADR 0020), 모델 파일의 폐쇄망 반입, 메모리 예산(32GB 기준, 16GB 최소)의 문서화.
 
 core 티켓 세션(2026-11-10)의 명세 검토가 넘긴 것: TEI 컨테이너 자체의 로그가 입력 글(질의, 문서 조각)을 남기는지 재고, 남기면 compose의 TEI 로그 설정으로 끈다(원칙 V. core는 우리 프로세스의 로그만 맡는다).
 
-dev-branch(ADR 0016, 2026-11-12)가 넘긴 것: 단독 compose를 띄워 보는 시험처럼 느린 검사를 CI에 더하면, 그 잡을 main PR(출시 PR과 핫픽스 PR)과 main 푸시에서만 돌릴지 dev PR에서도 돌릴지 정한다. 지금은 main PR에만 도는 잡이 없어 dev PR과 main PR이 같은 잡을 돈다. 판을 어느 브랜치의 어느 사건에서 낼지도 이 기능이 정한다.
+dev-branch(ADR 0016, 2026-11-12)가 넘긴 것: 단독 compose를 띄워 보는 시험처럼 느린 검사를 CI에 더하면, 그 잡을 main PR(출시 PR과 핫픽스 PR)과 main 푸시에서만 돌릴지 dev PR에서도 돌릴지 정한다. 지금은 main PR에만 도는 잡이 없어 dev PR과 main PR이 같은 잡을 돈다. 판을 어느 브랜치의 어느 사건에서 낼지도 이 기능이 정한다. 둘 다 ADR 0020이 정했다(느린 시험은 main으로 가는 PR과 main 푸시에서만 돌고, 제품 판은 main이 움직일 때 난다).
 
 search-eval 설계(ADR 0019, 2026-11-12)가 넘긴 것: search-eval이 구현되면 운영 의존성에 Anthropic SDK(`anthropic`)와 전이 의존 셋(docstring-parser, jiter, sniffio)이 더해져 이미지에 실린다. 부품 목록(SBOM)과 CVE 스캔의 대상이 그만큼 는다. 평가를 부르는 입구는 admin이 열 때까지 이미지 안에 없다.
+
+설계 세션(2026-11-17)이 넘긴 것: 설계 PR이 고칠 수 없던 파일의 낡은 문장을 이 기능의 티켓이 고친다. `Dockerfile` 1줄의 주석은 판 태그와 단독 compose를 "release-image 가 정한다"고 적으며 `tech.md`를 가리키는데, 그 칸은 이제 ADR 0020의 결정을 적는다. `next-session` `merge.md` "출시 PR"의 "이 저장소에서는 아직 출시 PR을 열어 본 적이 없어"는 출시 PR 32와 62가 병합된 뒤로 사실이 아니고, 병합 절차를 옮기는 티켓이 그 절을 고칠 때 함께 고친다. `docs/constitution/operations.md` 8줄의 "판 태그를 붙여 내는 것은 release-image다"는 운영 문서의 두 절을 옮기는 티켓이 판 내기 절을 가리키게 고치고, `.github/workflows/ci.yml` 82줄의 같은 주석도 워크플로를 옮기는 티켓이 함께 고친다.
 
 공개 시연(core, search-eval, release-image)의 한 축이다. 판을 고정한 이미지가 있어야 클라이언트가 실제 서버로 시험할 수 있다.
 

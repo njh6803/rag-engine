@@ -9,9 +9,9 @@
 
 core 다음은 release-image와 search-eval이다. 판을 고정한 이미지가 있어야 클라이언트가 실제 서버로 시험할 수 있고, 공개 문서 묶음을 넣은 공개 시연을 동기화와 관리자 페이지보다 먼저 열 수 있기 때문이다. 공개 시연은 관리 명령으로 문서를 한 번 넣고 동기화를 쓰지 않으므로, core, search-eval, release-image 셋이면 된다. 그래서 source-sync는 release-image 뒤에 서고, 뒤에 오는 행은 release-image가 정한 판 태그와 단독 compose의 규칙으로 자기 몫(source-sync는 원천 폴더의 볼륨, admin은 관리자 페이지의 이미지)을 더한다. backup-upgrade와 diag-bundle은 원천 설정과 동기화 기록을 다루므로 source-sync 뒤에 선다.
 
-release-image는 아래 프론티어에 오르지만 설계 인터뷰를 바로 열지 않는다. 판 내기 규칙을 agent-os에서 먼저 짓고 돌려 본 뒤 옮기기로 해서(사용자가 2026-11-11에 정했다), 그 저장소가 첫 판을 낸 뒤 사용자에게 주는 지시문으로 설계 인터뷰를 연다. 근거, 그사이 할 일, 이 문단을 걷는 때는 release-image 기능 계획 본문의 첫 문단에 있다.
+release-image가 끝난 뒤로는 main이 움직일 때마다 CI가 제품 판을 내고, 정식 판 0.1.0 전에는 출시 후보(`0.1.0-rc.N`)만 난다(ADR 0020). 첫 정식 판은 release-0-1이 낸다. release-0-1은 admin, backup-upgrade, diag-bundle이 모두 끝나야 열리고, 슬라이스 3의 기능은 release-0-1을 기다린다. 0.1.0에 실리는 것이 슬라이스 2까지와 맞게 하기 위해서다.
 
-이정표는 `docs/PRD.md`의 성공의 정의가 원천이다. 공개 시연(2027-01 초)은 core, search-eval, release-image, 0.1(2027-03 초 무렵)은 슬라이스 2까지, 1.0(2027년 상반기, 어림)은 슬라이스 3까지다.
+이정표는 `docs/PRD.md`의 성공의 정의가 원천이다. 공개 시연(2027-01 초)은 core, search-eval, release-image이고 그때의 제품 판은 출시 후보다. 0.1(2027-03 초 무렵)은 슬라이스 2까지이고 release-0-1이 정식 판으로 낸다. 1.0(2027년 상반기, 어림)은 슬라이스 3까지다.
 
 core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌고 없으면 실패하므로(`docs/constitution/tech.md` 테스트 칸), 검사 러너가 테스트 DB를 띄우는 변경은 core의 첫 티켓(core 01)이고 나머지 core 티켓은 그 티켓 뒤에 선다(설계 일지는 하네스 티켓으로 적었지만 2026-11-10 티켓 세션에서 사용자가 core 01로 골랐다. core 명세 Further Notes). 러너가 pytest를 always_run으로 돌리므로 그 변경 뒤에는 문서 PR과 하네스 chore를 포함한 모든 커밋에 테스트 PostgreSQL이 필요하다. 러너가 Docker로 띄우거나 `RAG_TEST_DATABASE_URL`이 이미 닿는 서버를 가리켜야 하므로, 둘 다 없는 클라우드 세션은 커밋할 수 없다. 이 분기는 core 01이 next-session 결정표 아래의 Docker 갈래로 더했다.
 
@@ -38,7 +38,7 @@ compose.eval.yml           슬라이스 2. 검색 평가 전용 PostgreSQL(데�
 compose.test.yml           슬라이스 1. 테스트 PostgreSQL(pgvector/pgvector:0.8.7-pg18-trixie, 운영과 같은 판). 검사 러너가 없으면 띄운다(core 01)
 evals/public-docs/         슬라이스 2. 검색 평가의 공공 문서 묶음. 문서 파일 폴더 `documents/`, 문서 목록 `documents.json`, 머리 `eval-set.json`, 구성 `config.json`(search-eval 09). 기대 근거 `evidence.jsonl`, 질의 목록 `queries-human.jsonl`과 `queries-keyword.jsonl`, 추론 기록 `records/`(search-eval 10)
 tools/search_eval.py       슬라이스 2. 검색 평가 도구의 명령줄 입구(search-eval 02). 인자 해석과 조립만 하고 묶음의 읽기·쓰기는 adapters, 값과 판정은 domain·app 에 둔다. search-eval 03이 `index`와 `validate --indexed`를, 04가 `run --through fused`를 더했고, 나머지 하위 명령은 05 이후가 더한다
-Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 슬라이스 2의 release-image 가 판 태그, 단독 compose(서버, 작업자, PostgreSQL, 임베딩 TEI. 리랭커 TEI는 켜는 설치의 프로필, ADR 0010 이력 2026-11-17), SBOM과 CVE 스캔을 더한다
+Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 슬라이스 2의 release-image 가 판 태그, 단독 compose(프록시, 서버, 작업자, PostgreSQL, 임베딩 TEI. 리랭커 TEI는 켜는 설치의 프로필, ADR 0010 이력 2026-11-17. 프록시와 밖으로 여는 포트는 ADR 0020), SBOM과 CVE 스캔을 더한다
 (관리자 페이지)            슬라이스 2. admin 설계 인터뷰가 화면 스택을 정한다. 웹 워크스페이스면 web/ 에 두고 파이썬과 루트를 나눈다(tech.md)
 ```
 
@@ -50,14 +50,15 @@ Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 
 | 2 | [admin](admin/plan.md) | 관리자 페이지 v0. 현황, 원천, 문서, 검색 시험 화면에서 문서를 올리고 지우며 잘 찾아지는지 확인한다 | source-sync | todo |
 | 2 | [backup-upgrade](backup-upgrade/plan.md) | 색인, 원본 문서, 데이터베이스를 명령 하나로 백업하고 복원하며, 판 올림 때 다시 색인해야 하는지 알린다 | source-sync | todo |
 | 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 판, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync | todo |
+| 2 | [release-0-1](release-0-1/plan.md) | 첫 정식 판 0.1.0을 낸다. 마지막 출시 후보로 0.1의 성공의 정의를 확인한 뒤 출시 후보 단계를 끝낸다 | admin, backup-upgrade, diag-bundle | todo |
 | 2 | [release-image](release-image/plan.md) | 판마다 검색 서버와 수집 작업자의 이미지를 내고, 자기 PostgreSQL을 띄우는 단독 compose로 깨끗한 VM에 설치된다 | core | todo |
 | 2 | [search-eval](search-eval/plan.md) | 평가 세트로 검색의 상위 k개 적중률을 재고, 기준 보고서보다 떨어지면 CI가 실패한다 | core | done |
 | 2 | [source-sync](source-sync/plan.md) | 원천(업로드, 서버 경로, 수집 API)과 동기화. 원천에서 더하고 고치고 지운 문서가 다음 동기화 뒤 검색에 반영된다 | core, release-image | todo |
-| 3 | [change-log](change-log/plan.md) | 관리 변경 기록. 누가 언제 문서, 원천, 설정, 접근 그룹을 바꿨는지 남기고 조회하고 내보낸다 | admin | todo |
-| 3 | [db-source](db-source/plan.md) | SQL 커넥터. 운영자가 쓴 질의와 매핑으로 데이터베이스에 든 글과 그 첨부를 문서로 수집한다 | source-sync | todo |
-| 3 | [doc-freshness](doc-freshness/plan.md) | 문서의 갱신일과 시행일을 관리하고, 기한이 지난 문서의 조각에 "오래됨"을 표시한다 | admin | todo |
-| 3 | [doc-permission](doc-permission/plan.md) | 문서 묶음별 접근 그룹으로 검색을 거르고, MCP `_meta`에 주체가 없는 요청은 거부한다 | admin | todo |
-| 3 | [hwp-binary](hwp-binary/plan.md) | HWP 5.0 바이너리(표 포함)를 파싱해 본문과 표의 칸이 근거 위치와 함께 검색된다 | admin | todo |
+| 3 | [change-log](change-log/plan.md) | 관리 변경 기록. 누가 언제 문서, 원천, 설정, 접근 그룹을 바꿨는지 남기고 조회하고 내보낸다 | admin, release-0-1 | todo |
+| 3 | [db-source](db-source/plan.md) | SQL 커넥터. 운영자가 쓴 질의와 매핑으로 데이터베이스에 든 글과 그 첨부를 문서로 수집한다 | source-sync, release-0-1 | todo |
+| 3 | [doc-freshness](doc-freshness/plan.md) | 문서의 갱신일과 시행일을 관리하고, 기한이 지난 문서의 조각에 "오래됨"을 표시한다 | admin, release-0-1 | todo |
+| 3 | [doc-permission](doc-permission/plan.md) | 문서 묶음별 접근 그룹으로 검색을 거르고, MCP `_meta`에 주체가 없는 요청은 거부한다 | admin, release-0-1 | todo |
+| 3 | [hwp-binary](hwp-binary/plan.md) | HWP 5.0 바이너리(표 포함)를 파싱해 본문과 표의 칸이 근거 위치와 함께 검색된다 | admin, release-0-1 | todo |
 
 ## 프론티어
 
