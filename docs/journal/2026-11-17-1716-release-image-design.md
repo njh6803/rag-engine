@@ -56,29 +56,29 @@ agent-os에서 첫 실행에 난 일은 옮기기 전에 알아 둔다. 판 내�
 ### agent-os의 계정, 이름, 번호 관계 (서브에이전트 보고 1)
 
 - **agent-os가 쓰는 Docker Hub 계정은 사용자의 개인 계정 `njh6803`이다.** 저장소 이름은 `agent-os-runtime`, `agent-os-admin`, `agent-os-widget`, `agent-os-widget-test-page`이고 `latest` 태그는 없다(agent-os `deploy/images/docker-bake.hcl` 54·71·79·87줄과 ADR 0056 이력 2026-11-17을 읽었다. 이름공간은 `gh variable list --repo njh6803/agent-os --env release`의 출력으로 봤다). 제품 전용 계정을 새로 만든다는 ADR 0056 본문의 전제는 그 이력이 거짓으로 돌렸다.
-- **Docker Hub 무료 개인 계정의 접근 토큰은 저장소 하나로 좁힐 수 없다.** 계정이 닿는 모든 저장소에 걸린다. 저장소별로 좁히는 조직 토큰과 토큰을 저장하지 않는 OIDC 연결은 Team·Business 요금제의 것이다. 공개 저장소는 수 제한이 없고 비공개는 하나다. 받는 횟수 제한은 문서가 6시간에 100번(로그인 없음, 주소마다)과 200번(무료 계정 로그인)이라 적는다(agent-os 일지 `2026-11-11-1110-release-image-design.md` 71~75줄에서 옮겼다. 그 일지가 붙인 종류는 "서브에이전트가 원문을 받아 대 봤고 이 세션이 다시 봤다"이고, 이 세션은 Docker 문서를 다시 받지 않았다). 한 사람이 계정을 둘 가져도 되는지는 약관에서 그런 문장을 찾지 못했다고 그 일지가 적는다(검색어 몇 개로 본 것).
+- **Docker Hub 무료 개인 계정의 접근 토큰은 저장소 하나로 좁힐 수 없다.** 계정이 닿는 모든 저장소에 걸린다. 저장소별로 좁히는 조직 토큰과 토큰을 저장하지 않는 OIDC 연결은 Team·Business 요금제의 것이다. 공개 저장소는 수 제한이 없고 비공개는 하나다. 받는 횟수 제한은 문서가 6시간에 100번(로그인 없음, 주소마다)과 200번(무료 계정 로그인)이라 적는다(agent-os 일지 `2026-11-11-1110-release-image-design.md` 71~75줄에서 옮겼다. 그 일지가 붙인 종류는 계정과 토큰의 문장(71줄)이 "서브에이전트가 원문을 받아 대 봤고 이 세션이 세 파일의 그 줄을 다시 봤다"이고 받는 횟수 제한의 문서 수치(72줄)가 "이 세션이 다시 봤다"이며, 이 세션은 Docker 문서를 다시 받지 않았다). 한 사람이 계정을 둘 가져도 되는지는 약관에서 그런 문장을 찾지 못했다고 그 일지가 적는다(검색어 몇 개로 본 것).
 - **두 저장소의 GitHub 상태**(`gh repo view`, `gh api repos/...`, `gh secret list`, `gh variable list`, `gh release list`, `git tag --list`의 출력으로 봤다). 이 저장소는 공개이고 기본 브랜치가 dev다. 환경이 없고, 릴리스와 git 태그가 없다. squash 병합의 기본 커밋 제목은 `COMMIT_OR_PR_TITLE`이다(agent-os는 사람 몫으로 `PR_TITLE`로 바꿨다). 병합 뒤 브랜치 자동 삭제는 꺼져 있다. `pyproject.toml`의 `version`은 이미 `0.0.0`이다. agent-os에는 환경 `release`(배포 브랜치 main 하나)와 그 안의 비밀 값 `DOCKERHUB_TOKEN`·`RELEASE_GH_TOKEN`, 변수 `DOCKERHUB_NAMESPACE`가 있고, 릴리스 `v0.1.0-rc.1`은 prerelease가 아니며 Latest로 표시된다.
-- **번호 관계는 agent-os 쪽에 이미 문장이 있다.** agent-os ADR 0048 26줄이 "제품의 판은 agent-os의 릴리스다. 그 릴리스의 참조 배포가 문서 검색 서버 이미지의 판을 고정한다. 문서 검색 서버는 자기 판을 따로 낸다."라고 적는다. 번호를 맞춘다는 문장과 이 서버의 구체적인 판 번호나 레지스트리 이름을 적은 자리는 찾지 못했다(찾은 범위는 그 저장소의 `CONTEXT.md`, PRD, ADR, 헌법, 기능 계획과 명세, 플러그인 설정, `deploy/`, 워크플로다). 그 저장소가 이름으로 정해 둔 것은 compose 서비스 이름과 포트다(`plugins/mcp/doc-search/plugin.toml` 8줄의 `http://rag-engine:8000/mcp`). 그 저장소의 deploy-package는 이 저장소의 release-image, admin, backup-upgrade, diag-bundle을 기다린다(그 기능 계획 3줄).
+- **번호 관계는 agent-os 쪽에 이미 문장이 있다.** agent-os ADR 0048 26줄이 굵은 글씨로 "제품의 판은 agent-os의 릴리스다."를 적고, 이어서 "그 릴리스의 참조 배포가 문서 검색 서버 이미지의 판을 고정한다. 문서 검색 서버는 자기 판을 따로 낸다."라고 적는다. 번호를 맞춘다는 문장과 이 서버의 구체적인 판 번호나 레지스트리 이름을 적은 자리는 찾지 못했다(찾은 범위는 그 저장소의 `CONTEXT.md`, PRD, ADR, 헌법, 기능 계획과 명세, 플러그인 설정, `deploy/`, 워크플로다). 그 저장소가 이름으로 정해 둔 것은 compose 서비스 이름과 포트다(`plugins/mcp/doc-search/plugin.toml` 8줄의 `http://rag-engine:8000/mcp`). 그 저장소의 deploy-package는 이 저장소의 release-image, admin, backup-upgrade, diag-bundle을 기다린다(그 기능 계획 3줄).
 - **사용자가 앞서 정한 것**(agent-os 일지 `2026-11-11-1532-release-image-design-round3.md` 355~383줄, 481~503줄을 서브에이전트가 글자 그대로 옮겼다). 따로 정할 다섯은 그 일지의 "사용자가 물었다" 절에서 나왔고, 사용자는 "추천대로 진행할게. agent-os에서 워크플로를 실제로 지어 돌려 본 뒤에 rag-engine으로 옮기는 쪽으로 하자."와 "이 방향(공통 저장소 없이 agent-os를 원천으로 두고, dev 전환 뒤에 점검 도구를 만든다)으로 가자."로 정했다.
 - **이 저장소의 말.** `GLOSSARY.md`의 "판"은 "계약(검색 도구 형식, 수집 API, 플러그인 인터페이스, 색인 형식)과 헌법에 붙이는 semver 번호"다(219~221줄). 제품을 밖으로 낸 상태를 가리키는 뜻은 그 정의에 없고, "제품 판", "출시 후보", "제품 변경", "배포 파일 묶음", "단독 배포", "릴리스 노트"는 용어집에 없다. "판 올림"은 `.scratch/backup-upgrade/plan.md`에만 있다. `docs/PRD.md` 19~21줄의 이정표는 공개 시연(2027-01 초, core·search-eval·release-image), 0.1(2027-03 초 무렵), 1.0(2027년 상반기, 어림)이다. 이 저장소의 일지 `2026-11-14-2150-release-image-after-agent-os.md`의 리뷰는 "판 번호 관계" 항목이 원칙 III에 걸릴 수 있다고 적었다.
 ### 옮겨 올 하네스의 차이 (서브에이전트 보고 2)
 
 - **agent-os가 판 내기를 위해 들인 것.** 워크플로 `release.yml`(잡 `build`와 `publish`, 둘 다 환경 `release`)과 `pr-title.yml`, `ci.yml`의 `e2e-standalone` 잡과 `ticket` 잡의 노트 검사 스텝, 도구 `tools/release.py`(하위 명령 `number`·`notes`·`bundle`)·`tools/release_ci.py`·`tools/check_notes.py`와 그 시험, `deploy/`(`release.toml`, `images/docker-bake.hcl`, `standalone/`), `docs/release-notes/`, PR 서식의 "올릴 때 운영자가 손댈 것" 칸, `next-session` `merge.md`의 "판 내기를 기다린다" 절, `docs/agents/issue-tracker.md` "끝 줄을 적는 때"의 기능 단락 문장, 운영 문서의 "릴리스 노트 조각"과 "판이 나는 차례와 실패한 판을 다시 돌리는 절차", `tech.md`의 레지스트리·점검 행, 검사 러너의 `check-notes` 항목, 리뷰 봇 프롬프트와 `implement`·`pr-merge` 스킬의 느낌표 문장이다(그 저장소의 파일을 읽었고, 들인 커밋은 `git log --diff-filter=A`로 봤다). 판 내기 전용 훅은 없다.
 - **이 저장소에는 위의 대응물이 없다.** 워크플로는 `ci.yml`과 `claude-code-review.yml` 둘이고, `tools/`에 세 도구가 없으며, `deploy/`와 `docs/release-notes/`가 없다(`ls`). 비슷한 것은 둘이다. `ci.yml`의 `image` 잡은 모든 PR에서 `docker build -t rag-engine:ci .` 뒤 컨테이너를 띄워 `/health`를 본다(82~108줄). `eval-full` 잡은 main으로 가는 PR에서만 평가하고 그 밖에서는 스텝을 건너뛴 채 성공으로 끝난다(229~238줄). 필수 검사 `verify`의 needs는 `python`, `image`, `ticket`, `eval-fast`, `eval-full`이다(321줄). 커밋 검사의 접두와 정규식(`tools/check_commit_msg.py` 28~31줄)은 agent-os와 글자까지 같아 `feat!:` 꼴을 이미 받는다. `tools/check_ticket.py`에는 노트 검사가 가져다 쓰는 함수 여섯이 같은 서명으로 있다. 프로젝트 스킬 `pr-merge`와 `pr-feedback`은 이 저장소에 없다.
-- **agent-os의 도구에 직접 적힌 그 저장소의 값.** 제품 변경의 경로 `PRODUCT_PATHS = ("src", "web", "plugins", "uv.lock", "deploy")`(`tools/release.py` 74줄), 이미지 이름 넷 `IMAGES`(`tools/release_ci.py` 62줄)와 워크플로의 여섯 자리, 묶음 이름 `agent-os-<번호>.tar.gz`, 자리 표지 `@AGENT_OS_VERSION@`, web·pnpm·Playwright 준비 단계(`release.yml` 123~171줄)다. 설정으로 빠진 것은 넷뿐이다(`deploy/release.toml`의 `candidate_for`, bake 파일의 저장소 이름 대응, 환경 변수 `DOCKERHUB_NAMESPACE`, 점검 도구 이미지). 그 번호 도구를 이 저장소에 그대로 대면 "출시 후보 칸도 판 태그도 없어 첫 판의 번호를 정할 수 없다"로 종료 1이다(`uv run --no-sync python C:/project/agent/tools/release.py number --repo <워크트리> --head origin/main`).
+- **agent-os의 도구에 직접 적힌 그 저장소의 값.** 제품 변경의 경로 `PRODUCT_PATHS = ("src", "web", "plugins", "uv.lock", "deploy")`(`tools/release.py` 74줄), 이미지 이름 넷 `IMAGES`(`tools/release_ci.py` 62줄)와 워크플로의 여섯 자리, 묶음 이름 `agent-os-<번호>.tar.gz`, 자리 표지 `@AGENT_OS_VERSION@`, web·pnpm·Playwright 준비 단계(`release.yml` 123~171줄)다. 설정으로 빠진 것은 넷뿐이다(`deploy/release.toml`의 `candidate_for`, bake 파일의 저장소 이름 대응, 환경 변수 `DOCKERHUB_NAMESPACE`, 점검 도구 이미지). 그 번호 도구를 이 저장소에 그대로 대면 출시 후보 칸(`deploy/release.toml`의 `candidate_for`)도 판 태그도 없다는 오류로 종료 1이다. 오류 문구는 `tools/release.py` 405~406줄의 것이고 "첫 판의 번호를 정할 수 없다"로 끝난다(`uv run --no-sync python C:/project/agent/tools/release.py number --repo <워크트리> --head origin/main`).
 - **판 설정 파일.** agent-os의 `deploy/release.toml`은 `candidate_for = "0.1.0"` 한 칸이다. 그 칸이 있는 동안 번호는 그 정식 판의 출시 후보 가운데 가장 큰 n에 1을 더한 것이고 커밋 접두는 번호에 쓰이지 않는다(`tools/release.py` 375~414줄을 읽었다).
 - **agent-os가 미룬 결정 셋**은 그 저장소의 일지 `2026-11-16-2249-ci-publishes-release-from-main.md`에만 있다(155·158·172·173·177~180줄). (가) `build` 잡은 환경 `release`를 쓰고 같은 잡에서 의존성 코드를 돌린다. 잡이 환경 비밀 값을 참조하면 잡 시작 때 러너 프로세스가 값을 받는다는 읽기 길은 그 일지가 "문서로 확인하지 못했고 알려진 공격 수법에서 미룬 어림"이라고 적는다. 거론된 안은 그대로 두기와, 시험·점검 잡(비밀 값 없음)과 올리기 잡(환경 있음)으로 나누기다. 나누면 "다시 돌리기 단위가 하나 늘고 두 번 짓는 비용이 든다". (나) `-rc.` 꼴이면 `prerelease=true`로 표시하는 한 줄이고, 명세와 ADR에 근거가 없어 그 저장소가 지웠다. 첫 판은 `prerelease: false`에 Latest다. (다) 지금은 앞 초안을 지운 뒤 새 초안을 만든다. "지운 뒤 POST가 실패하거나 실행이 취소되면 그 번호와 커밋의 연결이 사라진다"는 지적이고, 고치려면 초안을 먼저 만들고 지우는 순서로 바꾸며 `replaced`와 `정리`의 조건이 함께 바뀐다. 사용자가 셋에 답했다는 기록은 그 저장소에서 찾지 못했다.
-- **이 저장소의 main은 한 번 출시됐다.** `origin/main`의 머리 `8712b83`은 2026-11-13의 merge 커밋 "chore: core를 main에 출시한다"(PR 32)다(`git show -s 8712b83`). `next-session` `merge.md` 60줄의 "이 저장소에서는 아직 출시 PR을 열어 본 적이 없어"는 그 사실과 어긋난다. `origin/dev`는 main보다 27커밋 앞선다.
+- **이 저장소의 main은 이미 출시된 적이 있다.** 서브에이전트가 볼 때 `origin/main`의 머리 `8712b83`은 2026-11-13의 merge 커밋 `Merge pull request #32 from njh6803/dev`였고, 그 PR 32의 제목이 "chore: core를 main에 출시한다"다(`git show -s --format=%B 8712b83`, `gh pr view 32 --json title`). `next-session` `merge.md` 60줄의 "이 저장소에서는 아직 출시 PR을 열어 본 적이 없어"는 그 사실과 어긋난다. 그때 `origin/dev`는 main보다 27커밋 앞서 있었다. 그 뒤 이 세션이 도는 동안 둘째 출시 PR 62("chore: search-eval을 main에 출시한다")가 2026-11-17 17:24(한국 시간)에 병합되어, PR 직전에 다시 본 `origin/main`의 머리는 `df79bec`이고 `origin/dev`는 되돌려 합친 merge 커밋 하나만큼 앞선다(`git log --oneline -4 origin/main`, `git rev-list --count origin/main..origin/dev`의 출력 1, `gh pr view 62 --json state,mergedAt,title`).
 ### 이 저장소의 이미지, 마이그레이션, 포트 (서브에이전트 보고 3)
 
 - **이미지.** Dockerfile은 루트에 하나이고 스테이지가 하나다. 바탕은 `python:3.12-slim`, 사용자는 uid 10001의 `rag`, `CMD`는 `rag-engine serve --host 0.0.0.0 --port 8000`이며 `HEALTHCHECK`가 없다(`Dockerfile`을 읽었다). 작업자는 같은 이미지에서 명령을 덮어써 돈다(일지 `2026-11-12-1116-core-13-lease-worker-process.md` 37줄의 손 확인 기록이고 이 세션에서 다시 띄우지 않았다). 문서는 이미지 둘을 적는다(`docs/constitution/tech.md` 21줄, ADR 0007 10줄. 같은 ADR 16줄이 "이미지 하나에 명령으로 서버·작업자를 가른다"를 처음 추천이었으나 고르지 않은 안으로 적는다). 둘로 가르는 일은 core 명세 261줄이 이 기능에 넘겼다.
 - **바깥 이미지.** PostgreSQL은 공식 `pgvector/pgvector:0.8.7-pg18-trixie`를 그대로 받고 이 저장소가 짓지 않는다(compose 파일들과 ADR 0006 8줄). 한국어 형태소 분석은 데이터베이스 확장이 아니라 앱의 `kiwipiepy`다. 임베딩 TEI는 `ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4`이고 모델은 `BAAI/bge-m3`다(`compose.eval.yml` 51줄). 제품용 compose는 아직 없다.
-- **마이그레이션.** 리비전은 셋(`0001`~`0003`)이고 패키지 안(`src/rag_engine/adapters/postgres/migrations/versions/`)에 있어 이미지에 함께 든다. 적용은 관리 명령 `rag-engine migrate`만 하고 서버는 시작할 때 돌리지 않는다. ADR 0011 21줄이 "compose는 서버 앞에 한 번 도는 마이그레이션 서비스를 둔다"고 이미 정했다. `0001`의 되돌리기는 `NotImplementedError`다. "판을 올릴 때 마이그레이션을 어떻게 한다"를 적은 문장은 core 명세와 ADR 0011에 없다.
+- **마이그레이션.** 리비전은 셋(`0001`~`0003`)이고 패키지 안(`src/rag_engine/adapters/postgres/migrations/versions/`)에 있어 이미지에 함께 든다. 적용은 관리 명령 `rag-engine migrate`만 하고 서버는 시작할 때 돌리지 않는다. ADR 0011 21줄이 "compose는 서버 앞에 한 번 도는 마이그레이션 서비스를 둔다"고 이미 정했다. `0001`의 되돌리기는 `NotImplementedError`다. 제품 판을 올릴 때 마이그레이션을 어떻게 하는지를 적은 문장은 core 명세와 ADR 0011에 없다.
 - **재색인.** ADR 0008 12줄이 색인 판의 요소(스키마 판, 임베딩 모델과 차원, 청킹 설정의 해시, 토크나이저 판)가 바뀌면 관리 API가 "재색인 필요"를 보인다고 적고, 판정은 `src/rag_engine/app/admin_knowledge_bases.py` 90줄이다. 토크나이저 판 문자열은 이미지에 설치된 `kiwipiepy`와 그 모델의 판을 담으므로(`src/rag_engine/adapters/index_elements.py`), 이미지의 Kiwi를 올리면 재색인이 필요해진다.
 - **판 번호가 보이는 자리가 지금 없다.** `rag-engine --version`은 없고(`uv run --no-sync rag-engine --version`이 종료 2), `/health`는 `{"status": "ok"}`만 낸다. API 문서의 판 칸은 패키지 판이 아니라 FastAPI 생성자의 기본값 `0.1.0`이다(`src/rag_engine/server/app.py` 158줄이 `version`을 주지 않는다. 서브에이전트가 스크래치 스크립트로 앱의 `(title, version)`을 찍어 봤고 저장소의 프로브는 아니다). 커밋된 `openapi.json` 같은 계약 파일은 없다.
 - **계약의 판.** 검색 도구 형식 `FORMAT_VERSION = "1.1.0"`(`src/rag_engine/server/tool_models.py` 30줄, 계약 시험이 판정한다), 수집 API와 관리 API는 경로의 `v1`, 파서 인터페이스 `PARSER_INTERFACE_VERSION = "1.0.0"`(`src/rag_engine/domain/parsing.py` 19줄), 색인의 `SCHEMA_VERSION = 1`이다. 커넥터와 변환의 Protocol은 아직 없다.
 - **포트와 TLS.** 서버는 TLS를 하지 않는다(`src/rag_engine/main.py` 97~104줄의 `uvicorn.run`에 인증서 옵션이 없다). TLS를 누가 끝내는지 정한 문장은 PRD, ADR, 헌법, 기능 계획, 명세에 없다(`TLS|SSL|인증서|https`를 Grep했다). `RAG_ALLOWED_HOSTS`는 필수이고 허용 호스트 판정은 `/mcp`에서만 한다(ADR 0014 10줄, core 명세 205줄). `/health`만 인증 밖이고 생존 확인만 한다. 작업자에는 HTTP 끝점이 없다.
-- **CI.** `ci.yml`의 트리거는 main과 dev의 push, 모든 PR, 수동 실행이다. 잡은 `python`(제한 15분), `image`(15분), `ticket`(5분), `eval-fast`(20분), `eval-full`(20분), `verify`(5분)다. `eval-full`은 base가 main인 PR과 수동 실행에서만 평가하고 main 푸시에서는 평가하지 않는다(`tools/eval_gate_paths.py` 112~129줄). 평가 잡은 임베딩 TEI를 CI에서 띄우고 모델을 캐시한다(ADR 0018 41줄). 열린 출시 PR 62의 `pull_request` 실행에서 `eval-full`이 4분 28초, `image`가 1분 9초였고, 같은 커밋의 dev push 실행에서 `python`이 12분 0초였다(`gh pr checks 62`, `gh run view`).
+- **CI.** `ci.yml`의 트리거는 main과 dev의 push, 모든 PR, 수동 실행이다. 잡은 `python`(제한 15분), `image`(15분), `ticket`(5분), `eval-fast`(20분), `eval-full`(20분), `verify`(5분)다. `eval-full`은 base가 main인 PR과 수동 실행에서만 평가하고 main 푸시에서는 평가하지 않는다(`tools/eval_gate_paths.py` 112~129줄). 평가 잡은 임베딩 TEI를 CI에서 띄우고 모델을 캐시한다(ADR 0018 41줄). 그때 열려 있던 출시 PR 62(이 세션 도중에 병합됐다)의 `pull_request` 실행에서 `eval-full`이 4분 28초, `image`가 1분 9초였고, 같은 커밋의 dev push 실행에서 `python`이 12분 0초였다(`gh pr checks 62`, `gh run view`).
 - **전체 계획.** 프론티어는 release-image 하나다. source-sync가 release-image를 기다리고 나머지 기능은 source-sync나 admin을 기다리므로, 남은 기능이 모두 release-image 뒤에 선다(`.scratch/plan.md` 47~64줄). core는 2026-11-13에, search-eval은 2026-11-17에 끝났고, search-eval의 출시 PR 62(dev→main)가 이 확인을 할 때 열려 있었다(`gh pr list --state open`). 그 PR은 이 세션 도중 병합됐다("반영한 것" 절의 첫 문단).
 - agent-os의 주 체크아웃은 이 세션이 입력 파일을 읽은 뒤 `origin/dev`보다 커밋 하나(#601 "판 내기 후속 정리")가 뒤처졌다. 그 커밋이 입력 파일 가운데 바꾼 것은 `release.yml` 하나이고 내용은 제한 시간(build 90→30분, publish 30→10분)과 `HASH_TAG` 환경 변수다(서브에이전트가 `git diff HEAD origin/dev`로 봤다).
 
@@ -186,7 +186,7 @@ agent-os에서 첫 실행에 난 일은 옮기기 전에 알아 둔다. 판 내�
 
 | 갈래 | 새 절차대로 했을 때 | 결과 |
 |---|---|---|
-| 출시 PR(dev→main)과 되돌려 합치기 PR | 변경 목록에 그동안의 마이그레이션 파일이 모두 들어, "마이그레이션이 든 PR은 제목에 느낌표" 검사를 그대로 걸면 출시 PR이 막힌다 | 이 둘은 검사에서 면제한다. 제목이 판 번호의 원천이 아니다. 합의 요약의 기본값 다 |
+| 출시 PR(dev→main)과 되돌려 합치기 PR | 변경 목록에 그동안의 마이그레이션 파일이 모두 들어, 마이그레이션이 든 PR의 제목에 느낌표가 있는지 보는 검사를 그대로 걸면 출시 PR이 막힌다 | 이 둘은 검사에서 면제한다. 제목이 판 번호의 원천이 아니다. 합의 요약의 기본값 다 |
 | 규약이 서기 전에 끝난 일(core, search-eval, 마이그레이션 셋) | 첫 판 `0.1.0-rc.1`에 함께 실린다. 올릴 앞 판이 없어 "올릴 때 할 일"이 비어도 된다 | 열린 가지가 없다 |
 | 이 세션 동안 열려 있던 출시 PR 62(search-eval) | 판 내기 워크플로가 아직 없어 병합되어도 판이 나지 않는다 | 열린 가지가 없다. PR 62는 이 세션 도중 병합됐고(`df79bec`), 되돌려 합치기 PR 63(`a162458`)이 뒤따랐다 |
 | 판 내기가 실패한 뒤 이어받는 세션 | agent-os의 절차(실패한 잡만 다시 돌리기, 남긴 초안으로 끝내기)를 그대로 옮기므로 이어받을 수 있다 | 열린 가지가 없다 |
@@ -265,7 +265,7 @@ agent-os에서 첫 실행에 난 일은 옮기기 전에 알아 둔다. 판 내�
 - 차. 이번 설계 PR에는 ADR 0020, 용어집, release-image 기능 계획의 설계 줄, 새 기능 `release-0-1`의 기능 계획, 전체 계획, 일지만 싣습니다. 워크플로와 도구는 뒤의 티켓이 옮깁니다.
 ```
 
-질문 6에서 고른 설명은 "agent-os와 같다"고 적었지만, agent-os의 `e2e-standalone` 잡은 base가 main인 PR에 더해 main 푸시에서도 시험한다(둘째 호출 앞의 확인). 합의 요약의 5번은 "main으로 가는 PR과 수동 실행에서만"이라 적어 확인받았으므로 ADR 0020은 그 문장대로 쓰고, main 푸시에서 시험하지 않는 것이 agent-os와 다른 한 가지라는 것을 ADR에 적어 승인 화면에서 따로 보인다. 셀프 리뷰의 명세 축이 다른 점이 둘(main 푸시에서 시험하지 않는 것, 수동 실행에서 시험하는 것)임을 짚어 ADR은 둘로 고쳐 적었다(아래 "셀프 리뷰").
+질문 6에서 고른 설명은 "agent-os와 같다"고 적었지만, agent-os의 `e2e-standalone` 잡은 base가 main인 PR에 더해 main 푸시에서도 시험한다(둘째 호출 앞의 확인). 합의 요약의 5번은 "main으로 가는 PR과 수동 실행에서만"이라 적어 확인받았으므로 ADR 0020은 그 문장대로 쓰고, main 푸시에서 시험하지 않는 것이 agent-os와 다른 한 가지라는 것을 ADR에 적어 승인 화면에서 따로 보인다. 셀프 리뷰의 명세 축이 다른 점이 둘(main 푸시에서 시험하지 않는 것, 수동 실행에서 시험하는 것)임을 짚어 ADR은 둘로 고쳐 적었다(아래 "셀프 리뷰"). 그 뒤 승인 화면에서 이 질문을 다시 물었고 사용자가 agent-os와 같은 조건을 골라, 확정된 ADR 0020은 base가 main인 PR과 main 푸시에서만 시험한다고 적는다(아래 "승인").
 
 ## 반영한 것
 
@@ -405,7 +405,7 @@ Critical은 없고 Major 1, Minor 5, Nit 2입니다. 저장소 파일은 고치�
 - 1번(Major)과 명세 축 3번. ADR 0020 "올릴 때 운영자가 손댈 것의 기준"의 되돌리기 근거를 바꿨다. 까닭을 `0001`의 미구현이 아니라 관리 명령이 올리기만 한다는 데 두었다.
 - 2번(Major). 느낌표의 기준을 닫힌 셋에서 ADR 0056의 일반 기준으로 열고, 고른 셋은 언제나 그 기준에 드는 변경으로 적었다. 닫힌 목록의 반례(새 필수 설정, compose의 볼륨과 포트)라 반례만 덧붙이지 않고 일반 조항을 위에 두었다(6단계 1). Considered Options의 같은 항목과 `.scratch/release-image/plan.md`의 요약 문장도 맞췄다.
 - 3번과 명세 축 8번. 여는 문단에 "레지스트리와 계정"과 "제품 변경"은 틀을 따르고 값이 달라 아래 두 항목이 적는다고 밝혔다.
-- 4번과 명세 축 7번. ADR의 "시험판"을 "출시 후보"로, "첫 판"과 "앞 판"을 "첫 제품 판"과 "앞 제품 판"으로 고쳤다. 용어집의 규칙은 `토큰(인증)` 항목의 선례처럼 "앞뒤 글로 가를 수 없는 자리에서는 줄이지 않고 제품 판이라 쓴다"로 바꾸고 제품 판의 `_Avoid_`에서 "판"을 뺐다. 판 올림, 판 태그, 판 내기처럼 굳은 말이 용어집과 스스로 어긋나지 않게 하기 위해서다. ADR "용어" 항목에 그 굳은 말과 "판 내기"의 뜻을 적었다.
+- 4번과 명세 축 7번. ADR의 "시험판"을 "출시 후보"로, "첫 판"과 "앞 판"을 "첫 제품 판"과 "앞 제품 판"으로 고쳤다. 용어집의 규칙은 `토큰(인증)` 항목의 선례처럼, 앞뒤 글로 가를 수 없는 자리에서만 줄이지 않고 온 이름(제품 판)으로 쓴다는 것으로 바꾸고 제품 판의 `_Avoid_`에서 "판"을 뺐다. 판 올림, 판 태그, 판 내기처럼 굳은 말이 용어집과 스스로 어긋나지 않게 하기 위해서다. ADR "용어" 항목에 그 굳은 말과 "판 내기"의 뜻을 적었다.
 - 5번. 용어집 "단독 compose"의 정의에 프록시를 넣었다.
 - 6번. 제품 변경의 범위를 "단독 compose의 파일"로 좁히고 `compose.test.yml`과 `compose.eval.yml`은 세지 않는다고 적었다.
 - 7번. 릴리스 노트에 적는 판의 목록에 색인 형식을 더했다. 관리 API의 경로는 원칙 VII이 이름으로 드는 계약이 아니어서 "지금 판이 붙어 있는 것"으로 적었다.
@@ -422,10 +422,10 @@ Critical은 없고 Major 1, Minor 5, Nit 2입니다. 저장소 파일은 고치�
 
 **고치며 새로 쓴 사실 문장.** PR 직전 리뷰의 브리프에 밀 주장이다. 원문과 근거를 적는다.
 
-1. ADR 0020: "그러나 관리 명령 `rag-engine migrate`는 올리기만 하고(`upgrade head`) 되돌리는 명령이 없다." `migrate.py` 41~53줄을 Read로 읽었고, `src/rag_engine`을 `downgrade`로 Grep하면 마이그레이션 파일 셋의 `def downgrade()` 줄만 나온다.
+1. ADR 0020(셀프 리뷰 때의 문장이고, PR 직전 리뷰 뒤에 "스키마를 올리고(`upgrade head`) 기본 레코드를 보장할 뿐이고, 되돌리는 명령은 없다"로 고쳤다): "그러나 관리 명령 `rag-engine migrate`는 올리기만 하고(`upgrade head`) 되돌리는 명령이 없다." `migrate.py` 41~53줄을 Read로 읽었고, `src/rag_engine`을 `downgrade`로 Grep하면 마이그레이션 파일 셋의 `def downgrade()` 줄만 나온다.
 2. ADR 0020: "되돌리기가 구현되지 않은 마이그레이션도 있다(`0001`의 `downgrade`는 `NotImplementedError`다)." `0001_initial_schema.py` 235~236줄을 읽었다.
 3. ADR 0020: "마이그레이션이 든 제품 판에서 이미지 태그만 앞 것으로 되돌리면 앞 제품 판의 코드가 자기가 모르는 스키마 위에서 돌게 되고(그때 무엇이 깨지는지는 재지 않았다), 되돌리는 길은 올리기 전의 백업이다." 재지 않은 추론이다.
-4. ADR 0020: "agent-os의 `e2e-standalone` 잡과 다른 점은 둘이다. 그 잡은 main 푸시에서도 시험하고, 수동 실행의 계기가 없다." agent-os `origin/dev`의 `ci.yml`을 스크래치패드에 꺼내 29~32줄을 읽었다.
+4. ADR 0020(셀프 리뷰 때의 초안): "agent-os의 `e2e-standalone` 잡과 다른 점은 둘이다. 그 잡은 main 푸시에서도 시험하고, 수동 실행의 계기가 없다." agent-os `origin/dev`의 `ci.yml`을 스크래치패드에 꺼내 29~32줄을 읽었다. 이 문장은 승인 때 조건을 agent-os와 같게 바꾸면서 ADR에서 빠졌고, 확정된 ADR에는 없다. 대신 든 문장은 아래 "승인"의 12번이다.
 5. ADR 0020: "지금 판이 붙어 있는 것은 검색 도구의 형식, 수집 API와 관리 API의 경로에 든 판, 파서 인터페이스, 색인 형식(스키마 판)이고". Grep으로 봤다. `server/tool_models.py` 30줄 `FORMAT_VERSION: Final = "1.1.0"`, `server/ingest_api.py` 43줄 `/api/v1/ingest`, `server/admin_api.py` 47줄 `/api/v1/admin`, `domain/parsing.py` 19줄 `PARSER_INTERFACE_VERSION: Final = "1.0.0"`, `adapters/index_elements.py` 21줄 `SCHEMA_VERSION: Final = 1`.
 6. ADR 0020: "지금 값에서는 커밋이 하나인 PR의 squash 제목이 PR 제목이 아니라 커밋 제목이어서, PR 제목에 붙인 느낌표가 번호 도구에 닿지 않을 수 있다(GitHub 설정의 동작을 기억으로 적은 어림이고 재지 않았다)."
 7. ADR 0020: "사람 몫이 준비됐는지 보는 확인은 agent-os의 병합 절차에 없어". `git -C C:/project/agent grep -n -c -E "DOCKERHUB|사람 몫|비밀 값|환경 .release." origin/dev -- .claude/skills/next-session/merge.md`가 출력 없이 끝났다.
@@ -446,7 +446,7 @@ Critical은 없고 Major 1, Minor 5, Nit 2입니다. 저장소 파일은 고치�
 
 ## 승인
 
-셀프 리뷰를 반영한 초안을 `AskUserQuestion`으로 보이고 승인받았다. 질문은 둘이다. 질문 6에서 고른 설명이 "agent-os와 같다"고 틀리게 적혀 있었으므로(`grilling`의 "고른 설명이 기술 조건을 틀리게 적었으면 그 질문을 다시 묻는다") 그 질문을 다시 물었고, 초안의 승인을 함께 물었다. 질문 글과 선택지의 라벨·설명을 글자 그대로 옮긴다.
+셀프 리뷰를 반영한 초안을 `AskUserQuestion`으로 보이고 승인받았다. 질문은 둘이다. 질문 6에서 고른 설명이 "agent-os와 같다"고 틀리게 적혀 있었으므로(`grilling`의 "고른 설명이 기술 조건을 틀리게 적었으면 옮기기 전에 그 질문을 다시 묻거나 합의 요약에서 바로잡아 확인받는다") 그 질문을 다시 물었고, 초안의 승인을 함께 물었다. 질문 글과 선택지의 라벨·설명을 글자 그대로 옮긴다.
 
 **질문 6 다시 (느린 시험).** "단독 compose를 실제로 띄워 보는 느린 시험을 CI의 어느 때에 돌릴까요? 앞서 고르신 설명에 제가 'agent-os와 같다'고 적었는데 실제로는 두 가지가 달라서 다시 여쭙니다."
 
@@ -505,3 +505,117 @@ ADR 0020 초안에서 합의 요약과 달라진 것 (셀프 리뷰 반영)
 - `.scratch/release-image/plan.md`에서 그 조건을 적은 두 문장(설계가 정한 것 문단, dev-branch가 넘긴 문단의 끝)을 맞췄다.
 - ADR 0020의 status와 색인(`docs/adr/README.md`)의 행을 `accepted`로 바꿨다.
 - 고치며 새로 쓴 사실 문장이 하나 더 있다. PR 직전 리뷰에 밀 주장의 12번이다. ADR 0020: "main에 병합된 뒤에는 판 내기 워크플로도 올릴 이미지 자체로 같은 시험을 돌므로, 제품 판이 나는 병합에서는 같은 시험이 두 워크플로에서 돈다(agent-os의 두 워크플로를 읽은 것이고 돌려 보지 않았다)." 근거는 agent-os `ci.yml` 249~277줄(시험 잡의 조건)과 `release.yml` 123~171줄(판 내기 워크플로의 시험 단계)이고, "라운드 1, 둘째 호출" 앞의 확인에서 읽은 것이다. 같은 항목의 "`eval-full`은 base가 main인 PR과 수동 실행에서만 평가하므로"는 `docs/constitution/operations.md` 9줄에서 옮겼다.
+
+## PR 직전 리뷰
+
+커밋 `399eec6` 뒤에 `coderabbit-review` 에이전트를 백그라운드로 돌렸다(`docs/constitution/operations.md` 리뷰 파이프라인 2). CLI가 끝까지 돌아 지적을 냈으므로 내장 `/security-review`와 `bug-perf-review`는 돌리지 않았다. 브리프에는 트리아지에서 따로 볼 사실 넷(migrate 문장, 계약의 판 목록, 문서 사이의 일치, 비밀 값)을 넣었다. 보고를 받은 턴에 글자 그대로 옮긴다.
+
+### 보고
+
+```
+## CodeRabbit CLI 리뷰 보고 (docs/release-image, 커밋 399eec6, 기준 origin/dev)
+
+실행 환경과 방식
+- CLI 0.7.5, GitHub 로그인 정상입니다. `Seat: not assigned`(Plan: Free)였는데도 리뷰는 끝까지 돌았습니다(`review_completed`).
+- 실행한 명령은 `coderabbit review --agent --include-untracked` 한 번뿐입니다. CLI가 기준을 `origin/dev`로 잡았고 18개 파일을 모두 리뷰해서 `--base`를 붙인 재실행은 하지 않았습니다.
+- CLI 지적은 3건(Major 2, Minor 1)입니다. 아래는 트리아지 결과와, 요청하신 사실 확인 네 가지에서 제가 직접 찾은 항목입니다.
+
+### 유효 / 보류
+
+- [Minor] `docs/adr/0020-release-follows-agent-os-adr-0056.md:46` — 사람 몫의 기한이 "release-image의 출시 PR을 병합하기 전"으로만 적혀 있습니다. 판 내기 워크플로를 처음 main에 싣는 출시 PR이 반드시 그 PR이라는 보장은 문서에 없습니다. (CLI Major를 Minor 보류로 낮췄습니다.)
+  - 근거: 같은 ADR의 "명세가 재거나 정하는 것"이 워크플로가 설치 안내보다 먼저 main에 닿지 않게 하라고 적고, 기능 계획은 나머지 기능이 모두 release-image를 기다린다고 적습니다. 그래서 실제로는 release-image의 출시 PR이 처음일 가능성이 높습니다. 다만 핫픽스는 워크플로를 싣지 않아 영향이 없지만, 다른 dev→main 병합이 끼면 기한 문장과 어긋납니다.
+  - 제안: "판 내기 워크플로를 처음 main에 싣는 출시 PR을 병합하기 전"으로 바꾸고, `.scratch/release-image/plan.md` 6줄의 같은 문장과 `merge.md` 전제 확인 대상("출시 PR")도 같은 말로 맞춥니다.
+
+- [Minor] `docs/adr/0020-release-follows-agent-os-adr-0056.md:14` — 제품 변경 경로 목록(`src`, 잠금 파일, Dockerfile, compose, 프록시 설정, 설치 안내, 판 설정)에 `pyproject.toml`이 없습니다. (CLI Major를 Minor 보류로 낮췄습니다.)
+  - 근거: 의존성이 바뀌면 `uv.lock`이 같이 바뀌어 잡힙니다. 그러나 `[project.scripts]`나 `requires-python` 같은 것은 이미지에 닿으면서 잠금 파일 변경 없이 바뀔 수 있습니다. 이 ADR은 "정확한 경로 목록은 명세가 짓는다"고 넘겼으므로 지금은 결함이 아니라 명세가 확인할 점입니다. agent-os의 `PRODUCT_PATHS`에도 pyproject는 없었습니다(작업 일지 68줄).
+  - 제안: ADR 본문은 두고, 명세에 "pyproject.toml 가운데 이미지 동작에 닿는 칸"을 확인할 항목으로 적습니다.
+
+- [Minor] `GLOSSARY.md:242` — "단독 compose" 정의가 구성을 나열하는데 ADR 0020의 배치와 어긋납니다.
+  - 근거: 정의는 "검색 서버와 작업자에 더해 프록시, 자기 PostgreSQL, 임베딩 서버"까지만 적고, 서버 앞에서 한 번 도는 마이그레이션 서비스와 켜면 더해지는 리랭커 프로필이 빠져 있습니다. 구성은 ADR과 tech.md가 바뀔 때마다 용어집도 따라 바뀌어야 하는 이중 원천입니다.
+  - 제안: 용어집에는 "이 서버만 따로 설치하는 배치"처럼 뜻만 남기고 구성은 ADR 0020에 맡깁니다.
+
+- [Minor] `docs/adr/0020-release-follows-agent-os-adr-0056.md:46` — 비밀 값 `RELEASE_GH_TOKEN`의 용도와 권한 범위가 어디에도 적혀 있지 않습니다. (제 직접 확인, 보안 축)
+  - 근거: `grep`으로 모든 `.md`를 뒤졌고, 이름은 ADR 46줄과 일지에서만 나옵니다. Docker Hub 토큰은 범위 한계를 적었는데 GitHub 토큰은 침묵합니다. 구현 때 넓은 권한의 PAT가 만들어질 수 있습니다.
+  - 제안: 사람 몫에 "이 저장소 하나에 한정한 최소 권한(릴리스 만들기·태그)"을 한 줄 적거나, 명세가 정할 것 목록에 넣습니다.
+
+- [Minor] `docs/adr/0020-release-follows-agent-os-adr-0056.md:17` — 프록시 설정에서 침묵하는 보안 결정이 있습니다. (제 직접 확인, 보안 축)
+  - 근거: 443 하나만 열고, 80은 열지 않으며, 서버는 TLS를 하지 않고, 인증서는 운영자가 둔다는 것은 적혀 있습니다. 반면 다음은 비어 있습니다.
+    - nginx 접근 로그가 요청 줄과 질의 문자열을 남기는지(원칙 V): 명세가 정할 것 목록에 TEI 로그는 있는데 프록시 로그는 없습니다.
+    - 최소 TLS 버전.
+    - 서버 8000 포트를 호스트에 게시하지 않는 것.
+    - `src`에 `X-Forwarded-*` 처리가 없다는 점(`grep` 0건): 프록시 뒤에서 클라이언트 주소나 스킴을 쓰는 곳이 생기면 문제가 됩니다.
+  - 제안: "명세가 재거나 정하는 것"(49줄)에 프록시 로그의 내용, TLS 하한, 서버 포트 비게시를 더합니다.
+
+- [Minor] `docs/adr/0020-release-follows-agent-os-adr-0056.md:15` — "관리 명령 `rag-engine migrate`는 올리기만 한다"는 표현이 정확하지 않습니다.
+  - 근거: `main.py`의 도움말은 "스키마를 올리고 기본 레코드를 보장한다"이고, `migrate_database`는 `upgrade_to_head` 뒤에 기본 레코드를 만듭니다. 되돌리는 명령이 없다는 핵심 주장은 맞습니다.
+  - 제안: "스키마를 올리는 것(`upgrade head`)은 하되 되돌리는 명령은 없다"로 고칩니다.
+
+### 요청하신 사실 확인
+
+1. **migrate 문장:** 대체로 맞습니다. `migrate.py`에는 `upgrade_to_head`만 있고 downgrade 호출은 없습니다. `main.py`에도 되돌리는 하위 명령이 없습니다. `0001`의 `downgrade`는 `NotImplementedError`가 맞고, `0002`와 `0003`은 구현돼 있습니다. 마이그레이션이 `0001`~`0003` 셋이라는 것도 맞습니다. 정확도는 위의 마지막 Minor 항목입니다.
+2. **계약의 판:** 빠진 것은 없습니다.
+   - 코드에 있는 판 상수는 `FORMAT_VERSION = "1.1.0"`(MCP 도구 셋 전체 공용), 경로의 `/api/v1`(수집·관리 API), `PARSER_INTERFACE_VERSION`, 색인 `SCHEMA_VERSION`입니다. 이 넷이 ADR 문장과 일치합니다.
+   - 나머지 상수(`REPORT_FORMAT_VERSION`, `inference_record_files.FORMAT_VERSION`, `PROMPT_VERSION`)는 평가 도구 내부 형식이라 원칙 VII의 계약이 아닙니다.
+   - 커넥터·변환 인터페이스는 코드에 아직 없고, ADR이 "더 붙으면 그것도 적는다"로 열어 두었습니다.
+3. **문서 간 일치:** 아래 항목은 어긋나지 않았습니다.
+   - 컨테이너 수: ADR, tech.md, release-image 계획이 다섯에 마이그레이션 서비스, 리랭커 프로필로 일치합니다.
+   - 느린 시험이 도는 조건: ADR과 계획이 main으로 가는 PR과 main 푸시로 일치합니다.
+   - 느낌표의 기준: 계획과 ADR이 일치합니다.
+   - 사람 몫의 기한: ADR 46줄과 계획 6줄이 일치합니다. 다만 위의 첫 Minor 항목이 두 곳을 함께 고쳐야 한다고 지적합니다.
+   - 용어집의 단독 compose만 위의 세 번째 Minor 항목처럼 구성이 불완전합니다.
+4. **비밀 값:** 새로 추가된 문서에서 토큰 값이나 연결 문자열은 발견하지 못했습니다. 이름(`DOCKERHUB_TOKEN`, `RELEASE_GH_TOKEN`)만 있습니다. 침묵하는 보안 결정은 위의 Minor 두 항목(GitHub 토큰 범위, 프록시 로그·TLS 하한·포트)입니다.
+
+### 오탐
+- 없음. CLI의 3건 모두 일부는 타당하다고 보아 유효 또는 보류로 분류했습니다.
+
+### 요약
+- 총 6건(CLI 3건과 직접 확인 3건), 유효 4건과 보류 2건, 오탐 0건입니다. Critical과 Major는 없습니다.
+- 좌석 상태는 `Seat: not assigned`(Plan: Free)였고, 리뷰는 끝까지 돌았습니다.
+- 즉시 고칠 만한 항목은 사람 몫 기한 문장의 통일과 `RELEASE_GH_TOKEN` 범위 명시, 용어집 정의 단순화, migrate 문장 정정입니다. 나머지는 명세로 넘겨도 됩니다.
+
+받는 본 세션에게: 일지를 쓰는 세션이면 이 보고를 받은 이 턴에 일지로 옮긴다. 고친 것과 남긴 것은 지적마다 판정한 턴에 옮긴다(code-review 6단계 끝).
+```
+
+### 판정과 반영
+
+Critical과 Major는 없다. 지적 여섯의 근거를 원문에서 먼저 확인했고 여섯 모두 반영했다. 이 세션이 결정을 새로 정한 것은 없다. 확인한 것은 다음과 같다. `src/rag_engine/main.py` 39줄(`migrate`의 도움말 "스키마를 올리고 기본 레코드를 보장한다"), `src/rag_engine/adapters/postgres/bootstrap.py` 49~56줄(`migrate_database`가 `upgrade_to_head` 뒤에 기본 레코드 유스케이스를 돈다), agent-os ADR 0056 90~92줄과 그 저장소 `docs/constitution/operations.md` 53줄(세분 토큰의 범위. `git -C C:/project/agent grep`의 출력으로 읽었다), `uv.lock`(`scripts|entry-points|requires-python`으로 Grep하면 3줄의 `requires-python`만 나온다)과 `pyproject.toml` 34~35줄(`[project.scripts]`), `src`를 `X-Forwarded|forwarded_allow|proxy_headers|ProxyHeaders`로 Grep한 결과(일치 없음), 전체 계획 `.scratch/plan.md`의 프론티어(`release-image` 하나)다.
+
+**고친 것.**
+
+- 지적 1(사람 몫의 기한). ADR 0020 Consequences "사람 몫"과 `.scratch/release-image/plan.md` 6줄의 기한을 "판 내기 워크플로를 처음 main에 싣는 출시 PR을 병합하기 전"으로 고치고, 차례대로면 그 PR이 release-image의 출시 PR이라는 문장을 붙였다. `merge.md`의 전제 확인은 설계 PR이 고칠 수 없는 파일이고, ADR이 이미 병합 절차를 옮기는 티켓의 몫으로 적었다.
+- 지적 2(`pyproject.toml`). ADR의 제품 변경 범위는 그대로 두고, Consequences "명세가 재거나 정하는 것"의 경로 목록 항목에 그 물음을 붙였다.
+- 지적 3(용어집의 단독 compose). 정의에서 구성의 나열을 빼고 뜻만 남겼다("이 서버만 따로 설치하는 배치. 검색 서버와 작업자가 기대는 서비스까지 compose 파일 하나로 함께 띄운다."). 셀프 리뷰 표준 축 5번으로 프록시를 넣었던 나열이 다시 빠진 것이고, 구성은 ADR 0020 "단독 compose의 배치"와 `tech.md`만 적는다. 용어집은 ADR을 이름으로 드는 자리가 없어(`ADR \d{4}`로 Grep해 일치가 없다) 가리키는 문장은 넣지 않았다.
+- 지적 4(`RELEASE_GH_TOKEN`의 범위). ADR "사람 몫"에 그 토큰이 ADR 0056의 이력이 정한 세분 토큰이라는 문장을 넣었다. ADR 0020이 ADR 0056을 이력까지 따르므로 새 결정이 아니고, 따르는 결정이 정한 범위를 이 ADR에서 보이게 한 것이다.
+- 지적 5(프록시의 침묵). "명세가 재거나 정하는 것"에 프록시가 서버에 넘기는 머리, 접근 로그가 요청 줄에서 남기는 것(원칙 V), TLS의 가장 낮은 판을 더했다. 서버의 포트를 호스트에 열지 않는 것은 ADR "단독 compose의 배치"의 "밖으로 여는 포트는 프록시의 443 하나이고 80은 열지 않는다"가 이미 정해 더하지 않았다.
+- 지적 6(migrate 문장). "올리기만 하고"를 "스키마를 올리고(`upgrade head`) 기본 레코드를 보장할 뿐이고, 되돌리는 명령은 없다"로 고쳤다.
+- 받는 쪽. `.scratch/release-image/plan.md`의 "설계 세션(2026-11-17)이 넘긴 것" 문단 끝에, PR 직전 리뷰가 명세에 넘긴 물음 넷이 ADR 0020 Consequences에 있다는 문장을 붙였다.
+
+**승인 뒤에 ADR 0020의 글이 달라진 곳.** 사용자가 승인한 글과 달라진 자리는 넷이다(migrate 문장, 세분 토큰의 범위, 사람 몫의 기한, "명세가 재거나 정하는 것"의 물음 넷). 넷 모두 결정을 바꾸지 않는다. 기한은 승인 화면의 미리보기가 "release-image 출시 PR 병합 전"이라 적었고, 고친 문장은 그 PR이 워크플로를 처음 main에 싣는 PR이라는 조건을 드러낸 것이다. PR 본문 "리뷰어 참고"에 적어 사용자가 볼 수 있게 한다.
+
+**고치며 새로 쓴 사실 문장.** 번호는 앞의 열둘에 잇는다.
+
+13. ADR 0020: "그러나 관리 명령 `rag-engine migrate`는 스키마를 올리고(`upgrade head`) 기본 레코드를 보장할 뿐이고, 되돌리는 명령은 없다." `main.py` 39줄과 `bootstrap.py` 49~56줄을 Grep의 출력으로 읽었다.
+14. ADR 0020: "이 저장소 하나에 Contents와 Workflows의 읽기·쓰기만 준 세분 토큰이다." agent-os ADR 0056 92줄의 "이 저장소 하나에 Contents와 Workflows의 읽기·쓰기를 주고 다른 권한은 고르지 않은 세분 토큰(fine-grained PAT)을 쓴다"에서 옮겼다. 그 문장의 "이 저장소"는 agent-os이고, 이 ADR에서는 rag-engine을 가리킨다.
+15. ADR 0020: "차례대로면 그 PR은 release-image의 출시 PR이다." 전체 계획의 프론티어가 `release-image` 하나이고 열린 기능이 모두 그 기능을 기다린다는 데서 따라간 것이다. 하네스 작업이나 다른 계기로 dev가 main에 올라가는 경우는 따져 보지 않았고, 그래서 기한을 PR의 이름이 아니라 조건으로 적었다.
+16. ADR 0020: "지금 `src`에는 `X-Forwarded-*`를 읽는 코드가 없다". Grep의 결과다.
+17. ADR 0020: "`[project.scripts]`처럼 잠금 파일이 따라 바뀌지 않는 것". `uv.lock`에 그 칸이 실리지 않는 것을 본 것이고, 칸을 바꿔 `uv lock`을 돌려 보지는 않았다.
+
+**남긴 것.** 없다. 보고가 보류로 가른 둘(기한, `pyproject.toml`)도 위와 같이 반영하거나 받는 쪽에 적었다.
+
+### 일지의 인용을 원문과 맞춘 것
+
+첫 커밋의 pre-commit이 인용 대조 경고를 냈다(막지 않는 경고다). 경고의 대부분은 질문 화면의 글과 agent-os 문서의 인용이라 이 저장소에 없는 것이 정상이다. agent-os의 인용 열은 `git -C C:/project/agent grep -F`로 그 저장소의 `origin/dev`와 대 봤고(스크래치 스크립트로 손으로 본 것이다), 글자가 다른 것을 아래와 같이 고쳤다.
+
+- "확인한 것"의 Docker Hub 불릿. agent-os 일지가 붙인 근거의 종류를 한 문장으로 줄여 따옴표에 넣었던 것을 그 일지 71줄과 72줄의 글자대로 나눠 적었다.
+- 같은 절의 번호 관계 불릿. agent-os ADR 0048 26줄은 첫 문장이 굵은 글씨라 한 인용으로 이으면 글자가 달랐다. 두 인용으로 나눴다.
+- 같은 절의 번호 도구 불릿. 오류 문구는 `tools/release.py` 405~406줄에서 설정 경로와 칸 이름이 사이에 끼어 있어, 끝 구절만 인용하고 앞은 풀어 적었다.
+- 같은 절의 main 불릿. `8712b83`의 제목은 `Merge pull request #32 from njh6803/dev`이고 "chore: core를 main에 출시한다"는 PR 32의 제목이다. 서브에이전트가 본 뒤에 출시 PR 62가 병합되어 `origin/main`의 머리와 dev가 앞선 커밋 수가 달라졌으므로, 본 때와 지금을 갈라 적었다.
+- 이 세션이 쓴 말을 따옴표에 넣었던 셋(마이그레이션 불릿, 갈래 밟기 표의 출시 PR 줄, 셀프 리뷰 "고친 것"의 용어집 규칙)은 따옴표를 떼고 풀어 적었다.
+- 합의 요약 아래의 느린 시험 문단에 승인 때 조건이 바뀌었다는 문장을 붙였고, 새로 쓴 사실 문장 1번과 4번에 그 문장이 지금 ADR에서 어떻게 됐는지 적었다.
+- "승인"의 `grilling` 인용을 그 스킬의 문장대로 고쳤다.
+
+## 검증
+
+- 첫 커밋 `399eec6`의 pre-commit이 손으로 치는 검사 다섯을 갈음했다. ruff check와 ruff format은 대상 파일이 없어 건너뛰었고, 검사 러너(`parallel-checks`, 434.62초)의 test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright-linux, pyright, run-hooks, pytest(434.4초)가 모두 통과했다. 그 밖의 훅(마크다운 표, 줄 구분자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지)도 통과했고, 인용 대조는 경고만 냈다.
+- 커밋 전에 `git branch --show-current`가 `docs/release-image`였고, `uv run python tools/sibling_overlap.py`는 번호 겹침과 함께 고친 파일이 없다고 했다. `uv run python tools/plan_table.py`와 `uv run python tools/check_adr_pointers.py`는 출력 없이 끝났다.
+- PR 직전 리뷰를 반영한 둘째 커밋의 pre-commit 결과는 그 커밋 뒤에 이 절에 잇는다.
