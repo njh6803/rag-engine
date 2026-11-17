@@ -23,6 +23,7 @@
 - 커밋 `f481e07`의 pre-commit 검사 러너가 통과했다(test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright 둘, run-hooks, pytest 모두 Passed. pytest 651.9초).
 - 커밋 대상(`.scratch/search-eval`과 `evals/public-docs/judgments.jsonl`)에서 `sk-ant`와 `api03`을 `git grep`으로 찾아 0건이었다.
 - 이 변경은 코드가 없고 문서와 판정 파일뿐이다.
+- `origin/dev`(티켓 20)를 합친 뒤 일지를 고친 커밋의 pre-commit에서 pytest가 한 번 빨갛게 끝났다(4562 통과, 1 실패, 1033.71초). 실패는 `tests/app/test_job_lease.py`의 `test_임대를_잃은_것이_드러나면_…`의 `assert time.monotonic() - started < 5`였고 실제는 약 6.4초였다. 부하에서만 빨간 시간 시험 종류의 새 사례이고(사용자가 이 종류를 닫힌 채 두기로 했다) 이 변경이 닿은 코드가 아니다. 같은 파일을 테스트 데이터베이스를 띄워 따로 돌리니 12개가 통과했다(65.74초). 그래서 사례만 여기 적고 대기열에는 더하지 않는다.
 
 ## 셀프 리뷰
 
@@ -56,6 +57,6 @@
 - 이 티켓에서 닫히지 않고 남은 일(티켓 13 `## Comments` 마지막 항목과 같다): (1) 판정기 정확도의 사람 확인. (2) 빠진 정답 후보 270건의 확인과 기대 근거 보강. (3) 놓친 질의 25건의 사람 판정과 `no_context` 비율. (4) 그 비율을 본 뒤 색인 시점의 LLM 보강을 더할지의 사용자 결정(기능 계획 `.scratch/search-eval/plan.md`의 "사용자가 넘긴 것" 4). (5) `judge`가 `--records`를 받게 하는 일(판정 없음 5건의 까닭). 받을 티켓이나 기능 계획의 고침은 사용자가 정한다. 이 세션은 `plan.md`와 ADR 0019 이력을 고치지 않았다.
 - 배치 API를 쓸지는 이 실행이 준 값(걸린 시간 31분 5초)을 본 사용자가 정한다. 비용은 새 정보가 아니라 어림이다.
 - `done` 티켓에 `[ ]` 박스가 남는 첫 사례다. 같은 꼴이 늘면 `check_ticket.py`가 면제 표지를 구분하게 할지 정한다.
-- 열린 티켓은 16, 17, 20(같은 묶음으로 나란히 돈다)이다. 병합 뒤의 순서는 `uv run python tools/plan_table.py`가 만든 전체 계획을 읽는다.
+- 열린 티켓은 16과 17이다(`ready-for-agent`). 티켓 20은 이 PR을 열기 전에 dev에 병합되어 이 브랜치에 `origin/dev`를 합쳤고, `tests/test_plan_status.py`가 통과했다. 병합 뒤의 순서는 `uv run python tools/plan_table.py`가 만든 전체 계획을 읽는다.
 - 대기열의 chore 계기: `mutate-marker-discovery`(origin/dev에서 11회차), `measured-claim-beyond-probe`(10회차), `crlf-from-script-edits`(7회차), `gate-masked-by-echo-chain`(6회차), `precommit-mutations-after-tests`(5회차), `python-i-utf8`(5회차).
 - 이 세션의 스크래치패드(`eval-data/`, `run-out/`, 일회용 스크립트)는 저장소 밖이고 커밋하지 않았다.
