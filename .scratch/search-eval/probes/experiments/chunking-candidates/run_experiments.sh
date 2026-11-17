@@ -52,6 +52,7 @@ timed() { # timed <이름> <단계> <명령...>
 run_config() {
   local name="$1" db; db=$(db_for "$name")
   local cfg="$EXP_DIR/configs/$name.json"
+  [ -f "$cfg" ] || { echo "[$name] 구성 파일이 없다: $cfg"; return 1; }
   local url="postgresql://rag_eval:rag_eval@127.0.0.1:$PG_PORT/$db"
   local data="$WORK/data/$db"
   export RAG_EVAL_DATABASE_URL="$url" RAG_EVAL_DATA_DIR="$data" RAG_EVAL_EMBEDDING_URL="$EMBED_URL"
@@ -61,7 +62,7 @@ run_config() {
     c512-64-k20|c512-64-k100) ;; # c512-64 의 색인을 그대로 쓴다
     *)
       docker exec "$PG_CONTAINER" psql -U rag_eval -d rag_eval -c "CREATE DATABASE $db" > "$WORK/logs/$name.createdb.log" 2>&1 || {
-        echo "[$name] 데이터베이스를 만들지 못했다(이미 있으면 지우고 다시 시작한다)"; return 1; }
+        echo "[$name] 데이터베이스를 만들지 못했다(이미 있으면 psql 로 DROP DATABASE $db 를 손으로 친 뒤 다시 돈다)"; return 1; }
       timed "$name" index uv run python tools/search_eval.py index "$BUNDLE" --config "$cfg" --records off || {
         echo "[$name] index 실패"; return 1; }
       ;;
@@ -77,6 +78,18 @@ NAMES=("$@")
 if [ ${#NAMES[@]} -eq 0 ]; then
   NAMES=(c512-64 c512-64-k20 c512-64-k100 c256-32 c512-128 c1024-128)
 fi
+FAILED=()
 for n in "${NAMES[@]}"; do
-  run_config "$n"
+  case "$n" in
+    c512-64-k20|c512-64-k100)
+      # 후보 수만 다른 구성은 c512-64 의 색인을 쓴다. 이번 호출에서 c512-64 가 실패했으면 건너뛴다.
+      if printf '%s\n' "${FAILED[@]:-}" | grep -qx 'c512-64'; then
+        echo "[$n] c512-64 가 실패해 건너뛴다"; FAILED+=("$n"); continue
+      fi ;;
+  esac
+  run_config "$n" || FAILED+=("$n")
 done
+if [ ${#FAILED[@]} -gt 0 ]; then
+  echo "실패한 구성: ${FAILED[*]}"
+  exit 1
+fi
