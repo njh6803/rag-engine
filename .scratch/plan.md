@@ -9,7 +9,7 @@
 
 core 다음은 release-image와 search-eval이다. 판을 고정한 이미지가 있어야 클라이언트가 실제 서버로 시험할 수 있고, 공개 문서 묶음을 넣은 공개 시연을 동기화와 관리자 페이지보다 먼저 열 수 있기 때문이다. 공개 시연은 관리 명령으로 문서를 한 번 넣고 동기화를 쓰지 않으므로, core, search-eval, release-image 셋이면 된다. 그래서 source-sync는 release-image 뒤에 서고, 뒤에 오는 행은 release-image가 정한 판 태그와 단독 compose의 규칙으로 자기 몫(source-sync는 원천 폴더의 볼륨, admin은 관리자 페이지의 이미지)을 더한다. backup-upgrade와 diag-bundle은 원천 설정과 동기화 기록을 다루므로 source-sync 뒤에 선다.
 
-release-image가 끝난 뒤로는 main이 움직일 때마다 CI가 제품 판을 내고, 정식 판 0.1.0 전에는 출시 후보(`0.1.0-rc.N`)만 난다(ADR 0020). 첫 정식 판은 release-0-1이 낸다. release-0-1은 admin, backup-upgrade, diag-bundle이 모두 끝나야 열리고, 슬라이스 3의 기능은 release-0-1을 기다린다. 0.1.0에 실리는 것이 슬라이스 2까지와 맞게 하기 위해서다.
+release-image가 끝난 뒤로는 main이 움직일 때 지난 제품 판 뒤로 제품 변경이 있으면 CI가 제품 판을 내고, 정식 판 0.1.0 전에는 출시 후보(`0.1.0-rc.N`)만 난다(ADR 0020). 첫 정식 판은 release-0-1이 낸다. release-0-1은 release-image와 admin, backup-upgrade, diag-bundle이 모두 끝나야 열리고, 슬라이스 3의 기능은 release-0-1을 기다린다. 0.1.0에 실리는 것이 슬라이스 2까지와 맞게 하기 위해서다.
 
 이정표는 `docs/PRD.md`의 성공의 정의가 원천이다. 공개 시연(2027-01 초)은 core, search-eval, release-image이고 그때의 제품 판은 출시 후보다. 0.1(2027-03 초 무렵)은 슬라이스 2까지이고 release-0-1이 정식 판으로 낸다. 1.0(2027년 상반기, 어림)은 슬라이스 3까지다.
 
@@ -50,7 +50,7 @@ Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 
 | 2 | [admin](admin/plan.md) | 관리자 페이지 v0. 현황, 원천, 문서, 검색 시험 화면에서 문서를 올리고 지우며 잘 찾아지는지 확인한다 | source-sync | todo |
 | 2 | [backup-upgrade](backup-upgrade/plan.md) | 색인, 원본 문서, 데이터베이스를 명령 하나로 백업하고 복원하며, 판 올림 때 다시 색인해야 하는지 알린다 | source-sync | todo |
 | 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 판, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync | todo |
-| 2 | [release-0-1](release-0-1/plan.md) | 첫 정식 판 0.1.0을 낸다. 마지막 출시 후보로 0.1의 성공의 정의를 확인한 뒤 출시 후보 단계를 끝낸다 | admin, backup-upgrade, diag-bundle | todo |
+| 2 | [release-0-1](release-0-1/plan.md) | 첫 정식 판 0.1.0을 낸다. 마지막 출시 후보로 0.1의 성공의 정의를 확인한 뒤 출시 후보 단계를 끝낸다 | release-image, admin, backup-upgrade, diag-bundle | todo |
 | 2 | [release-image](release-image/plan.md) | 판마다 검색 서버와 수집 작업자의 이미지를 내고, 자기 PostgreSQL을 띄우는 단독 compose로 깨끗한 VM에 설치된다 | core | todo |
 | 2 | [search-eval](search-eval/plan.md) | 평가 세트로 검색의 상위 k개 적중률을 재고, 기준 보고서보다 떨어지면 CI가 실패한다 | core | done |
 | 2 | [source-sync](source-sync/plan.md) | 원천(업로드, 서버 경로, 수집 API)과 동기화. 원천에서 더하고 고치고 지운 문서가 다음 동기화 뒤 검색에 반영된다 | core, release-image | todo |

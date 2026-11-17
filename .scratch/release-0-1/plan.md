@@ -1,6 +1,6 @@
 # release-0-1: 첫 정식 판 0.1.0을 낸다. 마지막 출시 후보로 0.1의 성공의 정의를 확인한 뒤 출시 후보 단계를 끝낸다
 **슬라이스:** 2
-**Blocked by:** admin, backup-upgrade, diag-bundle
+**Blocked by:** release-image, admin, backup-upgrade, diag-bundle
 **설계:** ADR 0020. 일지 `docs/journal/2026-11-17-1716-release-image-design.md`
 
 release-image가 판 내기를 세운 뒤로 제품 판은 출시 후보(`0.1.0-rc.N`)로만 난다(ADR 0020 "첫 정식 판의 신호"). 이 기능은 슬라이스 2의 나머지 기능이 모두 끝난 뒤에 열린다. 마지막 출시 후보로 `docs/PRD.md` 성공의 정의의 0.1 항목을 확인하고, 확인되면 마지막 티켓이 판 설정 파일에서 출시 후보 단계를 적은 줄을 지우는 PR을 낸다. 사용자에게 따로 묻지 않는다. 줄을 지우는 PR은 제품 변경이라, release-image가 옮겨 올 릴리스 노트 조각의 규칙(기능의 마지막 티켓이 싣는 기능 단락)을 따른다. agent-os의 `pilot-release`와 같은 꼴이다.

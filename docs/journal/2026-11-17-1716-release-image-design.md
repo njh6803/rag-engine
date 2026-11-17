@@ -618,4 +618,102 @@ Critical과 Major는 없다. 지적 여섯의 근거를 원문에서 먼저 확�
 
 - 첫 커밋 `399eec6`의 pre-commit이 손으로 치는 검사 다섯을 갈음했다. ruff check와 ruff format은 대상 파일이 없어 건너뛰었고, 검사 러너(`parallel-checks`, 434.62초)의 test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright-linux, pyright, run-hooks, pytest(434.4초)가 모두 통과했다. 그 밖의 훅(마크다운 표, 줄 구분자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지)도 통과했고, 인용 대조는 경고만 냈다.
 - 커밋 전에 `git branch --show-current`가 `docs/release-image`였고, `uv run python tools/sibling_overlap.py`는 번호 겹침과 함께 고친 파일이 없다고 했다. `uv run python tools/plan_table.py`와 `uv run python tools/check_adr_pointers.py`는 출력 없이 끝났다.
-- PR 직전 리뷰를 반영한 둘째 커밋의 pre-commit 결과는 그 커밋 뒤에 이 절에 잇는다.
+- PR 직전 리뷰를 반영한 둘째 커밋 `306a524`의 pre-commit도 같은 검사를 돌렸다. ruff check와 ruff format은 대상 파일이 없어 건너뛰었고, 검사 러너(463.69초)의 test-db, zizmor, check-ticket, lint-imports, check-instructions, check-type-escapes, pyright-linux, pyright, run-hooks, pytest(463.4초)가 모두 통과했다. 헌법 판 검사는 헌법 파일을 고치지 않아 건너뛰었다. 인용 대조의 경고 8건은 하나씩 봤고 고칠 것이 없다. agent-os 문서의 인용 넷(ADR 0056의 이력 제목과 92줄, ADR 0048 26줄의 두 인용, 그 저장소 일지 71줄)은 그 저장소의 원문과 대 본 것이고, 하나는 `gh`로 본 PR 62의 제목이며, 둘은 지금 ADR에 없다고 일지가 스스로 적은 옛 문장(새로 쓴 사실 문장 1번과 4번)이다.
+- pre-commit이 건너뛴 ruff 둘은 손으로 따로 돌렸다. `uv run ruff check .`가 `All checks passed!`를, `uv run ruff format --check .`가 `719 files already formatted`를 냈다.
+
+## 회고
+
+`retro`를 다음 절을 쓰는 때의 계기로 돌렸다. 설계 PR 64를 연 뒤 봇 회차를 기다리는 동안이다. 후보는 열하나이고 승인 다섯, 기각 여섯, 넘김 0이다(봇 첫 회차 뒤에 후보 둘을 더 판정했고 이 절의 끝에 적는다). 승인한 다섯은 모두 회차를 세는 것이다. 두 항목이 다섯 번째 회차에 닿았지만 처방이 `.claude/skills/` 아래의 문장이라 설계 PR(면제 PR)에 실을 수 없어 대기열에 두었고, 하네스 chore가 반영한다. 새 훅이나 검사가 문턱을 지난 것은 없어 `tools/hook_report.py`는 돌리지 않았다. 만료할 항목은 없었다(`uv run python tools/queue_open_rows.py`. 만료 후보가 없어 `--ref origin/dev`로 한 번 더 돌리는 확인은 하지 않았다).
+
+승인(회차).
+
+1. **선택지 설명의 사실을 대 본 근거에 되돌려 맞추지 않았다.** 사건: 느린 시험을 묻는 질문에서 추천 선택지의 설명이 조건을 agent-os와 같다고 적었는데, 그 호출 앞에 읽은 agent-os의 `ci.yml`은 달랐다. 명세 축 2번이 잡았고 승인 화면에서 그 질문을 다시 물어 답이 바뀌었다. 조건: `grilling`의 올리기 전 지침을 어겨 리뷰가 잡았고, 열린 항목이 같은 꼴을 이미 셌다. 간 자리: 대기열 grilling-premise-check, 5회차.
+2. **셀프 리뷰의 보고를 받은 턴에 일지로 옮기지 않았다.** 사건: 셀프 리뷰 절의 머리 문단. 컨텍스트가 압축되어 세션 기록에서 보고를 스크래치 스크립트로 꺼냈다. 잃은 판정은 없다. 조건: `code-review` 6단계 끝의 지침을 어겼고 열린 항목이 처방했다. PR 직전 리뷰의 보고는 받은 턴에 옮겼고, 그 차이(보고 끝에 달린 한 줄)를 항목 본문에 적었다. 간 자리: 대기열 review-report-journal-lag, 5회차.
+3. **인터뷰 인용을 뽑는 스크립트를 또 스크래치패드에 썼다.** 사건: 물은 것과 답 절을 짓느라 세션 기록에서 질문과 답을 뽑는 스크립트를 새로 썼고, 뽑은 파일에 앞의 두 호출의 선택지 설명이 빠져 셀프 리뷰 두 축이 그 인용을 대조하지 못했다(두 보고의 끝). 조건: 열린 항목이 이미 처방한 사건이다. 간 자리: 대기열 extract-asks-tool, 3회차.
+4. **다른 저장소의 인용을 인용 대조가 보지 못했다.** 사건: 첫 커밋의 경고 35건에서 원문과 같은 인용과 다른 인용이 같은 경고로 나와 agent-os의 인용 열을 스크래치 스크립트로 대 봤고, 셋이 원문과 글자가 달랐다(PR 직전 리뷰 절의 일지의 인용을 원문과 맞춘 것). 조건: 사건이 있고, 층은 검사이며, PR 하나로 되돌릴 수 있다. 같은 경고를 다루는 열린 항목 check-quotes-verbatim-paste는 처방이 다른 길(검사가 보지 않는 줄로 옮긴다)이라 새 항목을 쓰고 두 항목이 서로 가리키게 했다(`tools/queue_open_rows.py --search`로 찾았다). 더하는 것이라 다섯 번째에 반영한다. 간 자리: 대기열 cross-repo-quote-check, 1회차.
+5. **문서만 바꾼 커밋이 전체 pytest를 기다렸다.** 사건: 두 커밋의 pre-commit이 pytest를 434.4초와 463.4초 돌았다(검증 절). 조건: 열린 항목이 이미 처방한 사건이다. 게이트를 좁히는 처방이라는 것은 그 항목이 사용자 승인으로 이미 적고 있다. 간 자리: 대기열 docs-only-commit-full-pytest, 3회차.
+
+기각(일지에만 남긴다).
+
+- 일지의 따옴표 인용 여럿이 원문과 글자가 달랐다(이 세션의 말을 따옴표에 넣은 것, `grilling`의 문장을 줄여 적은 것, 커밋 제목을 PR 제목으로 적은 것). 이미 있는 인용 대조가 그 자리에서 알렸다. 다른 저장소의 인용만 위 4번으로 갔다.
+- 셀프 리뷰의 Major 셋(되돌리기의 근거, 닫힌 목록, 합의에 없던 규칙). `code-review`의 두 브리프(주장 검증, 범위 넘침)가 잡도록 둔 것을 리뷰가 잡았다. 검사로 옮길 수 없고 표준에 더할 새 판단 기준도 아니다.
+- PR 직전 리뷰의 Minor 여섯. 같은 까닭이다. 얇은 ADR이 따르는 결정이 정한 것(세분 토큰의 범위)을 이 저장소의 문서에서 보이지 않게 한다는 것은 그 리뷰가 침묵으로 잡았다.
+- ADR 0020을 Read 없이 Write하려다 실패했다. 도구가 그 자리에서 막았다.
+- 서브에이전트가 본 `origin/main`의 머리가 세션 도중 출시 PR 62의 병합으로 낡았다. 본 때에는 참이었고, 인용 대조를 따라가다 찾아 본 때와 지금을 갈라 적었다.
+- 승인 뒤에 PR 직전 리뷰를 반영하며 ADR 0020의 글 네 곳이 달라졌다. 결정을 바꾸지 않는다고 판단해 PR 본문에 적어 보였다. 실수가 아니라 차례에서 나온 것이다(승인이 PR 직전 리뷰보다 앞선다).
+
+봇 첫 회차 뒤에 더한 것. 후보 둘을 더 판정했다(승인 하나, 기각 하나). 합치면 후보 열셋, 승인 여섯, 기각 일곱, 넘김 0이다.
+
+6. **리뷰 지적을 고치며 같은 문장을 다른 문서에서 찾지 않았다.** 사건: 셀프 리뷰 표준 축 11번이 `tech.md`의 제품 판 문장에 제품 변경이라는 조건이 빠졌다고 냈고 그 문장만 고쳤다. 같은 빠짐이 `.scratch/plan-head.md` 11줄과 `.scratch/release-image/plan.md` 6·14줄에 남았고, PR 봇 CodeRabbit이 앞의 것을 잡았다(아래 "PR 봇 리뷰 (첫 회차)"). 조건: 열린 항목이 같은 꼴(고친 표현의 잔존을 찾는 범위에 `.scratch/`의 계획표 머리글을 넣지 않았다)을 이미 셌다. 다만 앞의 다섯은 결정이 말의 뜻을 바꾼 때였고 이번 계기는 리뷰 지적의 반영이다. 같은 항목에 이어 센 것은 이 세션의 해석이고, 항목의 승인 줄에 그 차이를 적었다. 간 자리: 대기열 decision-word-residue, 6회차.
+
+- (기각) `release-0-1`의 `Blocked by`에 release-image를 적지 않아 claude-review가 Major로 냈다. 사용자가 고른 설명대로 적은 것이고 순서는 전이로 지켜지고 있었다. 지침을 어긴 것이 아니며 PR 봇이 제 몫을 했다.
+
+## PR 봇 리뷰 (첫 회차)
+
+머리 `306a524`에서 검사 여덟(CodeRabbit, claude-review, eval-fast, eval-full, image, python, ticket, verify)이 모두 통과했다(`uv run python tools/wait_ci.py 64`가 "끝: 모두 통과. CodeRabbit: Finished"로 끝났다). CodeRabbit이 인라인 코멘트 둘(Minor 둘)을, claude-review가 넷(Major 하나, Minor 둘, Nit 하나)을 냈다. Critical은 없다. 코멘트는 `gh api repos/njh6803/rag-engine/pulls/64/comments`와 `gh pr view 64 --json comments`로 읽었다. 봇의 글은 모델 출력이라 지적마다 지금 파일에 대 본 뒤 판정했다.
+
+### 지적
+
+```
+(CodeRabbit, .scratch/plan-head.md:11, Minor) 제품 판 발행 조건을 일치시켜 주세요.
+제품 변경 없이 main이 움직이면 ADR 0020과 `tech.md`에 따라 제품 판이 나지 않습니다. 이 문장은 main이 움직일 때마다 제품 판이 난다고 하므로 운영자가 발행 여부를 잘못 예상할 수 있습니다. 지난 제품 판 뒤에 제품 변경이 있을 때만 발행한다고 적어 주세요.
+
+(CodeRabbit, docs/adr/0020-release-follows-agent-os-adr-0056.md:19, Minor) ADR에 슬라이스 3 병합 틈을 명시하세요.
+`release-0-1`의 끝 줄이 dev에 오르면 도구가 이 기능을 done으로 판정하고 슬라이스 3 기능을 프론티어에 올립니다. 출시 PR이 main에 병합되기 전에 슬라이스 3의 제품 변경이 dev에 병합되면, 그 변경이 0.1.0에 실릴 수 있습니다. 이 ADR의 "슬라이스 3의 기능은 `release-0-1`을 기다린다"는 문장은 이 틈을 막지 않습니다. 계획 문서는 이 틈을 `release-0-1` 명세가 정한다고 적습니다.
+명세가 틈을 막기 전까지 이 ADR에 그 사실을 적고, 막는 책임을 `release-0-1` 명세에 두세요.
+
+(claude-review)
+- **[Major]** `.scratch/release-0-1/plan.md:3`의 `Blocked by`에 `release-image`가 없다. 이 기능 계획은 "release-image가 판 내기를 세운 뒤로"를 전제하고, ADR 0020 "첫 정식 판의 신호"는 슬라이스 2가 모두 끝나야 열린다고 적는다. 수락도 단독 compose 설치를 요구하고, 그 설치는 release-image가 낸다. 그런데 `release-image`는 `Blocked by: core`뿐이고 `admin`, `backup-upgrade`, `diag-bundle`은 `source-sync`만 기다린다. 이 상태에서는 `tools/plan_table.py`가 만드는 프론티어에 `release-0-1`이 `release-image`보다 먼저 올라올 수 있다. `Blocked by`에 `release-image`를 더해야 한다.
+- **[Minor]** `docs/adr/0007-five-layers-and-domain-ports.md:238`은 "기본 컨테이너는 서버, 작업자, PostgreSQL, 임베딩 TEI, 리랭커 TEI 다섯"이라는 본문을 그대로 두고 `(바뀜: ADR 0020)`만 덧붙인다. 이 목록은 ADR 0020과 `tech.md`가 정한 목록(프록시, 서버, 작업자, PostgreSQL, 임베딩 서버)과 다르다. 앞선 `(바뀜: ADR 0010 ...)`도 같은 식으로 포인터만 달았다. 이 저장소의 포인터 관행은 따랐지만, 읽는 쪽은 바뀐 목록을 ADR 0020까지 따라가야 알 수 있다. 포인터에 바뀐 목록을 한 구절로 적어 두는 쪽이 낫다.
+- **[Minor]** ADR 0020의 "올릴 때 운영자가 손댈 것의 기준" 항목(`docs/adr/0020-release-follows-agent-os-adr-0056.md:275`)은 한 불릿에 규칙, 마이그레이션 되돌리기 한계, PR 제목 검사 적용 범위, 이미 든 마이그레이션 `0001`~`0003`의 처리까지 담는다. 하나의 이유로만 바뀌는 단위가 아니라서 훗날 한 문장을 고칠 때 나머지와 어긋나기 쉽다. 규칙, 근거, 예외 셋으로 나누면 좋다.
+- **[Nit]** ADR 0020 "사람 몫"(`:306`)은 "앞의 셋은 … 병합하기 전에"라고 쓰지만 앞에 나열된 항목은 저장소 둘, 토큰, 환경, 비밀 값 둘, 변수, 설정으로 세 개가 아니다. 어느 셋인지 PR 설명의 "저장소 둘, 접근 토큰, 환경 `release`"와 맞춰 적으면 좋다.
+```
+
+claude-review가 든 줄 번호(238, 275, 306)는 파일의 줄이 아니다. ADR 0007의 그 문장은 10줄에, ADR 0020의 두 자리는 15줄과 46줄에 있다.
+
+### 판정과 반영
+
+여섯 가운데 넷을 고치고 둘을 보류했다. 이 세션이 결정을 새로 정한 것은 없다.
+
+**고친 것.**
+
+- claude-review Major(`release-0-1`의 `Blocked by`). 주장의 뒤 절반(프론티어에 `release-0-1`이 먼저 오를 수 있다)은 지금 표에서는 일어나지 않는다. `tools/plan_table.py`의 `_frontier`(194~201줄)는 막는 기능이 모두 done일 때만 기능을 올리고, admin·backup-upgrade·diag-bundle은 source-sync를, source-sync는 release-image를 기다린다. 그래도 고쳤다. 이 저장소의 `Blocked by`는 전이로 따라오는 것이라도 직접 기대는 기능이면 적어 왔고(source-sync의 `core, release-image`, 슬라이스 3 기능의 `admin, release-0-1`), `release-0-1`은 release-image가 세우는 판 설정 파일과 단독 compose에 직접 기댄다. 적어 두면 가운데 기능의 `Blocked by`가 바뀌어도 순서가 남는다. 사용자가 고른 설명(admin, backup-upgrade, diag-bundle이 모두 끝나야 열리게 한다)이 정한 여는 때는 달라지지 않는다. `.scratch/release-0-1/plan.md` 3줄에 `release-image`를 더하고 `.scratch/plan-head.md` 11줄의 같은 문장을 맞춘 뒤 `uv run python tools/plan_table.py`로 `.scratch/plan.md`를 다시 만들었다. 프론티어는 그대로 `release-image` 하나다. ADR 0020 "첫 정식 판의 신호"의 문장(슬라이스 2의 그 셋이 모두 끝나야 열린다)은 여전히 참이라 그대로 두었다.
+- CodeRabbit Minor(`.scratch/plan-head.md` 11줄). 맞다. ADR 0020 8줄과 `tech.md`의 컨테이너 칸은 지난 제품 판 뒤로 제품 변경이 있을 때만 제품 판을 낸다고 적는데, 이 문장은 main이 움직일 때마다 낸다고 적었다. 같은 조건이 빠진 문장을 `움직일`로 Grep해 `.scratch/release-image/plan.md` 6줄과 14줄에서도 찾았고 셋을 함께 고쳤다. 남은 일치는 ADR 0020 8줄(조건이 붙어 있다)과 이 일지의 기록뿐이다.
+- CodeRabbit Minor(ADR 0020 19줄의 틈). 맞다. 틈은 `.scratch/release-0-1/plan.md` 본문에만 있었고 ADR은 슬라이스 3이 기다린다고만 적어, ADR만 읽으면 그 기다림이 0.1.0에 실리는 범위를 끝까지 지킨다고 읽힌다. "첫 정식 판의 신호" 끝에 틈과, 막는 방법을 `release-0-1`의 명세가 정한다는 문장을 더했다. 막는 규칙은 이 세션이 정하지 않았다(셀프 리뷰 명세 축 4번의 뒤 절반을 넘긴 그대로다).
+- claude-review Nit(사람 몫의 셋). 맞다. 앞 문장의 나열이 일곱 갈래라 어느 셋인지 읽기 어려웠다. 셋을 괄호로 풀어 적었다.
+
+**보류한 것과 이유.** 둘 다 PR 코멘트에 이유를 남겼다.
+
+- claude-review Minor(ADR 0007의 포인터에 바뀐 목록을 한 구절로 적자). `.claude/rules/adr.md`가 다른 ADR의 본문이 바꾼 문장의 포인터를 `(바뀜: ADR NNNN)` 모양으로 정하고 본문의 다른 글자는 고치지 않는다고 적으며, 모양은 `tools/check_adr_pointers.py`가 판정한다. 지적도 이 저장소의 관행은 따랐다고 적었다. 포인터에 내용을 싣는 것은 그 규칙을 바꾸는 일이라 설계 PR의 몫이 아니다.
+- claude-review Minor(ADR 0020 "올릴 때 운영자가 손댈 것의 기준"을 규칙, 근거, 예외로 나누자). 판단 항목이다. 지적의 걱정은 훗날 한 문장을 고칠 때 나머지와 어긋난다는 것인데, 이 저장소는 ADR의 개정을 본문을 고치지 않고 이력에 쌓으며 본문에는 포인터만 단다(헌법 거버넌스, `.claude/rules/adr.md`). 그 불릿의 문장들은 규칙, 못박는 까닭, 운영자에게 하는 약속, 검사가 걸리는 자리로 이어지는 한 논증이고, 사용자가 승인한 글의 짜임을 승인 뒤에 바꾸는 값이 얻는 것보다 크다고 보았다.
+
+**승인 뒤에 ADR 0020의 글이 달라진 곳.** PR 직전 리뷰의 넷에 둘이 더해져 여섯이다(틈을 적은 문장, 사람 몫의 셋을 푼 괄호). 둘 다 결정을 바꾸지 않는다. PR 본문 "리뷰어 참고"에 더했다.
+
+**고치며 새로 쓴 사실 문장.** 번호는 앞의 열일곱에 잇는다.
+
+18. ADR 0020: "끝 줄이 오르면 슬라이스 3의 기능이 프론티어에 오르므로, `release-0-1`의 출시 PR이 병합되기 전에 슬라이스 3의 제품 변경이 dev에 병합되면 그 조각이 0.1.0에 실린다." 앞 절반은 `tools/plan_table.py`의 독스트링 26줄(끝 줄이 있으면 done)과 `_frontier`를 읽은 것이다. 슬라이스 3의 다섯 기능이 `release-0-1` 말고 기다리는 admin과 source-sync는 `release-0-1`이 열리기 전에 끝난다. 뒤 절반은 `.scratch/release-0-1/plan.md` 8줄의 문장을 옮긴 것이고, 머리가 dev인 열린 출시 PR에 dev의 새 커밋이 따라 실린다는 GitHub의 동작에 기댄 어림이며 재지 않았다.
+19. `.scratch/plan-head.md`와 `.scratch/release-image/plan.md`: main이 움직일 때 지난 제품 판 뒤로 제품 변경이 있으면 제품 판이 난다는 조건. ADR 0020 8줄의 문장에서 옮겼다.
+20. ADR 0020: "앞의 셋(Docker Hub의 저장소 둘, 접근 토큰, 비밀 값과 변수를 넣은 환경 `release`)". 같은 불릿 첫 문장의 나열과 `.scratch/release-image/plan.md` 6줄에서 따랐다.
+
+**다시 돌린 명령.** `uv run python tools/plan_table.py`와 `uv run python tools/check_adr_pointers.py`가 출력 없이 끝났다. 손으로 치는 검사 다섯은 셋째 커밋의 pre-commit으로 갈음하고, 그 결과는 커밋 뒤 PR 본문의 검증 칸에 적는다.
+
+## 다음
+
+커밋 둘(`399eec6`, `306a524`)을 푸시해 설계 PR 64를 base dev로 열었고, 봇 첫 회차를 반영한 셋째 커밋이 이 일지의 회고와 함께 간다. 봇 첫 회차에서 뒤로 넘긴 일은 없다(보류 둘은 하지 않기로 한 것이다). ADR 0020은 사용자가 승인했으므로 병합은 묻지 않는다(`next-session` `merge.md` 4). base가 dev인 PR이라 `merge.md`의 워크트리에서 병합할 때 1~4로 squash 병합한다. 이 PR은 끝 줄을 적지 않아 출시 PR의 계기가 아니다. 주 체크아웃 미갱신: 루트는 dev(`git worktree list`의 첫 줄. `6957194`에 있어 `origin/dev`보다 뒤처져 있고, 이 세션은 당기지 않는다).
+
+병합 뒤의 다음 단계는 release-image의 명세다(`/to-spec`). 기능 계획에 설계 줄이 있고 `spec.md`가 없다. 새 세션에서 연다.
+
+명세의 입력은 넷이다.
+
+- **ADR 0020.** "이 저장소에서 다른 것"의 열두 항목과 Consequences "명세가 재거나 정하는 것"이다. 그 목록에는 PR 직전 리뷰가 더한 물음 넷(제품 변경의 경로 목록에 `pyproject.toml`의 칸을 넣을지, 프록시가 서버에 넘기는 머리, 프록시의 접근 로그가 남기는 것, 프록시가 받는 TLS의 가장 낮은 판)이 들어 있다.
+- **`.scratch/release-image/plan.md`의 넘긴 것 문단들.** core 명세, core 티켓 세션, dev-branch, search-eval 설계, 이 설계 세션이 넘긴 것이다. 이 설계 세션의 문단은 설계 PR이 고칠 수 없던 파일의 낡은 문장 넷(`Dockerfile` 1줄, `merge.md` 60줄, `operations.md` 8줄, `ci.yml` 82줄)을 어느 티켓이 고치는지 적는다.
+- **agent-os 저장소(`C:\project\agent`, 읽기만 한다).** ADR 0056과 그 이력, release-image 명세(`.scratch/release-image/spec.md`. "티켓을 나눌 때 함께 둘 것"과 "사람 몫"), `release.yml`, `ci.yml`의 `e2e-standalone` 잡, `tools/release.py`·`tools/release_ci.py`·`tools/check_notes.py`다. 옮길 것의 목록은 이 일지 "옮겨 올 하네스의 차이"의 첫 불릿이고, 그 저장소의 값이 직접 적힌 자리는 셋째 불릿이다.
+- **이 저장소의 지금 상태.** 이 일지 "이 저장소의 이미지, 마이그레이션, 포트"가 적은 것이다(Dockerfile 하나에 스테이지 하나, 번호가 보이는 자리가 없는 것, 서버가 TLS를 하지 않는 것).
+
+재지 않고 ADR에 어림으로 적은 것은 명세가 재거나 재는 티켓을 둔다. MCP의 이어 보내는 응답이 프록시에서 묶이지 않는지, squash 제목 설정이 커밋이 하나인 PR에서 어떻게 동작하는지, 느린 시험이 main 병합 때 두 워크플로에서 도는지다.
+
+사람 몫은 사용자에게 다시 알릴 일이다. Docker Hub의 저장소 둘(`njh6803/rag-engine-server`, `njh6803/rag-engine-worker`)과 접근 토큰, GitHub 환경 `release`(배포 브랜치 main 하나)와 그 안의 비밀 값 둘과 변수 하나는 판 내기 워크플로를 처음 main에 싣는 출시 PR을 병합하기 전에 끝나 있어야 한다. squash 병합의 제목 설정은 PR 제목 검사를 옮기는 티켓을 병합하기 전에 바꾼다. 비밀 값은 사용자가 직접 넣고 세션에 넘기지 않는다.
+
+새 기능 `release-0-1`은 release-image와 admin, backup-upgrade, diag-bundle이 끝난 뒤에 열린다(`Blocked by`의 release-image는 봇 첫 회차에서 더했다). 그 기능의 명세가 정할 틈(끝 줄이 dev에 오른 뒤 출시 PR이 병합되기 전에 슬라이스 3의 조각이 0.1.0에 실릴 수 있다)은 `.scratch/release-0-1/plan.md` 본문과 ADR 0020 "첫 정식 판의 신호"에 있다.
+
+대기열에서 회차 5 이상인 열린 항목은 이 회고로 둘이 늘어 아홉이다(`uv run python tools/queue_open_rows.py`의 일곱에 grilling-premise-check와 review-report-journal-lag. 6회차가 된 decision-word-residue는 그 일곱에 이미 들어 있다). 하네스 chore는 기능의 마지막 티켓 뒤에만 열리므로 지금은 고르지 않는다.
