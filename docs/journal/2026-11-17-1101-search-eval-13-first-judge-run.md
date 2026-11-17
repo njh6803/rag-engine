@@ -43,7 +43,7 @@
 
 후보 7개, 판정은 승인 3, 기각 4, 넘김 0이다. 만료할 항목은 없었다(`uv run python tools/queue_open_rows.py`와 `--ref origin/dev` 두 출력 모두).
 
-- 승인. `measured-claim-beyond-probe`에 10회차. 사건: 티켓 Comments와 프로브 README 행이 비례 어림 비용을 청구액처럼, 판정 파일의 날짜 종류와 3100건이 3098쌍이 된 까닭을 쌍을 세어 보지 않고 적었고 비율 19.4%를 관련 없음 칸에 붙였다. 셀프 리뷰와 PR 직전 리뷰가 잡았다. 이미 5회차를 넘어 chore 계기다.
+- 승인. `measured-claim-beyond-probe`에 11회차(나란히 돈 티켓 16의 일지가 먼저 10회차를 더해, 병합 충돌을 풀며 이 세션의 몫을 11회차로 이었다). 사건: 티켓 Comments와 프로브 README 행이 비례 어림 비용을 청구액처럼, 판정 파일의 날짜 종류와 3100건이 3098쌍이 된 까닭을 쌍을 세어 보지 않고 적었고 비율 19.4%를 관련 없음 칸에 붙였다. 셀프 리뷰와 PR 직전 리뷰가 잡았다. 이미 5회차를 넘어 chore 계기다.
 - 승인. `terminal-command-shell-syntax`(새 항목, 1회차). 사건: 사용자가 PowerShell에서 칠 환경 변수 설정을 bash의 `export`로 안내해 한 번 실패했다. 층: 이 세션의 환경에 PowerShell이 주 셸이라고 적혀 있었으므로 `CLAUDE.md` 환경 함정 절의 한 줄이다. 더하는 것이라 다섯 번째에 반영한다. 대기열에서 `PowerShell`, `export`, `터미널`로 찾았으나 같은 일을 다룬 항목이 없었다.
 - 승인. `key-visible-in-user-terminal`(새 항목, 1회차). 사건: 권한 판정이 이 세션의 `.env` 읽기를 거부해 사용자가 자기 터미널에서 돌렸고, 그 터미널 화면에 판정기 API 키의 글자가 보였다. 이 세션은 키를 옮기지 않았고 교체를 안내했다. 층: 비밀을 터미널에 치지 않는 길(`.env`에서 받거나 보안 입력 프롬프트)이고 자리는 chore가 정한다. 손상인지는 사용자의 교체 여부에 달려 있어 1회차로 센다. 대기열에서 `\.env`, `비밀`, `api.key`로 찾았으나 같은 일을 다룬 항목이 없었다.
 - 기각. `.env` 읽기 거부를 네 번 되풀이한 일. 권한 판정이 그 자리에서 막았고 우회하지 않았다. 되풀이 자체는 사건이지만 거부 뒤 사용자에게 넘기는 길이 정상 동작이었다.
@@ -57,6 +57,6 @@
 - 이 티켓에서 닫히지 않고 남은 일(티켓 13 `## Comments` 마지막 항목과 같다): (1) 판정기 정확도의 사람 확인. (2) 빠진 정답 후보 270건의 확인과 기대 근거 보강. (3) 놓친 질의 25건의 사람 판정과 `no_context` 비율. (4) 그 비율을 본 뒤 색인 시점의 LLM 보강을 더할지의 사용자 결정(기능 계획 `.scratch/search-eval/plan.md`의 "사용자가 넘긴 것" 4). (5) `judge`가 `--records`를 받게 하는 일(판정 없음 5건의 까닭). 받을 티켓이나 기능 계획의 고침은 사용자가 정한다. 이 세션은 `plan.md`와 ADR 0019 이력을 고치지 않았다.
 - 배치 API를 쓸지는 이 실행이 준 값(걸린 시간 31분 5초)을 본 사용자가 정한다. 비용은 새 정보가 아니라 어림이다.
 - `done` 티켓에 `[ ]` 박스가 남는 첫 사례다. 같은 꼴이 늘면 `check_ticket.py`가 면제 표지를 구분하게 할지 정한다.
-- 열린 티켓은 16과 17이다(`ready-for-agent`). 티켓 20은 이 PR을 열기 전에 dev에 병합되어 이 브랜치에 `origin/dev`를 합쳤고, `tests/test_plan_status.py`가 통과했다. 병합 뒤의 순서는 `uv run python tools/plan_table.py`가 만든 전체 계획을 읽는다.
-- 대기열의 chore 계기: `mutate-marker-discovery`(origin/dev에서 11회차), `measured-claim-beyond-probe`(10회차), `crlf-from-script-edits`(7회차), `gate-masked-by-echo-chain`(6회차), `precommit-mutations-after-tests`(5회차), `python-i-utf8`(5회차).
+- 열린 티켓은 17이다(`ready-for-agent`). 티켓 20과 16은 이 PR을 열기 전과 봇 회차 사이에 dev에 병합되어 그때마다 이 브랜치에 `origin/dev`를 합쳤다. 두 번째 합치기는 프로브 README와 대기열 항목 `measured-claim-beyond-probe`에서 충돌했고 둘 다 두 쪽의 글을 모두 남겨 풀었다. 첫 합치기 뒤에 `tests/test_plan_status.py`가 통과했다. 병합 뒤의 순서는 `uv run python tools/plan_table.py`가 만든 전체 계획을 읽는다.
+- 대기열의 chore 계기: `mutate-marker-discovery`(origin/dev에서 11회차), `measured-claim-beyond-probe`(11회차), `crlf-from-script-edits`(7회차), `gate-masked-by-echo-chain`(6회차), `precommit-mutations-after-tests`(5회차), `python-i-utf8`(5회차).
 - 이 세션의 스크래치패드(`eval-data/`, `run-out/`, 일회용 스크립트)는 저장소 밖이고 커밋하지 않았다.
