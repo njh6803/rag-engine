@@ -36,7 +36,7 @@ EXPECTED_TABLES = {
 }
 
 # 마이그레이션 판을 더하면 이 값이 마지막 판을 따라간다.
-HEAD_REVISION = "0002"
+HEAD_REVISION = "0003"
 
 NOW = datetime(2026, 11, 10, 9, 30, tzinfo=UTC)
 
@@ -190,6 +190,42 @@ def test_작업_표는_문서별_진행_중_작업만_담는_부분_색인을_�
         f"술어가 대기·실행 중 작업이 아니다: {definition[0]}"
     )
     assert "succeeded" not in definition[0], f"끝난 작업까지 담는다: {definition[0]}"
+
+
+def test_지식베이스의_최소_점수_칸은_널을_허용하고_안_주면_널이다(migrated_url: str) -> None:
+    with _connect(migrated_url) as connection:
+        _knowledge_base(connection, "kb", is_default=True)
+        column = connection.execute(
+            "SELECT is_nullable, data_type FROM information_schema.columns"
+            " WHERE table_name = 'knowledge_bases' AND column_name = 'min_score'"
+        ).fetchone()
+        stored = connection.execute("SELECT min_score FROM knowledge_bases").fetchall()
+
+    assert column == ("YES", "double precision")
+    assert stored == [(None,)]
+
+
+@pytest.mark.parametrize("value", [0.0, 0.3, 1.0])
+def test_최소_점수는_0_이상_1_이하의_값을_받는다(migrated_url: str, value: float) -> None:
+    with _connect(migrated_url) as connection:
+        _knowledge_base(connection, "kb", is_default=True)
+        connection.execute("UPDATE knowledge_bases SET min_score = %s", [value])
+        stored = connection.execute("SELECT min_score FROM knowledge_bases").fetchall()
+
+    assert stored == [(value,)]
+
+
+@pytest.mark.parametrize("value", [-0.01, 1.01, float("nan"), float("inf")])
+def test_최소_점수가_범위_밖이거나_유한하지_않으면_제약이_막는다(
+    migrated_url: str, value: float
+) -> None:
+    with _connect(migrated_url) as connection:
+        _knowledge_base(connection, "kb", is_default=True)
+
+        with pytest.raises(errors.CheckViolation) as caught:
+            connection.execute("UPDATE knowledge_bases SET min_score = %s", [value])
+
+    assert caught.value.diag.constraint_name == "ck_knowledge_bases_min_score_in_unit_range"
 
 
 def test_같은_원천에_같은_키의_문서는_둘_수_없다(migrated_url: str) -> None:

@@ -107,8 +107,8 @@ expect_output = ["Left contains one more item: 2"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/search.py"
-old = '''                hits[: request.top_k],'''
-new = '''                hits,'''
+old = '''                _at_least(hits, min_score)[: request.top_k],'''
+new = '''                _at_least(hits, min_score),'''
 
 [[mutation]]
 name = "판이 바뀐 검색을 다시 하지 않고 그대로 낸다"

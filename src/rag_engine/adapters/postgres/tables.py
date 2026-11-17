@@ -75,6 +75,9 @@ knowledge_bases = sa.Table(
         sa.ForeignKey("index_versions.id", use_alter=True),
     ),
     sa.Column("is_default", sa.Boolean, nullable=False, server_default=sa.false()),
+    # 검색의 최소 점수 기본값. 널이면 거르지 않는다(마이그레이션 0003).
+    sa.Column("min_score", sa.Float),
+    sa.CheckConstraint("min_score >= 0 AND min_score <= 1", name="min_score_in_unit_range"),
     # 기본 지식베이스 표시가 참인 행은 하나뿐이다.
     sa.Index(
         "uq_knowledge_bases_is_default",
