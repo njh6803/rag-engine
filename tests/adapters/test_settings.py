@@ -78,6 +78,7 @@ def test_필수_셋만_주면_나머지는_명세의_기본값이다(required_en
     assert settings.default_embedding_url is None
     assert settings.default_embedding_model == "BAAI/bge-m3"
     assert settings.default_embedding_dimensions == 1024
+    assert settings.default_reranker_url is None
     assert settings.default_reranker_model == "BAAI/bge-reranker-v2-m3"
     assert settings.default_chunking_strategy == "structure_first"
     assert (settings.default_chunk_tokens, settings.default_chunk_overlap_tokens) == (512, 64)
