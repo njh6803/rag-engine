@@ -188,6 +188,39 @@ async def test_차원이_2000을_넘으면_설정_오류로_지식베이스를_�
     assert await _read(ok) == before
 
 
+async def test_설정의_최소_점수가_기본_지식베이스에_쓰이고_비우고_다시_돌리면_비워진다(
+    empty_database_url: str, make_settings: SettingsFactory
+) -> None:
+    await asyncio.to_thread(migrate_database, make_settings(empty_database_url))
+    unset = (await _read(make_settings(empty_database_url)))[0].min_score
+    given = make_settings(empty_database_url, default_min_score=0.3)
+
+    await asyncio.to_thread(migrate_database, given)
+    set_to = (await _read(given))[0].min_score
+    await asyncio.to_thread(migrate_database, make_settings(empty_database_url))
+    cleared = (await _read(given))[0].min_score
+
+    assert (unset, set_to, cleared) == (None, 0.3, None)
+
+
+async def test_리랭커가_없는데_최소_점수가_있으면_설정_오류로_지식베이스를_만들지_않는다(
+    empty_database_url: str, make_settings: SettingsFactory
+) -> None:
+    without_reranker = make_settings(
+        empty_database_url, default_reranker_url=None, default_min_score=0.37
+    )
+
+    with pytest.raises(ConfigurationError, match="RAG_DEFAULT_MIN_SCORE") as caught:
+        await asyncio.to_thread(migrate_database, without_reranker)
+
+    assert "0.37" not in str(caught.value)
+    with psycopg.connect(empty_database_url, autocommit=True) as connection:
+        tables = connection.execute(
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'"
+        ).fetchall()
+    assert tables == [(0,)]
+
+
 async def test_2000차원은_받는다(empty_database_url: str, make_settings: SettingsFactory) -> None:
     settings = make_settings(empty_database_url, default_embedding_dimensions=2000)
 
@@ -240,6 +273,29 @@ def test_migrate_명령은_차원이_2000을_넘으면_종료_코드_1이다(
 
     assert caught.value.code == 1
     assert "2000" in capsys.readouterr().err
+
+
+def test_migrate_명령은_리랭커가_없는데_최소_점수가_있으면_변수_이름만_찍고_종료_코드_1이다(
+    command_environment: None,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    empty_database_url: str,
+) -> None:
+    monkeypatch.setenv("RAG_DEFAULT_RERANKER_URL", "")
+    monkeypatch.setenv("RAG_DEFAULT_MIN_SCORE", "0.37")
+
+    with pytest.raises(SystemExit) as caught:
+        main(["migrate"])
+
+    error = capsys.readouterr().err
+    assert caught.value.code == 1
+    assert "RAG_DEFAULT_MIN_SCORE" in error
+    assert "0.37" not in error
+    with psycopg.connect(empty_database_url, autocommit=True) as connection:
+        tables = connection.execute(
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'"
+        ).fetchall()
+    assert tables == [(0,)]
 
 
 def test_migrate_명령은_필수_설정이_없으면_값을_찍지_않고_종료_코드_1이다(

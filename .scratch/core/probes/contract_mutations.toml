@@ -90,12 +90,12 @@ new = '''        if isinstance(value, str):
 name = "format_version 상수를 올린다"
 tests = ["tests/server/test_tool_models.py"]
 expect = "red"
-expect_output = ["1.0.1"]
+expect_output = ["1.1.1"]
 
 [[mutation.edit]]
 file = "src/rag_engine/server/tool_models.py"
-old = '''FORMAT_VERSION: Final = "1.0.0"'''
-new = '''FORMAT_VERSION: Final = "1.0.1"'''
+old = '''FORMAT_VERSION: Final = "1.1.0"'''
+new = '''FORMAT_VERSION: Final = "1.1.1"'''
 
 [[mutation]]
 name = "제목 수준의 하한을 풀어 준다"

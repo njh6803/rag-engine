@@ -28,6 +28,7 @@ OPTIONAL_SETTINGS = [
     ("RAG_DEFAULT_EMBEDDING_DIMENSIONS", "768", "default_embedding_dimensions", 768),
     ("RAG_DEFAULT_RERANKER_URL", "http://rr:80", "default_reranker_url", "http://rr:80"),
     ("RAG_DEFAULT_RERANKER_MODEL", "org/rr", "default_reranker_model", "org/rr"),
+    ("RAG_DEFAULT_MIN_SCORE", "0.3", "default_min_score", 0.3),
     ("RAG_DEFAULT_CHUNKING_STRATEGY", "other", "default_chunking_strategy", "other"),
     ("RAG_DEFAULT_CHUNK_TOKENS", "256", "default_chunk_tokens", 256),
     ("RAG_DEFAULT_CHUNK_OVERLAP_TOKENS", "32", "default_chunk_overlap_tokens", 32),
@@ -80,6 +81,7 @@ def test_필수_셋만_주면_나머지는_명세의_기본값이다(required_en
     assert settings.default_embedding_dimensions == 1024
     assert settings.default_reranker_url is None
     assert settings.default_reranker_model == "BAAI/bge-reranker-v2-m3"
+    assert settings.default_min_score is None
     assert settings.default_chunking_strategy == "structure_first"
     assert (settings.default_chunk_tokens, settings.default_chunk_overlap_tokens) == (512, 64)
     assert settings.max_upload_mb == 100
@@ -206,6 +208,56 @@ def test_기본_지식베이스의_설정을_묶어_낸다(
     assert (default.reranker_url, default.reranker_model) == (None, None)
     assert (default.chunking.strategy, default.chunking.max_tokens) == ("structure_first", 512)
     assert default.chunking.overlap_tokens == 64
+
+
+def test_기본_지식베이스의_최소_점수는_리랭커가_있으면_실리고_빈_값은_거르지_않음이다(
+    required_environment: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RAG_DEFAULT_EMBEDDING_URL", "http://emb:80")
+    monkeypatch.setenv("RAG_DEFAULT_RERANKER_URL", "http://rr:80")
+    monkeypatch.setenv("RAG_DEFAULT_MIN_SCORE", "0.3")
+    given = Settings(_env_file=None).default_knowledge_base().min_score
+    monkeypatch.setenv("RAG_DEFAULT_MIN_SCORE", "")
+
+    empty = Settings(_env_file=None).default_knowledge_base().min_score
+
+    assert (given, empty) == (0.3, None)
+
+
+def test_리랭커가_없는데_최소_점수가_있으면_값이_아니라_변수_이름만_싣고_거부한다(
+    required_environment: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RAG_DEFAULT_EMBEDDING_URL", "http://emb:80")
+    monkeypatch.setenv("RAG_DEFAULT_RERANKER_URL", "")
+    monkeypatch.setenv("RAG_DEFAULT_MIN_SCORE", "0.37")
+
+    with pytest.raises(ConfigurationError) as caught:
+        Settings(_env_file=None).default_knowledge_base()
+
+    assert "RAG_DEFAULT_MIN_SCORE" in str(caught.value)
+    assert "RAG_DEFAULT_RERANKER_URL" in str(caught.value)
+    assert "0.37" not in str(caught.value)
+
+
+@pytest.mark.parametrize("value", ["-0.01", "1.01", "nan", "inf", "-inf", "abc"])
+def test_최소_점수가_범위_밖이거나_유한하지_않거나_수가_아니면_시작하지_않는다(
+    required_environment: None, monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("RAG_DEFAULT_MIN_SCORE", value)
+
+    with pytest.raises(ValidationError) as caught:
+        Settings(_env_file=None)
+
+    assert [error["loc"] for error in caught.value.errors()] == [("default_min_score",)]
+
+
+@pytest.mark.parametrize("value", ["0", "1"])
+def test_최소_점수의_양_끝_값은_받는다(
+    required_environment: None, monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("RAG_DEFAULT_MIN_SCORE", value)
+
+    assert Settings(_env_file=None).default_min_score == float(value)
 
 
 def test_후보_수는_pgvector가_받는_ef_search_상한까지만_받는다(

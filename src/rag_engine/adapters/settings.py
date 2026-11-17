@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     # 기본 설치는 리랭커를 켜지 않는다(ADR 0010 이력 2026-11-17). 켜는 설치가 끝점을 적는다.
     default_reranker_url: str | None = None
     default_reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    # 기본 지식베이스의 검색 최소 점수. 비우면 거르지 않는다. 범위 밖과 `nan`·`inf`는 설정 오류다.
+    # 값을 정하는 것은 운영자의 몫이고 기본으로 정해 두지 않는다(ADR 0017 이력 2026-11-16).
+    default_min_score: float | None = Field(default=None, ge=0, le=1)
     default_chunking_strategy: str = "structure_first"
     default_chunk_tokens: int = Field(default=512, gt=0)
     default_chunk_overlap_tokens: int = Field(default=64, ge=0)
@@ -99,9 +102,9 @@ class Settings(BaseSettings):
             raise ValueError("RAG_ALLOWED_HOSTS가 비어 있다. 하나 이상 적어야 기동한다(ADR 0014)")
         return hosts
 
-    @field_validator("default_reranker_url", mode="before")
+    @field_validator("default_reranker_url", "default_min_score", mode="before")
     @classmethod
-    def _empty_reranker_url_means_none(cls, value: object) -> object:
+    def _empty_means_none(cls, value: object) -> object:
         return None if value == "" else value
 
     @model_validator(mode="after")
@@ -119,6 +122,12 @@ class Settings(BaseSettings):
         has_reranker = self.default_reranker_url is not None
         if self.default_embedding_url is None:
             raise ConfigurationError("RAG_DEFAULT_EMBEDDING_URL이 없다. 임베딩 끝점을 적어야 한다")
+        if self.default_min_score is not None and not has_reranker:
+            # 최소 점수는 리랭크 점수에 거는 값이라 리랭커가 없으면 쓸 수 없다. 값은 싣지 않는다.
+            raise ConfigurationError(
+                "RAG_DEFAULT_MIN_SCORE는 리랭커가 있어야 쓸 수 있다. "
+                "RAG_DEFAULT_RERANKER_URL을 적거나 RAG_DEFAULT_MIN_SCORE를 비운다"
+            )
         return DefaultKnowledgeBaseSettings(
             embedding_url=self.default_embedding_url,
             embedding_model=self.default_embedding_model,
@@ -130,6 +139,7 @@ class Settings(BaseSettings):
                 max_tokens=self.default_chunk_tokens,
                 overlap_tokens=self.default_chunk_overlap_tokens,
             ),
+            min_score=self.default_min_score,
         )
 
 
