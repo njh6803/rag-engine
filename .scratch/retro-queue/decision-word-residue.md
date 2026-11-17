@@ -2,7 +2,7 @@
 
 **상태:** 열림
 **어디로:** `CLAUDE.md` 작업 규약 4가 이미 있다. 다섯 번째면 계기 훅 후보(사용자 답이 번호나 이름의 뜻을 바꾸는 선택이면 그 말을 `docs/adr/`·`docs/constitution/`까지 grep하라고 넣는다)
-**승인:** 자체 승인 2026-11-15, 4회차(작업 규약 4를 어긴 사건이라 회차를 센다), 일지 2026-11-10-1828-core-tickets.md, 2026-11-10-2250-core-02-contract-layers.md(2회차), 2026-11-11-0929-core-get-document-text-window.md(3회차: 도구의 모양을 바꾸고 옛 표현을 `.scratch/core/issues/`에서 grep하지 않아 티켓 09·10의 문장이 남았다), 2026-11-15-0631-search-eval-08-compare-gate.md(4회차: `run` 보고서가 읽지 않는 파일의 해시도 싣게 되었는데 "읽은 기록 파일마다"를 grep하지 않아 명세 두 곳과 `eval_report.py`의 표 머리가 거짓으로 남았다. 두 축이 모두 잡았다), ADR 불필요
+**승인:** 자체 승인 2026-11-17, 5회차(작업 규약 4를 어긴 사건이라 회차를 센다), 일지 2026-11-10-1828-core-tickets.md, 2026-11-10-2250-core-02-contract-layers.md(2회차), 2026-11-11-0929-core-get-document-text-window.md(3회차: 도구의 모양을 바꾸고 옛 표현을 `.scratch/core/issues/`에서 grep하지 않아 티켓 09·10의 문장이 남았다), 2026-11-15-0631-search-eval-08-compare-gate.md(4회차: `run` 보고서가 읽지 않는 파일의 해시도 싣게 되었는데 "읽은 기록 파일마다"를 grep하지 않아 명세 두 곳과 `eval_report.py`의 표 머리가 거짓으로 남았다. 두 축이 모두 잡았다), 2026-11-17-1033-search-eval-17-reranker-on-off.md(5회차: 리랭커를 기본 설치에서 끄는 결정이 "단독 compose(서버, 작업자, PostgreSQL, 임베딩 TEI, 리랭커 TEI)"의 뜻을 바꿨는데 그 문장을 `.scratch/plan-head.md`와 생성 파일 `plan.md`까지 grep하지 않아 옛 구성이 남았다. 표준 축과 명세 축이 함께 잡았다. 앞의 사건은 대상 말이나 폴더가 모자랐고 이번은 `.scratch/`의 계획표 머리글을 범위에 넣지 않았다), ADR 불필요
 
 core 티켓 세션이 테스트 데이터베이스 러너를 core 01로 두며 "하네스 티켓"은 grep했지만 "첫 티켓"은 하지 않았다. ADR 0007 Consequences 둘과 ADR 0011의 greenlet 재확인이 옛 뜻의 첫 티켓을 가리켜 명세 축 Minor 3·4가 잡았다.
 

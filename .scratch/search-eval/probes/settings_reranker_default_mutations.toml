@@ -1,0 +1,18 @@
+# search-eval 17(리랭커를 끄는 기본)의 변이. 기본 설치가 리랭커 끝점을 갖지 않는다는 한 줄 단언
+# (`tests/adapters/test_settings.py`의 `test_필수_셋만_주면_나머지는_명세의_기본값이다`)이 설정의 기본값을 바꾸면
+# 빨개지는지 본다. 이 단언은 구현 전부터 초록이었다(설정의 코드 기본값이 이미 None이었다).
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/search-eval/probes/settings_reranker_default_mutations.toml
+# 빨강의 표지는 시험 파일에 있으면 안 된다(도구가 거른다).
+
+[[mutation]]
+name = "리랭커 끝점의 기본값이 비어 있지 않다"
+tests = ["tests/adapters/test_settings.py"]
+expect = "red"
+expect_output = ["http://reranker:80"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/settings.py"
+old = '''    default_reranker_url: str | None = None
+'''
+new = '''    default_reranker_url: str | None = "http://reranker:80"
+'''
