@@ -1,0 +1,71 @@
+# search-eval 13: 공공 문서 묶음의 첫 판정 실행 · 2026-11-17
+
+티켓 `.scratch/search-eval/issues/13-first-judge-run.md`를 구현한 기록이다. 브랜치는 `feature/13-first-judge-run`이다. `next-session` 지시문이 연 새 세션(Sonnet 5.5 / high)이 `EnterWorktree`로 워크트리 `13-first-judge-run`에 들어와 이어 갔다. 티켓 16, 17, 20이 같은 묶음으로 나란히 돈다. 이 세션은 PR과 병합까지가 범위다.
+
+## 한 것
+
+- `judge --through fused`를 `--yes` 없이 돌려 부를 건수(3098건)와 비용 어림(약 26.85달러)을 사용자에게 보이고 멈췄다. 사용자가 "승인, 키를 환경에"라고 답했다.
+- 이 세션의 `.env` 읽기를 권한 판정이 네 번 거부했다. 우회하지 않았고 사용자가 자기 PowerShell에서 `judge --through fused --yes`를 돌렸다. 사용자의 첫 시도는 이 세션이 bash의 `export`로 안내해 실패했고, `$env:` 문법과 `Measure-Command`로 다시 안내해 31분 5초에 끝났다. 건너뛴 쌍은 없었다.
+- 판정 파일 `evals/public-docs/judgments.jsonl`을 커밋했다. 3098줄에 820,368바이트이고 칸은 여섯이며 글이 없다. 관련 있음 602(19.4%), 관련 없음 2,496(80.6%)이다. 이 세션이 파이썬으로 직접 세었다.
+- `run --through fused --records read`의 `llm` 칸이 찼다. 조합 3100, 판정 있는 조합 3095, 판정 없음 5건이다. 5건의 까닭은 `judge`에 `--records` 인자가 없어 질의 임베딩을 CPU TEI로 새로 계산하고(코드를 읽어 확인했다), `run --records read`는 GPU로 만든 기록을 읽어 상위 10개가 다섯 조합에서 달랐기 때문이다. 커밋하지 않은 일회용 스크립트를 손으로 돌려 `off`로는 판정 없음 0건, `read`로는 5건임을 보았다.
+- 걸린 시간과 비용의 어림을 프로브 README 26행에 적었다. 비용 26.85달러는 ADR 0019의 "3,000건 약 26달러"에 건수를 비례시킨 어림이고 실제 청구액은 보지 못했다.
+- 사용자가 사람 표본(수용 기준 셋째), 빠진 정답 후보 확인(다섯째), 놓친 까닭의 사람 판정(여섯째)을 면제했다. 일곱째(`no_context` 비율을 보고 색인 시점의 LLM 보강을 더할지 정하기)는 여섯째가 면제라 비율이 없어 하지 않았다. 면제는 티켓에 `**면제**` 표지와 `## Comments`의 사용자 글로 남겼다.
+
+## 정한 것
+
+- 사람 표본은 40쌍을 만들어 10쌍을 채팅으로 보였으나, 사용자가 문서 분야를 몰라 면제했다("사람 평가는 넘어가자. 내가 답을 몰라."). 그래서 판정기의 정확도는 사람이 확인하지 않은 채로 남는다. 일치 수와 32/40 문턱을 말하지 않는다.
+- 다섯째와 여섯째는 `AskUserQuestion`의 선택지("면제 (Recommended)"와 "면제")로 답을 받았다. 글로 쓴 답이 아니라 고른 선택지라서 티켓에 선택지 이름과 설명을 그대로 옮겼다. 그래서 기대 근거와 기준 보고서(`baseline-fast.json`)는 바꾸지 않았고 `miss-review.jsonl`은 만들지 않았다.
+- `judge`에 `--records`를 받게 하는 일은 이 티켓의 수용 기준 밖이라 하지 않았다. 받을 티켓은 사용자가 정한다.
+- 이 티켓은 `done`이지만 면제한 박스 넷이 `[ ]`로 남는다. 리뷰가 이것을 저장소의 첫 사례라고 알렸다. `tools/check_ticket.py`는 이 꼴을 막지 않았다.
+
+## 검증
+
+- 커밋 `f481e07`의 pre-commit 검사 러너가 통과했다(test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright 둘, run-hooks, pytest 모두 Passed. pytest 651.9초).
+- 커밋 대상(`.scratch/search-eval`과 `evals/public-docs/judgments.jsonl`)에서 `sk-ant`와 `api03`을 `git grep`으로 찾아 0건이었다.
+- 이 변경은 코드가 없고 문서와 판정 파일뿐이다.
+- `origin/dev`(티켓 20)를 합친 뒤 일지를 고친 커밋의 pre-commit에서 pytest가 한 번 빨갛게 끝났다(4562 통과, 1 실패, 1033.71초). 실패는 `tests/app/test_job_lease.py`의 `test_임대를_잃은_것이_드러나면_…`의 `assert time.monotonic() - started < 5`였고 실제는 약 6.4초였다. 부하에서만 빨간 시간 시험 종류의 새 사례이고(사용자가 이 종류를 닫힌 채 두기로 했다) 이 변경이 닿은 코드가 아니다. 같은 파일을 테스트 데이터베이스를 띄워 따로 돌리니 12개가 통과했다(65.74초). 그래서 사례만 여기 적고 대기열에는 더하지 않는다.
+
+## 셀프 리뷰
+
+`code-review` 두 축(표준 축 Sonnet 5.5 / high, 명세 축은 세션 모델). 기준은 `origin/dev`(a372cd6)이고 미커밋 파일 셋(판정 파일, 프로브 README, 티켓)을 봤다.
+
+- 고친 것. (1) 프로브 README 행과 티켓 Comments에서 근거의 종류가 모자란 문장을 고쳤다(코드를 읽은 것, 손으로 돌린 일회용 스크립트, 어림을 각각 그렇게 표기). (2) `judged_at`이 UTC 날짜라는 것을 코드(`datetime.now(UTC).date()`)로 확인해 적었다. (3) 비용을 청구액이 아니라 비례 어림이라고 고쳤다. (4) 3100과 3098을 구분해 적었다. (5) 선택지 답을 이름만이 아니라 설명까지 그대로 옮겼다. (6) 닫히지 않은 일을 받는 쪽(이 PR의 일지 "다음")을 티켓 Comments 마지막 항목에 적었다.
+
+## PR 직전 리뷰
+
+`coderabbit-review` 에이전트가 CodeRabbit CLI 0.7.5로 변경된 세 파일을 봤다. 보안과 성능은 문제 없음이고, 에이전트가 판정 파일을 직접 세어 확인한 것은 다음과 같다. 두 해시 칸이 모두 64자 16진수이고 위반이 0이다, 질의 해시 310개와 조각 해시 998개이고 (질의, 조각) 쌍의 중복이 0이다, 가장 긴 줄이 264바이트다, 세 파일에 `sk-ant`와 `api03`과 `x-api-key`가 없다.
+
+- 고친 것. (1) 프로브 README 26행의 "관련 없음 2,496(19.4%)"에서 19.4%가 관련 있음의 비율이라 "관련 있음 602(19.4%), 관련 없음 2,496(80.6%)"로 고쳤다(CodeRabbit CLI도 같은 지적을 냈다). (2) 티켓 Comments 첫 항목의 3100이 3098이 된 까닭이 틀렸다. 질의 310개는 글이 모두 달라 목록 사이의 중복이 없고, 판정 파일의 질의별 쌍 수가 10개 308질의와 9개 2질의였다(내가 같은 방식으로 다시 세어 맞았다). 까닭을 "한 질의의 상위 10개 안에 글이 같은 조각이 둘 든 질의 2개의 중복 제거"로 고쳤다.
+- 남긴 것. 없음. 에이전트가 알린 `done` 티켓의 미체크 박스 4개는 규칙 위반이 아니라 선례 없음의 알림이라 "다음"에 적었다.
+- 이 반영이 새로 쓴 사실 문장: 프로브 README 26행의 "관련 있음 602(19.4%), 관련 없음 2,496(80.6%)", 티켓 Comments 첫 항목의 "308개가 10쌍이고 2개가 9쌍".
+
+## PR 봇 회차
+
+PR [61](https://github.com/njh6803/rag-engine/pull/61)의 첫 회차다. 첫 푸시(머리 `f8753c1`)에서 CodeRabbit은 `Review rate limited`로 리뷰하지 못했고, claude-review는 지적 없음이었다. 그 사이 티켓 16이 dev에 병합되어 PR이 `CONFLICTING`이 되었다. `origin/dev`를 합치며 프로브 README(두 행을 모두 남겼다)와 대기열 항목 `measured-claim-beyond-probe`(두 쪽의 회차 서술을 모두 남기고 11회차로 이었다)를 풀어 머리 `2e1c3ea`를 푸시했다. 그 푸시에서 CodeRabbit이 리뷰를 마쳤고(`Finished`), 검사 여덟 개(CodeRabbit, claude-review, eval-fast, eval-full, image, python, ticket, verify)가 모두 통과했다. claude-review는 두 번 모두 지적 없음이었다.
+
+- Minor(CodeRabbit, `key-visible-in-user-terminal.md` 5행): 키 노출을 손상으로 판정할지를 키 교체 여부와 분리하라는 지적이다. `CLAUDE.md`의 손상 정의("비밀이 밖으로 나감")가 교체 여부를 조건으로 두지 않고, 그 도구 결과가 대화 기록에 남지 않았다는 근거가 이 세션에 없어 맞는 지적이다. 대기열 항목과 이 일지의 회고를 손상 1건으로 고쳤다.
+
+## 회고
+
+후보 8개, 판정은 승인 4, 기각 4, 넘김 0이다. 만료할 항목은 없었다(`uv run python tools/queue_open_rows.py`와 `--ref origin/dev` 두 출력 모두).
+
+- 승인. `measured-claim-beyond-probe`에 12회차(나란히 돈 티켓 16과 17의 일지가 먼저 10회차와 11회차를 더해, 병합 충돌을 풀며 이 세션의 몫을 12회차로 이었다). 사건: 티켓 Comments와 프로브 README 행이 비례 어림 비용을 청구액처럼, 판정 파일의 날짜 종류와 3100건이 3098쌍이 된 까닭을 쌍을 세어 보지 않고 적었고 비율 19.4%를 관련 없음 칸에 붙였다. 셀프 리뷰와 PR 직전 리뷰가 잡았다. 이미 5회차를 넘어 chore 계기다.
+- 승인. `terminal-command-shell-syntax`(새 항목, 1회차). 사건: 사용자가 PowerShell에서 칠 환경 변수 설정을 bash의 `export`로 안내해 한 번 실패했다. 층: 이 세션의 환경에 PowerShell이 주 셸이라고 적혀 있었으므로 `CLAUDE.md` 환경 함정 절의 한 줄이다. 더하는 것이라 다섯 번째에 반영한다. 대기열에서 `PowerShell`, `export`, `터미널`로 찾았으나 같은 일을 다룬 항목이 없었다.
+- 승인. `key-visible-in-user-terminal`(새 항목, 손상 1건). 사건: 권한 판정이 이 세션의 `.env` 읽기를 거부해 사용자가 자기 터미널에서 돌렸고, 그 터미널 화면에 판정기 API 키의 글자가 보였다. 이 세션은 키를 옮기지 않았고 교체를 안내했다. 층: 비밀을 터미널에 치지 않는 길(`.env`에서 받거나 보안 입력 프롬프트)이고 자리는 chore가 정한다. 키의 글자가 도구 결과로 이 세션의 대화에 들어갔고 그것이 남지 않았다는 근거가 없으므로 손상 1건(비밀이 밖으로 나감)으로 센다. 키 교체 여부는 판정에 쓰지 않는다(PR 61의 CodeRabbit이 짚어 처음의 "교체 여부에 달려 있어 1회차"를 고쳤다). 손상이라 회차와 상관없이 문턱을 채웠고, `tools/queue_open_rows.py`가 손상을 세지 않아 "다음"에 따로 적었다. 대기열에서 `\.env`, `비밀`, `api.key`로 찾았으나 같은 일을 다룬 항목이 없었다.
+- 승인. `last-ticket-end-line-unchecked`(새 항목, 1회차). 사건: 기능의 마지막 열린 티켓인 13을 닫는 이 세션이, 기능 계획에 `**끝:**` 줄을 적는다는 규칙(`docs/agents/issue-tracker.md`)을 병합 길에서 dev의 다른 티켓이 모두 `done`인 것을 보고서야 알았다. 층: 규칙이 시키는 일이 기능 계획의 한 줄이라 검사(`tools/check_ticket.py` 또는 `tests/test_plan_status.py`)로 승인한다. 대기열에서 `끝.줄`, `plan.md`, `harness-end-line-rule`로 찾았으나 이 사건을 다룬 항목이 없었다(`harness-end-line-rule`은 하네스 기능에 끝 줄을 요구한 반대 실수다).
+- 기각. `.env` 읽기 거부를 네 번 되풀이한 일. 권한 판정이 그 자리에서 막았고 우회하지 않았다. 되풀이 자체는 사건이지만 거부 뒤 사용자에게 넘기는 길이 정상 동작이었다.
+- 기각. `judge`에 `--records`가 없어 판정 없음 5건이 생긴 일. 환경 개선 후보가 아니라 제품의 후속 일이라 "다음"에 둔다.
+- 기각. 훅이 `cd`로 하위 폴더에 들어가는 명령과 복잡한 git 형식을 거부한 일. 훅이 그 자리에서 알렸고 단순한 명령으로 바꾸어 지나갔다.
+- 기각. 일회용 스크립트의 `# type: ignore`를 pyright 오류 때문에 쓴 일. 스크립트는 저장소 밖(스크래치패드)이고 커밋하지 않았으며 `check_type_escapes.py`의 대상이 아니다.
+
+## 다음
+
+- 주 체크아웃 미갱신: 루트는 dev. 병합 뒤 `tidy-checkouts`는 나란히 도는 묶음의 첫 세션이 돌린다.
+- 이 티켓에서 닫히지 않고 남은 일(티켓 13 `## Comments` 마지막 항목과 같다): (1) 판정기 정확도의 사람 확인. (2) 빠진 정답 후보 270건의 확인과 기대 근거 보강. (3) 놓친 질의 25건의 사람 판정과 `no_context` 비율. (4) 그 비율을 본 뒤 색인 시점의 LLM 보강을 더할지의 사용자 결정(기능 계획 `.scratch/search-eval/plan.md`의 "사용자가 넘긴 것" 4). (5) `judge`가 `--records`를 받게 하는 일(판정 없음 5건의 까닭). 받을 티켓이나 기능 계획의 고침은 사용자가 정한다. 이 세션은 `plan.md`와 ADR 0019 이력을 고치지 않았다.
+- 배치 API를 쓸지는 이 실행이 준 값(걸린 시간 31분 5초)을 본 사용자가 정한다. 비용은 새 정보가 아니라 어림이다.
+- `done` 티켓에 `[ ]` 박스가 남는 첫 사례다. 같은 꼴이 늘면 `check_ticket.py`가 면제 표지를 구분하게 할지 정한다.
+- 이 PR이 search-eval 기능의 마지막 열린 티켓(13)을 닫는다. 티켓 16, 17, 19, 20이 이미 `done`이라 기능의 `done` 티켓이 하나 이상이고, `docs/agents/issue-tracker.md`의 "끝 줄을 적는 때"에 따라 기능 계획 `.scratch/search-eval/plan.md`에 `**끝:** 2026-11-17`을 적고 `tools/plan_table.py`를 돌렸다. 이 PR이 dev에 병합되면 `next-session` 결정표의 출시 PR(dev→main) 줄이 계기가 된다. 출시 PR의 전제 확인 3(dev 머리에서 전체 게이트 초록)이 어긋나면 열지 않고 `출시 보류`를 쓴다.
+- 티켓 20, 16, 17은 이 PR을 열기 전과 봇 회차 사이에 차례로 dev에 병합되어 그때마다 이 브랜치에 `origin/dev`를 합쳤다. 둘째와 셋째 합치기는 프로브 README와 대기열 항목 `measured-claim-beyond-probe`에서 충돌했고 두 쪽의 글을 모두 남겨 풀었다. 첫 합치기 뒤에 `tests/test_plan_status.py`가 통과했다. 병합 뒤의 순서는 `uv run python tools/plan_table.py`가 만든 전체 계획을 읽는다.
+- 손상으로 센 대기열 항목: `key-visible-in-user-terminal`(손상 1건). 도구가 회차로 세지 못해 chore 계기 목록에 나오지 않으므로, 다음 하네스 chore 배치에서 이 항목을 따로 고른다.
+- 대기열의 chore 계기: `mutate-marker-discovery`(origin/dev에서 11회차), `measured-claim-beyond-probe`(12회차), `crlf-from-script-edits`(7회차), `gate-masked-by-echo-chain`(6회차), `precommit-mutations-after-tests`(5회차), `python-i-utf8`(5회차).
+- 이 세션의 스크래치패드(`eval-data/`, `run-out/`, 일회용 스크립트)는 저장소 밖이고 커밋하지 않았다.
