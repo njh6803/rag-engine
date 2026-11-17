@@ -32,3 +32,27 @@
 - 고친 것. (1) Major: ADR 0010 이력의 "이 GPU는 후보 20개(11.6초)까지 든다"가 합성 글 값 하나로 단정했다. 실제 조각으로 돌린 후보 수 100 실행의 평균은 0.91쌍/초라 후보 20개가 약 22초로 환산된다. ADR 이력, README 지연 절, 평가 명세의 "GPU 29초", 티켓 17 Comments에 두 값을 병기했고 느린 까닭은 재지 않았다고 적었다. 결정(끄는 기본)은 바뀌지 않는다. (2) Minor: README의 "후보 수 5와 10은 … 적중@5와 재현율이 켜도 오르지 않는다"가 후보 10 줄과 어긋났다(후보 10은 적중@5가 오르고 재현율만 오르지 않는다). 후보 5와 10을 나눠 적었다.
 - 남긴 것. 없음.
 - 이 반영이 새로 쓴 사실 문장: ADR 0010 이력의 "실제 조각으로 후보 수 100을 돌린 평균은 0.91쌍/초이고 … 후보 20개도 약 22초라 20초를 넘긴다", README의 "후보 20개 약 22초, 후보 50개 약 55초"(0.91쌍/초로 나눈 환산이고 재지 않았다), "후보 수 100 실행의 시간은 `run` 전체의 시간이라 … 조금 들어 있을 수 있다".
+
+## PR 봇 회차
+
+PR [60](https://github.com/njh6803/rag-engine/pull/60)의 첫 회차다. 머리 7024f0b에서 검사 7개(claude-review, eval-fast, eval-full, image, python, ticket, verify)가 모두 통과했다. claude-review는 "지적 없음"이었다(코드 변경이 주석 한 줄과 단언 한 줄이고, 헌법 판과 ADR 포인터를 같이 고친 것을 확인했다). CodeRabbit은 무료 오픈소스 리뷰 한도에 걸려 리뷰하지 못했고(`Review rate limited`, 코멘트에 "다음 리뷰는 40분 뒤"), `@coderabbitai review` 요청도 같은 문구로 돌아왔다. 그래서 이 PR의 CodeRabbit 리뷰는 없다. 로컬 CodeRabbit CLI는 PR 직전 리뷰에서 이미 돌았다. 고칠 것이 없어 이 회차에서 푸시한 것은 이 일지뿐이다.
+
+## 회고
+
+후보 5개, 판정은 승인 3, 기각 2, 넘김 0이다. 만료할 항목은 없었다(`uv run python tools/queue_open_rows.py --ref origin/dev`, 열린 항목 56개).
+
+- 승인. `measured-claim-beyond-probe`에 10회차. 사건: ADR 0010 이력이 합성 글에서 잰 11.6초 하나로 "GPU는 후보 20개까지 든다"고 단정했으나 실제 조각으로 돌린 평균(0.91쌍/초)으로 환산하면 약 22초였다. 프로브 README는 커밋하지 않은 스크립트의 `==` 비교를 근거로 삼았고, "15,000쌍"은 어림(실제 15,476쌍), 프로브 독스트링의 "약 470토큰"은 재지 않고 물려받은 문구였다. 표준 축과 PR 직전 리뷰가 잡았다. 이미 지침(`docs/agents/issue-tracker.md` 프로브와 근거 절)이 있는 일이라 회차를 센다. 이미 5회차를 넘어 chore 계기이고 처방은 항목이 든 그대로다.
+- 승인. `crlf-from-script-edits`에 8회차. 사건: 프로브 출력 셋이 Windows 리다이렉트로 CRLF가 되어 `git add`의 경고로야 알았다. `sed`로 LF로 되돌렸다.
+- 승인. `decision-word-residue`에 5회차. 사건: 리랭커를 기본 설치에서 끄는 결정이 "단독 compose(… 리랭커 TEI)"의 뜻을 바꿨는데 `.scratch/plan-head.md`(와 생성 파일 `plan.md`)까지 옛 표현을 grep하지 않았다. 작업 규약 4를 어긴 사건이고 두 축이 함께 잡았다. 이 항목이 5회차에 이르러 chore 계기가 된다.
+- 기각. Git Bash가 `origin/dev:경로`를 경로 목록으로 바꿔 첫 `git show`가 실패한 일. PreToolUse 훅이 그 자리에서 `MSYS_NO_PATHCONV=1`을 알렸고 한 번 다시 쳐서 지나갔다.
+- 기각. 병렬 티켓 20(PR #58)이 같은 ADR 0017과 core 명세를 먼저 고쳐 병합에서 충돌한 일. `sibling_overlap.py`가 브랜치를 따는 때부터 겹치는 파일을 알렸고 충돌 자체는 예상한 글자 충돌이었다. 병합 커밋 한 번으로 풀렸고 손상은 없었다.
+
+## 다음
+
+- 주 체크아웃 미갱신: 루트는 dev. 병합 뒤 `tidy-checkouts`가 당기고 병합된 워크트리를 지운다. 이 세션은 새 세션을 열지 않으므로 다음에 새 세션을 열 때 지시문이 다시 적게 한다.
+- 이 PR이 병합되면 티켓 17이 `done`이다. 같은 기능의 열린 티켓은 13(첫 판정 실행)과 16(리랭커 없는 설정 실험)이고, 둘 다 형제 워크트리 `13-first-judge-run`, `16-chunking-candidates-experiment`에서 이미 돈다. 둘 다 병합되면 마지막 티켓을 닫는 커밋이 기능 계획에 `**끝:**` 줄을 적는다(이 PR은 적지 않았다).
+- 형제와의 글자 충돌 후보: `.scratch/search-eval/probes/README.md`(13, 16도 행을 더한다). 나중에 병합하는 쪽이 풀어야 한다.
+- 켜는 설치 안내를 쓸 때(release-image): ADR 0010 이력과 프로브 README의 GPU 지연은 합성 글 값(후보 20개 11.6초)과 실제 조각의 평균(0.91쌍/초, 후보 20개 약 22초)이 다르다. 실제 조각으로 자기 하드웨어에서 재라고 안내해야 한다. 후보 수와 검색 시간 제한의 안내, 리랭커 TEI의 compose 프로필은 release-image 계획이 받는다.
+- 티켓 20은 이미 `done`이다. 이 PR이 티켓 20 시작 전 확인 문장을 결정 뒤의 모양으로 고쳤다(구현은 결정 전 전제인 리랭커가 있는 지식베이스로 끝났다).
+- 대기열의 chore 계기: `mutate-marker-discovery`(11회차), `measured-claim-beyond-probe`(10회차), `crlf-from-script-edits`(8회차), `gate-masked-by-echo-chain`(6회차), `precommit-mutations-after-tests`(5회차), `python-i-utf8`(5회차), `decision-word-residue`(5회차). 기능의 마지막 티켓(13이나 16) 뒤에 chore 배치 줄이 이 항목들을 고른다.
+- 실험 환경(GPU compose, 데이터베이스 볼륨)은 내렸다. TEI 모델 캐시 볼륨(`search-eval-tei-probe-data`)은 남겼다. 스크래치 폴더의 임시 기록은 커밋하지 않았다.
