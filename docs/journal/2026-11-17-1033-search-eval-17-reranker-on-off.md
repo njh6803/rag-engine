@@ -23,7 +23,9 @@
 
 ## 병합과 충돌
 
-`origin/dev`가 티켓 20(PR #58)으로 앞서 있어 병합 커밋으로 합쳤다. 충돌은 둘이었다. (1) ADR 0017: 티켓 20의 구현 이력과 이 브랜치의 결정 이력이 같은 자리에 들어 둘 다 남겼다(결정이 먼저, 구현이 뒤). (2) core 명세의 `RAG_DEFAULT_*` 항목: 티켓 20이 더한 `RAG_DEFAULT_MIN_SCORE` 설명과 이 브랜치가 고친 `RAG_DEFAULT_RERANKER_URL` 설명을 한 줄로 합쳤다. 티켓 20은 이미 `done`이고 그 시작 전 확인 문장은 이 브랜치가 결정 뒤의 모양으로 고친 그대로 두었다.
+`origin/dev`가 티켓 20(PR #58)으로 앞서 있어 병합 커밋으로 합쳤다. 충돌은 둘이었다. (1) ADR 0017: 티켓 20의 구현 이력과 이 브랜치의 결정 이력이 같은 자리에 들어 둘 다 남겼다(결정이 먼저, 구현이 뒤). (2) core 명세의 `RAG_DEFAULT_*` 항목: 티켓 20이 더한 `RAG_DEFAULT_MIN_SCORE` 설명과 이 브랜치가 고친 `RAG_DEFAULT_RERANKER_URL` 설명을 한 줄로 합쳤다.
+
+푸시한 뒤 봇 회차를 기다리는 동안 티켓 16(PR #59)이 dev에 병합되어 PR이 `CONFLICTING`이 됐고 한 번 더 합쳤다. 충돌은 둘이었다. (3) 프로브 색인 `probes/README.md`: 티켓 16의 `experiments/chunking-candidates/` 행과 이 브랜치의 `experiments/reranker/` 행을 둘 다 남겼다. (4) 대기열 `measured-claim-beyond-probe`: 티켓 16이 10회차를 먼저 더해서 그 판을 바탕으로 이 브랜치의 사건을 11회차로 이었다. 티켓 16의 프로브 행이 같은 시각에 이 브랜치의 GPU 임베딩 TEI를 함께 썼다고 적은 것을 보고, ADR 0010 이력과 프로브 README의 0.91쌍/초 설명에 "GPU를 나눠 쓴 값일 수 있고 겹친 정도는 재지 않았다"를 더했다. 티켓 20은 이미 `done`이고 그 시작 전 확인 문장은 이 브랜치가 결정 뒤의 모양으로 고친 그대로 두었다.
 
 ## PR 직전 리뷰
 
@@ -41,7 +43,7 @@ PR [60](https://github.com/njh6803/rag-engine/pull/60)의 첫 회차다. 머리 
 
 후보 5개, 판정은 승인 3, 기각 2, 넘김 0이다. 만료할 항목은 없었다(`uv run python tools/queue_open_rows.py --ref origin/dev`, 열린 항목 56개).
 
-- 승인. `measured-claim-beyond-probe`에 10회차. 사건: ADR 0010 이력이 합성 글에서 잰 11.6초 하나로 "GPU는 후보 20개까지 든다"고 단정했으나 실제 조각으로 돌린 평균(0.91쌍/초)으로 환산하면 약 22초였다. 프로브 README는 커밋하지 않은 스크립트의 `==` 비교를 근거로 삼았고, "15,000쌍"은 어림(실제 15,476쌍), 프로브 독스트링의 "약 470토큰"은 재지 않고 물려받은 문구였다. 표준 축과 PR 직전 리뷰가 잡았다. 이미 지침(`docs/agents/issue-tracker.md` 프로브와 근거 절)이 있는 일이라 회차를 센다. 이미 5회차를 넘어 chore 계기이고 처방은 항목이 든 그대로다.
+- 승인. `measured-claim-beyond-probe`에 11회차(티켓 16이 먼저 병합되어 10회차를 더했고 이 브랜치가 이어 센다). 사건: ADR 0010 이력이 합성 글에서 잰 11.6초 하나로 "GPU는 후보 20개까지 든다"고 단정했으나 실제 조각으로 돌린 평균(0.91쌍/초)으로 환산하면 약 22초였다. 프로브 README는 커밋하지 않은 스크립트의 `==` 비교를 근거로 삼았고, "15,000쌍"은 어림(실제 15,476쌍), 프로브 독스트링의 "약 470토큰"은 재지 않고 물려받은 문구였다. 표준 축과 PR 직전 리뷰가 잡았다. 이미 지침(`docs/agents/issue-tracker.md` 프로브와 근거 절)이 있는 일이라 회차를 센다. 이미 5회차를 넘어 chore 계기이고 처방은 항목이 든 그대로다.
 - 승인. `crlf-from-script-edits`에 8회차. 사건: 프로브 출력 셋이 Windows 리다이렉트로 CRLF가 되어 `git add`의 경고로야 알았다. `sed`로 LF로 되돌렸다.
 - 승인. `decision-word-residue`에 5회차. 사건: 리랭커를 기본 설치에서 끄는 결정이 "단독 compose(… 리랭커 TEI)"의 뜻을 바꿨는데 `.scratch/plan-head.md`(와 생성 파일 `plan.md`)까지 옛 표현을 grep하지 않았다. 작업 규약 4를 어긴 사건이고 두 축이 함께 잡았다. 이 항목이 5회차에 이르러 chore 계기가 된다.
 - 기각. Git Bash가 `origin/dev:경로`를 경로 목록으로 바꿔 첫 `git show`가 실패한 일. PreToolUse 훅이 그 자리에서 `MSYS_NO_PATHCONV=1`을 알렸고 한 번 다시 쳐서 지나갔다.
@@ -50,9 +52,9 @@ PR [60](https://github.com/njh6803/rag-engine/pull/60)의 첫 회차다. 머리 
 ## 다음
 
 - 주 체크아웃 미갱신: 루트는 dev. 병합 뒤 `tidy-checkouts`가 당기고 병합된 워크트리를 지운다. 이 세션은 새 세션을 열지 않으므로 다음에 새 세션을 열 때 지시문이 다시 적게 한다.
-- 이 PR이 병합되면 티켓 17이 `done`이다. 같은 기능의 열린 티켓은 13(첫 판정 실행)과 16(리랭커 없는 설정 실험)이고, 둘 다 형제 워크트리 `13-first-judge-run`, `16-chunking-candidates-experiment`에서 이미 돈다. 둘 다 병합되면 마지막 티켓을 닫는 커밋이 기능 계획에 `**끝:**` 줄을 적는다(이 PR은 적지 않았다).
-- 형제와의 글자 충돌 후보: `.scratch/search-eval/probes/README.md`(13, 16도 행을 더한다). 나중에 병합하는 쪽이 풀어야 한다.
+- 이 PR이 병합되면 티켓 17이 `done`이다. 같은 기능의 열린 티켓은 13(첫 판정 실행) 하나다(티켓 16은 PR #59로 먼저 병합됐다). 13은 형제 워크트리 `13-first-judge-run`에서 이미 돈다. 13이 병합되면 마지막 티켓을 닫는 커밋이 기능 계획에 `**끝:**` 줄을 적는다(이 PR은 적지 않았다).
+- 형제와의 글자 충돌 후보: `.scratch/search-eval/probes/README.md`(13도 행을 더한다). 나중에 병합하는 쪽이 풀어야 한다.
 - 켜는 설치 안내를 쓸 때(release-image): ADR 0010 이력과 프로브 README의 GPU 지연은 합성 글 값(후보 20개 11.6초)과 실제 조각의 평균(0.91쌍/초, 후보 20개 약 22초)이 다르다. 실제 조각으로 자기 하드웨어에서 재라고 안내해야 한다. 후보 수와 검색 시간 제한의 안내, 리랭커 TEI의 compose 프로필은 release-image 계획이 받는다.
 - 티켓 20은 이미 `done`이다. 이 PR이 티켓 20 시작 전 확인 문장을 결정 뒤의 모양으로 고쳤다(구현은 결정 전 전제인 리랭커가 있는 지식베이스로 끝났다).
-- 대기열의 chore 계기: `mutate-marker-discovery`(11회차), `measured-claim-beyond-probe`(10회차), `crlf-from-script-edits`(8회차), `gate-masked-by-echo-chain`(6회차), `precommit-mutations-after-tests`(5회차), `python-i-utf8`(5회차), `decision-word-residue`(5회차). 기능의 마지막 티켓(13이나 16) 뒤에 chore 배치 줄이 이 항목들을 고른다.
+- 대기열의 chore 계기: `mutate-marker-discovery`(11회차), `measured-claim-beyond-probe`(11회차), `crlf-from-script-edits`(8회차), `gate-masked-by-echo-chain`(6회차), `precommit-mutations-after-tests`(5회차), `python-i-utf8`(5회차), `decision-word-residue`(5회차). 기능의 마지막 티켓(13이나 16) 뒤에 chore 배치 줄이 이 항목들을 고른다.
 - 실험 환경(GPU compose, 데이터베이스 볼륨)은 내렸다. TEI 모델 캐시 볼륨(`search-eval-tei-probe-data`)은 남겼다. 스크래치 폴더의 임시 기록은 커밋하지 않았다.
