@@ -111,7 +111,7 @@ payload = { tool_name = "Bash", tool_input = { command = "git add -A && git comm
 [[case]]
 hook = "hook_git_main_commit.py"
 expect = "silent"
-note = "dev 위의 git merge — 되돌려 합치기의 병합 커밋은 git commit 명령이 아니라 막지 않는다"
+note = "dev 위의 git merge — 운영에서 개발로 합치기의 병합 커밋은 git commit 명령이 아니라 막지 않는다"
 payload = { tool_name = "Bash", tool_input = { command = "git merge --no-ff origin/main" }, cwd = "${DEV_REPO}" }
 
 [[case]]

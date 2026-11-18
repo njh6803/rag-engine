@@ -1112,7 +1112,8 @@ def test_CI는_머리_브랜치가_main인_PR을_지난다(저장소: Repo) -> N
 
 @pytest.mark.parametrize("branch", ["dev", "main"])
 def test_CI는_머리_브랜치가_dev나_main인_PR을_지난다(저장소: Repo, branch: str) -> None:
-    # dev→main 출시 PR 과 main→dev 되돌려 합치기는 티켓 하나를 가리키지 않는다(agent-os ADR 0043)
+    # dev→main 출시 PR 과 main→dev 운영에서 개발로 합치기는 티켓 하나를 가리키지 않는다
+    # (agent-os ADR 0043)
     _훅을_건너뛰고_커밋한다(저장소, {"tools/b.py": "B = 1\n"})
     head = 저장소.git("rev-parse", "HEAD")
     base = 저장소.git("rev-parse", "origin/main")

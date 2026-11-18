@@ -57,7 +57,7 @@ Dockerfile                 이미지 짓기(서버와 작업자 둘, ADR 0007). 
 | 3 | [change-log](change-log/plan.md) | 관리 변경 기록. 누가 언제 문서, 원천, 설정, 접근 그룹을 바꿨는지 남기고 조회하고 내보낸다 | admin, release-0-1 | todo |
 | 3 | [db-source](db-source/plan.md) | SQL 커넥터. 운영자가 쓴 질의와 매핑으로 데이터베이스에 든 글과 그 첨부를 문서로 수집한다 | source-sync, release-0-1 | todo |
 | 3 | [doc-freshness](doc-freshness/plan.md) | 문서의 갱신일과 시행일을 관리하고, 기한이 지난 문서의 조각에 "오래됨"을 표시한다 | admin, release-0-1 | todo |
-| 3 | [doc-permission](doc-permission/plan.md) | 문서 묶음별 접근 그룹으로 검색을 거르고, MCP `_meta`에 주체가 없는 요청은 거부한다 | admin, release-0-1 | todo |
+| 3 | [doc-permission](doc-permission/plan.md) | 문서 묶음별 접근 그룹으로 검색을 거르고, MCP `_meta`에 요청자가 없는 요청은 거부한다 | admin, release-0-1 | todo |
 | 3 | [hwp-binary](hwp-binary/plan.md) | HWP 5.0 바이너리(표 포함)를 파싱해 본문과 표의 칸이 근거 위치와 함께 검색된다 | admin, release-0-1 | todo |
 
 ## 프론티어
