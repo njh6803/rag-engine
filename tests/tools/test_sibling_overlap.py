@@ -122,7 +122,7 @@ def test_새_번호는_아는_번호_어디에도_없는_것이고_일지는_새
     assert fresh(theirs).journals == frozenset()
 
 
-def test_공유한_이력은_같은_번호에_같은_파일이고_헌법_판은_가르지_않는다() -> None:
+def test_공유한_이력은_같은_번호에_같은_파일이고_헌법_버전은_가르지_않는다() -> None:
     ours = _번호(
         frozenset({"2026-10-07-05-a.md", "2026-10-07-06-ours.md"}),
         {"0002": "0002-x.md"},
@@ -138,7 +138,7 @@ def test_공유한_이력은_같은_번호에_같은_파일이고_헌법_판은_
     assert unshared(ours, main_) == expected
 
 
-def test_같은_번호에_다른_파일이거나_같은_판이면_겹침이다() -> None:
+def test_같은_번호에_다른_파일이거나_같은_버전이면_겹침이다() -> None:
     """같은 분의 일지 둘은 번호가 아니라 겹침이 아니다.
 
     그 겹침은 `tests/test_journal_names.py` 가 본다.
@@ -160,7 +160,7 @@ def test_같은_번호에_다른_파일이거나_같은_판이면_겹침이다()
     ]
 
 
-def test_같은_파일과_다른_판은_겹침이_아니다() -> None:
+def test_같은_파일과_다른_버전은_겹침이_아니다() -> None:
     ours = _번호(adrs={"0027": "0027-same.md"}, version="3.0.19")
     theirs = _번호(adrs={"0027": "0027-same.md"}, version="3.0.20")
 
@@ -245,7 +245,7 @@ def test_닫힌_PR은_head_ref가_있고_열린_PR이_아닌_것이다() -> None
     assert closed_heads(listing, {158: "bbb", 162: "fff"}) == {"aaa": 157, "ccc": 160}
 
 
-def test_가장_높은_헌법_판은_글자가_아니라_수로_견주고_그_판을_쓴_자리를_모두_든다() -> None:
+def test_가장_높은_헌법_버전은_글자가_아니라_수로_견주고_그_버전을_쓴_자리를_모두_든다() -> None:
     held = [("origin/main", "3.0.9"), ("PR #5", "3.0.10"), ("워크트리", None), ("PR #6", "3.0.10")]
 
     assert highest_version(held) == ("3.0.10", ["PR #5", "PR #6"])
@@ -256,8 +256,8 @@ def test_가장_높은_헌법_판은_글자가_아니라_수로_견주고_그_�
     assert highest_version([("PR #5", None)]) is None
 
 
-def test_판을_올리지_않고_고친_헌법_파일은_원칙_스택_운영의_셋이다() -> None:
-    """헌법 README(판 줄과 색인)와 셋 밖의 새 파일은 보지 않는다(못 보는 것)."""
+def test_버전을_올리지_않고_고친_헌법_파일은_원칙_스택_운영의_셋이다() -> None:
+    """헌법 README(버전 줄과 색인)와 셋 밖의 새 파일은 보지 않는다(못 보는 것)."""
     changed = frozenset(
         {
             "docs/constitution/operations.md",
@@ -441,53 +441,53 @@ def _이력(version: str, history: str) -> str:
     return _헌법(version) + f"\n{history}\n"
 
 
-def test_비워_둔_판의_문장을_지웠고_판_줄이_main과_같으면_그_판이다() -> None:
-    """비워 둔 판의 새 신호(retro-queue-per-item 06). 대기열 279의 옛 신호는 이력 문단을 더했는지
-    봤는데, 헌법 README 에 이력 문단이 없어졌다. 이 브랜치의 판 줄이 main 의 판 줄과 같고 main 에
-    있던 이 브랜치 몫의 비워 둔 문장을 이 브랜치가 지웠으면 그 판을 가져간 것이다."""
+def test_비워_둔_버전의_문장을_지웠고_버전_줄이_main과_같으면_그_버전이다() -> None:
+    """비워 둔 버전의 새 신호(retro-queue-per-item 06). 대기열 279의 옛 신호는 이력 문단을 더했는지
+    봤는데, 헌법 README 에 이력 문단이 없어졌다. 이 브랜치의 버전 줄이 main 의 버전 줄과 같고 main
+    에 있던 이 브랜치 몫의 비워 둔 문장을 이 브랜치가 지웠으면 그 버전을 가져간 것이다."""
     main_text = _이력("1.0.2", RESERVE)
     ours = _이력("1.0.2", "")
 
     assert reserved_version("topic", main_text, ours) == "1.0.1"
     # 다른 브랜치 몫이거나 분리 HEAD 면 올리지 않은 것이다
     assert reserved_version("other", main_text, ours) is None, (
-        "다른 브랜치 몫으로 비워 둔 판은 가져간 판이 아니다"
+        "다른 브랜치 몫으로 비워 둔 버전은 가져간 버전이 아니다"
     )
     assert reserved_version(None, main_text, ours) is None
     # 문장을 지우지 않았으면 가져가지 않은 것이다
     assert reserved_version("topic", main_text, main_text) is None, (
         "문장을 지우지 않았으면 가져간 것이 아니다"
     )
-    # 판 줄이 main 과 다르면 이 신호가 아니라 판 줄로 본다. main 을 합치기 전의 브랜치는 비워 둔
-    # 문장이 아예 없어도 판 줄이 main 의 것이 아니다
+    # 버전 줄이 main 과 다르면 이 신호가 아니라 버전 줄로 본다. main 을 합치기 전의 브랜치는 비워 둔
+    # 문장이 아예 없어도 버전 줄이 main 의 것이 아니다
     assert reserved_version("topic", main_text, _이력("1.0.3", "")) is None, (
-        "판 줄이 main 과 다르면 신호가 아니다"
+        "버전 줄이 main 과 다르면 신호가 아니다"
     )
     assert reserved_version("topic", main_text, _이력("1.0.0", "")) is None
-    # 다른 브랜치 몫의 문장을 지운 것은 이 브랜치의 판이 아니다
+    # 다른 브랜치 몫의 문장을 지운 것은 이 브랜치의 버전이 아니다
     other = "1.0.3은 함께 돌던 형제 브랜치(`other`)가 먼저 매겨 비워 두었다."
     both = _이력("1.0.4", f"{RESERVE}\n{other}")
     assert reserved_version("topic", both, _이력("1.0.4", RESERVE)) is None
     assert reserved_version("other", both, _이력("1.0.4", RESERVE)) == "1.0.3"
-    # 둘 이상이면 가장 높은 판이다. 지우지 않은 것은 센 것에서 뺀다
+    # 둘 이상이면 가장 높은 버전이다. 지우지 않은 것은 센 것에서 뺀다
     mine = "1.0.3은 함께 돌던 형제 브랜치(`topic`)가 먼저 매겨 비워 두었다."
     twice = _이력("1.0.4", f"{RESERVE}\n{mine}")
     assert reserved_version("topic", twice, _이력("1.0.4", "")) == "1.0.3", (
-        "둘 이상이면 가장 높은 판이다"
+        "둘 이상이면 가장 높은 버전이다"
     )
     assert reserved_version("topic", twice, _이력("1.0.4", mine)) == "1.0.1"
 
 
-def test_판_줄이_없는_README는_비워_둔_판을_가져가지_않은_것이다() -> None:
+def test_버전_줄이_없는_README는_비워_둔_버전을_가져가지_않은_것이다() -> None:
     """PR 직전 버그 축: 이 브랜치가 헌법 README 를 지웠거나 비워도 도구가 트레이스백 없이 판정한다.
-    지운 README 는 판 줄이 없어 main 의 판 줄과 같지 않다."""
+    지운 README 는 버전 줄이 없어 main 의 버전 줄과 같지 않다."""
     assert reserved_version("topic", _이력("1.0.2", RESERVE), "") is None
     assert reserved_version("topic", "", "") is None
 
 
-def test_비워_둔_판은_그_꼴의_문장만_읽고_그_문장을_깨뜨려_고쳐도_가져간_것으로_센다() -> None:
+def test_비워_둔_버전은_그_꼴의_문장만_읽고_그_문장을_깨뜨려_고쳐도_가져간_것으로_센다() -> None:
     """못 보는 것. 다른 꼴로 적은 예약은 읽지 않는다. 이 브랜치가 문장을 지우지 않고 그 꼴이
-    깨지게 고쳐도 그 판을 가져간 것으로 센다."""
+    깨지게 고쳐도 그 버전을 가져간 것으로 센다."""
     main_text = _이력("1.0.2", RESERVE)
     reworded = _이력("1.0.2", RESERVE.replace("먼저 매겨", "앞서 매겨"))
 
@@ -1494,12 +1494,14 @@ def test_PR이_닫힌_형제_워크트리의_번호는_접지_않고_대조한�
     assert f"워크트리 {closed.resolve()}(PR #3 닫힘) ADR 0002" in out
 
 
-def test_형제가_쓴_가장_높은_헌법_판과_그_자리를_찍는다(
+def test_형제가_쓴_가장_높은_헌법_버전과_그_자리를_찍는다(
     저장소: tuple[Path, Path, Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """대기열 199: 판을 올리기 전의 대조는 겹침을 못 알려, 올린 뒤에야 형제의 판과 겹친 것을 알았다.
+    """대기열 199: 버전을 올리기 전의 대조는 겹침을 못 알려, 올린 뒤에야 형제의 버전과 겹친 것을
+    알았다.
 
-    판은 고르지 않는다. 올림의 종류는 바뀐 내용이 정한다. 형제 워크트리는 커밋하지 않은 판도 본다.
+    버전은 고르지 않는다. 올림의 종류는 바뀐 내용이 정한다. 형제 워크트리는 커밋하지 않은 버전도
+    본다.
     """
     _, work, pusher = 저장소
     pr5 = _PR을_민다(pusher, 5, {"docs/constitution/README.md": _헌법("1.0.10")})
@@ -1512,26 +1514,26 @@ def test_형제가_쓴_가장_높은_헌법_판과_그_자리를_찍는다(
 
     out = capsys.readouterr().out
     assert code == 0, out
-    assert "형제가 쓴 가장 높은 헌법 판: 1.0.10(PR #5). 판을 올리면 이보다 높게 고른다\n" in out
+    assert "형제가 쓴 가장 높은 헌법 버전: 1.0.10(PR #5). 버전을 올리면 이보다 높게 고른다\n" in out
 
     _쓴다(sibling, {"docs/constitution/README.md": _헌법("1.1.0")})
-    # 이 브랜치의 판이 형제의 판보다 낮아도 찍기만 한다(못 보는 것). 같은 판만 겹침이다
+    # 이 브랜치의 버전이 형제의 버전보다 낮아도 찍기만 한다(못 보는 것). 같은 버전만 겹침이다
     _쓴다(work, {"docs/constitution/README.md": _헌법("1.0.11")})
 
     code = main([str(work)])
 
     out = capsys.readouterr().out
     assert code == 0, out
-    assert f"형제가 쓴 가장 높은 헌법 판: 1.1.0(워크트리 {sibling.resolve()})." in out
+    assert f"형제가 쓴 가장 높은 헌법 버전: 1.1.0(워크트리 {sibling.resolve()})." in out
     assert "이 브랜치의 새 번호: 헌법 1.0.11" in out
 
 
-def test_헌법_파일을_고치고_판을_올리지_않으면_1로_끝나고_올리면_0이다(
+def test_헌법_파일을_고치고_버전을_올리지_않으면_1로_끝나고_올리면_0이다(
     저장소: tuple[Path, Path, Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """대기열 224: `operations.md` 를 고치고 판을 올리지 않은 것을 셀프 리뷰가 잡았다.
+    """대기열 224: `operations.md` 를 고치고 버전을 올리지 않은 것을 셀프 리뷰가 잡았다.
 
-    헌법 파일은 어느 변경이든 판을 올린다(원칙 변경은 major, 절 추가는 minor, 문구 수정은 patch).
+    헌법 파일은 어느 변경이든 버전을 올린다(원칙 변경은 major, 절 추가는 minor, 문구 수정은 patch).
     """
     _, work, _ = 저장소
     _쓴다(work, {"docs/constitution/operations.md": "고친 운영\n"})
@@ -1541,7 +1543,7 @@ def test_헌법_파일을_고치고_판을_올리지_않으면_1로_끝나고_�
     out = capsys.readouterr().out
     assert code == 1, out
     assert "번호 겹침 없음" in out
-    unbumped_line = "헌법 파일을 고치고 판을 올리지 않았다: docs/constitution/operations.md."
+    unbumped_line = "헌법 파일을 고치고 버전을 올리지 않았다: docs/constitution/operations.md."
     assert unbumped_line in out
     assert "옮길 번호" not in out
 
@@ -1551,22 +1553,22 @@ def test_헌법_파일을_고치고_판을_올리지_않으면_1로_끝나고_�
 
     out = capsys.readouterr().out
     assert code == 0, out
-    assert "판을 올리지 않았다" not in out
+    assert "버전을 올리지 않았다" not in out
 
-    # 바꿨는지만 본다. merge-base 의 판보다 낮게 고쳐도 지나간다(못 보는 것)
+    # 바꿨는지만 본다. merge-base 의 버전보다 낮게 고쳐도 지나간다(못 보는 것)
     _쓴다(work, {"docs/constitution/README.md": _헌법("0.9.0")})
 
     code = main([str(work)])
 
     out = capsys.readouterr().out
     assert code == 0, out
-    assert "판을 올리지 않았다" not in out
+    assert "버전을 올리지 않았다" not in out
 
 
-def test_이_브랜치에_새_번호가_없어도_형제가_쓴_가장_높은_헌법_판을_찍는다(
+def test_이_브랜치에_새_번호가_없어도_형제가_쓴_가장_높은_헌법_버전을_찍는다(
     저장소: tuple[Path, Path, Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """대기열 199: 판을 올리기 전에도 찍는다. 다음 빈 번호는 찍지 않는다. 일지와 harness 티켓은
+    """대기열 199: 버전을 올리기 전에도 찍는다. 다음 빈 번호는 찍지 않는다. 일지와 harness 티켓은
     번호가 아니라 이름이라 받지 않는다."""
     _, work, pusher = 저장소
     pr5 = _PR을_민다(pusher, 5, {"docs/notes.md": "그쪽\n"})
@@ -1584,8 +1586,8 @@ def test_이_브랜치에_새_번호가_없어도_형제가_쓴_가장_높은_�
     # 일지를 쓸 세션이면 번호를 받으라던 안내와 스크래치를 옮기라던 안내는 없어졌다
     assert "일지를 쓸 세션이면" not in out
     assert "스크래치" not in out
-    # 판을 올리기 전에도 찍는다. 형제가 판을 올리지 않았으면 main 의 판이다
-    assert "형제가 쓴 가장 높은 헌법 판: 1.0.0(origin/main)." in out
+    # 버전을 올리기 전에도 찍는다. 형제가 버전을 올리지 않았으면 main 의 버전이다
+    assert "형제가 쓴 가장 높은 헌법 버전: 1.0.0(origin/main)." in out
 
 
 def test_main에_같은_파일로_이미_든_ADR은_새_번호가_아니다(
@@ -1741,7 +1743,7 @@ def test_원격을_읽지_못하면_2로_끝나고_까닭과_할_일을_알린�
     assert code == 2
     assert "ls-remote" in captured.err
     assert ON_FAILURE in captured.err
-    assert "번호(ADR, 헌법 판)를 손으로 고르지" in ON_FAILURE
+    assert "번호(ADR, 헌법 버전)를 손으로 고르지" in ON_FAILURE
     assert "티켓" not in ON_FAILURE
 
 
@@ -1873,12 +1875,12 @@ def test_합치기를_커밋하기_전에도_main이_들여온_파일은_이_브
     assert "- origin/main: README.md\n" in out
 
 
-def test_합치기를_커밋하기_전에도_main이_올린_헌법_판은_이_브랜치의_판이_아니다(
+def test_합치기를_커밋하기_전에도_main이_올린_헌법_버전은_이_브랜치의_버전이_아니다(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """main 을 합치고 커밋하기 전에 친 대조가 main 이 올린 판을 이 브랜치의 새 판으로 읽어 main 과
-    같은 판으로 겹쳤다고 1로 끝났다(일지 2026-10-15-15). 헌법 README 가 main 과 같으면 판은 main
-    에서 들어온 것이다."""
+    """main 을 합치고 커밋하기 전에 친 대조가 main 이 올린 버전을 이 브랜치의 새 버전으로 읽어 main
+    과 같은 버전으로 겹쳤다고 1로 끝났다(`일지 2026-10-15-15`). 헌법 README 가 main 과 같으면 버전은
+    main 에서 들어온 것이다."""
     _, work, pusher = _원격과_클론(tmp_path, SEED)
     _커밋한다(work, {"README.md": "이 브랜치\n"}, "이 브랜치")
     _커밋한다(pusher, {"docs/constitution/README.md": _헌법("1.0.1")}, "main")
@@ -2179,14 +2181,14 @@ def test_여러_머리를_합치는_도중에는_머리마다_그_번호를_이_
     assert "이 브랜치의 새 번호 없음" in out
 
 
-def test_main이_이_브랜치_몫으로_비워_둔_헌법_판의_문장을_지웠으면_판을_올린_것이다(
+def test_main이_이_브랜치_몫으로_비워_둔_헌법_버전의_문장을_지웠으면_버전을_올린_것이다(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """대기열 279, retro-queue-per-item 06: #243 이 3.0.35 를 이 브랜치 몫으로 비워 두었는데, 판
-    줄을 main 그대로 둔 이 브랜치에 합칠 때마다 "헌법 파일을 고치고 판을 올리지 않았다" 로 1을
-    냈다(일지 2026-10-15-19). 헌법 README 의 이력 문단이 없어진 뒤의 신호는 판 줄이 main 과 같고
-    main 에 있던 이 브랜치 몫의 비워 둔 문장을 지운 것이다. 합치기를 커밋하기 전(판 줄이 main 과
-    같다)과 뒤(판 줄이 merge-base 와 같다)가 모두 그렇다."""
+    """대기열 279, retro-queue-per-item 06: #243 이 3.0.35 를 이 브랜치 몫으로 비워 두었는데, 버전
+    줄을 main 그대로 둔 이 브랜치에 합칠 때마다 "헌법 파일을 고치고 버전을 올리지 않았다" 로 1을
+    냈다(`일지 2026-10-15-19`). 헌법 README 의 이력 문단이 없어진 뒤의 신호는 버전 줄이 main 과 같고
+    main 에 있던 이 브랜치 몫의 비워 둔 문장을 지운 것이다. 합치기를 커밋하기 전(버전 줄이 main 과
+    같다)과 뒤(버전 줄이 merge-base 와 같다)가 모두 그렇다."""
     seed = {**SEED, CONSTITUTION: _이력("1.0.0", "")}
     _, work, pusher = _원격과_클론(tmp_path, seed)
     ours = {
@@ -2198,7 +2200,7 @@ def test_main이_이_브랜치_몫으로_비워_둔_헌법_판의_문장을_지�
     _git(pusher, "push", "-q", "origin", "main")
     _git(work, "fetch", "-q", "origin")
     with pytest.raises(subprocess.CalledProcessError):
-        _git(work, "merge", "-q", "origin/main")  # 판 줄이 충돌한다
+        _git(work, "merge", "-q", "origin/main")  # 버전 줄이 충돌한다
     assert _git(work, "rev-parse", "-q", "--verify", "MERGE_HEAD")
     _쓴다(work, {CONSTITUTION: _이력("1.0.2", "")})
     _git(work, "add", CONSTITUTION)
@@ -2208,8 +2210,8 @@ def test_main이_이_브랜치_몫으로_비워_둔_헌법_판의_문장을_지�
     out = capsys.readouterr().out
     assert code == 0, out
     assert "이 브랜치의 새 번호: 헌법 1.0.1\n" in out
-    assert "올린 판으로 센 헌법 1.0.1: origin/main 의 헌법 README 가" in out
-    assert "이 브랜치 몫으로 비워 둔 판이고, 이 브랜치가 그 문장을 지웠다" in out
+    assert "올린 버전으로 센 헌법 1.0.1: origin/main 의 헌법 README 가" in out
+    assert "이 브랜치 몫으로 비워 둔 버전이고, 이 브랜치가 그 문장을 지웠다" in out
     assert "번호 겹침 없음" in out
 
     _git(work, "commit", "-q", "--no-edit")
@@ -2219,7 +2221,7 @@ def test_main이_이_브랜치_몫으로_비워_둔_헌법_판의_문장을_지�
 
     out = capsys.readouterr().out
     assert code == 0, out
-    assert "판을 올리지 않았다" not in out
+    assert "버전을 올리지 않았다" not in out
     assert "이 브랜치의 새 번호: 헌법 1.0.1\n" in out
 
 

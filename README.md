@@ -6,7 +6,7 @@ MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 �
 
 ## 판
 
-이 서버의 판은 semver다(`pyproject.toml`의 `version`). 첫 공개 판 0.1 전에는 `0.0.0`이다. 헌법의 판은 따로이고 [docs/constitution/README.md](docs/constitution/README.md)에 있다.
+이 서버의 판은 semver다(`pyproject.toml`의 `version`). 첫 공개 판 0.1 전에는 `0.0.0`이다. 헌법의 버전은 따로이고 [docs/constitution/README.md](docs/constitution/README.md)에 있다.
 
 ## 개발
 
