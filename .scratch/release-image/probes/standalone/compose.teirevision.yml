@@ -1,0 +1,13 @@
+# 임베딩 서버가 올릴 모델의 리비전을 고정한다(run.py 의 offline 단계). 값은 run.py 가
+# PROBE_TEI_REVISION 으로 준다. 볼륨에 없는 리비전(대조군)이면 뜨지 못해야 한다.
+services:
+  embedding:
+    command:
+      - --model-id
+      - BAAI/bge-m3
+      - --revision
+      - ${PROBE_TEI_REVISION}
+      - --port
+      - "80"
+      - --max-batch-tokens
+      - "4096"

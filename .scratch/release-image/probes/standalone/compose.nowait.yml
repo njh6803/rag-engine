@@ -1,0 +1,5 @@
+# compose.yml 위에 얹는 덮어쓰기(프로브, 대조군). 프록시의 depends_on 을 뗀다. 프록시가 서버를 기다리지 않고
+# 먼저 뜬다. 서버가 건강해진 뒤에도 프록시가 502 를 내는 시간을 잰다(run.py 의 recover 단계).
+services:
+  proxy:
+    depends_on: !reset {}

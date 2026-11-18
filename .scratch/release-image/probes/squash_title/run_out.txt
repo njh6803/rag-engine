@@ -1,0 +1,4 @@
+[설정] njh6803/rag-engine 의 squash_merge_commit_title = COMMIT_OR_PR_TITLE
+[셈] 병합된 티켓 PR 59개 가운데 커밋이 하나인 것 0개. 그 가운데 PR 제목과 커밋 제목이 다른 것의 병합 커밋 제목: {'커밋 제목을 따랐다': 0, 'PR 제목을 따랐다': 0, '둘 다 아니다': 0}
+[설정] njh6803/agent-os 의 squash_merge_commit_title = PR_TITLE
+[셈] 병합된 티켓 PR 292개 가운데 커밋이 하나인 것 3개. 그 가운데 PR 제목과 커밋 제목이 다른 것의 병합 커밋 제목: {'커밋 제목을 따랐다': 0, 'PR 제목을 따랐다': 0, '둘 다 아니다': 0}
