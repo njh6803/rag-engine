@@ -1,8 +1,10 @@
-"""처리 중의 임대 연장과 임대 인수(명세 "수집 파이프라인과 작업"의 작업자 항목, 티켓 13).
+"""처리 중의 작업 담당 기록 연장과 작업 담당 기록 인수(명세 "수집 파이프라인과 작업"의 작업자 항목,
+티켓 13).
 
-실제 테스트 PostgreSQL 위에서 `process_job`을 돌린다. 임대 연장은 `lease_seconds`의 삼분의 일마다
-돌므로 시험은 임대를 0.3초로 주어 0.1초 간격으로 지켜본다. 임대가 끝나 다른 작업자가 가져가는 일은
-시계를 건너뛴 두 번째 꺼내기로 만들고, 끼어들 곳은 임베딩 직전이다(`interrupting_embedder_for`).
+실제 테스트 PostgreSQL 위에서 `process_job`을 돌린다. 작업 담당 기록 연장은 `lease_seconds`의 삼분의
+일마다 돌므로 시험은 그 기한을 0.3초로 주어 0.1초 간격으로 지켜본다. 작업 담당 기록의 기한이 끝나
+다른 작업자가 가져가는 일은 시계를 건너뛴 두 번째 꺼내기로 만들고, 끼어들 곳은 임베딩
+직전이다(`interrupting_embedder_for`).
 """
 
 import asyncio
@@ -66,7 +68,9 @@ class _RaisingRunner:
         raise RequestError(ErrorCode.INTERNAL_ERROR, "시험용 오류")
 
 
-async def test_처리하는_동안_임대_기간의_삼분의_일마다_임대를_늘린다(pipeline: Pipeline) -> None:
+async def test_처리하는_동안_작업_담당_기록의_기한을_그_삼분의_일마다_늘린다(
+    pipeline: Pipeline,
+) -> None:
     ingested = await pipeline.ingest(휴가)
     job = await pipeline.claim()
     assert await _leased_until(pipeline, job.id) == NOW + timedelta(seconds=LEASE_SECONDS)
@@ -87,11 +91,11 @@ async def test_처리하는_동안_임대_기간의_삼분의_일마다_임대�
     assert len(await pipeline.chunk_texts(ingested.document_id)) > 0
 
 
-def test_임대를_늘리는_간격은_임대_기간의_삼분의_일이다() -> None:
+def test_작업_담당_기록의_기한을_늘리는_간격은_그_기한의_삼분의_일이다() -> None:
     assert extension_interval_seconds(900.0) == pytest.approx(300.0)
 
 
-async def test_임대_연장이_일시_실패해도_다음_간격에_다시_늘린다(
+async def test_작업_담당_기록_연장이_일시_실패해도_다음_간격에_다시_늘린다(
     pipeline: Pipeline, caplog: pytest.LogCaptureFixture
 ) -> None:
     await pipeline.ingest(휴가)
@@ -119,7 +123,7 @@ async def test_임대_연장이_일시_실패해도_다음_간격에_다시_늘�
     assert [item["result"] for item in _finished_events(caplog)] == ["succeeded"]
 
 
-async def test_임대_연장이_예기치_않게_실패해도_작업을_실패로_끝내지_않고_다음_간격에_다시_늘린다(
+async def test_작업_담당_기록_연장이_예기치_않게_실패해도_실패로_끝내지_않고_다시_늘린다(
     pipeline: Pipeline, caplog: pytest.LogCaptureFixture
 ) -> None:
     await pipeline.ingest(휴가)
@@ -147,7 +151,9 @@ async def test_임대_연장이_예기치_않게_실패해도_작업을_실패�
     assert [item["result"] for item in _finished_events(caplog)] == ["succeeded"]
 
 
-async def test_임대를_늘리지_않는_처리는_꺼낼_때_둔_임대_그대로다(pipeline: Pipeline) -> None:
+async def test_작업_담당_기록의_기한을_늘리지_않는_처리는_꺼낼_때_둔_기한_그대로다(
+    pipeline: Pipeline,
+) -> None:
     await pipeline.ingest(휴가)
     job = await pipeline.claim()
     observed: list[datetime | None] = []
@@ -164,7 +170,7 @@ async def test_임대를_늘리지_않는_처리는_꺼낼_때_둔_임대_그대
     assert observed == [NOW + timedelta(seconds=LEASE_SECONDS)]
 
 
-async def test_임대를_잃은_것이_드러나면_처리를_멈추고_문서에도_작업_행에도_쓰지_않는다(
+async def test_작업_담당_기록을_잃은_것이_드러나면_처리를_멈추고_문서에도_작업_행에도_쓰지_않는다(
     pipeline: Pipeline, caplog: pytest.LogCaptureFixture
 ) -> None:
     ingested = await pipeline.ingest(휴가)
@@ -221,7 +227,7 @@ async def test_연장하지_못한_채_다른_작업자가_가져가도_처음_�
     assert len(await pipeline.chunk_texts(ingested.document_id)) > 0
 
 
-async def test_끝내려는_시점에_임대를_잃었으면_성공이_아니라_잃었다고_남긴다(
+async def test_끝내려는_시점에_작업_담당_기록을_잃었으면_성공이_아니라_잃었다고_남긴다(
     pipeline: Pipeline, caplog: pytest.LogCaptureFixture
 ) -> None:
     ingested = await pipeline.ingest(휴가)
@@ -260,7 +266,7 @@ async def test_끝낼_수_있으면_갱신_여부와_상관없이_기존_결과�
     ]
 
 
-async def test_횟수를_다_쓴_작업을_임대_인수로_꺼내면_다시_돌리지_않고_worker_lost로_끝낸다(
+async def test_횟수를_다_쓴_작업을_작업_담당_기록_인수로_꺼내면_돌리지_않고_worker_lost로_끝낸다(
     pipeline: Pipeline,
 ) -> None:
     ingested = await pipeline.ingest(휴가)
@@ -284,7 +290,9 @@ async def test_횟수를_다_쓴_작업을_임대_인수로_꺼내면_다시_돌
     assert await pipeline.chunk_texts(ingested.document_id) == []
 
 
-async def test_마지막_시도를_임대_인수로_꺼낸_것은_다시_돌린다(pipeline: Pipeline) -> None:
+async def test_마지막_시도를_작업_담당_기록_인수로_꺼낸_것은_다시_돌린다(
+    pipeline: Pipeline,
+) -> None:
     ingested = await pipeline.ingest(휴가)
     retry = _policy(2)
     await pipeline.claim("worker-1")

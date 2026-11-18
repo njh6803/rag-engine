@@ -5,9 +5,9 @@
 조립(`_assembled`)을 거친다. Kiwi 모델 적재(수 초)는 첫 작업이 이벤트 루프를 멈추지 않게 조립할 때
 미리 한다. 청커의 문장 분리와 키워드 토큰화는 동기 함수이고 CPU를 쓰며 이벤트 루프 안에서 그대로
 부른다(Kiwi 호출은 어댑터가 잠금으로 직렬화해 스레드로 넘겨도 속도가 늘지 않는다). 큰 문서에서는 그
-동안 같은 이벤트 루프의 임대 연장이 늦을 수 있으나, 임대를 잃은 시도는 작업 행 조건에 걸려 쓰지
-못하므로 데이터는 어긋나지 않는다. 다만 인수마다 시도 횟수가 오르므로, 임대보다 오래 루프를 막는
-문서는 인수가 되풀이되다 `worker_lost`로 끝날 수 있다.
+동안 같은 이벤트 루프의 작업 담당 기록 연장이 늦을 수 있으나, 작업 담당 기록을 잃은 시도는 작업 행
+조건에 걸려 쓰지 못하므로 데이터는 어긋나지 않는다. 다만 인수마다 시도 횟수가 오르므로, 작업 담당
+기록의 기한보다 오래 루프를 막는 문서는 인수가 되풀이되다 `worker_lost`로 끝날 수 있다.
 """
 
 import asyncio
@@ -39,7 +39,7 @@ from rag_engine.worker.processing import run_once
 from rag_engine.worker.service import WorkerConfig, serve
 from rag_engine.worker.signals import stop_on_signals
 
-# 슬롯 하나가 동시에 쥐는 연결의 수. 처리하는 작업 단위 하나와 임대 연장 하나다.
+# 슬롯 하나가 동시에 쥐는 연결의 수. 처리하는 작업 단위 하나와 작업 담당 기록 연장 하나다.
 _CONNECTIONS_PER_SLOT: Final = 2
 
 

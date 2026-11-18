@@ -377,8 +377,9 @@ class JobQueue(Protocol):
 
     async def hold_attempt(self, job: Job) -> bool:
         """작업 행을 잠그고 작업자 ID와 시도 횟수가 이 시도가 꺼낼 때 쓴 값 그대로인지 본다(작업 행
-        조건). 아니면 임대가 끝나 다른 작업자가 가져간 것이라 `False`이고, 부른 쪽은 아무것도
-        쓰지 않고 작업 단위를 롤백한다. 문서 행과 지식베이스 행을 잠근 뒤 마지막에 부른다."""
+        조건). 아니면 작업 담당 기록의 기한이 끝나 다른 작업자가 가져간 것이라 `False`이고, 부른
+        쪽은 아무것도 쓰지 않고 작업 단위를 롤백한다. 문서 행과 지식베이스 행을 잠근 뒤 마지막에
+        부른다."""
         ...
 
     async def record_raised_generation(self, job: Job, generation: int) -> None:
@@ -386,18 +387,18 @@ class JobQueue(Protocol):
         ...
 
     async def finish(self, job: Job, outcome: JobOutcome, now: datetime) -> None:
-        """작업을 끝낸 상태로 쓴다. 이 시도가 쓴 작업 행이 아니면(임대가 끝나 다른 작업자가
-        가져갔다) 아무것도 쓰지 않고 `AttemptLostError`를 올린다. 부른 쪽이 끝난 줄 알고 지나가지
-        못하게 반환값이 아니라 예외로 알린다."""
+        """작업을 끝낸 상태로 쓴다. 이 시도가 쓴 작업 행이 아니면(작업 담당 기록의 기한이 끝나 다른
+        작업자가 가져갔다) 아무것도 쓰지 않고 `AttemptLostError`를 올린다. 부른 쪽이 끝난 줄 알고
+        지나가지 못하게 반환값이 아니라 예외로 알린다."""
         ...
 
     async def reschedule(self, job: Job, run_after: datetime, error_code: ErrorCode) -> bool:
-        """일시 실패한 시도의 작업을 `queued`로 되돌려 `run_after`와 마지막 오류 코드를 두고 임대와
-        작업자와 올린 세대를 비운다(시도 횟수는 둔다). 같은 문서에 다른 대기 작업이 있거나 이
-        시도가 쓴 작업 행이 아니면 아무것도 쓰지 않고 `False`다. 같은 문서의 대기 작업은 부분 유일
-        색인으로 하나라서, 되돌리는 일과 다른 대기 작업을 보는 일이 한 문장이어야 해 조회와 변경을
-        나누지 않는다(`CODING_STANDARDS.md`의 CQS에 대한 의도한 예외다). 문서 행과 지식베이스
-        행(`SHARE`)을 잠근 뒤 `hold_attempt` 다음에 부른다."""
+        """일시 실패한 시도의 작업을 `queued`로 되돌려 `run_after`와 마지막 오류 코드를 두고 작업
+        담당 기록과 작업자와 올린 세대를 비운다(시도 횟수는 둔다). 같은 문서에 다른 대기 작업이
+        있거나 이 시도가 쓴 작업 행이 아니면 아무것도 쓰지 않고 `False`다. 같은 문서의 대기 작업은
+        부분 유일 색인으로 하나라서, 되돌리는 일과 다른 대기 작업을 보는 일이 한 문장이어야 해
+        조회와 변경을 나누지 않는다(`CODING_STANDARDS.md`의 CQS에 대한 의도한 예외다). 문서 행과
+        지식베이스 행(`SHARE`)을 잠근 뒤 `hold_attempt` 다음에 부른다."""
         ...
 
     async def has_other_job_from_start(self, document_id: UUID, excluding_job_id: UUID) -> bool:
@@ -406,9 +407,10 @@ class JobQueue(Protocol):
         ...
 
     async def extend_lease(self, job: Job, leased_until: datetime) -> None:
-        """임대 만료를 `leased_until`로 늘린다. 작업 행 조건을 지날 때만 쓰고, 아니면 임대가 끝나
-        다른 작업자가 가져간 것이라 아무것도 쓰지 않고 `AttemptLostError`를 올린다(부른 쪽은 그
-        시도를 버린다). 문서 행을 잠그지 않고 작업 행 하나만 쓰므로 잠금 순서를 거스르지 않는다."""
+        """작업 담당 기록의 만료 시각을 `leased_until`로 늘린다. 작업 행 조건을 지날 때만 쓰고,
+        아니면 그 기한이 끝나 다른 작업자가 가져간 것이라 아무것도 쓰지 않고 `AttemptLostError`를
+        올린다(부른 쪽은 그 시도를 버린다). 문서 행을 잠그지 않고 작업 행 하나만 쓰므로 잠금 순서를
+        거스르지 않는다."""
         ...
 
 
