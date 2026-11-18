@@ -4,7 +4,7 @@ description: "Turn the current conversation into a spec and publish it to the pr
 disable-model-invocation: true
 ---
 
-<!-- 프로젝트 사본. agent-os가 덧댄 판을 2026-11-09 킥오프에서 옮겼고, 이 주석과 본문의 괄호 속 대기열 번호는 agent-os의 기록이다. 원본(mattpocock/skills)에 다섯을 더했다. 첫머리의 새 세션 맥락(대기열 103), 3단계의 측정 규칙(대기열 38, 측정이 가는 범위는 61)과 명세를 쓴 뒤의 차례(대기열 105·126·207), Implementation Decisions 의 경로 규칙을 저장소 관행에 맞춘 것(대기열 30), Out of Scope 의 받는 쪽 확인(대기열 3). 이 주석이 `tools/check_instructions.py`의 센티널이라 지우면 검사가 빨강이 된다. -->
+<!-- 프로젝트 사본. agent-os가 덧댄 판을 2026-11-09 킥오프에서 옮겼고, 이 주석과 본문의 괄호 속 대기열 번호는 agent-os의 기록이다. 원본(mattpocock/skills)에 여섯을 더했다. 첫머리의 새 세션 맥락(대기열 103), 3단계의 측정 규칙(대기열 38, 측정이 가는 범위는 61)과 명세를 쓴 뒤의 차례(대기열 105·126·207), Implementation Decisions 의 경로 규칙을 저장소 관행에 맞춘 것(대기열 30), Out of Scope 의 받는 쪽 확인(대기열 3), 1단계의 쉬운 말 문장(이 저장소의 harness 티켓 `plain-words-in-written-artifacts`). 이 주석이 `tools/check_instructions.py`의 센티널이라 지우면 검사가 빨강이 된다. -->
 
 This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user; just synthesize what you already know.
 
@@ -14,7 +14,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 ## Process
 
-1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching.
+1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching. The spec is 사람에게 보이는 글 (`CLAUDE.md` 원칙): write it in plain words, and give a glossary name its plain explanation at first use.
 
 2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 

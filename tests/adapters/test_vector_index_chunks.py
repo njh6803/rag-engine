@@ -561,7 +561,7 @@ async def _with_building_version(world: _World) -> IndexVersion:
 
 
 def _archived(database_url: str, document_id: UUID) -> list[tuple[str, object]]:
-    """보관 표의 (글, 보관 시각)."""
+    """삭제 보관함의 (글, 보관 시각)."""
     with psycopg.connect(database_url, autocommit=True) as connection:
         return connection.execute(
             "SELECT text, archived_at FROM archived_chunks WHERE document_id = %s ORDER BY text",
@@ -569,7 +569,7 @@ def _archived(database_url: str, document_id: UUID) -> list[tuple[str, object]]:
         ).fetchall()
 
 
-async def test_조각을_보관하면_모든_판의_조각이_검색_표에서_보관_표로_옮겨진다(
+async def test_조각을_보관하면_모든_판의_조각이_검색_표에서_삭제_보관함으로_옮겨진다(
     engine: AsyncEngine, empty_database_url: str
 ) -> None:
     world = await _world(engine)

@@ -1,7 +1,7 @@
-"""삭제, 되살림, 묘비(명세 "삭제, 되살림, 묘비", 티켓 11).
+"""삭제, 되살림, 삭제 기록(명세 "삭제, 되살림, 묘비", 티켓 11).
 
 실제 테스트 PostgreSQL, 실제 DOCX 파서 자식 프로세스, 실제 청커와 Kiwi 위에서 돈다. 임베딩 서버만
-`TeiStub`이다. 정리 작업은 core에 없어 묘비 행은 시험이 데이터베이스에 직접 만든다.
+`TeiStub`이다. 정리 작업은 core에 없어 삭제 기록 행은 시험이 데이터베이스에 직접 만든다.
 """
 
 from datetime import timedelta
@@ -52,7 +52,7 @@ def _blobs(root: Path) -> list[Path]:
     return sorted(path for path in (root / "blobs").rglob("*") if path.is_file())
 
 
-async def test_삭제하면_조각이_보관_표로_옮겨지고_색인_상태와_대기_작업이_사라진다(
+async def test_삭제하면_조각이_삭제_보관함으로_옮겨지고_색인_상태와_대기_작업이_사라진다(
     pipeline: Pipeline,
 ) -> None:
     ingested = await pipeline.ingest(휴가)
@@ -116,7 +116,9 @@ async def test_이미_지운_문서를_다시_지워도_문서를_바꾸지_않�
     assert await _document(pipeline, ingested.document_id) == deleted
 
 
-async def test_없는_키와_묘비_행의_키를_지우면_document_not_found다(pipeline: Pipeline) -> None:
+async def test_없는_키와_삭제_기록_행의_키를_지우면_document_not_found다(
+    pipeline: Pipeline,
+) -> None:
     ingested = await pipeline.ingest(휴가)
     await pipeline.make_tombstone(ingested.document_id)
 
@@ -278,7 +280,7 @@ async def test_색인_전에_지운_문서를_옛_내용으로_되살려_조각�
     assert document.status is DocumentStatus.PARSED
 
 
-async def test_묘비_행과_같은_키가_오면_그_행을_다시_써_UUID와_세대를_잇고_created를_낸다(
+async def test_삭제_기록_행과_같은_키가_오면_그_행을_다시_써_UUID와_세대를_잇고_created를_낸다(
     pipeline: Pipeline, tmp_path: Path
 ) -> None:
     ingested = await pipeline.ingest(휴가)
