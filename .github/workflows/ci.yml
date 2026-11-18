@@ -79,7 +79,7 @@ jobs:
       - run: uv run python tools/run_hooks.py
       - run: uv run zizmor --offline --strict-collection --config .github/zizmor.yml .
 
-  # 컨테이너 이미지는 첫날부터 CI 에서 짓는다(operations.md 검증). 판 태그를 붙여 내는 것은 release-image 다. 지은
+  # 컨테이너 이미지는 첫날부터 CI 에서 짓는다(operations.md 검증). 버전 태그를 붙여 내는 것은 release-image 다. 지은
   # 이미지를 띄워 /health 가 답하는지까지 본다. 진입점이나 root 가 아닌 사용자의 권한이 틀리면 짓기는 초록이어도
   # 여기서 빨갛다.
   image:

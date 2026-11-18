@@ -1,4 +1,4 @@
-# rag-engine 이미지. 판 태그, 단독 compose, SBOM과 CVE 스캔은 release-image 가 정한다(docs/constitution/tech.md).
+# rag-engine 이미지. 버전 태그, 단독 compose, SBOM과 CVE 스캔은 release-image 가 정한다(docs/constitution/tech.md).
 # CI 의 image 잡이 PR 마다 짓고 띄워 /health 를 본다.
 FROM python:3.12-slim
 
