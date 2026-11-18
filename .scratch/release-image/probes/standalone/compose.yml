@@ -1,0 +1,132 @@
+# release-image 명세의 시제품 단독 compose(프로브). 제품의 compose 가 아니다. 명세 "단독 compose"가 정한 꼴을
+# 실제로 띄워 본 것이고, run.py 가 변수(PROBE_*)를 채워 부른다. 손으로 띄우려면 run.py 의 독스트링을 본다.
+# 제품의 compose 와 다른 것은 셋이다. 밖으로 여는 포트가 443 이 아니라 127.0.0.1 의 높은 포트이고,
+# 이미지가 Docker Hub 의 것이 아니라 방금 지은 시험용 이름이며, 모델 볼륨이 미리 채운 바깥 볼륨이다.
+name: ri-probe-standalone
+
+x-health: &health
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+  start_interval: 2s
+
+x-rag-env: &rag-env
+  RAG_DATABASE_URL: postgresql://rag:${PROBE_POSTGRES_PASSWORD}@postgres:5432/rag
+  RAG_DATA_DIR: /data
+  RAG_ALLOWED_HOSTS: ${PROBE_ALLOWED_HOSTS}
+  RAG_DEFAULT_EMBEDDING_URL: http://embedding:80
+  RAG_MAX_UPLOAD_MB: ${PROBE_MAX_UPLOAD_MB:-100}
+
+services:
+  proxy:
+    # 공식 nginx 안정판(1.30.6 alpine). agent-os 의 단독 배포가 고정한 digest 와 같다.
+    image: nginx@sha256:583b7f2fce1cdb8da5ad5c39ebd3c33b98b87d493190e548bdee1fa8c619c311
+    user: "101:101"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    command: ["nginx", "-c", "/etc/rag-engine/nginx.conf", "-g", "daemon off;"]
+    ports:
+      - "127.0.0.1:${PROBE_PORT}:8443"
+    volumes:
+      - ./proxy/nginx.conf:/etc/rag-engine/nginx.conf:ro
+      - ./proxy/${PROBE_SITE_CONF:-site.conf}:/etc/rag-engine/site.conf:ro
+      - ${PROBE_WORK}/tls:/etc/nginx/tls:ro
+    # 서버가 건강해진 뒤에 뜬다. 밖으로 여는 포트가 서버가 답할 수 있을 때 열린다.
+    # 대조군은 둘이다. compose.nowait.yml 은 이 depends_on 을 떼고, PROBE_PROXY_WAITS=service_started 는
+    # 서버 컨테이너가 시작하기만 하면 뜨게 한다(run.py 의 sse, recover 단계). `up --wait` 가 돌아온 뒤에
+    # 502 를 낸 것은 depends_on 을 뗀 대조군뿐이었다(sse 단계 5.4초, recover 단계 1.0초 동안).
+    # service_healthy 와 service_started 는 502 가 없었다(run_out.txt).
+    depends_on:
+      server:
+        condition: ${PROBE_PROXY_WAITS:-service_healthy}
+
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: ${PROBE_POSTGRES_PASSWORD}
+      POSTGRES_DB: rag
+    restart: unless-stopped
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U rag -d rag"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
+    command: ["--model-id", "BAAI/bge-m3", "--port", "80", "--max-batch-tokens", "4096"]
+    restart: unless-stopped
+    volumes:
+      - models:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:80/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 240
+      start_period: 10s
+
+  # 서버 앞에 한 번 도는 마이그레이션 서비스(ADR 0011). 끝나면 서버와 작업자가 뜬다.
+  migrate:
+    image: ${PROBE_NAMESPACE}/rag-engine-server:${PROBE_VERSION}
+    command: ["rag-engine", "migrate"]
+    environment: *rag-env
+    read_only: true
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  server:
+    image: ${PROBE_NAMESPACE}/rag-engine-server:${PROBE_VERSION}
+    environment: *rag-env
+    read_only: true
+    # 1MiB 를 넘는 올리기는 멀티파트 파서가 임시 파일로 받는다. 루트가 읽기 전용이라 쓸 자리를 준다.
+    # compose.notmp.yml 이 이 줄을 뗀 대조군이다(run.py 의 checks 단계).
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    volumes:
+      - data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      <<: *health
+      test:
+        - CMD
+        - python
+        - -c
+        - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)
+
+  worker:
+    image: ${PROBE_NAMESPACE}/rag-engine-worker:${PROBE_VERSION}
+    environment: *rag-env
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    volumes:
+      - data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres: {}
+  data: {}
+  models:
+    external: true
+    name: ${PROBE_MODELS_VOLUME}
+
+networks:
+  default:
+    enable_ipv6: false

@@ -1,0 +1,5 @@
+# compose.yml 위에 얹는 덮어쓰기(프로브, 대조군). 서버의 /tmp tmpfs 를 뗀다. 루트가 읽기 전용이라 서버가
+# 임시 파일을 쓸 자리가 없어진다. 1MiB 를 넘는 올리기가 어떻게 되는지 본다(run.py 의 checks 단계).
+services:
+  server:
+    tmpfs: !reset []
