@@ -10,9 +10,9 @@
 준비시키고 일반 계획을 골라도 술어가 상수라 색인을 쓴다. 판 UUID와 차원은 데이터베이스가 낸 UUID와
 정수라 문자열에 바깥 글이 끼지 않는다. 질의 벡터와 키워드와 후보 수는 매개변수다.
 
-보관 표(`archived_chunks`)는 조각 표의 칸에 보관 시각만 더한 것이다. 보관(`archive_chunks`)은 문서의
-조각을 보관 표로 옮기고, 되돌림(`restore_archived_chunks`)은 만든 내용 해시가 같은 보관 조각을 복사
-칸을 문서의 지금 값으로 쓰며 검색 표로 복사한다.
+삭제 보관함(`archived_chunks`)은 조각 표의 칸에 보관 시각만 더한 것이다. 보관(`archive_chunks`)은
+문서의 조각을 삭제 보관함으로 옮기고, 되돌림(`restore_archived_chunks`)은 만든 내용 해시가 같은
+보관 조각을 복사 칸을 문서의 지금 값으로 쓰며 검색 표로 복사한다.
 """
 
 import re
@@ -321,7 +321,7 @@ class PostgresVectorIndex:
         await self._connection.execute(sa.delete(tables.chunks).where(*conditions))
 
     async def archive_chunks(self, document_id: UUID, archived_at: datetime) -> None:
-        # 보관 표는 조각 표의 칸에 보관 시각만 더한 것이라 칸 이름이 같다.
+        # 삭제 보관함은 조각 표의 칸에 보관 시각만 더한 것이라 칸 이름이 같다.
         names = [column.name for column in tables.chunks.c]
         stamp = sa.cast(sa.literal(archived_at), tables.archived_chunks.c.archived_at.type)
         await self._connection.execute(

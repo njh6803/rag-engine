@@ -122,7 +122,7 @@ class Pipeline:
         await delete_document(self.unit_of_work, key, now=self.clock[0])
 
     async def archived_texts(self, document_id: UUID) -> list[str]:
-        """보관 표에 있는 그 문서의 조각 글(순번 순)."""
+        """삭제 보관함에 있는 그 문서의 조각 글(순번 순)."""
         async with self.engine.connect() as connection:
             rows = await connection.execute(
                 sa.text(

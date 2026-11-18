@@ -1,4 +1,4 @@
-"""삭제, 되살림, 묘비를 HTTP 표면으로 본다(티켓 11, 스토리 5, 6).
+"""삭제, 되살림, 삭제 기록을 HTTP 표면으로 본다(티켓 11, 스토리 5, 6).
 
 서버는 실제 uvicorn이고 검색과 문서 조회는 공식 MCP SDK의 클라이언트로 `/mcp`에 접속해 부른다.
 작업자는 같은 설정으로 한 번 돈다. 임베딩 서버만 스텁이다. 판 전환을 사이에 둔 되살림은
@@ -211,7 +211,7 @@ async def test_다른_내용으로_되살리면_갱신한_내용이_색인되고
     assert len(_blobs(round_trip.server, document_id)) == 1
 
 
-async def test_묘비_행과_같은_키가_오면_그_행의_UUID를_이어_created로_다시_쓴다(
+async def test_삭제_기록_행과_같은_키가_오면_그_행의_UUID를_이어_created로_다시_쓴다(
     round_trip: RoundTrip,
 ) -> None:
     round_trip.drop_reranker()

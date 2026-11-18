@@ -4,9 +4,9 @@
 작업을 넣는다. 순서는 이렇다. 먼저 크기와 형식과 그룹을 거른다(셋 다 작업을 만들지 않는다). 원본은
 작업 단위를 열기 전에 새 경로 `blobs/<문서 UUID>/<원본 UUID>`에 쓴다. 작업 단위가 롤백되면 그 요청이
 쓴 새 원본만 지우고, 커밋된 뒤에는 문서 행이 더는 가리키지 않는 원본을 지운다. 내용이 바뀐 갱신은
-옛 원본을, 묘비 행을 다시 쓰는 `created`는 묘비 행이 가리키던 원본을, 문서 행이 새 원본을 가리키지
-않는 수집(`unchanged`, `requeued`, 그룹만 바뀐 `updated`, 내용이 같은 되살림)은 방금 쓴 새 원본을
-지운다. 지우기는 최선 노력이다. 지우지 못한 원본은 고아로 남긴다.
+옛 원본을, 삭제 기록 행을 다시 쓰는 `created`는 삭제 기록 행이 가리키던 원본을, 문서 행이 새
+원본을 가리키지 않는 수집(`unchanged`, `requeued`, 그룹만 바뀐 `updated`, 내용이 같은 되살림)은
+방금 쓴 새 원본을 지운다. 지우기는 최선 노력이다. 지우지 못한 원본은 고아로 남긴다.
 
 같은 키를 동시에 넣은 두 요청은 (원천, 키) 유일 제약이 직렬화한다. 진 쪽은 원본을 이긴 문서의 UUID
 아래 새 원본 경로로 옮긴 뒤 갱신으로 다시 처리한다.
@@ -17,8 +17,8 @@
 
 지운 문서(`deleted_at`은 있고 `purged_at`은 없다)가 같은 키로 돌아오면 되살림(`restored`)이다. 문서
 UUID를 그대로 두고, 내용이 같으면 보관 조각을 검색 표로 되돌리며(되돌릴 조각이 없는 대상 판이 있을
-때만 작업을 넣는다), 내용이 다르면 보관 조각을 지우고 갱신으로 간다. 정리 작업이 물리 삭제해 묘비
-행만 남은 문서(`purged_at`)가 같은 키로 오면 그 행을 다시 써 UUID를 잇고 `created`다.
+때만 작업을 넣는다), 내용이 다르면 보관 조각을 지우고 갱신으로 간다. 정리 작업이 물리 삭제해
+삭제 기록 행만 남은 문서(`purged_at`)가 같은 키로 오면 그 행을 다시 써 UUID를 잇고 `created`다.
 """
 
 import hashlib
@@ -275,8 +275,8 @@ async def _record(
 
 
 def _fresh_document(upload: _Upload, now: datetime, *, generation: int) -> Document:
-    """요청이 만드는 문서 행. 시행일과 접근 그룹은 비운다. 묘비 행을 다시 쓸 때는 `update`가 만든
-    시각을 그대로 두므로 `created_at`은 처음 만든 시각으로 남는다."""
+    """요청이 만드는 문서 행. 시행일과 접근 그룹은 비운다. 삭제 기록 행을 다시 쓸 때는 `update`가
+    만든 시각을 그대로 두므로 `created_at`은 처음 만든 시각으로 남는다."""
     return Document(
         id=upload.document_id,
         source_id=upload.source_id,
@@ -313,9 +313,10 @@ async def _create(
 async def _rewrite_tombstone(
     transaction: Transaction, tombstone: Document, upload: _Upload, request_id: UUID, now: datetime
 ) -> _Recorded:
-    """정리 작업이 물리 삭제한 문서의 묘비 행을 다시 쓴다. UUID를 잇고 세대를 이어서 올린다. 묘비는
-    "있었다"는 표시이지 새 문서를 막는 장치가 아니다. 묘비 행이 아직 가리키는 옛 원본은 정리 작업이
-    이미 지웠을 수 있고, 지우기는 없는 원본에도 안전하므로 커밋 뒤에 한 번 더 지운다."""
+    """정리 작업이 물리 삭제한 문서의 삭제 기록 행을 다시 쓴다. UUID를 잇고 세대를 이어서 올린다.
+    삭제 기록은 "있었다"는 표시이지 새 문서를 막는 장치가 아니다. 삭제 기록 행이 아직 가리키는 옛
+    원본은 정리 작업이 이미 지웠을 수 있고, 지우기는 없는 원본에도 안전하므로 커밋 뒤에 한 번 더
+    지운다."""
     document = _fresh_document(upload, now, generation=tombstone.generation + 1)
     await transaction.documents.update(document)
     job_id = await _schedule(transaction, document, None, request_id, now)
@@ -366,8 +367,8 @@ async def _restore(
     request_id: UUID,
     now: datetime,
 ) -> _Recorded:
-    """지운 문서가 같은 키로 돌아왔다. 지운 문서는 조각이 보관 표에만 있고 색인 상태가 없어 어느
-    지식베이스에서도 빠질 것이 없다. 그래서 되살린 문서를 처음부터 요청의 그룹에 든 것으로 두고
+    """지운 문서가 같은 키로 돌아왔다. 지운 문서는 조각이 삭제 보관함에만 있고 색인 상태가 없어
+    어느 지식베이스에서도 빠질 것이 없다. 그래서 되살린 문서를 처음부터 요청의 그룹에 든 것으로 두고
     지식베이스 행의 잠금과 조각의 복사 칸을 다룬다. 내용이 다르면 보관 조각을 지우고 갱신으로
     간다(`restored`에 작업 ID)."""
     revived = replace(deleted, deleted_at=None, group_id=upload.group_id)

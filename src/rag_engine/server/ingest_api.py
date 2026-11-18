@@ -1,5 +1,5 @@
 """수집 API(명세 "수집 API"). `POST /api/v1/ingest/documents`와 같은 경로의 `DELETE`이고 `admin`
-토큰의 몫이다(인증 미들웨어가 `reader`의 REST를 막는다). 삭제는 소프트 삭제로 204이고, 이미 지운
+토큰의 몫이다(인증 미들웨어가 `reader`의 REST를 막는다). 삭제는 임시 삭제로 204이고, 이미 지운
 문서도 204, 없는 키는 404 `document_not_found`, 키가 없거나 비었거나 NUL 문자를 담으면 422다.
 
 `POST`는 `unchanged`만 200이고 나머지는 202다. 크기 상한은 멀티파트 파서가 임시 파일로 받아 알게 된
