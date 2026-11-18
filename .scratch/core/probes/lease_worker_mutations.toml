@@ -216,7 +216,7 @@ new = '''    previous_fd = signal.set_wakeup_fd(-1)
 
 [[mutation]]
 name = "임대를 늘리는 간격이 삼분의 일이 아니라 절반이다"
-tests = ["tests/app/test_job_lease.py::test_임대를_늘리는_간격은_임대_기간의_삼분의_일이다"]
+tests = ["tests/app/test_job_lease.py::test_작업_담당_기록의_기한을_늘리는_간격은_그_기한의_삼분의_일이다"]
 expect = "red"
 expect_output = ["450.0 =="]
 
@@ -229,7 +229,7 @@ new = '''    return lease_seconds / 2
 
 [[mutation]]
 name = "연장이 임대를 잃었다고 알려도 연장을 멈추지 않는다"
-tests = ["tests/app/test_job_lease.py::test_임대를_잃은_것이_드러나면_처리를_멈추고_문서에도_작업_행에도_쓰지_않는다"]
+tests = ["tests/app/test_job_lease.py::test_작업_담당_기록을_잃은_것이_드러나면_처리를_멈추고_문서에도_작업_행에도_쓰지_않는다"]
 expect = "red"
 expect_output = ["<built-in function monotonic>"]
 
@@ -246,7 +246,7 @@ new = '''        except AttemptLostError:
 
 [[mutation]]
 name = "연장의 일시 실패에 연장 작업이 멈춘다"
-tests = ["tests/app/test_job_lease.py::test_임대_연장이_일시_실패해도_다음_간격에_다시_늘린다"]
+tests = ["tests/app/test_job_lease.py::test_작업_담당_기록_연장이_일시_실패해도_다음_간격에_다시_늘린다"]
 expect = "red"
 expect_output = ["where 0 = <built-in method count of list object"]
 
@@ -320,7 +320,7 @@ new = '''        max_overflow=_MAX_OVERFLOW,
 
 [[mutation]]
 name = "연장의 예기치 않은 오류가 연장 작업을 죽이고 작업을 실패로 끝낸다"
-tests = ["tests/app/test_job_lease.py::test_임대_연장이_예기치_않게_실패해도_작업을_실패로_끝내지_않고_다음_간격에_다시_늘린다"]
+tests = ["tests/app/test_job_lease.py::test_작업_담당_기록_연장이_예기치_않게_실패해도_실패로_끝내지_않고_다시_늘린다"]
 expect = "red"
 expect_output = ["'job_crashed'"]
 
