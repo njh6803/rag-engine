@@ -16,8 +16,9 @@
 돈다.
 
 인자 해석과 조립만 한다. 묶음의 파일을 읽고 쓰는 코드는 `rag_engine.adapters`에, 값과 판정은
-`rag_engine.domain`과 `rag_engine.app`에 있다. `tools/`는 이미지에 실리지 않으므로(`.dockerignore`)
-이 입구는 관리자 페이지가 평가를 열기 전까지 제품 이미지에 없다. 하위 명령은 받는 티켓이 더한다.
+`rag_engine.domain`과 `rag_engine.app`에 있다. `tools/`는 이미지에 실리지
+않으므로(`deploy/images/Dockerfile.dockerignore`) 이 입구는 관리자 페이지가 평가를 열기 전까지 제품
+이미지에 없다. 하위 명령은 받는 티켓이 더한다.
 
 `validate`는 데이터베이스 없이 묶음의 형식과 목록을 본다. `--indexed`를 주면 평가 전용
 데이터베이스에서 묶음의 모든 문서가 색인되어 있는지와 글귀가 그 문서의 본문에 있는지까지 본다. 틀린

@@ -69,7 +69,7 @@ reviews:
         실제 연결 문자열·토큰·비밀번호가 하드코딩되는지, .env나 바깥 서비스(실제 데이터베이스,
         네트워크)에 기대는 시험이 환경이 없을 때 skip으로 초록이 되는지(원칙 I), 표본 문서가 공개
         문서 묶음이 아니라 설치처의 문서인지(docs/constitution/operations.md 설치처 정보) 본다.
-    - path: "Dockerfile"
+    - path: "deploy/images/Dockerfile"
       instructions: |
         컨테이너는 root가 아닌 사용자로 돈다(docs/constitution/tech.md). 마지막 USER가 root인지,
         비밀이 이미지 레이어(ARG, ENV, 복사된 .env)에 남는지 본다.

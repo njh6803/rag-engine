@@ -21,6 +21,7 @@ from rag_engine.app.ingest import (
 )
 from rag_engine.domain.entities import IngestAction
 from rag_engine.domain.ports import BlobStore, UnitOfWork
+from rag_engine.server.api_version import API_VERSION
 from rag_engine.server.ingest_models import DocumentKey, IngestFields, IngestResponse
 from rag_engine.server.problems import ProblemDetails
 from rag_engine.server.request_context import request_id_of
@@ -40,7 +41,7 @@ _DELETE_PROBLEMS: dict[int | str, dict[str, object]] = {
 def build_ingest_router(
     unit_of_work: UnitOfWork, blob_store: BlobStore, max_upload_bytes: int
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/v1/ingest")
+    router = APIRouter(prefix=f"/api/{API_VERSION}/ingest")
 
     @router.post("/documents", status_code=202, responses=_PROBLEMS)
     async def ingest(

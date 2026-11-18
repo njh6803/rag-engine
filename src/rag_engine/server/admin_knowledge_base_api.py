@@ -22,6 +22,7 @@ from rag_engine.server.admin_knowledge_base_models import (
     KnowledgeBaseResponse,
     ReindexResponse,
 )
+from rag_engine.server.api_version import API_VERSION
 from rag_engine.server.problems import ProblemDetails
 from rag_engine.server.request_context import request_id_of
 
@@ -43,7 +44,7 @@ _REINDEX_RESPONSES: dict[int | str, dict[str, object]] = {
 def build_admin_knowledge_base_router(
     unit_of_work: UnitOfWork, maintenance: IndexMaintenance, compute_elements: ComputeIndexElements
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/v1/admin")
+    router = APIRouter(prefix=f"/api/{API_VERSION}/admin")
 
     @router.get("/knowledge-bases")
     async def knowledge_bases() -> KnowledgeBaseListResponse:

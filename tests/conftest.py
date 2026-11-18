@@ -382,6 +382,24 @@ def seeded_command_environment(
     return seeded_database_url
 
 
+MARKER_RELEASE_NUMBER = "9.9.9-rc.9"
+
+
+@pytest.fixture
+def marker_release_number(monkeypatch: pytest.MonkeyPatch) -> str:
+    """설치된 패키지의 번호를 읽는 자리를 표지 번호로 바꿔 끼운다. 개발 체크아웃의 번호는
+    `0.0.0`이라 바꿔 끼우지 않으면 번호를 코드에 `0.0.0`으로 적은 구현도 번호를 보는 시험을 지난다.
+    번호를 읽는 모든 자리가 `release_number()`를 거치므로 서버와 명령이 같은 값을 본다(release-image
+    01)."""
+
+    def marker_version(distribution: str) -> str:
+        assert distribution == "rag-engine"
+        return MARKER_RELEASE_NUMBER
+
+    monkeypatch.setattr("rag_engine.adapters.release_number.version", marker_version)
+    return MARKER_RELEASE_NUMBER
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if not isinstance(reporter, pytest.TerminalReporter):

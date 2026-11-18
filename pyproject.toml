@@ -29,6 +29,9 @@ dependencies = [
     "pdfplumber>=0.11.10,<0.12",
     "python-hwpx>=6.11,<7",
     "anthropic>=2.8,<3",
+    # 수집 API 의 파일 올리기가 이 패키지로 멀티파트 본문을 읽는다. mcp 가 끌어오는 전이 의존으로만 들어 있으면
+    # 그 패키지가 의존을 뗄 때 이미지에서 올리기가 깨지므로 직접 선언한다(release-image 01).
+    "python-multipart>=0.0.33",
 ]
 
 [project.scripts]
