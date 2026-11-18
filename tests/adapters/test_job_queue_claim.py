@@ -1,8 +1,8 @@
 """`JobQueue` 어댑터의 꺼내기와 끝내기(명세 "수집 파이프라인과 작업", ADR 0009).
 
-작업자는 `FOR UPDATE SKIP LOCKED`로 `queued`이고 `run_after`가 지난 작업이나 임대가 끝난 `running`
-작업 하나를 꺼내 `running`으로 바꾸고 시도 횟수를 올리고 올린 세대를 비운다. 임대 연장과 재시도
-예약의 완성은 13과 12다.
+작업자는 `FOR UPDATE SKIP LOCKED`로 `queued`이고 `run_after`가 지난 작업이나 작업 담당 기록의 기한이
+끝난 `running` 작업 하나를 꺼내 `running`으로 바꾸고 시도 횟수를 올리고 올린 세대를 비운다. 작업
+담당 기록 연장과 재시도 예약의 완성은 13과 12다.
 """
 
 from dataclasses import replace
@@ -30,7 +30,7 @@ async def _seed_documents(unit_of_work: PostgresUnitOfWork, count: int = 1) -> l
     return documents
 
 
-async def test_지금_돌_수_있는_작업을_꺼내_실행_중으로_바꾸고_시도_횟수와_임대를_둔다(
+async def test_지금_돌_수_있는_작업을_꺼내_실행_중으로_바꾸고_시도_횟수와_작업_담당_기록을_둔다(
     engine: AsyncEngine,
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
@@ -78,7 +78,7 @@ async def test_두_작업자가_동시에_꺼내도_같은_작업을_잡지_않�
     assert second_job is None
 
 
-async def test_임대가_끝난_실행_중_작업은_다른_작업자가_가져가고_시도_횟수가_는다(
+async def test_작업_담당_기록의_기한이_끝난_실행_중_작업은_다른_작업자가_가져가고_시도_횟수가_는다(
     engine: AsyncEngine,
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
@@ -144,7 +144,9 @@ async def test_작업_행_조건은_작업자와_시도_횟수가_꺼낼_때_값
     assert results == [True, False, False]
 
 
-async def test_임대를_잃은_시도가_끝내려_해도_작업_행은_그대로다(engine: AsyncEngine) -> None:
+async def test_작업_담당_기록을_잃은_시도가_끝내려_해도_작업_행은_그대로다(
+    engine: AsyncEngine,
+) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
     (document,) = await _seed_documents(unit_of_work)
     async with unit_of_work.begin() as transaction:
@@ -171,7 +173,7 @@ async def test_임대를_잃은_시도가_끝내려_해도_작업_행은_그대�
     )
 
 
-async def test_끝낸_작업은_상태와_끝난_시각과_오류_코드를_갖고_임대가_사라진다(
+async def test_끝낸_작업은_상태와_끝난_시각과_오류_코드를_갖고_작업_담당_기록이_사라진다(
     engine: AsyncEngine,
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)

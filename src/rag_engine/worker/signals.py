@@ -12,8 +12,8 @@ asyncio의 `add_signal_handler`는 Windows에서 쓸 수 없다. 그래서 `sign
 ProactorEventLoop에서는 `NotImplementedError`가 난다.
 
 처리기가 하는 일은 표지를 세우는 것뿐이라 신호가 몇 번 와도 같다. 진행 중인 작업이 길면 그만큼
-뒤에 나가고, 바로 끊으려면 프로세스를 강제로 끝내야 한다. 그렇게 끊긴 작업은 임대 기간이 끝날
-때까지 `running`으로 남다가 다른 작업자가 인수한다.
+뒤에 나가고, 바로 끊으려면 프로세스를 강제로 끝내야 한다. 그렇게 끊긴 작업은 작업 담당 기록의 기한이
+끝날 때까지 `running`으로 남다가 다른 작업자가 인수한다.
 """
 
 import asyncio

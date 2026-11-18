@@ -180,7 +180,9 @@ async def test_임베딩하는_사이_세대가_올라가면_조각을_쓰지_�
     assert state is None
 
 
-async def test_임대를_잃은_시도는_세대를_올리지_못하고_버려진다(pipeline: Pipeline) -> None:
+async def test_작업_담당_기록을_잃은_시도는_세대를_올리지_못하고_버려진다(
+    pipeline: Pipeline,
+) -> None:
     ingested = await pipeline.ingest(휴가)
     stale = await pipeline.claim("worker-1")
     await pipeline.claim("worker-2", later=LEASE_SECONDS + 1)
