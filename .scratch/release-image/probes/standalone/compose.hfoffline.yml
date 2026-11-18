@@ -1,0 +1,6 @@
+# compose.offline.yml 위에 더 얹는 덮어쓰기(프로브). 임베딩 서버가 Hugging Face 에 묻지 않게 한다.
+# 이 변수 없이도 모델 볼륨만으로 뜨는지와 견준다(run.py 의 offline 단계).
+services:
+  embedding:
+    environment:
+      HF_HUB_OFFLINE: "1"
