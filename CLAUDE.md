@@ -22,7 +22,7 @@ MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 �
 | docs/PRD.md | 범위를 정하거나 스펙이 충돌할 때 | 사용자 승인으로 |
 | GLOSSARY.md, docs/adr/ | 용어를 쓰거나 결정을 바꾸기 전 | domain-modeling, 승인 뒤 |
 | CODING_STANDARDS.md | 리뷰 때 | retro가 다섯 번째 반복에서 더할 때 |
-| .scratch/plan.md(생성 파일), .scratch/<slug>/(기능 계획 plan.md, 명세, 티켓) | 이어서 할 때, 티켓 시작 전 | 전체 계획은 `uv run python tools/plan_table.py`가 기능 계획과 티켓에서 만든다(손으로 고치지 않는다). 기능 계획은 설계 인터뷰를 마친 세션(`설계` 줄)과 기능의 마지막 티켓을 닫는 커밋(`끝` 줄)이, 명세와 티켓은 to-spec, to-tickets가 |
+| .scratch/plan.md(생성 파일), .scratch/<slug>/(기능 계획 plan.md, 명세, 티켓) | 이어서 할 때, 티켓 시작 전 | 전체 계획은 `uv run python tools/plan_table.py`가 기능 계획과 티켓에서 만든다(손으로 고치지 않는다). 기능 계획은 설계 인터뷰를 마친 세션(`설계` 줄)과 기능의 마지막 티켓을 닫는 커밋(`끝` 줄. 제품 변경을 담은 기능이면 `docs/release-notes/features/`의 기능 단락도)이, 명세와 티켓은 to-spec, to-tickets가 |
 | .scratch/retro-queue/(폴더, 항목마다 파일 하나. 모양과 인용을 푸는 규칙은 그 README.md) | 회고 뒤, chore 브랜치를 딸 때 | 후보가 승인될 때와 반영을 닫을 때 |
 | docs/journal/ | 이어서 할 때 끝의 "다음" | 단계를 마칠 때 |
 | docs/agents/ | 트래커·도메인 문서 규약이 헷갈릴 때 | setup 스킬이 |
