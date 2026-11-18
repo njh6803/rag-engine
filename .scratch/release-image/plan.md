@@ -17,6 +17,8 @@ search-eval 설계(ADR 0019, 2026-11-12)가 넘긴 것: search-eval이 구현되
 
 설계 세션(2026-11-17)이 넘긴 것: 설계 PR이 고칠 수 없던 파일의 낡은 문장을 이 기능의 티켓이 고친다. `Dockerfile` 1줄의 주석은 판 태그와 단독 compose를 "release-image 가 정한다"고 적으며 `tech.md`를 가리키는데, 그 칸은 이제 ADR 0020의 결정을 적는다. `next-session` `merge.md` "출시 PR"의 "이 저장소에서는 아직 출시 PR을 열어 본 적이 없어"는 출시 PR 32와 62가 병합된 뒤로 사실이 아니고, 병합 절차를 옮기는 티켓이 그 절을 고칠 때 함께 고친다. `docs/constitution/operations.md` 8줄의 "판 태그를 붙여 내는 것은 release-image다"는 운영 문서의 두 절을 옮기는 티켓이 판 내기 절을 가리키게 고치고, `.github/workflows/ci.yml` 82줄의 같은 주석도 워크플로를 옮기는 티켓이 함께 고친다. PR 직전 리뷰가 명세에 넘긴 물음 넷(제품 변경의 경로 목록에 `pyproject.toml`의 칸을 넣을지, 프록시가 서버에 넘기는 머리, 프록시의 접근 로그가 남기는 것, 프록시가 받는 TLS의 가장 낮은 판)은 ADR 0020 Consequences "명세가 재거나 정하는 것"에 더했다.
 
+쉬운 말 규칙을 맞춘 harness 티켓(`plain-words-in-written-artifacts`, 2026-11-18)이 넘긴 것: 용어집이 운영자가 설치된 서버를 더 높은 제품 판으로 바꾸는 일의 이름을 "업그레이드"로 바꿨다(ADR 0020 이력 2026-11-18). 명세와 티켓은 그 이름으로 쓴다. ADR 0020이 PR 서식의 칸 이름으로 적은 "올릴 때 운영자가 손댈 것"은 그 티켓이 고치지 않았다. 그 서식을 옮기는 명세와 티켓이 칸의 이름을 새 이름에 맞출지 정한다(일지 `docs/journal/2026-11-18-1008-plain-words-in-written-artifacts.md`).
+
 공개 시연(core, search-eval, release-image)의 한 축이다. 판을 고정한 이미지가 있어야 클라이언트가 실제 서버로 시험할 수 있다.
 
 수락: 깨끗한 VM에서 단독 compose로 띄워 관리 명령으로 표본 문서를 넣은 뒤 MCP 클라이언트로 검색할 수 있고, 그 VM에서 밖으로 열린 포트가 하나다.

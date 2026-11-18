@@ -101,4 +101,5 @@ docs/          헌법, ADR, PRD, 에이전트 문서, 일지
 | 기능 계획, 명세, 티켓 | `.scratch/<slug>/` | harness 티켓은 `.scratch/harness/issues/`. 규약은 `docs/agents/issue-tracker.md` |
 | 회고가 낸 미반영 후보 | `.scratch/retro-queue/` | 모양과 규칙은 그 폴더의 `README.md` |
 | 킥오프의 입력과 진행 | `.scratch/kickoff-input.md`, `.scratch/kickoff.md` | 킥오프 뒤에는 기록이다 |
+| 용어집의 이름을 agent-os의 결정에 맞추는 일의 입력 | `.scratch/glossary-names-input.md` | 사용자가 붙여 넣은 지시문의 원문이다. 받은 글 그대로의 기록이라 고치지 않는다 |
 | 설치된 스킬과 해시 | `skills-lock.json` | |
