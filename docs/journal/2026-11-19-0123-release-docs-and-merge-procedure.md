@@ -1,6 +1,6 @@
 # release-image 06: 릴리스 규칙을 헌법과 병합 절차에 적는다 · 2026-11-19
 
-release-image 티켓 여덟 가운데 첫 티켓(`06-release-docs-and-merge-procedure`)을 구현한 세션의 기록이다. 시작 프롬프트는 `/implement .scratch/release-image/issues/06-release-docs-and-merge-procedure.md`이고 브랜치는 `feature/06-release-docs-and-merge-procedure`, 작업은 워크트리 `06-release-docs-and-merge-procedure`에서 했다. 모델은 Sonnet 5.5 / high다. 컨텍스트가 한 번 압축됐다. 준비, 한 일, 헌법 판을 올린 까닭, 셀프 리뷰, 회고, 다음을 차례로 둔다.
+release-image 티켓 여덟 가운데 첫 티켓(`06-release-docs-and-merge-procedure`)을 구현한 세션의 기록이다. 시작 프롬프트는 `/implement .scratch/release-image/issues/06-release-docs-and-merge-procedure.md`이고 브랜치는 `feature/06-release-docs-and-merge-procedure`, 작업은 워크트리 `06-release-docs-and-merge-procedure`에서 했다. 모델은 Sonnet 5.5 / high다. 컨텍스트가 한 번 압축됐다. 준비, 한 일, 헌법 판을 올린 까닭, 셀프 리뷰, PR 직전 리뷰, 커밋, 회고, 다음을 차례로 둔다.
 
 ## 준비
 
@@ -57,7 +57,7 @@ Major 둘, Minor 일곱, Nit 하나다. 인용과 잔존은 글자 그대로 맞
 7. Minor: 마지막 PR 찾기가 만든 순서에 기댄다(표준 축 3과 같다).
 8. Minor: "이 저장소에서 agent-os와 다른 것"의 "다시 돌린 실행은 앞 초안을 지운다"는 거짓이다. agent-os의 `release.yml`에 이미 `앞 실행의 초안 지우기` 단계가 있다.
 9. Minor: `이미 공개된 판` 단계가 단계 목록에 없다.
-10. Nit: "main에 병합한 핫픽스와 출시 PR은 릴리스를 일으킨다"가 닫힌 말처럼 읽힌다.
+10. Nit: main에 병합한 핫픽스와 출시 PR이 릴리스를 일으킨다는 문장이 닫힌 말처럼 읽힌다.
 11. Nit: `tech.md` 컨테이너 칸의 기존 문장을 바꾼 것이 "새 행" 승인에 딱 맞지는 않다.
 12. Nit: `docs/constitution/README.md`의 operations.md 설명에 새 절이 없고, 판을 올린 까닭을 적을 일지가 아직 없다.
 
@@ -94,6 +94,44 @@ Major 둘, Minor 일곱, Nit 하나다. 인용과 잔존은 글자 그대로 맞
 - `operations.md` 보는 자리: "아래 PR 서식 칸, 노트 검사, PR 제목 워크플로는 release-image의 05가 들인다."
 
 다시 돌린 명령: 손으로 치는 검사 다섯(테스트, 린트, 포맷 검사, 타입체크, import 경계)은 커밋이 부르는 pre-commit으로 갈음한다. 결과는 아래 "커밋" 절에 적는다.
+
+## PR 직전 리뷰
+
+`coderabbit-review` 서브에이전트가 CodeRabbit CLI 0.7.5를 끝까지 돌렸다(`--base 4d7cf257d39ea81293df58732cf2e68b58b54781`, 커밋 `afc27f7`, 파일 12개). 좌석은 `Seat: not assigned`, `Plan: Free`였지만 리뷰는 끝났다. CodeRabbit이 3건을 냈고 서브에이전트가 gh와 agent-os 코드로 직접 읽어 더했다. 총 8건에서 유효 6(Major 1, Minor 5), 보류 2, 오탐 1이다. 비밀 값을 세션이나 문서에 남기게 하는 문장은 없었다. 밀어 달라고 넘긴 사실 문장 여섯은 모두 맞았다(`gh pr list --state merged`가 `createdAt` 내림차순으로 나오는 것은 #26이 #25보다 앞에 나온 것으로 봤다).
+
+1. Major(유효): 결정표의 이어받기가 PR 코멘트의 `릴리스:` 줄을 쓴 사람을 가리지 않고 믿는다. 저장소가 공개라 남도 코멘트를 달 수 있고, 거짓 해시나 셸 문자가 든 값이 명령에 들어갈 수 있다.
+2. Minor(유효): 실행이 아직 도는 중이면 `conclusion`이 비어 "그 밖의 값" 갈래로 잘못 넘어간다.
+3. Minor(유효, 가능성 낮음): 병합 뒤라면 어느 세션이든 결정표의 맨 위 줄을 평가해 다른 세션이 지켜보는 릴리스를 가로챌 수 있다.
+4. Minor(유효, 드문 틈): 병합과 첫 `릴리스:` 코멘트 사이에 끊기면 릴리스가 어디에도 기록되지 않는다.
+5. Minor(보류): `gh run rerun` 직후 `gh run watch`가 옛 attempt의 끝난 상태를 읽을 수 있다. 재현하지 못했다.
+6. Minor(유효, 문구): digest를 "다시 지으면 달라진다"고 단정했다.
+7. Minor(유효): 표의 `앞 실행의 초안 지우기`·`초안 만들기`·`자산 올리기` 줄이 핫픽스 전에 남은 초안을 보라고 하지 않는다. 핫픽스는 다른 커밋이라 남은 초안이 있으면 사전 확인이 실패한다.
+8. Minor(보류, 낮음): 후보를 최근 10개로 자르면 오래 열려 있던 PR을 놓칠 수 있다는 지적이다.
+9. 오탐: 루트 `Dockerfile`이 제품 변경 경로에 없다는 지적이다. 명세 97·255줄이 `deploy/images/`로 옮기는 일을 티켓 01에 두었다.
+
+- 1은 고쳤다. 결정표 줄과 `merge.md`의 이어받기가 `author.login`이 `gh api user --jq .login`의 값과 같은 코멘트만 읽고, 줄이 `릴리스: 병합 커밋 <40자리 16진수 해시>`로 시작하지 않으면 값을 명령에 넣지 않고 사용자에게 넘기게 했다.
+- 2는 고쳤다. 결과를 가르는 3의 첫머리에 `status`가 `completed`가 아니면 2로 돌아가 감시 알림을 기다린다고 적었다.
+- 3은 남긴다. 나란히 도는 세션이 같은 릴리스를 이어받아도 감시와 결과 코멘트가 겹칠 뿐이고, 진행 중인 실행의 `gh run rerun`은 GitHub가 거절할 것으로 서브에이전트가 보았다(돌려 보지 않은 어림이다). 시각 문턱은 감시가 15분을 넘어도 줄의 시각은 처음 그대로라 맞지 않는다. 겹침이 실제로 나면 그때 "이어받음" 줄을 더한다.
+- 4는 고쳤다. 병합 직후 같은 턴에 기록 코멘트부터 하고 dev 확인으로 가도록 `병합 뒤`와 핫픽스 행의 순서를 바꿨다.
+- 5는 남긴다. 완료 상태로 비쳐도 2의 `status` 확인이 아니라 옛 실패를 다시 읽는 정도이고, 그 갈래는 사용자에게 넘기거나 같은 표를 다시 따를 뿐이라 해가 작다. 재현하지 못해 어림이다.
+- 6은 고쳤다. "같은 커밋을 다시 지으면 달라질 수 있다"로 바꾸고 표의 두 줄을 가리켰다.
+- 7은 고쳤다. agent-os `tools/release_ci.py`의 `precheck`(245~250줄)를 읽어 다른 커밋의 초안이면 `ReleaseError`를 내는 것을 확인했다. 그 줄에 핫픽스 전에 그 번호의 초안을 보고 남았으면 사용자에게 청해 지운다고 더했다.
+- 8은 남긴다. `--base main` 병합 PR만 보므로 후보는 핫픽스와 출시 PR뿐이고, 만든 뒤 열 개가 넘는 main행 PR이 더 생기는 일은 드물다.
+- 9는 그대로 둔다. 01이 옮긴 뒤에는 `deploy/`가 덮는다.
+
+반영으로 새로 쓴 사실 문장은 다음과 같다. PR 봇 회차에서 이 문장들이 밀리면 위 근거로 판정한다.
+
+- `merge.md` 이어받기: "저장소가 공개라 남도 코멘트를 달 수 있으므로, `gh pr view <번호> --json comments`가 낸 코멘트 가운데 `author.login`이 `gh api user --jq .login`의 값과 같은 것만 읽는다."
+- `merge.md` 3: "진행 중인 실행은 `conclusion`이 비어 아래 \"그 밖의 값\"으로 잘못 넘어간다."
+- `operations.md` 표: "`tools/release_ci.py`의 `precheck`가 다른 커밋의 초안이면 `ReleaseError`를 낸다. agent-os의 코드를 읽은 것이다"
+
+## 커밋
+
+첫 커밋은 `afc27f7`(12개 파일, 261줄 더함, 40줄 뺌)이다. 커밋 전에 손으로 돌린 검사 러너(`uv run python tools/run_checks.py`)는 두 번째 실행에서 열 가지(test-db, check-ticket, zizmor, lint-imports, check-instructions, check-type-escapes, pyright-linux, pyright, run-hooks, pytest)가 모두 통과했고 pytest는 441.9초였다. 첫 실행은 셀프 리뷰를 반영하느라 그 사이 문서를 고쳐 결과가 고친 뒤의 상태를 재지 못했고(아래 "회고" 1), 처음부터 다시 돌렸다. 커밋이 부른 pre-commit도 같은 열 가지와 표, 줄 구분 문자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지 훅이 모두 통과했고 pytest는 446.0초였다.
+
+인용 대조는 막지 않는 경고 1건(이 일지 60줄)을 냈다. 명세 축 보고의 문장을 줄여 따옴표로 옮긴 것이라 따옴표를 떼고 풀어 썼다.
+
+PR 직전 리뷰의 고침과 이 절을 싣는 두 번째 커밋의 pre-commit 결과는 PR 본문에 적는다.
 
 ## 회고
 
