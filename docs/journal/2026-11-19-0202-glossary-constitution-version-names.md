@@ -99,6 +99,35 @@ pyright가 시험 파일의 안 쓰는 인자와 스크래치 스크립트 타�
 - **`bug-perf-review`.** 유효한 지적 없음, Minor 하나. 겨냥한 주장 여섯(실행 논리 불변, 출력과 단언 일치, ADR 0020이 든 0016 제목, ADR 0006 이력 안에만 옛 이름, 08 티켓 25줄이 다른 워크트리와 겹치지 않음, 코드 스팬이 뜻을 안 바꿈)이 모두 맞았다. 도구 둘을 직접 돌려 새 문구를 확인했다.
 - **Minor (고침).** ADR 0016 이력이 "문구 수정(patch)으로 올렸다"고만 적었으나 번호는 1.3.9에서 1.4.1이라 minor 자리가 바뀐다. "크기는 patch이지만 번호는 minor 자리가 바뀐 것이고 이 PR이 먼저 병합되면 1.4.0은 형제 몫으로 비는 번호"라는 문장을 더했다. 도구는 크기를 보지 않아 동작은 같다.
 
+## PR 봇 회차
+
+PR 74를 연 뒤 `@coderabbitai review`를 남겼으나 CodeRabbit이 무료 OSS 리뷰 한도(`Review rate limited`, 12분 뒤 다시)에 걸려 리뷰하지 않았다(`wait_ci`가 NEUTRAL로 보고했다). claude-review는 첫 회차에 Critical·Major 없이 Minor 셋과 Nit 하나를 냈다. 모두 보류했고 이유는 다음과 같다.
+
+- Minor `GLOSSARY.md` 221행의 판 항목이 `버전`을 피할 말로 적는다, Minor `principles.md` 거버넌스의 "판은 semver다"와 헌법 README의 낱말이 다르다, Minor 같은 글 안에 계약·서버 번호의 "판"과 헌법 "버전"이 섞인다: 모두 이 PR의 티켓이 뒤 영역 몫으로 밝힌 홀로 쓰인 "판"과 용어집의 판 항목이다. 헌법 원칙 문구를 고치는 일은 사용자 승인이 필요하다. 아래 "다음"에 넘겼다.
+- Nit 형제 PR 73과 버전 줄이 겹친다: 병합 직전에 `tools/sibling_overlap.py`를 한 번 더 돌린다(아래 "다음").
+
+## 회고
+
+낸 후보 여섯: 승인 3(회차를 더한 것 2, 새 항목 1), 기각 3, 넘김 0.
+
+- **승인, `rename-sweep-misses-forms`의 4회차.** 사건: 옛 이름 "헌법 판"을 구절과 줄바꿈 꼴로 훑고도, 살아 있는 `ready-for-agent` 티켓 `release-image/issues/08-ci-releases-from-main.md`의 홀로 쓰인 "판을 patch로 올리고"를 놓쳤다. 명세 축이 잡았다. 층: 훑기 도구(조건 1·2·3 충족, 더하는 것이라 다섯 번째에 반영). 대기열 항목의 승인 줄에 4회차와 이 일지를 더했다.
+- **승인, `commit-msg-after-slow-checks`의 6회차.** 사건: 커밋 제목 79자(72자 제한 초과)를 `git commit -m`으로 쳐서 `parallel-checks` 434초를 돈 뒤에야 `commit-msg`가 막았다. 설계된 사각(`-m`은 `hook_bash_commit_msg`가 보지 않는다)이다. 이미 5회차를 넘어 chore 계기 조건에 든 항목이다. 승인 줄에 6회차와 이 일지를 더했다.
+- **승인, 새 항목 `journal-cite-on-reworded-lines`(1회차).** 사건: 낱말만 바꾼 줄에 원래 있던 agent-os 일지 인용을 `sibling_overlap`이 "어디에도 없는 일지를 가리킨 인용"으로 읽어 종료 1을 냈고, 코드 스팬으로 감싸 다시 줄을 쪼개면 또 걸려 세 번 돌렸다. 층: 도구 고침이라 사건 하나로 승인하고, 지금 PR의 범위가 아니라 대기열에 둔다. 새 항목을 쓰기 전에 `--search 어디에도.없는.일지`와 `일지.인용`으로 같은 일의 항목을 찾았으나 없었다.
+- **기각, 티켓 수용 기준의 명령 오기.** 티켓의 `uv run python tools/check_constitution_version.py`는 `ModuleNotFoundError`로 죽는다(훅은 `-m` 꼴을 쓴다). 두 축 리뷰가 잡은 한 번의 오기이고 되풀이된 사건이 아니다.
+- **기각, 티켓이 ADR 0006에 이력을 단다고 적었으나 실제로는 달지 않았다.** 한 번의 계획 어긋남이고 리뷰가 잡았다.
+- **기각, `check-quotes`의 인용 대조 경고 셋.** 이미 있는 검사가 알렸고 그 자리에서 따옴표를 풀어 고쳤다.
+
+일지에만 남기는 것: CodeRabbit CLI의 거절(`Seat: not assigned`, Plan Free)은 이 계정의 알려진 상태라 새 후보가 아니다. 지침의 대체(`bug-perf-review`와 `/security-review`)로 갔다.
+
 ## 다음
 
-(PR 병합 뒤 회고가 채운다.)
+PR 74가 병합되면 헌법 버전 1.4.1이 dev에 있고, 이름 바꾸기(받은 지시문 5-2의 차례 5)는 첫 영역이 끝난다. 남은 영역은 대기열 `glossary-plain-names-left`에 있다. 새 세션은 아래 순서를 읽고 시작한다.
+
+1. **헌법 쪽 "판"과 용어집의 판 항목.** `GLOSSARY.md`의 판 항목과 그 `_Avoid_` 줄, `docs/constitution/principles.md` 거버넌스의 "판은 semver다"와 원칙 VII의 "판을 붙인다", `tech.md`·`operations.md`의 계약 번호 "판"을 "버전"으로 맞춘다. 헌법 문구라 사용자 승인이 필요하고, 헌법 버전은 문구 수정이면 patch로 올린다. 이 PR의 claude-review Minor 둘(용어집 221행, "판은 semver다")이 이 일이다.
+2. **홀로 쓰인 "판".** 파일의 사본·개정을 뜻하는 곳("커밋에 들 판(색인)", "main 의 판", "옮긴 판", "읽은 판")과 `eval_judge.py`의 "지시문 판", 루트 `README.md`의 "서버의 판", PR 서식의 "올린 판"을 뜻에 따라 가른다. 이 PR의 claude-review Minor 하나(한 글 안에서 "판"과 "버전" 섞임)가 이 일이다.
+3. **릴리스를 가리키는 "판".** 형제 `06-release-docs-and-merge-procedure`(PR 73)가 병합된 뒤에 맞춘다. 06의 티켓과 일지에는 옛 이름 "헌법 판"이 있고, 병합되면 dev에 옛 이름이 다시 들어온다.
+4. **색인 판 계열(마지막).** 사용자가 "버전으로 바꾼다"를 골랐다.
+
+병합 직전에 `uv run python tools/sibling_overlap.py`를 다시 쳐서 형제 PR 73의 상태를 본다. PR 73이 먼저 병합되면 이 PR은 `docs/constitution/README.md`의 버전 줄에서 글자 충돌이 나고, 1.4.0 위로 1.4.1을 유지한다. 반대로 이 PR이 먼저면 PR 73이 충돌을 풀고 1.4.1보다 높은 번호로 올려야 한다(`tools/check_constitution_version.py`는 크기를 보지 않는다).
+
+`tidy-checkouts`의 `empty-trash`가 `.pyd` 파일을 쥔 프로세스 때문에 종료 1이었다. 다음 정리가 다시 비운다.
