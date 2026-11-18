@@ -11,7 +11,7 @@ pre-commit 이 워크트리에서 훅을 돌리면 git 이 `GIT_DIR` 같은 저�
 pre-commit 은 `SKIP` 에 든 훅을 건너뛰고, 그 값은 검사 러너와 pytest 를 거쳐 시험이 임시 저장소에서
 띄우는 pre-commit 까지 이어진다. 그러면 시험 안의 그 훅이 파일이 없어서가 아니라 `SKIP` 때문에
 건너뛰어져 출력이 달라진다(rag-engine 2026-11-09 킥오프 첫 커밋의 `SKIP=check-constitution-version`
-이 헌법 판 검사의 시험 하나를 깨뜨렸다). 그래서 `SKIP` 도 벗긴다.
+이 헌법 버전 검사의 시험 하나를 깨뜨렸다). 그래서 `SKIP` 도 벗긴다.
 
 `rag_engine` 은 테스트와 같은 체크아웃의 `src` 에서 불려야 한다. `.venv` 의 editable 설치는 절대
 경로라, 다른 체크아웃의 `.venv` 인터프리터(주 체크아웃의 것, IDE 가 잡은 것, 활성화된 셸의 것)로

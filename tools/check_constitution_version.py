@@ -1,42 +1,42 @@
-"""헌법 파일을 고친 가지가 헌법의 판을 올렸는지 커밋 전에 본다(대기열 31).
+"""헌법 파일을 고친 가지가 헌법의 버전을 올렸는지 커밋 전에 본다(대기열 31).
 
-`principles.md` 거버넌스는 헌법 파일의 어느 변경이든 판을 올리라고 적는데, 그 문장이 있는데도 PR
-열하나(#19~#50)가 판을 올리지 않았다(일지 2026-09-25-01). `tools/sibling_overlap.py` 가 같은 판정을
-알림(종료 1)으로 내지만(대기열 224) 막지는 않는다. 이 검사는 pre-commit 에서 막는다.
+`principles.md` 거버넌스는 헌법 파일의 어느 변경이든 버전을 올리라고 적는데, 그 문장이 있는데도 PR
+열하나(#19~#50)가 버전을 올리지 않았다(`일지 2026-09-25-01`). `tools/sibling_overlap.py` 가 같은
+판정을 알림(종료 1)으로 내지만(대기열 224) 막지는 않는다. 이 검사는 pre-commit 에서 막는다.
 
 사용: uv run python -m tools.check_constitution_version [저장소 루트]
       (`tools.sibling_overlap` 을 import 해서 `-m` 으로 띄운다. 루트를 주지 않으면 이 도구의
       체크아웃)
 
 판정. 커밋에 들 판(색인)의 헌법 파일(`principles.md`·`tech.md`·`operations.md`) 가운데 이 가지가
-고친 것이 있으면, 색인의 헌법 README(`docs/constitution/README.md`)의 판이 기준 ref 의 판과도
-merge-base 의 판과도 달라야 한다. 기준 ref 는 `tools/base_rule.py` 의 기준 브랜치 규칙이 고른다
+고친 것이 있으면, 색인의 헌법 README(`docs/constitution/README.md`)의 버전이 기준 ref 의 버전과도
+merge-base 의 버전과도 달라야 한다. 기준 ref 는 `tools/base_rule.py` 의 기준 브랜치 규칙이 고른다
 (`hotfix/*` 는 `origin/main`, 그 밖은 `origin/dev` 가 있으면 그것, 없으면 `origin/main`). 이 가지가
 고친 파일은 merge-base 와 다르고 기준 ref 와도 다른 것이다. main 과 같은 파일은 main 이 들여온
 것이라, main 을 합치는 커밋이 main 의 변경을 이 가지의 것으로 세지 않는다(거르는 규칙은
 `tools/sibling_overlap.py` 의 `_own_changes` 와 같고, 그 도구는 작업 트리와 추적하지 않는 파일을, 이
-검사는 색인을 견준다). 판 줄이 main 이나 merge-base 의 것이어도, 판 줄이 main 의 판 줄과 같고 main
-의 헌법 README 가 이 가지 몫으로 비워 둔 판의 문장을 이 가지가 지웠으면 그 판으로 올린 것이다(대기열
-279, retro-queue-per-item 06, `reserved_version`). 판은 가지마다 한 번 올리면 되어, 앞 커밋에서
-올렸으면 다른 헌법 파일만 고친 뒤 커밋도 지나간다. 형제 가지와 번호가 겹치는지는 보지 않는다. 그것은
-`tools/sibling_overlap.py` 가 본다.
+검사는 색인을 견준다). 버전 줄이 main 이나 merge-base 의 것이어도, 버전 줄이 main 의 버전 줄과 같고
+main 의 헌법 README 가 이 가지 몫으로 비워 둔 버전의 문장을 이 가지가 지웠으면 그 버전으로 올린
+것이다(대기열 279, retro-queue-per-item 06, `reserved_version`). 버전은 가지마다 한 번 올리면 되어,
+앞 커밋에서 올렸으면 다른 헌법 파일만 고친 뒤 커밋도 지나간다. 형제 가지와 번호가 겹치는지는 보지
+않는다. 그것은 `tools/sibling_overlap.py` 가 본다.
 
-종료 코드: 지나가면 0, 판을 올리지 않았으면 1, 판정하지 못했으면(git 저장소 밖, 기준 ref 가
+종료 코드: 지나가면 0, 버전을 올리지 않았으면 1, 판정하지 못했으면(git 저장소 밖, 기준 ref 가
 없다, merge-base 가 없는 얕은 클론) 2. pre-commit 에서는 셋째도 막는다. 건너뛰려면
 `SKIP=check-constitution-version` 이다.
 
-못 보는 것: 판정이 커밋 단위라, 헌법 파일을 고친 커밋과 판을 올린 커밋을 나누면 가지 전체로는 맞아도
-앞 커밋이 막힌다(잘못 막는다, 대기열 31의 자리 후보 (1)). 판을 올리는 문장은 같은 커밋에 둔다. CI 는
-이 검사를 돌리지 않는다(pre-commit 에만 있다). 판을 올렸는지는 판 줄이 달라졌는지만 보고,
-크기(patch, minor, major)가 맞는지와 판을 올린 까닭을 그 변경의 ADR 이력이나 일지에 적었는지는 보지
-않는다(헌법 README 에는 이력 문단이 없다). 헌법 파일을 지우기만 한
+못 보는 것: 판정이 커밋 단위라, 헌법 파일을 고친 커밋과 버전을 올린 커밋을 나누면 가지 전체로는
+맞아도 앞 커밋이 막힌다(잘못 막는다, 대기열 31의 자리 후보 (1)). 버전을 올리는 문장은 같은 커밋에
+둔다. CI 는 이 검사를 돌리지 않는다(pre-commit 에만 있다). 버전을 올렸는지는 버전 줄이 달라졌는지만
+보고, 크기(patch, minor, major)가 맞는지와 버전을 올린 까닭을 그 변경의 ADR 이력이나 일지에
+적었는지는 보지 않는다(헌법 README 에는 이력 문단이 없다). 헌법 파일을 지우기만 한
 커밋은 pre-commit 이 지운 파일을 훅의 `files` 거르기에 넘기지 않아 이 검사가 돌지 않는다(놓친다.
 도구를 바로 부르면 막는다). 모든 커밋에 띄우면(`always_run`) 커밋마다 수 초에서 십수 초(이 PC 에서
 `uv run` 의 시작까지 손으로 본 값이 4.5~17초, 다른 세션이 함께 돌 때)가 더 들어 두지 않았다.
-기준 ref 는 로컬의 것이라, 받지 않은 main 이나 dev 가 같은 판을 먼저 매겼어도 모른다(놓친다. 합칠 때
-판 줄이 겹치고, 형제 번호는 `tools/sibling_overlap.py` 가 본다). 비워 둔 판은 브랜치 이름으로 찾아,
-분리 HEAD 에서 비워 둔 판을 쓴 커밋은 막힌다(잘못 막는다. `git rebase --continue` 가 커밋을 옮길
-때는 pre-commit 이 돌지 않아, 손으로 분리 HEAD 에서 `git commit` 을 칠 때만 난다).
+기준 ref 는 로컬의 것이라, 받지 않은 main 이나 dev 가 같은 버전을 먼저 매겼어도 모른다(놓친다. 합칠
+때 버전 줄이 겹치고, 형제 번호는 `tools/sibling_overlap.py` 가 본다). 비워 둔 버전은 브랜치 이름으로
+찾아, 분리 HEAD 에서 비워 둔 버전을 쓴 커밋은 막힌다(잘못 막는다. `git rebase --continue` 가 커밋을
+옮길 때는 pre-commit 이 돌지 않아, 손으로 분리 HEAD 에서 `git commit` 을 칠 때만 난다).
 """
 
 from __future__ import annotations
@@ -65,19 +65,19 @@ ROOT = Path(__file__).resolve().parent.parent
 
 @dataclass(frozen=True)
 class Judged:
-    """판정에 쓰는 것. 판은 `**Version**` 줄의 번호이고 없으면 None 이다."""
+    """판정에 쓰는 것. 버전은 `**Version**` 줄의 번호이고 없으면 None 이다."""
 
     changed: list[str]  # 이 가지가 고친 헌법 파일(색인 기준)
-    ours: str | None  # 색인의 판
-    main: str | None  # 기준 ref 의 판
-    base: str | None  # merge-base 의 판
-    reserved: str | None  # main 이 이 가지 몫으로 비워 둔 판 가운데 이 가지가 문장을 지운 것
-    base_label: str = "origin/main"  # `main` 의 판을 읽은 기준 ref(`tools/base_rule.py`)
+    ours: str | None  # 색인의 버전
+    main: str | None  # 기준 ref 의 버전
+    base: str | None  # merge-base 의 버전
+    reserved: str | None  # main 이 이 가지 몫으로 비워 둔 버전 가운데 이 가지가 문장을 지운 것
+    base_label: str = "origin/main"  # `main` 의 버전을 읽은 기준 ref(`tools/base_rule.py`)
 
     @property
     def passes(self) -> bool:
-        """지나간다. 고친 헌법 파일이 없거나, 판 줄이 main 과 merge-base 의 것과 다르거나, 비워 둔
-        판을 썼다."""
+        """지나간다. 고친 헌법 파일이 없거나, 버전 줄이 main 과 merge-base 의 것과 다르거나, 비워 둔
+        버전을 썼다."""
         if not self.changed:
             return True
         if self.ours is None:
@@ -141,22 +141,22 @@ def judge(root: Path) -> Judged:
 
 def _report(judged: Judged, out: Callable[[str], None]) -> None:
     if not judged.changed:
-        out("헌법 판: 이 가지가 고친 헌법 파일이 없다")
+        out("헌법 버전: 이 가지가 고친 헌법 파일이 없다")
         return
     if judged.passes:
-        reserved = f", 비워 둔 판 {judged.reserved}" if judged.reserved is not None else ""
+        reserved = f", 비워 둔 버전 {judged.reserved}" if judged.reserved is not None else ""
         out(
-            f"헌법 판: 이 가지가 고친 헌법 파일 {len(judged.changed)}, 판 {judged.ours}"
+            f"헌법 버전: 이 가지가 고친 헌법 파일 {len(judged.changed)}, 버전 {judged.ours}"
             f" ({judged.base_label} {judged.main}{reserved})"
         )
         return
-    out(f"!! 헌법 파일을 고쳤는데 판을 올리지 않았다: {', '.join(judged.changed)}")
-    ours = "판 줄이 없다" if judged.ours is None else f"판 {judged.ours}"
-    out(f"   {ours} — {judged.base_label} 의 판 {judged.main}, merge-base 의 판 {judged.base}")
+    out(f"!! 헌법 파일을 고쳤는데 버전을 올리지 않았다: {', '.join(judged.changed)}")
+    ours = "버전 줄이 없다" if judged.ours is None else f"버전 {judged.ours}"
+    out(f"   {ours} — {judged.base_label} 의 버전 {judged.main}, merge-base 의 버전 {judged.base}")
     out(
-        f"   {CONSTITUTION} 의 판 줄을 같은 커밋에서 올린다(principles.md 거버넌스의 semver)."
-        " 판을 올린 까닭은 이 변경의 ADR 이력이나 일지에 적고 README 에는 적지 않는다."
-        " main 이 이 가지 몫으로 비워 둔 판을 쓰려면 판 줄은 main 의 것 그대로 두고 README 에서"
+        f"   {CONSTITUTION} 의 버전 줄을 같은 커밋에서 올린다(principles.md 거버넌스의 semver)."
+        " 버전을 올린 까닭은 이 변경의 ADR 이력이나 일지에 적고 README 에는 적지 않는다."
+        " main 이 이 가지 몫으로 비워 둔 버전을 쓰려면 버전 줄은 main 의 것 그대로 두고 README 에서"
         " 그 비워 둔 문장을 지운다."
         " 형제 가지와 겹치지 않는 번호는 `uv run python tools/sibling_overlap.py` 가 알린다"
     )
@@ -171,7 +171,7 @@ def main(argv: Sequence[str], *, out: Callable[[str], None] = print) -> int:
         judged = judge(root)
     except SurveyError as error:
         out(
-            "헌법 판을 판정하지 못했다(막는다. 건너뛰려면 SKIP=check-constitution-version):"
+            "헌법 버전을 판정하지 못했다(막는다. 건너뛰려면 SKIP=check-constitution-version):"
             f" {error}"
         )
         return 2

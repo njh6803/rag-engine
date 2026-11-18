@@ -249,7 +249,7 @@ main이 움직이면(출시 PR이나 핫픽스 PR이 병합되면) 릴리스 워
 ### 규약 문서와 낡은 문장
 
 - [넘겨받음] 운영 문서(`docs/constitution/operations.md`)의 두 절(릴리스 노트 원고, 릴리스가 나는 차례와 실패한 릴리스를 다시 돌리는 절차), `docs/constitution/tech.md`의 레지스트리와 점검 도구의 행, `next-session`의 `merge.md`에서 릴리스를 기다리는 절, `docs/agents/issue-tracker.md`의 기능 단락 문장, 구현 스킬(`.claude/skills/implement/SKILL.md`)의 느낌표 문장을 agent-os에서 옮긴다(ADR 0020 "옮기는 방식"). 하네스의 말(릴리스한다, 제품 변경, 릴리스 노트 원고)의 정의는 운영 문서가 적는다(ADR 0020 "용어").
-- [넘겨받음] 운영 문서와 `tech.md`를 고치는 티켓은 헌법 판을 올린다. 절을 더하면 minor, 문구만 고치면 patch다(헌법 거버넌스, ADR 0020 Consequences "헌법").
+- [넘겨받음] 운영 문서와 `tech.md`를 고치는 티켓은 헌법 버전을 올린다. 절을 더하면 minor, 문구만 고치면 patch다(헌법 거버넌스, ADR 0020 Consequences "헌법").
 - [정함] 병합 절차를 옮기는 티켓은 `merge.md` "출시 PR"의 전제 확인에 사람 몫이 끝났는지 보는 줄을 더한다. Docker Hub 저장소 둘, 접근 토큰, 환경 `release`와 그 안의 비밀 값 둘과 변수 하나가 있는지는 `gh api`로 환경의 비밀 값 이름과 변수를 읽어 본다(값은 읽지 않는다). 그 절의 "이 저장소에서는 아직 출시 PR을 열어 본 적이 없어"도 고친다. 출시 PR 32와 62가 병합된 뒤로 사실이 아니다(기능 계획이 넘긴 것).
 - [정함] 낡은 문장과 옛 경로를 고친다. 루트 Dockerfile 1줄의 주석은 파일이 `deploy/images/`로 옮겨지며 사라지고, `docs/constitution/operations.md` 8줄의 "버전 태그를 붙여 내는 것은 release-image다"는 운영 문서의 두 절을 옮기는 티켓이 새 절을 가리키게 고치고, `README.md` 5줄과 37~44줄(이미지를 짓고 띄우는 법)은 설치 안내를 싣는 티켓이 묶음의 설치 안내를 가리키게 고친다.
 - [정함] 루트의 Dockerfile을 가리키는 자리는 Dockerfile을 옮기는 티켓(첫째 묶음)이 같은 PR에서 새 경로로 고친다. `.coderabbit.yaml` 72줄의 경로 지시(`path: "Dockerfile"`. 리뷰 봇이 그 파일에 붙이는 검토 지침)와 `README.md` 88줄의 `Dockerfile`, `README.md` 40줄의 `docker build -t rag-engine .`, `tools/search_eval.py` 독스트링 19줄의 `.dockerignore`이다. 40줄의 명령은 루트에 Dockerfile이 없어지는 순간 깨지므로 설치 안내를 싣는 티켓까지 기다리지 않고 bake 설정으로 짓는 명령으로 바꾼다.
