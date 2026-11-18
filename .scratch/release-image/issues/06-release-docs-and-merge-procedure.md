@@ -27,11 +27,11 @@ agent-os 커밋 `1aac0cf`의 같은 절들을 옮겨 이 저장소의 이름(릴
 ## Comments
 
 - **agent-os 변경 확인.** `git -C C:/project/agent fetch origin`이 종료 0으로 끝난 뒤 `git -C C:/project/agent log --oneline b74a8adf2..origin/dev -- docs/constitution/operations.md docs/constitution/tech.md .claude/skills/next-session/merge.md docs/agents/issue-tracker.md .claude/skills/implement/SKILL.md`가 종료 0에 빈 출력이었다. 이 티켓이 옮기는 파일은 기점 뒤로 바뀌지 않아 사용자에게 묻지 않았다. 옮긴 원본은 `origin/dev`의 해당 파일이다.
-- **헌법 승인.** 운영 문서 두 절, `tech.md` 두 행, 헌법 판 올림(1.3.8에서 1.4.0)의 초안을 질문 화면으로 보이고 승인을 물었다. 사용자의 답은 다음과 같다.
+- **헌법 승인.** 운영 문서 두 절, `tech.md` 두 행, 헌법 버전 올림(1.3.8에서 1.4.0. 병합 전에 dev가 1.4.1이 되어 1.5.0으로 고쳤다)의 초안을 질문 화면으로 보이고 승인을 물었다. 사용자의 답은 다음과 같다.
 
   > 승인한다
 
-- **헌법 판.** 절을 더하므로 minor로 1.4.0이다. 판을 매기기 전에 `uv run python tools/sibling_overlap.py`가 낸 형제의 가장 높은 판이 1.3.9(워크트리 `glossary-ask-remaining-names`)여서 그보다 높게 골랐다. 올린 까닭은 이 PR의 일지에 적는다.
+- **헌법 버전.** 절을 더하므로 minor로 1.4.0이다(병합 전에 dev가 #74로 1.4.1이 되어 1.5.0으로 올렸다). 판을 매기기 전에 `uv run python tools/sibling_overlap.py`가 낸 형제의 가장 높은 판이 1.3.9(워크트리 `glossary-ask-remaining-names`)여서 그보다 높게 골랐다. 올린 까닭은 이 PR의 일지에 적는다.
 - **05가 쓸 절 이름.** 노트 검사가 막는 글에서 가리킬 운영 문서의 절은 `docs/constitution/operations.md`의 "릴리스 노트 원고"다. 그 안에서 느낌표를 붙이는 기준은 "느낌표의 기준", 기준을 보는 자리는 "보는 자리" 문단이다.
 - **08이 확인할 것.** 운영 문서의 "릴리스가 나는 차례와 실패한 릴리스를 다시 돌리는 절차"가 적은 잡과 단계의 이름은 agent-os `release.yml`의 이름(`지난 판의 공개 릴리스 확인`, `이미 공개된 판` 등 `판`이 든 이름 포함)을 옮긴 것이다. 단 이 저장소의 시험 단계는 `단독 compose 시험`으로 썼고, 준비 단계는 이름을 못박지 않고 "파이썬 의존성과 임베딩 모델 폴더를 맞추는 단계"로 적었다. 08이 워크플로를 옮긴 뒤 이름이 같은지 보고 다르면 운영 문서를 고친다. 그 절의 `tools/release_ci.py`의 `repository`, `judge`, `verify-files`와 `tools/release.py`의 `PRODUCT_PATHS`, `tools/check_notes.py`는 아직 없는 파일이고 02, 05, 08이 들인다.
 - **병합 절차에서 정한 것.** 릴리스 기다림은 병합 커밋에 `.github/workflows/release.yml`이 있을 때만 한다. `릴리스:` 줄은 핫픽스도 출시 PR도 병합한 PR의 코멘트에 적는다(일지는 병합 전에 푸시를 마쳐 병합 뒤에 적으면 커밋되지 않는다). 이어받기는 결정표 맨 위 줄이 맡는다. 사람 몫을 보는 `gh api` 응답의 모양은 GitHub REST 문서에서 읽은 것이고, 환경이 없을 때 404가 나는 것과 Docker Hub 조회가 기존 저장소(`njh6803/agent-os-runtime`)에서 200, 없는 저장소(`rag-engine-server`, `rag-engine-worker`)에서 404인 것만 손으로 봤다. 환경이 생긴 뒤 처음 칠 때 `--jq`가 맞는지 본다.

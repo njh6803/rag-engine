@@ -14,17 +14,17 @@ release-image 티켓 여덟 가운데 첫 티켓(`06-release-docs-and-merge-proc
 
 - `docs/constitution/operations.md`: 새 절 "릴리스 노트 원고"(릴리스한다, 제품 변경, 원고 셋, 느낌표의 기준, 보는 자리)와 "릴리스가 나는 차례와 실패한 릴리스를 다시 돌리는 절차"(차례, 다시 돌리는 규칙, 실패한 단계별 표, 남긴 초안으로 끝내기, 다시 돌리지 않는 것, 이 저장소에서 agent-os와 다른 것).
 - `docs/constitution/tech.md`: 레지스트리와 점검 도구 두 행, 컨테이너 행의 가리킴.
-- `docs/constitution/README.md`: 판 1.4.0.
+- `docs/constitution/README.md`: 버전 1.5.0.
 - `.claude/skills/next-session/merge.md`와 `SKILL.md`: 릴리스 기다림 절, 출시 PR 전제 확인 넷째(릴리스의 사람 몫), 결정표 맨 위 줄.
 - `.claude/skills/implement/SKILL.md`, `docs/agents/issue-tracker.md`, `CLAUDE.md`의 지도 표: 기능 단락과 느낌표, `upgrade/` 원고.
 
-헌법 초안(운영 문서 두 절, `tech.md` 두 행, 판 올림)은 질문 화면으로 보이고 승인을 물었다. 사용자의 답은 다음과 같다.
+헌법 초안(운영 문서 두 절, `tech.md` 두 행, 버전 올림)은 질문 화면으로 보이고 승인을 물었다. 사용자의 답은 다음과 같다.
 
 > 승인한다
 
-## 헌법 판을 올린 까닭
+## 헌법 버전을 올린 까닭
 
-절을 더하는 변경은 minor라서 1.3.8에서 1.4.0으로 올렸다(`docs/constitution/principles.md` 거버넌스). 판을 매기기 전에 `uv run python tools/sibling_overlap.py`가 낸 형제의 가장 높은 판이 1.3.9(워크트리 `glossary-ask-remaining-names`)였다. 그 형제가 먼저 병합되면 1.3.9 위에 쌓이므로 minor 올림인 1.4.0이 겹치지 않는다. `tools/check_constitution_version.py`가 pre-commit에서 이 올림을 강제한다.
+절을 더하는 변경은 minor라서 1.3.8에서 1.4.0으로 올렸다. 봇 리뷰 중에 dev가 #74(헌법 판을 버전으로 바꾸는 낱말 교체, 1.4.1)를 받아 이 브랜치가 그 위에 쌓이게 되었고, 같은 minor 규칙으로 1.5.0이 되었다. 아래 설명은 처음 1.4.0을 매길 때의 것이다(`docs/constitution/principles.md` 거버넌스). 판을 매기기 전에 `uv run python tools/sibling_overlap.py`가 낸 형제의 가장 높은 판이 1.3.9(워크트리 `glossary-ask-remaining-names`)였다. 그 형제가 먼저 병합되면 1.3.9 위에 쌓이므로 minor 올림인 1.4.0이 겹치지 않는다. `tools/check_constitution_version.py`가 pre-commit에서 이 올림을 강제한다.
 
 ## 셀프 리뷰
 
@@ -179,7 +179,7 @@ PR #73(헤드 `5d5ed7d`)의 첫 회차다. 검사 여덟(CodeRabbit, claude-revi
 
 ## 다음
 
-PR(base dev)은 헌법 판 1.4.0을 올리는 변경이다. 운영 문서의 두 절과 `tech.md` 두 행, 병합 절차(`merge.md`, `next-session/SKILL.md`)와 구현 스킬, 티켓, 이 일지, 회고가 고친 대기열 항목 하나를 싣는다. 기능 계획에 `**끝:**` 줄은 없다(티켓 일곱이 남았다). base가 dev인 PR이라 `merge.md`의 "워크트리에서 병합할 때"로 squash 병합한다. 헌법을 바꾸는 PR이라 사용자 승인은 병합 전에 받았다(위 "한 일"). 승인 뒤 셀프 리뷰가 승인한 절 안에서 바꾼 것은 사실 정정(거짓이던 "다른 것" 문장 삭제), 단계 이름 둘과 `이미 공개된 판` 추가, 낱말 풀이, 아직 없는 장치를 05가 들인다는 한 문장이다. 병합 보고에 이 목록을 함께 적는다. 주 체크아웃 미갱신: 루트는 dev.
+PR(base dev)은 헌법 버전 1.5.0을 올리는 변경이다. 운영 문서의 두 절과 `tech.md` 두 행, 병합 절차(`merge.md`, `next-session/SKILL.md`)와 구현 스킬, 티켓, 이 일지, 회고가 고친 대기열 항목 하나를 싣는다. 기능 계획에 `**끝:**` 줄은 없다(티켓 일곱이 남았다). base가 dev인 PR이라 `merge.md`의 "워크트리에서 병합할 때"로 squash 병합한다. 헌법을 바꾸는 PR이라 사용자 승인은 병합 전에 받았다(위 "한 일"). 승인 뒤 셀프 리뷰가 승인한 절 안에서 바꾼 것은 사실 정정(거짓이던 "다른 것" 문장 삭제), 단계 이름 둘과 `이미 공개된 판` 추가, 낱말 풀이, 아직 없는 장치를 05가 들인다는 한 문장이다. 병합 보고에 이 목록을 함께 적는다. 주 체크아웃 미갱신: 루트는 dev.
 
 병합 뒤의 다음 단계는 release-image의 프런티어다. 06이 병합되면 01(이미지와 번호), 02(번호·노트·묶음 도구), 07(리뷰 봇의 느낌표 줄)이 나란히 열린다. 03은 01과 02가, 05는 02가, 04는 03이, 08은 모두가 병합된 뒤에 열린다. 01부터는 Docker가 켜진 로컬 세션에서 연다.
 

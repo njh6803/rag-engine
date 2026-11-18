@@ -24,7 +24,7 @@
 ### 계약 영향
 
 <!-- 계약(헌법 원칙 VII: 검색 도구의 형식, 수집 API, 커넥터·변환·파서 인터페이스, 색인 형식)과 헌법에 닿지 않았으면 "없음".
-     닿았으면 어느 계약의 무엇이 바뀌었는지, 그 때문에 함께 바꾼 것(칸을 지우거나 뜻을 바꿨으면 올린 판, ADR, 계약 시험 `tests/contract/`, 헌법 판 `docs/constitution/README.md`), 이 변경을 기다리는 티켓을 적는다 -->
+     닿았으면 어느 계약의 무엇이 바뀌었는지, 그 때문에 함께 바꾼 것(칸을 지우거나 뜻을 바꿨으면 올린 판, ADR, 계약 시험 `tests/contract/`, 헌법 버전 `docs/constitution/README.md`), 이 변경을 기다리는 티켓을 적는다 -->
 
 ## 변경된 영역
 
@@ -36,7 +36,7 @@
 - [ ] `tests/contract/` — 계약 시험 (공식 MCP SDK의 클라이언트로 HTTP 접속해 보는가, 쓰기 도구가 없음을 계속 보는가)
 - [ ] `tests/` — 행동을 검증하는가, skip이 초록으로 읽히지 않는가(원칙 I)
 - [ ] `.claude/`, `tools/`, `.pre-commit-config.yaml` — 하네스 (실제 실행으로 확인했는가, 새 검사는 `tools/mutate.py`로 변이를 넣어 빨강을 봤는가, 이 검사가 **못 보는 것**을 어디에 적었고 그 주장을 쟀는가, 훅은 `tools/hook_payloads.toml`에 발동 페이로드와 발동하지 말아야 할 **실제** 입력을 더했는가(`tools/run_hooks.py`가 pre-commit에서 돈다), 구조가 바뀌었으면 README도 갱신했는가)
-- [ ] `docs/`, `CLAUDE.md`, `GLOSSARY.md`, `CODING_STANDARDS.md` — 지침·헌법·ADR (원천 하나, CLAUDE.md 200줄 이하, 헌법을 고쳤으면 판을 올렸는가)
+- [ ] `docs/`, `CLAUDE.md`, `GLOSSARY.md`, `CODING_STANDARDS.md` — 지침·헌법·ADR (원천 하나, CLAUDE.md 200줄 이하, 헌법을 고쳤으면 버전을 올렸는가)
 - [ ] `.github/` — 워크플로 (`claude-code-review.yml`을 바꾸면 별도 PR로 먼저 병합. 그 PR은 claude-review가 건너뛰므로(그 파일의 머리 주석) CodeRabbit 코멘트와 셀프 리뷰를 손으로 본다. 그 PR에서 코멘트 0개 가드(`Fail when Claude left no comment` 스텝)는 코멘트를 세지 않는 대신, 그 파일과 그 스텝이 허용한 경로(일지·대기열 등. 원천은 그 스텝의 패턴) 밖의 파일이 함께 실리면 실패한다. 그래서 그 워크플로의 동작을 서술한 문서 가운데 허용 경로 밖의 것(이 템플릿, `operations.md` 등)은 그 PR이 병합된 뒤 따로 고친다. 다른 워크플로만 바꾼 PR은 리뷰가 돌고 가드가 코멘트를 센다)
   - 필수 검사 `verify`의 판정을 바꿨으면 빨강이어야 하는 경우(실패·취소·건너뛴 잡, needs 밖의 잡)와 실패한 잡만 다시 돌린 시도를 실제 실행해 봤는가(`.github/workflows/ci.yml`의 verify 주석)
 

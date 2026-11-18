@@ -56,8 +56,9 @@ pre-commit 에서 HEAD 는 아직 병합 전이라, HEAD 만으로 구하면 C �
 - `docs/journal/*.md`, `.scratch/retro-queue/*.md`
 - `docs/adr/*.md`(색인 `README.md` 포함), `GLOSSARY.md`, `docs/PRD.md`
 - `.scratch/plan.md`(도구가 만든 전체 계획), `.scratch/plan-head.md`(그 손 파일)
-- `docs/constitution/tech.md`, `docs/constitution/README.md`, `docs/constitution/history.md`(헌법 판
-  이력의 기록. README 에서 옮겨 온 것이라 더하지 않고, 판을 올린 까닭은 ADR 이력이나 일지에 적는다)
+- `docs/constitution/tech.md`, `docs/constitution/README.md`, `docs/constitution/history.md`(헌법
+  버전 이력의 기록. README 에서 옮겨 온 것이라 더하지 않고, 버전을 올린 까닭은 ADR 이력이나 일지에
+  적는다)
 - `.scratch/<slug>/spec.md`, `.scratch/<slug>/plan.md`(기능 계획), `.scratch/<slug>/issues/*.md`,
   `.scratch/<slug>/probes/**`, `.scratch/<slug>/design/**`. 이 다섯은 `<slug>` 가 `harness` 이면
   면제가 아니다.

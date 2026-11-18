@@ -267,7 +267,7 @@ def test_독스트링의_면제_모양_원천이_기능_계획과_손_파일을_
     assert "`.scratch/plan-head.md`" in doc
 
 
-def test_독스트링의_면제_모양_원천이_헌법_판_이력_기록을_든다() -> None:
+def test_독스트링의_면제_모양_원천이_헌법_버전_이력_기록을_든다() -> None:
     doc = check_ticket.__doc__
     assert doc is not None
     assert "`docs/constitution/history.md`" in doc
@@ -974,7 +974,7 @@ def test_CI는_기능_계획과_손_파일만_바꾼_PR을_지난다(저장소: 
     _CI가_지났다(_CI로_친다(저장소, _PR_병합_커밋(저장소, "docs/plan")))
 
 
-def test_CI는_헌법_판_이력_기록만_바꾼_PR을_지난다(저장소: Repo) -> None:
+def test_CI는_헌법_버전_이력_기록만_바꾼_PR을_지난다(저장소: Repo) -> None:
     저장소.git("switch", "-q", "-c", "docs/history")
     _훅을_건너뛰고_커밋한다(
         저장소,
