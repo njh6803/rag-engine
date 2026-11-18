@@ -1,6 +1,6 @@
 # glossary-release-names: 밖에 내놓는 제품을 가리키는 이름을 agent-os의 결정에 맞춘다(제품 판은 릴리스) · 2026-11-18
 
-앞 세션(일지 `2026-11-18-1008-plain-words-in-written-artifacts.md`)이 PR 65를 병합하고 낸 지시문으로 연 세션의 기록이다(Fable 5.2, xhigh). 티켓은 `.scratch/harness/issues/glossary-release-names.md`, 브랜치는 `chore/glossary-release-names`이고, 새 워크트리 `glossary-release-names`에서 `origin/dev`(e7eeab6)로 브랜치를 따서 했다. 용어집의 이름을 agent-os의 결정에 맞추는 일(받은 지시문의 원문 `.scratch/glossary-names-input.md`. 아래에서 "받은 지시문"은 이 글이다)의 첫 PR이다. 계기, 세션을 열며 한 정리, 물은 것과 사용자의 답, 명세 세션을 연 기록, 한 것, 옛 이름의 잔존을 차례로 두고, 그 뒤의 리뷰와 검증은 한 차례씩 덧붙인다.
+앞 세션(일지 `2026-11-18-1008-plain-words-in-written-artifacts.md`)이 PR 65를 병합하고 낸 지시문으로 연 세션의 기록이다(Fable 5.2, xhigh. 세션 도중 사용자가 `/model claude-opus-5-5`로 모델을 Opus 5.5로 바꿨고, 커밋 `25dfbe1`부터는 그 모델이 했다). 티켓은 `.scratch/harness/issues/glossary-release-names.md`, 브랜치는 `chore/glossary-release-names`이고, 새 워크트리 `glossary-release-names`에서 `origin/dev`(e7eeab6)로 브랜치를 따서 했다. 용어집의 이름을 agent-os의 결정에 맞추는 일(받은 지시문의 원문 `.scratch/glossary-names-input.md`. 아래에서 "받은 지시문"은 이 글이다)의 첫 PR이다. 계기, 세션을 열며 한 정리, 물은 것과 사용자의 답, 명세 세션을 연 기록, 한 것, 옛 이름의 잔존을 차례로 두고, 그 뒤의 리뷰와 검증은 한 차례씩 덧붙인다.
 
 ## 계기
 
@@ -21,7 +21,7 @@
 이번 요청 범위: 명세 세션을 여는 것과 이 PR의 병합까지
 ```
 
-이 일은 retro가 승인한 대기열 항목이 아니라 사용자의 직접 지시다. 그래서 티켓의 대기열 줄은 "없음"이다.
+이 일은 retro가 승인한 대기열 항목이 아니라 사용자의 직접 지시다. 그래서 티켓의 대기열 줄을 처음에는 "없음"으로 적었다. 셀프 리뷰 뒤에는 이 티켓이 고치는 항목 `glossary-plain-names-left`를 적었다(아래 "셀프 리뷰"의 표준 축 셋째 줄).
 
 ## 세션을 열며 한 정리
 
@@ -314,7 +314,7 @@
 | 지적 | 판정 | 한 것 또는 남긴 까닭 |
 |---|---|---|
 | Minor. ADR 0020의 8행과 37행에 바뀜 표시가 없다. 앞말 없는 "릴리스"(릴리스를 만든 뒤, 릴리스에 붙이는 것, 출시 후보의 릴리스)가 GitHub에 올리는 게시물을 가리키는데, 새 이력이 그 낱말의 뜻을 뒤집어 본문만 읽으면 잘못 알게 된다(`.claude/rules/adr.md`의 첫 규칙) | 맞다 | 본문에서 "릴리스"가 든 곳을 모두 다시 봤다. 게시물을 앞말 없이 가리키는 문장은 8행의 두 문장과 37행 항목의 두 문장이다. 15·16·22·23·30·50행은 "릴리스 노트"이고, 20행은 이미 "GitHub 릴리스"이며, 46행은 agent-os ADR 0056의 이력 제목을 옮긴 것이다. 표시를 셋 달았다. 8행은 두 문장 뒤에 하나씩이고 37행은 항목의 끝에 하나다. 옛 이름이 든 문장은 낯선 낱말이라 읽는 사람이 이력을 찾아가지만, 이 문장들은 용어집이 새로 정의한 낱말과 글자가 같아 조용히 다르게 읽힌다는 점이 다르다. `uv run python tools/check_adr_pointers.py`는 0으로 끝났다 |
-| Minor. 일지의 닫힌 주장 둘이 반례로 깨진다. "릴리스를 가리키며 홀로 쓰인 판은 `docs/PRD.md` 한 곳뿐"에는 `README.md` 7·9행이 반례이고, "게시물을 가리키는 곳은 GitHub 릴리스로 적혀 있다"에는 ADR 0020의 본문이 반례다 | 맞다 | 두 문장을 고쳤다. 앞의 것은 낱말 목록에 걸린 것 가운데서 그렇다는 범위를 적고, 앞이 한글에 붙지 않은 "판"을 주요 문서와 기능 계획에서 다시 골라 가른 결과를 덧붙였다(위 "옛 이름의 잔존"). 뒤의 것은 ADR 0020의 본문이 예외이고 표시와 이력으로 읽게 했다고 적었다. `README.md` 7·9행은 "바꾸지 않고 남긴 것"에 올렸다 |
+| Minor. 일지의 닫힌 주장 둘이 반례로 깨진다. 릴리스를 가리키는 홀로 쓰인 판이 `docs/PRD.md` 한 곳뿐이라는 문장에는 `README.md` 7·9행이 반례이고, 이 PR이 고친 파일에서 게시물을 가리키는 곳은 GitHub 릴리스로 적혀 있다는 문장에는 ADR 0020의 본문이 반례다(보고가 줄여 옮긴 것을 풀어 적었다. 옛 문장은 "옛 이름의 잔존"의 핵심 낱말 줄과 그다음 줄에 있었다) | 맞다 | 두 문장을 고쳤다. 앞의 것은 낱말 목록에 걸린 것 가운데서 그렇다는 범위를 적고, 앞이 한글에 붙지 않은 "판"을 주요 문서와 기능 계획에서 다시 골라 가른 결과를 덧붙였다(위 "옛 이름의 잔존"). 뒤의 것은 ADR 0020의 본문이 예외이고 표시와 이력으로 읽게 했다고 적었다. `README.md` 7·9행은 "바꾸지 않고 남긴 것"에 올렸다 |
 | Minor. 티켓의 `**대기열:** 없음`이 맞지 않는다. 일곱째 기준이 대기열 항목 `glossary-plain-names-left`를 고치는데 대기열 줄에 그 식별자가 없다 | 받아들였다 | 대기열 줄을 `glossary-plain-names-left`로 적었다. 그 항목은 청킹과 기대 근거가 남아 열어 두고, 이 티켓이 반영한 몫은 항목의 본문에 적혀 있다(`.scratch/retro-queue/README.md` 23행의 부분 반영). `tools/` 아래의 파이썬 파일에서 "대기열:"을 Grep했고 그 줄을 읽는 도구는 없었다 |
 | Nit. ADR 0020 23행의 새 표시가 다섯 문장의 묶음 끝에 하나만 달렸다 | 남겼다 | 보고도 규칙의 "묶음에 하나"가 허용하는 범위라고 적었다 |
 | Nit. 티켓 넷째 기준의 빼는 목록에 ADR의 본문이 없다 | 맞다 | 명세 축의 같은 지적과 함께 고쳤다(아래) |
@@ -373,4 +373,61 @@
 - `uv run python tools/sibling_overlap.py`는 번호 겹침이 없다고 답했다(이 브랜치의 새 번호는 헌법 1.3.6이다).
 - 리뷰를 반영한 뒤에 `uv run python tools/check_adr_pointers.py`와 `uv run python tools/plan_table.py --check`가 0으로 끝났다.
 
-커밋이 부르는 pre-commit의 결과는 커밋 뒤에 아래에 적는다.
+커밋 `25dfbe1`이 부른 pre-commit의 결과는 다음과 같다.
+
+- ruff check와 ruff format은 파이썬 파일이 없어 Skipped다. 그래서 위의 손으로 친 결과를 그대로 쓴다.
+- 검사 러너(`tools/run_checks.py`의 `CHECKS`)는 624.28초가 걸렸고 열 개가 모두 Passed다. test-db 0.0초, check-ticket 1.3초, zizmor 1.9초, lint-imports 3.7초, check-instructions 8.5초, check-type-escapes 9.2초, pyright-linux 42.4초, pyright 42.7초, run-hooks 56.4초, pytest 623.6초다.
+- markdown tables, line separators, mutation tables, constitution version, commit message는 Passed다.
+- quotes(인용 대조. 막지 않고 경고만 한다)는 Passed이고 경고가 16건이다. 이 일지에서 15건, `.scratch/retro-queue/decision-word-residue.md`에서 1건이다. 하나씩 원문과 댔다.
+  - 원문과 달라 고친 것 둘. 위 "셀프 리뷰"의 표준 축 표에서 옛 일지 문장을 옮긴 인용 둘은 서브에이전트 보고가 줄여 옮긴 글이었다. 따옴표를 떼고 풀어 적었다.
+  - 원문 그대로여서 둔 것 열넷. 다섯은 선택 화면의 글자다(질문, 선택지, 설명, 미리보기). 이 세션의 기록(트랜스크립트)에서 글자 그대로 찾았다. 둘(45행)은 agent-os 용어집의 글자다. 처음에는 이 둘을 선택 화면의 글자로 잘못 세었고, 회고하며 `C:\project\agent\CONTEXT.md`를 Grep해 51행과 55행에 글자 그대로 있는 것을 봤다. 다섯은 이 변경이 고친 옛 글이다. `git show origin/dev:<경로>`의 출력에서 글자 그대로 찾았다(`GLOSSARY.md` 둘, `docs/constitution/tech.md`, `.scratch/retro-queue/cross-repo-wait-on-frontier.md`, `.scratch/release-image/plan.md`). 하나는 셀프 리뷰 뒤에 되돌린 문장("그 변경과 …")이고 이 세션의 기록에 있다. 나머지 하나인 `decision-word-residue.md` 5행의 인용은 이 변경 전부터 그 줄에 있던 글이다(`origin/dev`의 그 파일에 글자 그대로 있다). 이 변경이 같은 줄의 다른 낱말을 고쳐 다시 검사되었다.
+  - 둔 열넷은 다음 커밋에서도 같은 경고가 날 수 있다. 원문이 저장소에 없는 글(화면의 글자, 고치기 전의 문장)이기 때문이다.
+
+## PR 봇 리뷰
+
+PR은 https://github.com/njh6803/rag-engine/pull/66 이다(base dev). 첫 회차는 머리 `25dfbe1`이다. `uv run python tools/wait_ci.py 66`이 끝나며 검사 여덟(CodeRabbit, claude-review, eval-fast, eval-full, image, python, ticket, verify)이 모두 SUCCESS라고 적었다.
+
+- CodeRabbit은 파일 19개를 보고 "No actionable comments were generated in the recent review."라고 적었다. 인라인 코멘트도 없다. 요약 코멘트는 이 계정의 리뷰가 한 시간에 한 번이고 이번 리뷰로 남은 것이 0이라고 적는다.
+- claude-review는 Critical과 Major가 없다고 적었고 Minor 하나와 Nit 둘을 냈다.
+
+| 지적 | 판정 | 까닭 |
+|---|---|---|
+| Minor. `GLOSSARY.md` 227행. 이 PR이 정한 "버전 태그"와 "릴리스 노트 원고"에 용어집 항목이 없어, 처음 보는 사람이 용어집에서 찾지 못한다 | 보류 | ADR 0020 "용어" 항목이 하네스의 말(판 내기, 제품 변경, 릴리스 노트 조각)은 ADR 0016의 선례대로 `docs/constitution/operations.md`가 정의하고 그 문서의 두 절을 옮기는 티켓이 적는다고 정했다. 바꾸기 전의 용어집에도 "판 태그", "판 내기", "노트 조각"은 한 번도 나오지 않는다(`git show origin/dev:./GLOSSARY.md`를 grep했다). 용어집에 항목을 두면 그 결정과 갈리고 티켓의 기준(용어의 수와 차례는 그대로다)을 넘는다. 받는 쪽은 `.scratch/release-image/plan.md` 22행이 이미 적는다(운영 문서의 두 절을 옮기는 티켓이 새 이름으로 적는다) |
+| Nit. ADR 0020 "용어" 항목의 같은 문장에 표시 둘이 이어 붙어 눈에 걸린다. 하나로 묶어도 된다 | 보류 | `.claude/rules/adr.md`가 "한 문장을 여럿이 바꿨으면 포인터를 이어 단다"고 정했고, 규칙이 정한 표시의 모양은 표시 하나에 이력 하나다 |
+| Nit. 홀로 쓰인 "판"이 `docs/PRD.md`, `README.md` 등 다섯 파일에 남았다 | 보류 | 보고도 병합을 막지 않는다고 적었다. PR 본문 "남긴 위험"과 이 일지 "바꾸지 않고 남긴 것"에 있고, 받은 지시문 5-2의 다섯째 차례("판")가 한다. 아래 "다음"에도 적었다 |
+
+고친 것은 없다. 그래서 이 회차의 커밋에는 회고, "다음", 일지의 고친 문장 셋, 대기열 항목을 싣는다(`next-session` `merge.md` 병합 전 3). 고친 문장은 머리 문단의 모델이 바뀐 일, "계기" 끝의 대기열 줄 문장(처음 "없음"이었다가 셀프 리뷰 뒤 `glossary-plain-names-left`가 됐다), "검증"의 인용 경고 열넷을 가른 수다. 대기열 항목을 더해 범위가 넓어지므로 푸시 전에 `gh pr edit`으로 PR 본문을 먼저 고친다(같은 절 1).
+
+## 회고
+
+`retro` 스킬로 돌렸다. 일차 자료는 이 일지와 이 세션이다. 낸 후보는 열넷이고 승인 일곱, 기각 일곱, 넘김 없음이다. 이 세션에서 반영한 것은 없어 티켓에 `회고 반영:` 줄을 더하지 않았다. 만료할 항목은 없었다(`uv run python tools/queue_open_rows.py`와 `--ref origin/dev`). 문턱을 지난 새 훅이나 검사가 없어 `tools/hook_report.py`는 돌리지 않았다. 5회차에 닿은 두 항목은 하나가 기존 검사(`tools/run_checks.py`)를 좁히는 것이고 다른 하나가 기존 검사(`tools/check_quotes.py`)의 경고 문구를 고치는 것이다.
+
+승인(심각도 순).
+
+1. **손으로 친 전체 pytest가 47분 53초.** 새 항목 `manual-full-pytest-sequential`, 1회차. 조건: 사건(`CLAUDE.md` 검증 명령대로 친 `uv run pytest -q`가 병렬 없이 돌았고, 기다리는 동안 사용자가 끝났는지 물었다), 층(지침의 테스트 줄이나 pytest 설정), 되돌림(PR 하나). 더하는 것이라 다섯 번째에 반영한다.
+2. **문서만 바꾼 커밋의 pre-commit이 전체 pytest를 623.6초 돌았다.** 열린 항목 `docs-only-commit-full-pytest`가 처방한 사건이라 회차를 센다. 5회차가 됐다. 사용자가 승인한 항목이고 게이트를 좁히는 일이라, 반영하는 chore가 남길 시험과 ADR이 필요한지를 정한다.
+3. **ADR 0020의 표시 누락 다섯 문장.** 새 항목 `adr-rename-history-pointer-gap`, 1회차. `.claude/rules/adr.md`(ADR을 열면 실리는 지침)의 첫 규칙과 이어 다는 규칙을 어겼고 셀프 리뷰 표준 축과 PR 직전 `coderabbit-review`가 차례로 잡았다. 회차로 세는 사건이다. 같은 규칙을 다른 길로 어긴 `adr-body-rewrite-vs-pointer`와 처방이 달라(그쪽은 지운 본문 줄을 본다) 새 항목으로 쓰고 서로 가리키게 했다. 처방은 검사의 경고 둘이다. 거짓 양성이 나므로 게이트로 만들지 않는다.
+4. **인용 대조 경고 열넷을 하나씩 대 봤다.** 열린 항목 `check-quotes-verbatim-paste`가 처방한 사건이라 회차를 센다(4회차와 같은 꼴이다. 선택 화면의 글자와 고치기 전의 글이 목록 항목과 표의 칸 안에 있었다). 5회차가 됐다.
+5. **agent-os 용어집의 인용 둘을 검사가 대조하지 못했다.** 열린 항목 `cross-repo-quote-check`가 처방한 사건이라 회차를 센다. 2회차가 됐다. 이 세션은 그 둘을 처음에 선택 화면의 글자로 잘못 세었고, 회고하며 그 저장소의 파일을 Grep해 바로잡았다(위 "검증").
+6. **선택 화면의 글을 일지로 옮기려고 추출 스크립트를 다시 썼다.** 열린 항목 `extract-asks-tool`이 처방한 사건이라 회차를 센다. 4회차가 됐다.
+7. **`open_session.ps1 -Action focus`가 두 번 실패했다.** 새 항목 `open-session-focus-row-not-found`, 1회차. 조건: 사건(위 "release-image 명세 세션을 연 기록"), 층(도구의 고침), 되돌림(PR 하나). 원인을 아직 가르지 못해 대기열에 둔다. 검색어 `focus`, `포커스`, `open_session.ps1`로 찾은 항목은 `model-menu-name-drift` 하나였고 다른 일이다.
+
+기각.
+
+8. `.scratch/release-0-1/plan.md`의 "그 조각"을 릴리스 노트 조각으로 잘못 읽은 것. 명세 축 셀프 리뷰가 잡았다. 리뷰가 제 몫을 한 사건이고, 검사로 옮길 수 없으며, 표준에 더할 새 판단 기준도 아니다(같은 뜻으로 쓴 자리만 바꾸는 것은 이름 바꾸기 자체의 정의다).
+9. 일지의 닫힌 주장 둘("판"이 한 곳뿐이다, 게시물은 GitHub 릴리스로 적혀 있다). `code-review` 두 브리프의 주장 검증 목록이 잡았다. 리뷰가 잡도록 둔 기준이다.
+10. 훅과 가드가 그 자리에서 막거나 알린 것. heredoc 40줄 상한, 워크트리 가드가 거부한 복잡한 git 루프와 `git -C`, MSYS가 `origin/dev:.scratch/…`를 바꾼 것(Bash 훅이 그 자리에서 원인과 `:./` 꼴을 알린다. 회고하며 다시 쳐서 봤다)이다. `grep -P`가 locale로 돌지 않은 것은 Grep 도구로 바로 옮겼다.
+11. 셀프 리뷰 표에 서브에이전트가 줄여 옮긴 글을 따옴표째 옮긴 것. 인용 대조가 그 자리에서 알렸고 고쳤다.
+12. 일지 문장이 낡은 것 둘("계기" 끝의 대기열 줄, "검증"의 인용 분류). 회고하며 이 세션이 잡아 고쳤고 잃은 것이 없다. 한 일지 안에서 앞뒤 문장이 어긋난 것을 가리는 검사는 세울 수 없다.
+13. 헌법 낱말 수를 "세 곳"으로 적은 것. 셀프 리뷰를 기다리는 동안 `git diff -U0`으로 세어 스스로 고쳤다.
+14. 주 체크아웃 루트의 추적하지 않는 로그 파일 둘(`.scratch_li.log`, `.scratch_pyr.log`, 2026-11-12 13:57). 이 세션의 사건이 아니고 만든 세션을 가리지 못했다(세션 기록을 그 파일 이름으로 찾으니 세션 다섯이 걸렸고, 조각은 모두 `git status`가 그 파일을 보인 줄이었다). 그 파일 때문에 주 체크아웃이 깨끗하지 않아 `tidy-checkouts`가 당기지 못한다. 한 번 치울 일이라 대기열에 두지 않고, 사람에게 알린다(아래 "다음").
+
+## 다음
+
+- **병합 뒤 다음 작업.** 받은 지시문(`.scratch/glossary-names-input.md`) 5-2의 차례 1, 작은 하네스 이름 묶음(끝이 열린 결함 종류, 이은 항목, 더하는 문턱)이다. 새 이름의 harness 티켓과 그 stem의 새 브랜치로 한다. 결정표의 "하네스·문서만 고친 PR이었고 같은 주제가 남았다" 줄이다. 이 세션의 요청 범위가 병합까지라 새 세션으로 연다.
+- **그 뒤의 차례.** 2 주체를 요청자로, 3 루트 브랜치와 되돌려 합치기(도구가 그 글자를 찾는지 먼저 본다), 4 받은 지시문 3절의 답 받기(색인 판 계열의 답이 "판"을 나누는 방법을 정한다), 5 "판"(영역별 PR)이다. 모두 용어집을 고치므로 차례로 한다.
+- **이 PR이 남긴 것.** 릴리스를 가리키며 홀로 쓰인 "판"이 다섯 파일에 남았다(`docs/PRD.md` 19행, `README.md` 7·9행, `.scratch/diag-bundle/plan.md` 1·5행, `.scratch/backup-upgrade/plan.md` 5·7행, `.scratch/core/plan.md` 7행). 차례 5가 한다. `tools/tidy_checkouts.py`와 그 시험의 주석 "dev→main 릴리스 PR"은 이름 다섯이 아니라 두었다. 두 문장을 넘는 용어집 풀이 다섯(청킹, 판, 색인 판, 최소 점수, 변경 확인값)은 앞 일지의 "다음"대로 그 이름을 고치는 PR이 함께 손본다.
+- **PR 봇이 낸 것.** claude-review 첫 회차의 Minor(버전 태그와 릴리스 노트 원고의 용어집 항목)는 release-image의 운영 문서 두 절을 옮기는 티켓이 받는다(`.scratch/release-image/plan.md` 22행). Nit 둘은 위 "PR 봇 리뷰"의 까닭대로 두었다.
+- **명세 세션.** `docs/release-image-spec`(세션 `local_47a0459a-43b5-47be-9f36-6c8b55ad9201`)은 이 PR이 병합되면 `origin/dev`를 합쳐 새 이름의 용어집 위에서 잇는다. 그 지시문에 적었고, 사람 몫(ADR 0020 Consequences)을 사용자에게 다시 알리는 일도 그 세션이 한다.
+- **주 체크아웃 미갱신.** 루트는 dev `6957194`이고, 추적하지 않는 로그 파일 둘(`.scratch_li.log`, `.scratch_pyr.log`) 때문에 당기지 못한다. 사람이 지우거나 주 체크아웃 세션에 지우라고 하면 `tidy-checkouts`가 당긴다. 새 세션을 열기 전에는 주 체크아웃의 `tools/open_session.ps1`, `tools/hook_prompt_directive.py`, `.claude/settings.json`, `open-session`·`next-session` 스킬이 `origin/dev`와 같은지 본다(이 세션은 명세 세션을 열 때 그렇게 봤다).
+- **대기열.** 이번 회고로 5회차가 된 항목은 `docs-only-commit-full-pytest`와 `check-quotes-verbatim-paste`다. chore 계기이지만 chore는 기능의 마지막 티켓 뒤에만 연다(결정표).
