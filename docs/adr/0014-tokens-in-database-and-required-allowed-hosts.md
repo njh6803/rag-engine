@@ -29,4 +29,4 @@ MCP 전송의 DNS 리바인딩 보호는 켠 채로 두고 설정 `RAG_ALLOWED_H
 
 ### 2026-11-19 MCP 전송 설정의 이름을 MCP 연결 방식 설정으로 바꿨다
 
-MCP 서버가 클라이언트와 메시지를 주고받는 방법을 고르는 설정(`RAG_MCP_STATELESS`, `RAG_MCP_JSON_RESPONSE`)을 가리키던 "MCP 전송 설정"이 "MCP 연결 방식 설정"으로 바뀌었다. 본문의 "MCP 전송의 DNS 리바인딩 보호"는 "MCP 연결 방식의 DNS 리바인딩 보호"로 읽는다. SDK 기능의 이름을 옮긴 "전송 보안"(`transport_security`)은 바꾸지 않았다. 이름만 바뀌었고 허용 호스트를 필수로 하는 결정은 그대로다. 헌법 `docs/constitution/tech.md`의 같은 낱말도 고쳤고 헌법의 버전을 1.3.8에서 1.3.9로 올렸다(문구 수정, 같은 날 ADR 0016 이력). agent-os가 "전송"을 "연결 방식"으로 바꾼 데 맞춰 사용자가 2026-11-19에 헌법까지 바꾸기로 선택 화면에서 골랐다(티켓 `.scratch/harness/issues/glossary-ask-remaining-names.md`).
+MCP 서버가 클라이언트와 메시지를 주고받는 방법을 고르는 설정(`RAG_MCP_STATELESS`, `RAG_MCP_JSON_RESPONSE`)을 가리키던 "MCP 전송 설정"이 "MCP 연결 방식 설정"으로 바뀌었다. 본문의 "MCP 전송의 DNS 리바인딩 보호"는 설정이 아니라 SDK의 전송 보안 기능(`transport_security`)에 붙은 보호를 가리키는 말이라 바꾸지 않았다. 설정을 가리키던 이름만 바뀌었고 허용 호스트를 필수로 하는 결정은 그대로다. 헌법 `docs/constitution/tech.md`의 같은 낱말도 고쳤고 헌법의 버전을 1.3.8에서 1.3.9로 올렸다(문구 수정, 같은 날 ADR 0016 이력). agent-os가 "전송"을 "연결 방식"으로 바꾼 데 맞춰 사용자가 2026-11-19에 헌법까지 바꾸기로 선택 화면에서 골랐다(티켓 `.scratch/harness/issues/glossary-ask-remaining-names.md`).
