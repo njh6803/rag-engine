@@ -41,7 +41,9 @@
 `ri-probe-standalone/state.json` 에 둔다. 리눅스에서는 소유자만 읽게(0600) 쓰고, Windows 는 권한
 비트를 쓰지 않아 사용자마다 따로 있는 임시 폴더의 권한을 따른다. 토큰과 비밀번호는 출력에 찍지
 않는다. 출력은 `run_out.txt` 로 커밋한다. 커밋한 출력은 상태 파일을 그렇게 좁히기 전에 Windows 에서
-돈 실행이고, 좁힌 것은 재는 값에 닿지 않는다.
+돈 실행이고, 좁힌 것은 재는 값에 닿지 않는다. `download` 단계의 출력(`run_download_out.txt`)은
+`refs/main` 뒤에 줄바꿈(`echo`)을 넣기 전의 실행이다. 그 파일에는 줄바꿈이 없어 받은 리비전과
+소유자가 한 값으로 붙어 찍혔다(앞의 40자가 리비전이고 뒤가 소유자다).
 """
 
 import argparse
@@ -892,7 +894,7 @@ def stage_download(state: dict[str, str], models: str) -> None:
             held = run(
                 ["docker", "run", "--rm", "-v", f"{volume}:/d:ro", image("server"), "sh", "-c",
                  "du -sh /d | cut -f1;"
-                 " cat /d/models--BAAI--bge-m3/refs/main 2>/dev/null;"
+                 " cat /d/models--BAAI--bge-m3/refs/main 2>/dev/null; echo;"
                  " stat -c '%u:%g' /d/models--BAAI--bge-m3 2>/dev/null"],
                 check=False,
             ).stdout.split()  # fmt: skip
