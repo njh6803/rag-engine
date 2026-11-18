@@ -44,7 +44,7 @@ release-image 티켓 여덟 가운데 둘째 티켓(`01-images-show-release-numb
 
 ## PR 직전 리뷰
 
-`coderabbit-review` 서브에이전트가 CodeRabbit CLI 0.7.5를 끝까지 돌렸다(`--base dd505fa427faec8053f9a7d279934df277085890`, 커밋 `3ea5f19`). 좌석은 `Seat: not assigned`, `Plan: Free`였지만 리뷰는 끝났다. CodeRabbit이 지적 둘을 냈고 서브에이전트가 직접 읽어 더했다. 결과는 Critical과 Major가 없고, 유효한 Minor 둘과 Nit 다섯, 오탐 둘이다. 비밀 값을 남기게 하는 문장은 없었다. 밀어 달라고 넘긴 주장 여덟은 모두 맞았다. 둘은 서브에이전트가 임시 폴더에서 직접 재 보았다. `sed`가 `pyproject.toml`의 첫 `version =` 줄(3행)만 바꾸는 것, 그리고 `uv build`로 지은 wheel의 `Version`이 `0.0.1-rc.1` 그대로이고 설치 뒤 `importlib.metadata.version`도 같은 값이라는 것이다. 나머지는 Dockerfile과 CI 파일을 읽어 확인한 것이고 이미지를 새로 짓거나 CI를 돌려 본 것은 아니다.
+`coderabbit-review` 서브에이전트가 CodeRabbit CLI 0.7.5를 끝까지 돌렸다(`--base dd505fa427faec8053f9a7d279934df277085890`, rebase 전 커밋 `3ea5f19`. rebase 뒤의 해시는 아래 "커밋"에 적었다). 좌석은 `Seat: not assigned`, `Plan: Free`였지만 리뷰는 끝났다. CodeRabbit이 지적 둘을 냈고 서브에이전트가 직접 읽어 더했다. 결과는 Critical과 Major가 없고, 유효한 Minor 둘과 Nit 다섯, 오탐 둘이다. 비밀 값을 남기게 하는 문장은 없었다. 밀어 달라고 넘긴 주장 여덟은 모두 맞았다. 둘은 서브에이전트가 임시 폴더에서 직접 재 보았다. `sed`가 `pyproject.toml`의 첫 `version =` 줄(3행)만 바꾸는 것, 그리고 `uv build`로 지은 wheel의 `Version`이 `0.0.1-rc.1` 그대로이고 설치 뒤 `importlib.metadata.version`도 같은 값이라는 것이다. 나머지는 Dockerfile과 CI 파일을 읽어 확인한 것이고 이미지를 새로 짓거나 CI를 돌려 본 것은 아니다.
 
 1. 오탐: `0.0.1-rc.1`이 메타데이터에서 `0.0.1rc1`로 바뀌어 설치된 번호 대조가 실패하지 않느냐는 지적이다. 위의 wheel 실측이 보존을 보였다. 파일 이름만 `0.0.1rc1`이다.
 2. 오탐: 표지 번호 시험이 패치된 `version`을 못 쓸 수 있다는 지적이다. `run_server`가 같은 프로세스의 스레드에서 uvicorn을 띄우고 `create_app`을 `start()` 안에서 부르므로 고정 장치가 건 패치를 쓴다. 이 시험은 전체 러너에서 통과했다.
@@ -58,7 +58,11 @@ release-image 티켓 여덟 가운데 둘째 티켓(`01-images-show-release-numb
 
 ## 커밋
 
-첫 커밋은 `3ea5f19`(28개 파일, 498줄 더함, 67줄 뺌)다. 커밋 전 `git branch --show-current`는 `feature/01-images-show-release-number`였다. 커밋이 부른 pre-commit은 `ruff check`, `ruff format`, 검사 러너(`parallel-checks` 383.3초. 그 안의 pytest는 383.0초), 표, 줄 구분 문자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지 훅이 모두 통과했다. 인용 대조는 막지 않는 경고 한 건을 냈고 위 "PR 직전 리뷰" 7에서 고쳤다. 이 PR 직전 리뷰의 고침과 이 절을 싣는 둘째 커밋의 pre-commit 결과는 PR 본문에 적는다.
+첫 커밋은 `3ea5f19`(28개 파일, 498줄 더함, 67줄 뺌)다. 커밋 전 `git branch --show-current`는 `feature/01-images-show-release-number`였다. 커밋이 부른 pre-commit은 `ruff check`, `ruff format`, 검사 러너(`parallel-checks` 383.3초. 그 안의 pytest는 383.0초), 표, 줄 구분 문자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지 훅이 모두 통과했다. 인용 대조는 막지 않는 경고 한 건을 냈고 위 "PR 직전 리뷰" 7에서 고쳤다. PR 직전 리뷰의 고침과 이 일지를 싣는 둘째 커밋(`df90521`)의 pre-commit도 같은 열 가지와 훅이 모두 통과했고 pytest는 404.9초였다(인용 대조 경고 없음). 푸시 직전에 `origin/dev`가 PR #75만큼 앞서 있어 rebase했고(충돌 없음, 겹치는 파일 없음), 그 뒤 두 커밋의 해시는 `4cb1396`(feat)과 `0c1a1ed`(docs)다. 앞의 두 해시(`3ea5f19`, `df90521`)는 rebase 전의 것이다. rebase한 합쳐진 상태로 전체 검사를 다시 돌리지는 않았고, PR에서 CI 검사 일곱이 모두 통과했다(아래 "봇 회차").
+
+## 봇 회차
+
+PR #76(헤드 `0c1a1ed`)의 첫 회차다. 검사 일곱(claude-review, eval-fast, eval-full, image, python, ticket, verify)이 모두 통과했고 이 PR의 `image` 잡(`0.0.1-rc.1`로 짓기)도 GitHub에서 통과했다. CodeRabbit은 `@coderabbitai review`를 불러도 `Review rate limited`(다음 리뷰까지 37분)로 리뷰하지 못했다. 이 PR은 직전에 CodeRabbit CLI 리뷰를 이미 마쳤다. `claude-review`는 코멘트에서 `src/rag_engine/`의 변경을 읽고 지적 없음, 제목 접두 `feat:`가 맞다고 했다. 코멘트가 실제 코드 읽기를 담아 초록 착시는 아니라고 보았다. 첫 회차에 고칠 지적이 없어, 이 절과 위 해시 정정을 싣는 일지만의 푸시가 마지막 푸시다.
 
 ## 회고
 
