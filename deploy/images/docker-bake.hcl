@@ -1,5 +1,5 @@
 # 이미지 둘을 한 번에 짓는 목록(release-image 티켓 01, .scratch/release-image/spec.md "이미지와 계정").
-# 저장소 루트에서 부른다. context 와 dockerfile 은 부르는 자리(저장소 루트) 기준이다.
+# 저장소 루트에서 부른다. context 는 부르는 자리(저장소 루트)이고 dockerfile 은 그 안의 경로다.
 #
 #   docker buildx bake -f deploy/images/docker-bake.hcl --set '*.args.APP_VERSION=...' ...
 #   VERSION=0.1.0-rc.1 docker buildx bake -f deploy/images/docker-bake.hcl --load

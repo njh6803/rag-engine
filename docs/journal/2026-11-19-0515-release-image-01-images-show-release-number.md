@@ -42,9 +42,23 @@ release-image 티켓 여덟 가운데 둘째 티켓(`01-images-show-release-numb
 
 고치며 새로 쓴 사실 문장은 모두 코드와 티켓에서 읽은 값(날짜, 판 번호, 파일 이름)이다. 다시 돌린 명령: 린트와 포맷 검사는 통과했고(`ruff check`, `ruff format --check`), 전체 러너는 위 "확인한 것"과 같다.
 
+## PR 직전 리뷰
+
+`coderabbit-review` 서브에이전트가 CodeRabbit CLI 0.7.5를 끝까지 돌렸다(`--base dd505fa427faec8053f9a7d279934df277085890`, 커밋 `3ea5f19`). 좌석은 `Seat: not assigned`, `Plan: Free`였지만 리뷰는 끝났다. CodeRabbit이 지적 둘을 냈고 서브에이전트가 직접 읽어 더했다. 결과는 Critical과 Major가 없고, 유효한 Minor 둘과 Nit 다섯, 오탐 둘이다. 비밀 값을 남기게 하는 문장은 없었다. 밀어 달라고 넘긴 주장 여덟은 모두 맞았다. 둘은 서브에이전트가 임시 폴더에서 직접 재 보았다. `sed`가 `pyproject.toml`의 첫 `version =` 줄(3행)만 바꾸는 것, 그리고 `uv build`로 지은 wheel의 `Version`이 `0.0.1-rc.1` 그대로이고 설치 뒤 `importlib.metadata.version`도 같은 값이라는 것이다. 나머지는 Dockerfile과 CI 파일을 읽어 확인한 것이고 이미지를 새로 짓거나 CI를 돌려 본 것은 아니다.
+
+1. 오탐: `0.0.1-rc.1`이 메타데이터에서 `0.0.1rc1`로 바뀌어 설치된 번호 대조가 실패하지 않느냐는 지적이다. 위의 wheel 실측이 보존을 보였다. 파일 이름만 `0.0.1rc1`이다.
+2. 오탐: 표지 번호 시험이 패치된 `version`을 못 쓸 수 있다는 지적이다. `run_server`가 같은 프로세스의 스레드에서 uvicorn을 띄우고 `create_app`을 `start()` 안에서 부르므로 고정 장치가 건 패치를 쓴다. 이 시험은 전체 러너에서 통과했다.
+3. Minor(남긴다): 번호가 비었거나 틀린 꼴이면 의존성을 다 깐 뒤에야 짓기가 실패한다. 번호 인자를 의존성 층 뒤에 둔 것은 번호가 바뀔 때 의존성 층의 캐시가 깨지지 않게 하려는 것이라 일부러 그렇게 했다. bake 변수에 `validation` 블록을 두면 앞에서 막을 수 있으나, 쓰는 buildx 판에서 도는지 재 보지 않았고 그 블록은 08이 릴리스 워크플로를 들일 때 함께 본다.
+4. Minor(남긴다): CI의 `image` 잡이 두 이미지의 첫 줄만 대 본다. 명세가 요구하는 것은 첫 줄이고, 둘째 줄부터의 판 네 줄은 단위 시험이 지키며 손으로 지은 이미지에서 다섯 줄을 본 것이 티켓 Comments에 있다.
+5. Nit(고쳤다): `docker-bake.hcl` 머리 주석이 `dockerfile`도 부르는 자리 기준이라고 적었는데, 도구가 어느 기준으로 푸는지 이 세션이 확인하지 않았다. `context`는 부르는 자리이고 `dockerfile`은 그 안의 경로라고 고쳤다. 지금은 `context`가 `.`이라 어느 쪽으로 읽어도 같은 결과다.
+6. Nit(남긴다): `TAG` 기본값 `unknown`, 패키지가 설치되지 않았을 때의 `PackageNotFoundError`, `python-multipart`의 상한 없는 판 지정, 네 라우터에 퍼진 접두 문자열이다. 실제로는 나지 않거나(이미지에 설치된다, `uv.lock`이 0.0.33으로 고정한다) 해가 없고, 접두를 만드는 함수는 이 티켓의 체크박스가 아니다.
+7. 커밋의 인용 대조가 낸 경고 한 건(티켓 수락 기준이 옛 독스트링 문장을 따옴표로 옮겼는데 독스트링을 고쳐 그 글자가 사라졌다)도 같이 고쳤다. 따옴표를 떼고 풀어 썼다.
+
+이 절에서 새로 쓴 사실 문장은 모두 서브에이전트의 보고에서 옮긴 것이다(wheel 실측, `sed` 확인, 시험 통과).
+
 ## 커밋
 
-커밋 전 `git branch --show-current`는 `feature/01-images-show-release-number`였다. 이 절은 커밋이 끝난 뒤 pre-commit 결과로 채운다.
+첫 커밋은 `3ea5f19`(28개 파일, 498줄 더함, 67줄 뺌)다. 커밋 전 `git branch --show-current`는 `feature/01-images-show-release-number`였다. 커밋이 부른 pre-commit은 `ruff check`, `ruff format`, 검사 러너(`parallel-checks` 383.3초. 그 안의 pytest는 383.0초), 표, 줄 구분 문자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지 훅이 모두 통과했다. 인용 대조는 막지 않는 경고 한 건을 냈고 위 "PR 직전 리뷰" 7에서 고쳤다. 이 PR 직전 리뷰의 고침과 이 절을 싣는 둘째 커밋의 pre-commit 결과는 PR 본문에 적는다.
 
 ## 회고
 
