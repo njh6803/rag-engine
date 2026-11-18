@@ -138,7 +138,7 @@ def test_dev_위의_커밋도_막는다(tmp_path: Path) -> None:
 
 def test_병합_커밋은_dev_위에서도_막지_않는다(tmp_path: Path) -> None:
     """못 보는 것: `git merge` 가 만드는 병합 커밋은 명령이 `git commit` 이 아니다. 핫픽스를 main 에
-    합친 세션이 main 을 dev 에 되돌려 합치는 병합(agent-os ADR 0043)이 이 훅에 걸리지 않는 것은
+    합친 세션이 main 을 dev 에 합치는 병합(agent-os ADR 0043)이 이 훅에 걸리지 않는 것은
     일부러 둔 길이다."""
     repo = tmp_path / "dev"
     _저장소를_만든다(repo, "dev")

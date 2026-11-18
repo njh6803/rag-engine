@@ -77,3 +77,7 @@ date: 2026-11-12
 - **`EnterWorktree`의 기준을 확인했다.** 04가 넘긴 확인이다. dev가 main보다 앞선 뒤(PR 28 병합 뒤) `EnterWorktree`로 만든 새 워크트리에서 `git fetch origin`을 치고 보니 `HEAD`가 `origin/dev`(`0caa20f`)와 같았고 `origin/main`(`bcd5613`)과 달랐다. 본문 Consequences "다른 세션"의 서술(`worktree.baseRef`가 기본값 `fresh`이면 새 워크트리를 `origin/<기본 브랜치>`에서 딴다)과 같아 그 문장은 고치지 않는다.
 - **문서 맞춤.** `docs/constitution/operations.md`의 브랜치와 병합 절에서 "그때까지 출시 PR은 열지 않는다" 줄을 출시 PR을 여는 때와 main의 strict 두 줄로 바꿨다. `docs/agents/issue-tracker.md`의 끝 줄 절에 출시 계기를 한 문장 더했다. 새 원칙이나 새 절 없이 기존 절의 줄을 바꾸고 더해 헌법 판은 patch로 1.3.0에서 1.3.1로 올렸다. 열린 출시 PR이 끊겼을 때 결정표가 잇는 갈래와 출시 PR에는 병합 전의 봇 회차·일지를 하지 않는다는 문장은 셀프 리뷰가 낸 지적으로 agent-os 원문에 더했다.
 - **뒤로 넘긴 것.** `tools/hook_push_behind_main.py`가 dev에서도 뒤처진 푸시를 막을지는 여전히 정하지 않았다(agent-os도 같다). 첫 핫픽스 PR에서 CodeRabbit 수동 호출과 `/security-review` 범위를 재 보는 일(앞 일지의 "다음" (1))도 남는다.
+
+### 2026-11-18 운영 문서가 루트 브랜치와 되돌려 합치기의 이름을 바꿨다
+
+`docs/constitution/operations.md`와 `next-session`·`tidy-checkouts` 스킬이 이름 둘을 agent-os의 결정에 맞춰 바꿨다. "루트 브랜치"는 "주 체크아웃이 따르는 브랜치"로, "되돌려 합치기"는 "운영에서 개발로 합치기"로 바뀌었다. 본문의 옛 이름은 새 이름으로 읽는다. 스킬의 절 "되돌려 합치기"도 "운영에서 개발로 합치기"가 되어, 본문이 가리키는 절은 새 이름의 절이다. 이름만 바뀌었고 브랜치 모델과 병합 방법의 결정은 그대로다. 사용자가 2026-11-18에 agent-os에서 골랐고, 이 저장소의 헌법 운영 문서를 바꾸는 것은 선택 화면으로 물어 "바꾼다, 헌법 버전 1.3.8"을 받았다. 헌법 버전은 문구 수정(patch)으로 1.3.7에서 1.3.8로 올렸다(티켓 `.scratch/harness/issues/glossary-root-branch-merge-back.md`).

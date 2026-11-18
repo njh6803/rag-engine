@@ -102,9 +102,9 @@ CI. `--ci` 로 부르면 PR 의 값을 환경 변수로 받아 PR 단위로 같�
   열기 전에 done 이다(명세 "쓰는 때와 상태").
 - 판정 전에 받은 세 값과 체크아웃한 병합 커밋의 첫 부모를 stdout 에 한 줄 찍는다. base 값이 그 첫
   부모와 같은지 실제 실행에서 견주기 위해서다.
-- 머리 브랜치가 main 이나 dev 인 PR 은 판정 1 로 지난다. dev→main 출시 PR 과 main→dev 되돌려
-  합치기는 티켓 하나를 가리키지 않는다(agent-os ADR 0043 Consequences "티켓 검사와 봇"). 그 안의
-  티켓 PR 은 dev 로 들어갈 때 이미 판정을 받았다.
+- 머리 브랜치가 main 이나 dev 인 PR 은 판정 1 로 지난다. dev→main 출시 PR 과 main→dev
+  운영에서 개발로 합치기는 티켓 하나를 가리키지 않는다(agent-os ADR 0043 Consequences
+  "티켓 검사와 봇"). 그 안의 티켓 PR 은 dev 로 들어갈 때 이미 판정을 받았다.
 - `PR_HEAD_REF` 가 비면(PR 이 아닌 실행, main·dev 의 push) 한 줄을 찍고 지난다. 필수 검사 `verify`
   가 건너뛴 잡을 빨강으로 보므로 이 잡은 push 에서도 돌고 곧바로 끝난다. 다만 러너가 주는 이벤트
   이름(`GITHUB_EVENT_NAME`, GitHub 문서 Variables reference 의 기본 환경 변수 표. 2026-10-22 에
@@ -189,7 +189,8 @@ CHECK_PATH = "tools/check_ticket.py"
 BASE = "refs/remotes/origin/main"
 DEV_BASE = "refs/remotes/origin/dev"
 # 보호 브랜치. 이 브랜치 위의 커밋은 `tools/hook_git_main_commit.py` 가 막고, CI 의 머리 브랜치가
-# 이것이면 티켓 하나를 가리키지 않는 PR(dev→main 출시 PR, main→dev 되돌려 합치기)이라 지난다.
+# 이것이면 티켓 하나를 가리키지 않는 PR(dev→main 출시 PR, main→dev 운영에서 개발로 합치기)이라
+# 지난다.
 PROTECTED_BRANCHES = frozenset({"main", "dev"})
 HOTFIX_PREFIX = "hotfix/"
 GIT_TIMEOUT = 60.0
