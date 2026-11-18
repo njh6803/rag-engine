@@ -10,12 +10,17 @@ from pathlib import Path
 
 import uvicorn
 
+from rag_engine.adapters.index_elements import SCHEMA_VERSION
 from rag_engine.adapters.ingest_command import ingest_path
 from rag_engine.adapters.postgres.bootstrap import issue_bootstrap_token, migrate_database
 from rag_engine.adapters.postgres.engine import run_in_selector_loop
+from rag_engine.adapters.release_number import release_number
 from rag_engine.adapters.settings import Settings, load_settings
 from rag_engine.domain.errors import ConfigurationError
+from rag_engine.domain.parsing import PARSER_INTERFACE_VERSION
 from rag_engine.server import create_app
+from rag_engine.server.api_version import API_VERSION
+from rag_engine.server.tool_models import FORMAT_VERSION
 from rag_engine.worker.assembly import run_worker
 
 
@@ -30,8 +35,44 @@ def _seconds(text: str) -> float:
     return seconds
 
 
+def version_lines() -> list[str]:
+    """`--version`이 찍는 줄. 첫 줄이 릴리스 번호이고, 이어서 지금 판이 붙은 계약마다 `<계약의 이름>
+    <판>`을 한 줄씩 싣는다. 판의 값은 그 계약을 정한 코드의 값을 읽는다. 릴리스 노트의 "계약의 판"
+    절이 둘째 줄부터를 그대로 옮기므로 사람이 읽는 글로 쓴다. 원칙 VII이 드는 계약에 판이 더
+    붙으면 줄을 더한다."""
+    return [
+        f"rag-engine {release_number()}",
+        f"검색 도구의 형식 {FORMAT_VERSION}",
+        f"수집 API와 관리 API의 경로 {API_VERSION}",
+        f"파서 인터페이스 {PARSER_INTERFACE_VERSION}",
+        f"색인 형식의 스키마 {SCHEMA_VERSION}",
+    ]
+
+
+class _VersionAction(argparse.Action):
+    """`--version`은 필수 설정을 읽지 않고 번호와 계약의 판을 찍은 뒤 종료 코드 0으로 끝난다. 하위
+    명령이 없어도 되고, 다른 명령은 모두 필수 설정을 검증하지만 이 옵션은 데이터베이스 주소 같은
+    설정이 없는 이미지에서도 돌아야 한다(릴리스 워크플로가 이미지에서 번호를 읽는다)."""
+
+    def __init__(self, option_strings: Sequence[str], dest: str, help: str | None = None) -> None:
+        super().__init__(option_strings, dest, nargs=0, default=argparse.SUPPRESS, help=help)
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[object] | None,
+        option_string: str | None = None,
+    ) -> None:
+        print("\n".join(version_lines()))
+        parser.exit()
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="rag-engine")
+    parser.add_argument(
+        "--version", action=_VersionAction, help="릴리스 번호와 계약의 판을 찍고 끝낸다"
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     serve = commands.add_parser("serve", help="HTTP 서버를 띄운다")
     serve.add_argument("--host", default="127.0.0.1")

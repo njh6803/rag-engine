@@ -79,24 +79,30 @@ jobs:
       - run: uv run python tools/run_hooks.py
       - run: uv run zizmor --offline --strict-collection --config .github/zizmor.yml .
 
-  # 컨테이너 이미지는 첫날부터 CI 에서 짓는다(operations.md 검증). 버전 태그를 붙여 내는 것은 release-image 다. 지은
-  # 이미지를 띄워 /health 가 답하는지까지 본다. 진입점이나 root 가 아닌 사용자의 권한이 틀리면 짓기는 초록이어도
-  # 여기서 빨갛다.
+  # 컨테이너 이미지는 첫날부터 CI 에서 짓는다(operations.md 검증). 모든 PR 에서 deploy/images/ 의 bake 설정으로 이미지
+  # 둘(server, worker)을 짓고, 서버 이미지를 띄워 /health 가 답하는지와 두 이미지의 rag-engine --version 첫 줄을 본다.
+  # 버전 태그를 붙여 내는 것은 release-image 다. 진입점이나 root 가 아닌 사용자의 권한이 틀리면 짓기는 초록이어도
+  # 여기서 빨갛다. 릴리스 번호는 저장소의 0.0.0 과 다른 값(0.0.1-rc.1)으로 짓는다. 같은 0.0.0 이면 번호를 코드에
+  # 적은 구현도 지나기 때문이다.
   image:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      NAMESPACE: rag-engine-ci
+      TAG: ci
+      VERSION: 0.0.1-rc.1
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - run: docker build -t rag-engine:ci .
+      - run: docker buildx bake -f deploy/images/docker-bake.hcl --load
       # serve는 설정을 읽고 시작한다. 이 잡은 /health만 보고 엔진은 첫 질의 때 연결하므로 가짜 연결 주소로 된다.
       - run: >
           docker run -d --name rag-engine -p 8000:8000
           -e RAG_DATABASE_URL=postgresql://ci:ci@127.0.0.1:5432/ci
           -e RAG_DATA_DIR=/data
           -e RAG_ALLOWED_HOSTS=localhost
-          rag-engine:ci
+          "${NAMESPACE}/rag-engine-server:${TAG}"
       - run: |
           for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8000/health; then
@@ -106,6 +112,15 @@ jobs:
           done
           docker logs rag-engine
           exit 1
+      # --version 은 필수 설정 없이 돈다(설정 환경 변수를 주지 않는다). 두 이미지의 첫 줄이 넘긴 번호여야 한다.
+      - run: |
+          for target in server worker; do
+            first_line=$(docker run --rm "${NAMESPACE}/rag-engine-${target}:${TAG}" rag-engine --version | head -n 1)
+            if [ "${first_line}" != "rag-engine ${VERSION}" ]; then
+              echo "${target} 이미지의 --version 첫 줄이 다르다: ${first_line}" >&2
+              exit 1
+            fi
+          done
 
   # 커밋 검사. pre-commit 은 훅을 건너뛴 커밋(--no-verify)을 보지 못하므로 PR 마다 PR 의 머리 브랜치·머리 커밋·base
   # 커밋으로 같은 판정을 하고, 가리키는 티켓의 Status: 가 done 인지까지 본다. PR 값은 env 로 넘긴다(워크플로 감사가
