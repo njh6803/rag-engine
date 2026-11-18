@@ -2,7 +2,7 @@
 
 **상태:** 열림
 **어디로:** 시간 단언의 상한을 시험을 홀로 돌린 시간의 넉넉한 배수로 정하는 보조 함수나, 실제 시간·기한을 재는 단언의 상한을 잡는 검사(`tools/check_*.py`)로 종류 전체를 없앤다. 또는 그 값을 받아들인다고 일지에 적고 닫는다. 게이트를 느슨하게 하는 길(혼자 다시 돌려 지나가면 막지 않기)은 넘김이다
-**승인:** 자체 승인 2026-11-14, token-expiry-test-load-margin의 3회차(끝이 열린 결함 종류의 세 번째 사례라 사례를 고치지 않고 종류를 다룬다), 일지 2026-11-14-2016-search-eval-07-inference-records.md, ADR 불필요
+**승인:** 자체 승인 2026-11-14, token-expiry-test-load-margin의 3회차(여러 곳에서 나는 같은 결함의 세 번째 사례라 사례를 고치지 않고 종류를 다룬다), 일지 2026-11-14-2016-search-eval-07-inference-records.md, ADR 불필요
 
 search-eval 07 세션이 손으로 돌린 `tools/run_checks.py`(4132 passed, 2 failed)에서 `tests/app/test_job_lease.py::test_임대를_잃은_것이_드러나면_처리를_멈추고_문서에도_작업_행에도_쓰지_않는다`가 `assert time.monotonic() - started < 5`를 5.27초로 넘겨 빨갛고, `tests/tools/test_hook_push_behind_main.py::test_dev의_유무를_조회하다_시간을_넘기면_재지_않는다`도 빨갰다. 같은 때 변이 실행과 서브에이전트 둘이 돌았다. 두 시험을 단독으로 돌리면 통과했다(2 passed, 16.78초). `.claude/rules/tests.md`가 실제 시간을 재는 단언의 상한을 그 시험만 홀로 돌린 시간의 넉넉한 배수로 두라고 이미 정하지만, 이 둘의 상한이 홀로 돌린 시간의 배수로 정해졌는지는 재 보지 않았다. 잃은 것은 15분의 검사 러너 한 번이 준 거짓 빨강과 그것을 가리는 데 든 확인이다.
 
