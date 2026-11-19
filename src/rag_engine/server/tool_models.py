@@ -1,9 +1,9 @@
 """MCP 도구 셋(`search`, `get_document`, `list_knowledge_bases`)의 출력 모델과 `format_version`.
 
-출력 스키마는 이 pydantic 모델에서 나오고 MCP 도구 목록의 outputSchema로 공개된다. 판은 결과 객체의
-`format_version` 칸(semver 문자열)이고, 칸을 더하면 minor, 칸을 지우거나 뜻을 바꾸면 major다(원칙
-VII, ADR 0015). 도구는 결과를 만들 때 `FORMAT_VERSION`을 직접 넣는다. 칸에 기본값이 없어
-outputSchema의 `required`에 들고, 클라이언트는 이 칸이 늘 있다고 읽는다. 스키마와 판은
+출력 스키마는 이 pydantic 모델에서 나오고 MCP 도구 목록의 outputSchema로 공개된다. 버전은 결과
+객체의 `format_version` 칸(semver 문자열)이고, 칸을 더하면 minor, 칸을 지우거나 뜻을 바꾸면
+major다(원칙 VII, ADR 0015). 도구는 결과를 만들 때 `FORMAT_VERSION`을 직접 넣는다. 칸에 기본값이
+없어 outputSchema의 `required`에 들고, 클라이언트는 이 칸이 늘 있다고 읽는다. 스키마와 버전은
 `tests/server/test_tool_models.py`가 보고, 도구가 이 모델로 답하는지는 도구를 구현하는 티켓이
 `tests/contract/`에 더한다. 도구 이름은 고정이다.
 """
@@ -25,7 +25,7 @@ from pydantic import (
 from rag_engine.domain.entities import BlockKind
 
 # 1.1.0은 `search`의 입력 인자 `min_score`를 더했다. 입력 인자를 더하는 것도 minor다(ADR 0015
-# 이력 2026-11-12). 옛 서버는 모르는 인자를 조용히 버리므로 클라이언트는 이 판으로 서버가 인자를
+# 이력 2026-11-12). 옛 서버는 모르는 인자를 조용히 버리므로 클라이언트는 이 버전으로 서버가 인자를
 # 아는지 가른다.
 FORMAT_VERSION: Final = "1.1.0"
 
@@ -38,7 +38,7 @@ def _to_utc(value: datetime) -> datetime:
 type UtcDatetime = Annotated[AwareDatetime, AfterValidator(_to_utc)]
 
 _VERSION_DESCRIPTION: Final = (
-    "이 결과 형식의 판(semver). 칸을 더하면 minor, 지우거나 뜻을 바꾸면 major다"
+    "이 결과 형식의 버전(semver). 칸을 더하면 minor, 지우거나 뜻을 바꾸면 major다"
 )
 
 

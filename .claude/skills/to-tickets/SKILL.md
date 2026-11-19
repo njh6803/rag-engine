@@ -18,7 +18,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
 
-기능 하나의 순서는 이렇고 이 스킬은 넷째다. 설계 인터뷰(`/grill-with-docs`, 용어는 `GLOSSARY.md`, 결정은 `docs/adr/`) → 명세(`/to-spec`) → 명세 검토(`spec-reviewer` 서브에이전트, 읽기 전용) → **티켓(이 스킬)** → 구현(`/implement`, 티켓마다 새 세션과 `feature/<NN>-<slug>` 브랜치) → 커밋 전 셀프 리뷰(`/code-review`) → PR 직전 CLI(`coderabbit-review`. 못 돌면 `/security-review`와 `bug-perf-review`) → PR·반영·병합(`/git-pr`, `/git-pr-feedback`, `/git-pr-merge`, 계기는 `next-session`). 명세 검토가 안 됐으면 그것부터 한다. 건너뛸지의 기준은 "몇 개를 건드리나"가 아니라 "건드리는 곳마다 새로 정할 것이 있나"다. 첫 기능 전에는 공통 규약(식별자 형식, 에러 봉투, 시간대, 색인 형식의 판)을 정한다.
+기능 하나의 순서는 이렇고 이 스킬은 넷째다. 설계 인터뷰(`/grill-with-docs`, 용어는 `GLOSSARY.md`, 결정은 `docs/adr/`) → 명세(`/to-spec`) → 명세 검토(`spec-reviewer` 서브에이전트, 읽기 전용) → **티켓(이 스킬)** → 구현(`/implement`, 티켓마다 새 세션과 `feature/<NN>-<slug>` 브랜치) → 커밋 전 셀프 리뷰(`/code-review`) → PR 직전 CLI(`coderabbit-review`. 못 돌면 `/security-review`와 `bug-perf-review`) → PR·반영·병합(`/git-pr`, `/git-pr-feedback`, `/git-pr-merge`, 계기는 `next-session`). 명세 검토가 안 됐으면 그것부터 한다. 건너뛸지의 기준은 "몇 개를 건드리나"가 아니라 "건드리는 곳마다 새로 정할 것이 있나"다. 첫 기능 전에는 공통 규약(식별자 형식, 에러 봉투, 시간대, 색인 형식의 버전)을 정한다.
 
 ### 2. Explore the codebase (optional)
 

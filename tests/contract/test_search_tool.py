@@ -39,7 +39,7 @@ async def test_search_도구는_읽기_전용_표지와_출력_스키마를_공�
     assert "format_version" in schema["required"]
 
 
-async def test_결과는_출력_스키마와_형식의_판_1_1_0에_맞는다(round_trip: RoundTrip) -> None:
+async def test_결과는_출력_스키마와_형식의_버전_1_1_0에_맞는다(round_trip: RoundTrip) -> None:
     await round_trip.ingest("제1조 휴가", "연차휴가는 입사 일 년 뒤부터 발생한다.")
     await round_trip.work()
 

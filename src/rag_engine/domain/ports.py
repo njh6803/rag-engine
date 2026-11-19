@@ -5,7 +5,7 @@
 연결의 한 트랜잭션을 공유한다. 나머지는 트랜잭션 밖에서 부른다. 서드파티 예외는 어댑터가 `domain`의
 영구·일시 실패 예외(`rag_engine.domain.errors`)로 바꿔 올리고 메시지는 옮기지 않는다.
 
-`Parser`는 플러그인 자리라 인터페이스 판과 함께 `rag_engine.domain.parsing`에 있다. `Connector`와
+`Parser`는 플러그인 자리라 인터페이스 버전과 함께 `rag_engine.domain.parsing`에 있다. `Connector`와
 `Transform`의 Protocol은 처음 쓰는 source-sync가 만든다(명세 Further Notes).
 """
 

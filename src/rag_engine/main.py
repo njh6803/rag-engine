@@ -36,10 +36,10 @@ def _seconds(text: str) -> float:
 
 
 def version_lines() -> list[str]:
-    """`--version`이 찍는 줄. 첫 줄이 릴리스 번호이고, 이어서 지금 판이 붙은 계약마다 `<계약의 이름>
-    <판>`을 한 줄씩 싣는다. 판의 값은 그 계약을 정한 코드의 값을 읽는다. 릴리스 노트의 "계약의 판"
-    절이 둘째 줄부터를 그대로 옮기므로 사람이 읽는 글로 쓴다. 원칙 VII이 드는 계약에 판이 더
-    붙으면 줄을 더한다."""
+    """`--version`이 찍는 줄. 첫 줄이 릴리스 번호이고, 이어서 지금 버전이 붙은 계약마다
+    `<계약의 이름> <버전>`을 한 줄씩 싣는다. 버전의 값은 그 계약을 정한 코드의 값을 읽는다. 릴리스
+    노트의 "계약의 판" 절이 둘째 줄부터를 그대로 옮기므로 사람이 읽는 글로 쓴다. 원칙 VII이 드는
+    계약에 버전이 더 붙으면 줄을 더한다."""
     return [
         f"rag-engine {release_number()}",
         f"검색 도구의 형식 {FORMAT_VERSION}",
@@ -50,7 +50,7 @@ def version_lines() -> list[str]:
 
 
 class _VersionAction(argparse.Action):
-    """`--version`은 필수 설정을 읽지 않고 번호와 계약의 판을 찍은 뒤 종료 코드 0으로 끝난다. 하위
+    """`--version`은 필수 설정을 읽지 않고 번호와 계약 버전을 찍은 뒤 종료 코드 0으로 끝난다. 하위
     명령이 없어도 되고, 다른 명령은 모두 필수 설정을 검증하지만 이 옵션은 데이터베이스 주소 같은
     설정이 없는 이미지에서도 돌아야 한다(릴리스 워크플로가 이미지에서 번호를 읽는다)."""
 
@@ -71,7 +71,7 @@ class _VersionAction(argparse.Action):
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="rag-engine")
     parser.add_argument(
-        "--version", action=_VersionAction, help="릴리스 번호와 계약의 판을 찍고 끝낸다"
+        "--version", action=_VersionAction, help="릴리스 번호와 계약 버전을 찍고 끝낸다"
     )
     commands = parser.add_subparsers(dest="command", required=True)
     serve = commands.add_parser("serve", help="HTTP 서버를 띄운다")

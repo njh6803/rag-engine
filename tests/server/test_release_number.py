@@ -1,6 +1,6 @@
 """API 문서의 판 칸과 MCP 초기화 응답의 서버 정보(`serverInfo.version`)가 설치된 패키지의 번호를
 그대로 보인다(release-image 명세 "번호가 보이는 자리", 스토리 39). MCP 표준의 칸에 싣는 값이라
-검색 도구의 형식과 그 판(`1.1.0`)을 바꾸지 않으므로 `tests/contract/`가 아니라 여기에 둔다."""
+검색 도구의 형식과 그 버전(`1.1.0`)을 바꾸지 않으므로 `tests/contract/`가 아니라 여기에 둔다."""
 
 from collections.abc import Callable
 
