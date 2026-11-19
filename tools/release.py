@@ -50,12 +50,18 @@
 못 보는 것:
 
 - 버전 태그는 이 저장소의 로컬 `git tag` 만 본다. 원격에만 있는 태그는 CI 가 `git fetch --tags` 로
-  가져온 뒤에야 보인다. 명세의 "계산한 태그가 이미 있다" 규칙은 로컬 태그로는 닿을 길이 없다. 가장
+  가져온 뒤에야 보인다. 얕은 체크아웃은 이력이 모자라 번호도 노트도 짓지 않고 실패한다(전체 이력과
+  태그를 받아야 한다). 명세의 "계산한 태그가 이미 있다" 규칙은 로컬 태그로는 닿을 길이 없다. 가장
   큰 태그가 언제나 지난 릴리스라 계산한 번호는 그것보다 크기 때문이다. 그래서 `ensure_untaken` 은
   방어이고 그 판정만 따로 시험한다.
 - 릴리스 설정 파일은 작업 트리의 것을 읽는다. 릴리스하는 커밋을 체크아웃한 CI 에서는 같다.
 - 묶음의 파일은 UTF-8 글로 읽는다. 읽지 못하는 파일은 자리 표지를 보지 않고 그대로 담는다.
-  심볼릭 링크는 담지 않고 실패한다.
+  심볼릭 링크와 윈도의 junction 은 틀 폴더 자체든 그 아래든 담지 않고 실패한다. 출력 폴더가 틀 폴더
+  안이면 묶음이 묶음을 다시 담으므로 실패한다.
+- 업그레이드 원고와 기능 원고를 이름 바꾸기로 따라가지 못한다. 범위 안에서 업그레이드 원고를 다른
+  이름으로 옮기며 고치면 원고를 더한 커밋 시점의 글이 실리고, 지난 릴리스에 있던 다른 폴더의 원고를
+  내용 그대로 `features/` 로 옮기면 새 원고로 읽는다. 같은 모양이 agent-os 원본에 있다. 이
+  저장소에서 고칠지는 실제 릴리스에서 나는지 본 뒤에 정한다.
 - 번호 태그 판정이 읽는 `Digest:` 줄의 꼴은 `docker buildx imagetools inspect` 의 출력이다. agent-os
   저장소가 2026-11-16 에 로컬 레지스트리로 조회해 적어 둔 꼴을 옮긴 것이고, 이 저장소에서는 조회해
   보지 않았다. 조회 실패의 종료 코드와 `: not found` 꼴도 같은 저장소의 프로브 기록을 옮긴 것이다.
@@ -103,7 +109,7 @@ NAMESPACE_MARKER = "@RAG_ENGINE_NAMESPACE@"
 FENCE = "```"
 
 _VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-rc\.([1-9][0-9]*))?")
-_NAMESPACE = re.compile(r"[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*")  # Docker 경로 한 토막의 꼴
+_NAMESPACE = re.compile(r"[a-z0-9]+(?:(?:_|__|-+)[a-z0-9]+)*")  # 점 없는 Docker 경로 한 토막
 _MARKER = re.compile(r"@RAG_ENGINE_[^@\s]*@?")  # 닫는 `@` 가 빠진 오타도 잡는다
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 _DIGEST_LINE = re.compile(r"Digest:\s+(\S+)")
@@ -270,6 +276,15 @@ def _check_revision(head: str) -> None:
         raise ReleaseError(f"리비전은 - 로 시작할 수 없다: {head!r}")
 
 
+def _check_full_history(repo: Path) -> None:
+    """얕은 체크아웃은 머리를 루트처럼 다룬다. 지난 커밋이 빠지고 옛 파일이 새 파일이 된다."""
+    if _git(repo, "rev-parse", "--is-shallow-repository").strip() == "true":
+        raise ReleaseError(
+            "얕은 체크아웃이라 이력이 모자라다. 전체 이력과 태그를 받은 뒤 "
+            "(`git fetch --unshallow --tags`) 다시 돌린다"
+        )
+
+
 def _ensure_ancestor(repo: Path, tag: str, head: str) -> None:
     done = _run(repo, "merge-base", "--is-ancestor", f"refs/tags/{tag}", head)
     if done.returncode == 1:
@@ -355,9 +370,13 @@ def _moved_in(repo: Path, since: str, head: str, folder: str) -> set[str]:
 
 
 def _read_at(repo: Path, revision: str, path: str) -> str | None:
+    """`revision` 의 `path` 글. 그 리비전에 경로가 없으면 None 이고, 있는데 읽지 못하면 실패한다."""
+    listed = _git(repo, "ls-tree", "--full-tree", "--name-only", revision, "--", path)
+    if not listed.strip():
+        return None
     done = _run(repo, "show", f"{revision}:{path}")
     if done.returncode != 0:
-        return None
+        raise ReleaseError(f"{revision} 의 {path} 를 읽지 못했다: {_stderr(done)}")
     return done.stdout.decode("utf-8", errors="replace").rstrip("\n")
 
 
@@ -436,6 +455,7 @@ def _next_number(
 
 def plan_release(repo: Path, head: str = "HEAD") -> Plan:
     _check_revision(head)
+    _check_full_history(repo)
     tags = _tags(repo)
     versions = _version_tags(tags)
     candidate = read_candidate(repo)
@@ -522,6 +542,7 @@ def render_notes(
     head: str = "HEAD",
 ) -> str:
     _check_revision(head)
+    _check_full_history(repo)
     version = parse_version(number)
     if version is None:
         raise ReleaseError(f"릴리스 번호가 X.Y.Z 나 X.Y.Z-rc.N 꼴이 아니다: {number!r}")
@@ -613,22 +634,40 @@ def _fill(data: bytes, replacements: Mapping[str, str], where: str) -> bytes:
     return text.encode("utf-8")
 
 
+def _is_link(path: Path) -> bool:
+    """심볼릭 링크이거나 윈도의 junction 이다. 둘 다 대상을 따라가면 틀 밖으로 나간다."""
+    return path.is_symlink() or path.is_junction()
+
+
+def _template_files(source: Path) -> list[Path]:
+    """틀 폴더 아래 파일을 이름순으로 낸다. 링크는 따라가지 않고 만나면 실패한다."""
+    files: list[Path] = []
+    pending = [source]
+    while pending:
+        for entry in sorted(pending.pop().iterdir()):
+            if _is_link(entry):
+                raise ReleaseError(f"심볼릭 링크나 junction 은 묶음에 담지 않는다: {entry}")
+            if entry.is_dir():
+                pending.append(entry)
+            elif entry.is_file():
+                files.append(entry)
+    return sorted(files)
+
+
 def _collect(
     source: Path, root: str, replacements: Mapping[str, str]
 ) -> tuple[set[str], dict[str, bytes]]:
     """틀 폴더의 파일을 자리 표지를 채워 읽고, 묶음 안의 폴더 이름과 파일 내용을 낸다."""
     if not source.is_dir():
         raise ReleaseError(f"배포 파일의 틀 폴더가 없다: {source}")
-    if source.is_symlink():  # 링크의 대상을 따라가면 틀 밖의 파일이 묶음에 실린다
-        raise ReleaseError(f"배포 파일의 틀 폴더가 심볼릭 링크다: {source}")
-    paths = sorted(path for path in source.rglob("*") if path.is_file() or path.is_symlink())
+    if _is_link(source):  # 링크의 대상을 따라가면 틀 밖의 파일이 묶음에 실린다
+        raise ReleaseError(f"배포 파일의 틀 폴더가 심볼릭 링크나 junction 이다: {source}")
+    paths = _template_files(source)
     if not paths:
         raise ReleaseError(f"배포 파일의 틀 폴더가 비었다: {source}")
     names = {root}
     contents: dict[str, bytes] = {}
     for path in paths:
-        if path.is_symlink():
-            raise ReleaseError(f"심볼릭 링크는 묶음에 담지 않는다: {path}")
         relative = path.relative_to(source).as_posix()
         contents[f"{root}/{relative}"] = _fill(path.read_bytes(), replacements, relative)
         parent = relative.rpartition("/")[0]
@@ -662,8 +701,12 @@ def build_bundle(source: Path, out_dir: Path, number: str, namespace: str) -> Pa
         raise ReleaseError(f"릴리스 번호가 X.Y.Z 나 X.Y.Z-rc.N 꼴이 아니다: {number!r}")
     if _NAMESPACE.fullmatch(namespace) is None:
         raise ReleaseError(
-            f"이미지 이름공간이 소문자·숫자·`._-` 로 된 이름 하나가 아니다: {namespace!r}"
+            f"이미지 이름공간이 소문자·숫자·`_-` 로 된 점 없는 이름 하나가 아니다: {namespace!r}"
         )
+    source_root = source.resolve()
+    out_root = out_dir.resolve()
+    if out_root == source_root or source_root in out_root.parents:
+        raise ReleaseError(f"출력 폴더가 틀 폴더 안이면 묶음이 묶음을 다시 담는다: {out_dir}")
     root = f"{BUNDLE_ROOT}-{number}"
     names, contents = _collect(source, root, {VERSION_MARKER: number, NAMESPACE_MARKER: namespace})
     packed = _pack(names, contents)
@@ -693,7 +736,10 @@ def judge_number_tag(exit_code: int, output: str, pushed_digest: str) -> TagVerd
         for line in lines:
             found = _DIGEST_LINE.match(line)
             if found is not None:
-                return TagVerdict.KEEP if found.group(1) == pushed_digest else TagVerdict.REJECT
+                seen = found.group(1)
+                if _DIGEST.fullmatch(seen) is None:  # 읽지 못한 값은 다른 digest 가 아니다
+                    return TagVerdict.HOLD
+                return TagVerdict.KEEP if seen == pushed_digest else TagVerdict.REJECT
         return TagVerdict.HOLD
     if exit_code == 1 and lines and lines[-1].endswith(_NOT_FOUND):
         return TagVerdict.ATTACH
@@ -732,6 +778,8 @@ def _grype_reports(specs: Sequence[str]) -> dict[str, str]:
         name, separator, path = spec.partition("=")
         if not separator or not name or not path:
             raise ReleaseError(f"--grype 는 NAME=PATH 꼴이다: {spec!r}")
+        if name in reports:  # 뒤의 보고서가 앞의 것을 덮으면 앞의 경고가 조용히 빠진다
+            raise ReleaseError(f"--grype {name} 이 두 번 나왔다. 이미지마다 한 번씩만 쓴다")
         try:
             reports[name] = Path(path).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as error:

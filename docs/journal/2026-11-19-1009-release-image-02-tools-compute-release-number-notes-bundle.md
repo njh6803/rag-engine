@@ -73,6 +73,22 @@ release-image 티켓 여덟 가운데 셋째로 구현한 티켓(`02-tools-compu
 
 첫 커밋은 `bcf1eae`(7개 파일, 2066줄 더함, 14줄 뺌)다. 커밋 전 `git branch --show-current`는 `feature/02-tools-compute-release-number-notes-bundle`이었고 `git fetch origin` 뒤 `origin/dev`는 기준과 같은 `75cb8ea`였다. 커밋이 부른 pre-commit은 `ruff check`, `ruff format`, 검사 러너(`parallel-checks` 447.25초. 그 안의 pytest는 446.9초), 표, 줄 구분 문자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지 훅이 모두 통과했다. 인용 대조가 막지 않는 경고 둘을 냈다. 티켓 Comments와 이 일지가 이미 없는 옛 문장이나 요약 문장을 따옴표로 옮긴 곳이다. 따옴표를 떼고 풀어 써서 이 절을 싣는 둘째 커밋에서 고쳤다.
 
+## 봇 회차
+
+PR #77(헤드 `27a9e46`)의 첫 회차다. 검사 일곱(claude-review, eval-fast, eval-full, image, python, ticket, verify)과 CodeRabbit(`Finished`)이 모두 통과했다. `claude-review`는 코멘트에서 `tools/release.py`의 import와 `PRODUCT_PATHS` 단일화, 헌법 판 1.5.2를 읽고 지적 없음, 제목 접두 `feat:`가 맞다고 했다. 코멘트가 실제 읽기를 담아 초록 착시는 아니라고 보았다. CodeRabbit은 인라인 지적 아홉(Major 5, Minor 4)을 냈다. 첫 회차라 지적마다 판단했고, 코드와 명세를 열어 확인했다.
+
+- 고쳤다(Major): 얕은 체크아웃에서 이력을 읽으면 머리를 루트처럼 다뤄 지난 커밋이 빠지고 옛 파일이 새 원고가 된다. `plan_release`와 `render_notes`가 `git rev-parse --is-shallow-repository`가 `true`면 실패하게 했고, 08의 체크아웃이 전체 이력과 태그를 받아야 한다는 말을 독스트링에 적었다. 시험은 `--depth 1`로 복제한 저장소로 둘 다 실패하고 전체 이력은 읽는 것을 본다.
+- 고쳤다(Major): `_read_at`이 "경로가 없다"와 "있는데 git이 읽지 못했다"를 모두 `None`으로 바꿔 업그레이드 원고가 조용히 빠졌다. `git ls-tree`로 경로가 있는지 먼저 보고, 있는데 `git show`가 실패하면 실패하게 했다. 시험은 업그레이드 원고의 loose 객체를 지워 실제로 읽기 실패를 만든다.
+- 고쳤다(Major): 틀 안의 junction 아래를 걷거나 틀 폴더 자체가 junction이어도 막지 못했다. `rglob` 대신 링크를 따라가지 않는 걷기(`_template_files`)로 바꾸고 `is_symlink()`와 `is_junction()`을 틀 폴더와 모든 하위 항목에 건다. Python 3.12에 `Path.is_junction`이 있다(`pyproject.toml`의 `requires-python`은 `==3.12.*`). 윈도에서만 만드는 junction은 `is_junction`만 바꿔 같은 길을 밟는 시험으로 고정했다.
+- 고쳤다(Major): `--grype server=a --grype server=b`처럼 같은 이미지 이름이 두 번 나오면 뒤의 보고서가 앞의 것을 덮어 앞의 경고가 빠졌다. 두 번째에서 실패하게 했고 이름이 다르면 각각 읽는 것을 시험했다.
+- 고쳤다(Minor): `Digest: unknown`처럼 sha256 꼴이 아닌 값을 "다른 digest"로 읽어 `REJECT`를 냈다. 꼴이 맞지 않으면 `HOLD`로 바꿨다(읽지 못한 것이지 충돌이 아니다).
+- 고쳤다(Minor): 출력 폴더가 틀 폴더와 같거나 그 안이면 둘째 실행이 첫 묶음을 다시 담는다. 경로를 풀어 본 뒤 그런 출력 폴더를 거절한다. 이름이 틀 폴더로 시작하는 옆 폴더는 받는 것도 시험했다.
+- 고쳤다(Minor): 이름공간 정규식이 점을 받아 `a.b-c`가 Docker에서 레지스트리 호스트로 읽혔다. 점을 뺐다. Docker Hub의 이름공간에는 점이 없다는 것은 명세가 아니라 Docker의 이름 해석에서 온 판단이고 이 저장소에서 재지 않았다. `localhost`도 호스트로 읽힌다는 지적은 따르지 않았다. 이름공간은 운영자가 정하는 환경 변수이고 게시하는 쪽이 `localhost`를 쓸 까닭이 없다.
+- 미뤘다(Major, 무거운 일): 업그레이드 원고를 더한 뒤 다른 이름으로 옮기며 고치면 옮긴 원고의 최종 글이 아니라 더한 커밋 시점의 글이 실린다. 이름 바꾸기를 추적해 최종 경로를 읽어야 한다. 같은 모양이 agent-os 원본에 있고, 이 티켓은 원본의 이식이다. 독스트링의 못 보는 것에 적어 두었고 아래 "다음"에도 적었다.
+- 미뤘다(Minor): 지난 릴리스에 있던 `intro/0.1.0.md`를 내용 그대로 `features/`로 옮기면 이름 바꾸기를 찾기 전에 경로로 걸러져 새 원고로 읽힌다. 위와 같은 이름 바꾸기 추적의 일부라 함께 미뤘고 같은 곳에 적었다.
+
+이 회차에서 새로 쓴 사실 문장은 모두 코드와 `pyproject.toml`에서 읽은 값이거나 시험이 고정한 동작이다. 위 항목 가운데 Python 3.12의 `is_junction`은 `Path.is_junction`을 시험이 직접 부르는 것으로 확인했다.
+
 ## 회고
 
 `retro` 스킬을 돌렸다. 후보는 여섯이고 승인 하나, 넘김 없음, 기각 다섯이다.
@@ -88,4 +104,4 @@ release-image 티켓 여덟 가운데 셋째로 구현한 티켓(`02-tools-compu
 
 ## 다음
 
-이 PR(base dev)은 헌법 판 1.5.2(문구 수정)를 올린다. 병합 뒤 release-image의 프런티어에서 02가 빠지므로 03(단독 compose)과 05(노트 검사)가 열린다. 03은 01과 02를 기다렸고 이제 둘 다 있다. 05는 02의 `PRODUCT_PATHS`와 제목 읽기를 가져다 쓴다. 04는 03 뒤, 08은 01부터 07까지가 모두 닫힌 뒤다. 08이 `rag-engine --version`의 둘째 줄부터를 `--contract-versions` 파일로 만들어 `tools/release.py notes`에 넘기는 호출 꼴은 도구 독스트링과 티켓 Comments에 적어 두었다. 세션 경계와 병합은 `next-session` 스킬의 `merge.md`를 따른다.
+이 PR(base dev)은 헌법 판 1.5.2(문구 수정)를 올린다. 병합 뒤 release-image의 프런티어에서 02가 빠지므로 03(단독 compose)과 05(노트 검사)가 열린다. 03은 01과 02를 기다렸고 이제 둘 다 있다. 05는 02의 `PRODUCT_PATHS`와 제목 읽기를 가져다 쓴다. 04는 03 뒤, 08은 01부터 07까지가 모두 닫힌 뒤다. 08이 `rag-engine --version`의 둘째 줄부터를 `--contract-versions` 파일로 만들어 `tools/release.py notes`에 넘기는 호출 꼴은 도구 독스트링과 티켓 Comments에 적어 두었다. 뒤로 넘긴 일 둘은 `tools/release.py`가 이름 바꾸기를 따라가지 못하는 한계다. 업그레이드 원고를 범위 안에서 옮기며 고치면 최종 글이 아닌 더한 커밋 시점의 글이 실리는 것과, 지난 릴리스에 있던 원고를 다른 폴더로 옮기면 새 원고로 읽히는 것이다(CodeRabbit 첫 회차의 Major 하나와 Minor 하나, agent-os 원본에서 온 한계). 독스트링의 못 보는 것에 적었고 시험으로 고정하지는 않았다. 08이 첫 릴리스를 내기 전에 릴리스 노트 원고를 옮기는 변경이 실제로 있었는지 보고, 있으면 이 도구에서 고친다. 세션 경계와 병합은 `next-session` 스킬의 `merge.md`를 따른다.

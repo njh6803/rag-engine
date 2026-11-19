@@ -804,6 +804,49 @@ def test_거르지_않은_grype_json이_아니면_실패한다(repo: Repo) -> No
             render_notes(repo.path, "0.1.0-rc.1", CONTRACT, {"server": broken})
 
 
+def test_같은_이미지_이름의_grype_결과가_두_번_나오면_실패한다(
+    repo: Repo, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo.product("feat: 첫 기능 (#1)")
+    empty = tmp_path / "빈.json"
+    empty.write_text(json.dumps({"matches": [], "descriptor": {}}), encoding="utf-8")
+    base = ["notes", "--repo", str(repo.path), "--number", "0.1.0-rc.1"]
+    base += ["--contract-versions", str(_계약_파일(tmp_path))]
+    assert main([*base, "--grype", f"server={empty}", "--grype", f"server={empty}"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "이 두 번 나왔다" in captured.err
+    # 이름이 다르면 각각 읽는다.
+    assert main([*base, "--grype", f"server={empty}", "--grype", f"worker={empty}"]) == 0
+
+
+def test_얕은_체크아웃이면_번호도_노트도_짓지_않는다(repo: Repo, tmp_path: Path) -> None:
+    repo.config('candidate_for = "0.1.0"\n')
+    repo.product("feat: 첫 기능 (#1)")
+    repo.product("fix: 고친다 (#2)")
+    shallow = tmp_path / "얕은"
+    repo.git("clone", "-q", "--depth", "1", repo.path.as_uri(), str(shallow))
+    with pytest.raises(ReleaseError, match="얕은 체크아웃"):
+        plan_release(shallow)
+    with pytest.raises(ReleaseError, match="얕은 체크아웃"):
+        render_notes(shallow, "0.1.0-rc.1", CONTRACT)
+    # 같은 저장소의 전체 이력은 그대로 읽는다.
+    assert plan_release(repo.path).release is True
+
+
+def test_업그레이드_원고가_트리에_있는데_읽지_못하면_노트를_짓지_않는다(repo: Repo) -> None:
+    repo.product(
+        "feat!: 규칙 파일을 옮긴다 (#1)",
+        {"docs/release-notes/upgrade/rules.md": "`rules.yaml`을 옮긴다.\n"},
+    )
+    blob = repo.git("rev-parse", "HEAD:docs/release-notes/upgrade/rules.md")
+    loose = repo.path / ".git" / "objects" / blob[:2] / blob[2:]
+    loose.chmod(0o666)  # 윈도에서는 읽기 전용이라 지우지 못한다
+    loose.unlink()
+    with pytest.raises(ReleaseError, match="읽지 못했다"):
+        render_notes(repo.path, "0.1.0-rc.1", CONTRACT)
+
+
 def test_노트_도구는_글을_표준_출력에_낸다(
     repo: Repo, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -967,6 +1010,9 @@ def test_소문자가_든_모르는_자리_표지도_묶음을_짓지_않는다(
         ("0.1.0", "docker.io/foo", "이름공간"),
         ("0.1.0", "-a", "이름공간"),
         ("0.1.0", "a_", "이름공간"),
+        # 점이 든 이름은 Docker 가 레지스트리 호스트로 읽어 게시한 이미지가 아닌 곳에서 받는다.
+        ("0.1.0", "a.b-c", "이름공간"),
+        ("0.1.0", "registry.example", "이름공간"),
     ],
 )
 def test_번호나_이름공간이_틀리면_묶음을_짓지_않는다(
@@ -977,9 +1023,42 @@ def test_번호나_이름공간이_틀리면_묶음을_짓지_않는다(
     assert not (tmp_path / "out").exists()
 
 
-@pytest.mark.parametrize("namespace", ["njh6803", "my-org", "a--b", "my_org", "a__b", "a.b-c"])
-def test_도커_경로_한_토막으로_읽히는_이름공간은_받는다(tmp_path: Path, namespace: str) -> None:
+@pytest.mark.parametrize("namespace", ["njh6803", "my-org", "a--b", "my_org", "a__b"])
+def test_점_없는_도커_경로_한_토막으로_읽히는_이름공간은_받는다(
+    tmp_path: Path, namespace: str
+) -> None:
     assert build_bundle(_틀(tmp_path), tmp_path / "out", "0.1.0", namespace).is_file()
+
+
+@pytest.mark.parametrize("relative", ["out", "."])
+def test_출력_폴더가_틀_폴더_안이면_묶음을_짓지_않는다(tmp_path: Path, relative: str) -> None:
+    source = _틀(tmp_path)
+    with pytest.raises(ReleaseError, match="출력 폴더"):
+        build_bundle(source, source / relative, "0.1.0", "njh6803")
+    assert not (source / "out").exists()
+
+
+def test_틀_폴더_밖의_출력_폴더는_받는다(tmp_path: Path) -> None:
+    source = _틀(tmp_path)
+    # 이름이 틀 폴더로 시작하는 옆 폴더는 틀 안이 아니다.
+    sibling = tmp_path / "standalone-out"
+    assert build_bundle(source, sibling, "0.1.0", "njh6803").parent == sibling
+
+
+def test_틀_안의_하위_폴더가_junction이면_묶음을_짓지_않는다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """junction 은 윈도에서만 만들어져 `is_junction` 만 바꿔 같은 길을 밟는다."""
+    source = _틀(tmp_path)
+    original = Path.is_junction
+
+    def fake(self: Path) -> bool:
+        return self.name == "proxy" or original(self)
+
+    monkeypatch.setattr(Path, "is_junction", fake)
+    with pytest.raises(ReleaseError, match="junction"):
+        build_bundle(source, tmp_path / "out", "0.1.0", "njh6803")
+    assert not (tmp_path / "out" / "rag-engine-0.1.0.tar.gz").exists()
 
 
 def test_utf8이_아닌_파일은_그대로_담고_빈_하위_폴더는_담지_않는다(tmp_path: Path) -> None:
@@ -1141,6 +1220,9 @@ def test_조회가_실패하면_붙이지_않는다(output: str) -> None:
 
 def test_종료_코드_0인데_digest를_읽지_못하면_붙이지_않는다() -> None:
     assert judge_number_tag(0, "Name: x\nMediaType: y\n", DIGEST_A) is TagVerdict.HOLD
+    # 값이 있어도 sha256 꼴이 아니면 다른 digest 를 본 것이 아니라 읽지 못한 것이다.
+    for unreadable in ("unknown", "sha256:abc", "sha256:" + "A" * 64):
+        assert judge_number_tag(0, f"Digest: {unreadable}\n", DIGEST_A) is TagVerdict.HOLD
     assert judge_number_tag(0, NOT_FOUND, DIGEST_A) is TagVerdict.HOLD
     assert judge_number_tag(2, NOT_FOUND + "x", DIGEST_A) is TagVerdict.HOLD
 
