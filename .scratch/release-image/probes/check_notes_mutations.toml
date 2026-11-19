@@ -1,0 +1,166 @@
+# release-image 05(노트 검사가 업그레이드 느낌표를 지키게 한다)의 시험과 배선에 넣는 변이.
+# 옮겨 온 판정(agent-os 의 시험)은 구현 전부터 초록이라 판정마다 깨어 빨강을 본다. 이 저장소가 더한
+# 마이그레이션 판정과 배선(검사 러너, ci.yml, PR 제목 워크플로)도 같다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/release-image/probes/check_notes_mutations.toml
+# 변이마다 그 갈래를 고정한 시험 하나만 돈다(파일 전체는 임시 git 저장소를 시험마다 만들어 수 분이 걸린다).
+# 이 표는 agent-os 의 변이 파일을 옮긴 것이 아니라 이 저장소에서 새로 지었다.
+
+[[mutation]]
+name = "마이그레이션 판정이 아무것도 모으지 않는다"
+tests = ["tests/tools/test_check_notes.py::test_마이그레이션을_더하고_느낌표가_없으면_막는다"]
+expect = "red"
+expect_output = ["막아야 한다(종료 0)"]
+
+[[mutation.edit]]
+file = "tools/check_notes.py"
+old = '''    migrations = sorted({c.path for c in changes if _is_migration(c.path)})'''
+new = '''    migrations: list[str] = []'''
+
+[[mutation]]
+name = ".py 가 아닌 파일도 마이그레이션으로 센다"
+tests = ["tests/tools/test_check_notes.py::test_versions_밖이거나_py가_아닌_파일은_마이그레이션이_아니다"]
+expect = "red"
+expect_output = ["지나야 한다(종료 1)"]
+
+[[mutation.edit]]
+file = "tools/check_notes.py"
+old = '''    return path.startswith(f"{MIGRATION_VERSIONS}/") and path.endswith(".py")'''
+new = '''    return path.startswith(f"{MIGRATION_VERSIONS}/")'''
+
+[[mutation]]
+name = "versions 아래 하위 폴더의 .py 를 마이그레이션으로 세지 않는다"
+tests = ["tests/tools/test_check_notes.py::test_versions_아래_하위_폴더의_py도_마이그레이션으로_센다"]
+expect = "red"
+expect_output = ["막아야 한다(종료 0)"]
+
+[[mutation.edit]]
+file = "tools/check_notes.py"
+old = '''    return path.startswith(f"{MIGRATION_VERSIONS}/") and path.endswith(".py")'''
+new = '''    return path.rpartition("/")[0] == MIGRATION_VERSIONS and path.endswith(".py")'''
+
+[[mutation]]
+name = "머리가 main 이나 dev 인 PR 을 건너뛰지 않는다"
+tests = ["tests/tools/test_check_notes.py::test_출시_PR과_운영에서_개발로_합치기_PR은_마이그레이션이_있어도_면제한다"]
+expect = "red"
+expect_output = ["지나야 한다(종료 1)"]
+
+[[mutation.edit]]
+file = "tools/check_notes.py"
+old = '''    if pr.branch in PROTECTED_BRANCHES:
+        return _PASS
+    title = environ.get(PR_TITLE, "")'''
+new = '''    title = environ.get(PR_TITLE, "")'''
+
+[[mutation]]
+name = "이름 바꾸기를 합쳐 한 항목으로 읽는다"
+tests = ["tests/tools/test_check_notes.py::test_마이그레이션을_옮기면_옛_경로와_새_경로를_모두_본다"]
+expect = "red"
+expect_output = ["0004_renamed.py 가 출력에 없다"]
+
+[[mutation.edit]]
+file = "tools/check_notes.py"
+old = '''    raw = _out(cwd, "diff", "--name-status", "--no-renames", "-z", *diff, "--")'''
+new = '''    raw = _out(cwd, "diff", "--name-status", "-z", *diff, "--")'''
+
+[[mutation]]
+name = "기능 단락의 상한이 401자다"
+tests = ["tests/tools/test_check_notes.py::test_기능_단락은_400자까지_지나고_401자에서_막힌다"]
+expect = "red"
+expect_output = ["단락 문제가 0개다"]
+
+[[mutation.edit]]
+file = "tools/check_notes.py"
+old = '''MAX_PARAGRAPH = 400'''
+new = '''MAX_PARAGRAPH = 401'''
+
+[[mutation]]
+name = "있던 업그레이드 원고를 고친 것도 새로 더한 것으로 센다"
+tests = ["tests/tools/test_check_notes.py::test_있던_할_일_파일을_고치는_것은_느낌표가_없어도_된다"]
+expect = "red"
+expect_output = ["지나야 한다(종료 1)"]
+
+[[mutation.edit]]
+file = "tools/check_notes.py"
+old = '''    added = [c.path for c in changes if c.status == "A" and c.path.startswith(f"{UPGRADE}/")]'''
+new = '''    added = [c.path for c in changes if c.status in ("A", "M") and c.path.startswith(f"{UPGRADE}/")]'''
+
+[[mutation]]
+name = "harness 도 기능으로 센다"
+tests = ["tests/tools/test_check_notes.py::test_기능이_아닌_폴더는_끝_줄과_제품_변경이_함께여도_단락을_묻지_않는다"]
+expect = "red"
+expect_output = ["지나야 한다(종료 1)"]
+
+[[mutation.edit]]
+file = "tools/check_notes.py"
+old = '''_NOT_FEATURES = frozenset({"harness", "retro-queue"})'''
+new = '''_NOT_FEATURES = frozenset({"retro-queue"})'''
+
+[[mutation]]
+name = "제목만 고친 실행이 원고의 모양도 본다"
+tests = ["tests/tools/test_check_notes.py::test_제목만_고친_실행은_느낌표와_할_일만_본다"]
+expect = "red"
+expect_output = ["지나야 한다(종료 1)"]
+
+[[mutation.edit]]
+file = "tools/check_notes.py"
+old = '''    problems = title_problems(title, scene.changes)
+    return Verdict(1, blocked_text(problems, PR_WORDING)) if problems else _PASS'''
+new = '''    problems = title_problems(title, scene.changes) + shape_problems(scene)
+    return Verdict(1, blocked_text(problems, PR_WORDING)) if problems else _PASS'''
+
+[[mutation]]
+name = "검사 러너가 노트 검사를 돌지 않는다"
+tests = ["tests/tools/test_check_notes.py::test_커밋_전_검사_러너가_노트_검사를_돈다"]
+expect = "red"
+expect_output = ["항목의 명령이 None 이다"]
+
+[[mutation.edit]]
+file = "tools/run_checks.py"
+old = '''    Check("check-notes", ("uv", "run", "python", "tools/check_notes.py")),
+'''
+new = ''''''
+
+[[mutation]]
+name = "ci.yml 의 ticket 잡이 노트 검사를 부르지 않는다"
+tests = ["tests/tools/test_check_notes.py::test_워크플로가_노트_검사를_부르고_제목을_환경_변수로_넘긴다"]
+expect = "red"
+expect_output = ["check_notes.py --ci 가 없다"]
+
+[[mutation.edit]]
+file = ".github/workflows/ci.yml"
+old = '''          python3 tools/check_notes.py --ci'''
+new = '''          python3 tools/check_ticket.py --ci'''
+
+[[mutation]]
+name = "ci.yml 이 PR 제목을 명령에 바로 펼친다"
+tests = ["tests/tools/test_check_notes.py::test_워크플로가_노트_검사를_부르고_제목을_환경_변수로_넘긴다"]
+expect = "red"
+expect_output = ["1곳에서 env 밖으로 펼쳤다"]
+
+[[mutation.edit]]
+file = ".github/workflows/ci.yml"
+old = '''          python3 tools/check_notes.py --ci'''
+new = '''          echo "${{ github.event.pull_request.title }}"
+          python3 tools/check_notes.py --ci'''
+
+[[mutation]]
+name = "PR 제목 워크플로가 제목을 고칠 때 말고도 돈다"
+tests = ["tests/tools/test_check_notes.py::test_PR_제목_워크플로는_제목을_고칠_때만_돌고_필수_검사가_아니다"]
+expect = "red"
+expect_output = ["edited, opened]'] 이다"]
+
+[[mutation.edit]]
+file = ".github/workflows/pr-title.yml"
+old = '''    types: [edited]'''
+new = '''    types: [edited, opened]'''
+
+[[mutation]]
+name = "ci.yml 의 노트 검사 스텝이 PR 제목을 env 로 받지 않는다"
+tests = ["tests/tools/test_check_notes.py::test_워크플로가_노트_검사를_부르고_제목을_환경_변수로_넘긴다"]
+expect = "red"
+expect_output = ["스텝의 env 에 PR_TITLE 가 없다"]
+
+[[mutation.edit]]
+file = ".github/workflows/ci.yml"
+old = '''          PR_TITLE: ${{ github.event.pull_request.title }}'''
+new = '''          TITLE_UNUSED: ${{ github.event.pull_request.title }}'''

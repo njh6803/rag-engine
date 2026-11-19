@@ -10,7 +10,8 @@ ADR 0005 의 2026-10-07 이력). 그래서
 일부 파일만 커밋할 때 git 이 훅에 준 임시 색인(`GIT_INDEX_FILE`)이 자식까지 그대로 가야 한다.
 리눅스가 아닌 곳에서는 pyright 를 리눅스 플랫폼으로 한 번 더 돌아 열이다(`pyright_checks`, 대기열
 403). 여기까지는 agent-os 의 수다. rag-engine 은 web 검사(`pnpm -C web verify`)를 옮기지 않아
-여덟이고, 리눅스가 아닌 곳에서 아홉이다.
+여덟이고, 리눅스가 아닌 곳에서 아홉이다. 릴리스 노트 원고를 보는 노트 검사(`tools/check_notes.py`,
+release-image 05)가 더해져 리눅스에서 아홉, 그 밖에서 열이다.
 파일을 고치는 ruff 둘은 이 훅 앞에 따로 있어, 러너는 고친 뒤의 파일을 본다. 검사 목록의 원천은 여기
 하나다. CI 는 잡마다 명령을 직접 돈다(`.github/workflows/ci.yml`).
 
@@ -180,6 +181,7 @@ CHECKS: tuple[Check, ...] = (
     Check("check-type-escapes", ("uv", "run", "python", "tools/check_type_escapes.py")),
     Check("run-hooks", ("uv", "run", "python", "tools/run_hooks.py")),
     Check("check-ticket", ("uv", "run", "python", "tools/check_ticket.py")),
+    Check("check-notes", ("uv", "run", "python", "tools/check_notes.py")),
     Check(
         "zizmor",
         ("uv", "run", "zizmor", "--offline", "--strict-collection")

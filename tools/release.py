@@ -32,7 +32,7 @@
 고친 변경이다. 넷은 `src/`, `pyproject.toml`, `uv.lock`, `deploy/` 이고 `pyproject.toml` 은 칸을
 가리지 않고 통째로 센다(까닭은 명세 "제품 변경의 경로"). `README.md`, `docs/`(릴리스 노트 원고
 포함), 테스트용 `compose.test.yml`, 평가용 `compose.eval.yml` 은 세지 않는다. 노트
-검사(release-image 의 05 가 들이는 `tools/check_notes.py`)가 같은 것을 가져다 쓴다.
+검사(`tools/check_notes.py`)가 같은 것을 가져다 쓴다.
 
 번호의 규칙과 커밋을 고르는 길은 명세 "번호와 느낌표"가 원천이다. 제목은 커밋 검사의 `PATTERN`
 하나로 읽는다(길이와 끝 마침표는 보지 않는다). 커밋은 병합 커밋을 빼고, 지난 릴리스의 버전 태그에서
