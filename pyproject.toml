@@ -97,6 +97,9 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# 단독 compose 시험은 이미지와 임베딩 서버를 띄우고 호스트의 443을 쓴다. 기본 수집에서 빼고, 경로를 주어 칠 때만
+# 모인다(`uv run pytest tests/standalone`). CI는 ci.yml의 standalone 잡이 그렇게 부른다.
+norecursedirs = ["tests/standalone"]
 # tools/ 의 순수 함수를 tests/tools/ 에서 import 하기 위해 저장소 루트를 경로에 둔다
 pythonpath = ["."]
 # importlib 모드: tests/ 하위 디렉터리에 같은 파일명이 있어도 모듈명 충돌이 없다

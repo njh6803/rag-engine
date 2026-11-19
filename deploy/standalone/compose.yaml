@@ -1,0 +1,176 @@
+# rag-engine 단독 설치. 프록시, 검색 서버, 작업자, PostgreSQL, 임베딩 서버를 보통의 Docker 네트워크로 묶고,
+# 서버 앞에서 마이그레이션이 한 번 돈다. 밖으로 열리는 포트는 프록시의 443 하나다.
+# 운영자가 고치는 것은 .env, proxy/, tls/, models/ 의 파일이고 이 파일은 고치지 않는다. 고치면 업그레이드가
+# 새 묶음의 compose.yaml 로 바꿀 때 그 고침이 사라진다. 바꿔야 하는 값은 .env 가 받는다.
+# 특히 아래 셋은 바꾸지 않는다.
+# - ports: 밖에 열리는 것은 프록시의 443 하나뿐이다. 서버와 PostgreSQL과 임베딩 서버는 밖에 열지 않는다.
+# - user: 이미지가 정한 사용자(uid 10001)로 돈다. 우리 이미지 둘에는 user 를 더하지 않는다. 바깥 이미지 가운데
+#   프록시(101)와 임베딩 서버·리랭커(10001)만 아래에서 사용자를 정한다.
+# - 안쪽 네트워크의 IPv6: 켜지 않는다. 프록시가 뒷단의 이름을 풀 때 IPv4 주소만 받게 하려는 것이고, 프록시 설정의
+#   ipv6=off 와 짝이다.
+
+name: rag-engine
+
+x-health: &health
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+  start_interval: 2s
+
+# 서버, 작업자, 마이그레이션은 .env 를 통째로 받고(env_file), 아래 셋은 compose 가 정해 .env 의 값을 덮어쓴다.
+# 리랭커 끝점(RAG_DEFAULT_RERANKER_URL)은 정하지 않는다. 리랭커를 켜는 설치가 .env 에 적는다.
+x-rag-environment: &rag-environment
+  RAG_DATABASE_URL: postgresql://rag:${POSTGRES_PASSWORD:?.env 에 POSTGRES_PASSWORD 가 없다}@postgres:5432/rag
+  RAG_DATA_DIR: /data
+  RAG_DEFAULT_EMBEDDING_URL: http://embedding:80
+
+services:
+  proxy:
+    # 공식 nginx 안정판(1.30.6 alpine)을 digest 로 고정했다.
+    image: nginx@sha256:583b7f2fce1cdb8da5ad5c39ebd3c33b98b87d493190e548bdee1fa8c619c311
+    user: "101:101"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    # 설정은 폴더째 얹는다. 파일 하나로 얹으면 편집기의 저장이 컨테이너에 보이지 않는다. 주 설정의 경로가
+    # 아래 -c 다. 설정을 고친 뒤에는 같은 경로를 -c 로 주어 nginx -t 와 nginx -s reload 를 친다.
+    command: ["nginx", "-c", "/etc/rag-engine/proxy/nginx.conf", "-g", "daemon off;"]
+    # 컨테이너 안에서는 root 가 아니라 1024 아래 포트를 열 수 없어 8443 에서 받는다. 80 은 열지 않는다.
+    ports:
+      - "0.0.0.0:443:8443"
+    volumes:
+      - ./proxy:/etc/rag-engine/proxy:ro
+      - ./tls:/etc/nginx/tls:ro
+    # 서버가 건강해진 뒤에 뜬다. 그래야 up --wait 가 돌아온 직후 프록시가 바로 답한다.
+    depends_on:
+      server:
+        condition: service_healthy
+
+  postgres:
+    # pgvector 를 얹은 PostgreSQL 18 을 digest 로 고정했다.
+    image: pgvector/pgvector:0.8.7-pg18-trixie@sha256:5895949dfcdf308eb0cd31c950c93c14895c77f33fbedfecf1fa511ab1d4bcd2
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env 에 POSTGRES_PASSWORD 가 없다}
+      POSTGRES_DB: rag
+    restart: unless-stopped
+    volumes:
+      - postgres:/var/lib/postgresql
+    # -h 는 필수다. 기본값은 유닉스 소켓인데, 이미지가 처음 초기화하는 동안 뜨는 임시 서버가 그 소켓으로 답해
+    # 진짜 서버가 TCP 로 뜨기 전에 healthy 가 된다.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U rag -d rag"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  embedding:
+    # 임베딩 서버(TEI)의 CPU 판을 digest 로 고정했다. 이미지의 기본 사용자는 root 라 아래에서 uid 10001 로 바꾼다.
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4@sha256:2538ea1c9640d3763b15af668039d24172d063b42337b0c27796fc2be180c78d
+    # --max-batch-tokens 는 TEI 기본값 16384 가 아니라 4096 이다. 기본값에서는 컨테이너 하나가 13.25GiB 를 썼다
+    # (docker stats 로 손으로 본 값이고 compose.eval.yml 의 머리 주석이 적는다).
+    command: ["--model-id", "BAAI/bge-m3", "--port", "80", "--max-batch-tokens", "4096"]
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    # 모델 폴더는 쓸 수 있게 붙인다. 첫 시작이 모델을 내려받는다. 폴더는 미리 만들어 uid 10001 에게 준다.
+    volumes:
+      - ./models/embedding:/data
+    healthcheck:
+      <<: *health
+      # 첫 시작이 모델을 내려받는 시간을 견딘다. 이 동안의 검사 실패는 세지 않는다.
+      start_period: 30m
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:80/health || exit 1"]
+
+  # 리랭커는 기본 설치에서 켜지 않는다. 켜는 설치가 프로필로 더한다(docker compose --profile reranker ...).
+  reranker:
+    profiles: ["reranker"]
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4@sha256:2538ea1c9640d3763b15af668039d24172d063b42337b0c27796fc2be180c78d
+    # 임베딩 서버와 같은 --max-batch-tokens 4096 이다. 개발 PC(도커 메모리 15.6GiB)에서 이 값으로 띄운 리랭커를 질의
+    # 하나 처리한 뒤 docker stats 로 보니 5.8GiB 였다(손으로 본 값). 인자를 주지 않은 기본값(16384)은 같은 PC에서 임베딩
+    # 서버와 함께 띄우는 시도가 두 번 다 끝나지 않았고, 까닭은 가리지 못했다.
+    command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--port", "80", "--max-batch-tokens", "4096"]
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    volumes:
+      - ./models/reranker:/data
+    healthcheck:
+      <<: *health
+      start_period: 30m
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:80/health || exit 1"]
+
+  # 서버 앞에 한 번 도는 마이그레이션. 끝나면 서버와 작업자가 뜬다.
+  migrate:
+    image: ${RAG_ENGINE_NAMESPACE:?.env 에 RAG_ENGINE_NAMESPACE 가 없다}/rag-engine-server:${RAG_ENGINE_VERSION:?.env 에 RAG_ENGINE_VERSION 이 없다}
+    command: ["rag-engine", "migrate"]
+    env_file: .env
+    environment: *rag-environment
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  server:
+    image: ${RAG_ENGINE_NAMESPACE:?.env 에 RAG_ENGINE_NAMESPACE 가 없다}/rag-engine-server:${RAG_ENGINE_VERSION:?.env 에 RAG_ENGINE_VERSION 이 없다}
+    env_file: .env
+    environment:
+      <<: *rag-environment
+      RAG_ALLOWED_HOSTS: ${RAG_ALLOWED_HOSTS:?.env 에 RAG_ALLOWED_HOSTS 가 없다}
+    read_only: true
+    # 1MiB 를 넘는 올리기는 멀티파트 파서가 임시 파일로 받는다. 루트가 읽기 전용이라 쓸 자리를 메모리로 준다.
+    # 크기 상한은 .env 의 RAG_ENGINE_SERVER_TMP_SIZE 가 바꾼다(RAG_MAX_UPLOAD_MB 를 올리는 설치가 함께 올린다).
+    tmpfs:
+      - /tmp:size=${RAG_ENGINE_SERVER_TMP_SIZE:-1g}
+    restart: unless-stopped
+    volumes:
+      - data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      <<: *health
+      test:
+        - CMD
+        - python
+        - -c
+        - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)
+
+  worker:
+    image: ${RAG_ENGINE_NAMESPACE:?.env 에 RAG_ENGINE_NAMESPACE 가 없다}/rag-engine-worker:${RAG_ENGINE_VERSION:?.env 에 RAG_ENGINE_VERSION 이 없다}
+    env_file: .env
+    environment: *rag-environment
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    volumes:
+      - data:/data
+    # 임베딩 서버가 건강해질 때도 기다린다. 대기열에 작업이 남은 채 다시 띄우면, 모델을 올리는 동안의 임베딩 서버에
+    # 닿지 못한 시도가 작업의 재시도 횟수를 쓴다.
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      embedding:
+        condition: service_healthy
+
+volumes:
+  # 데이터베이스와, 서버·작업자·관리 명령이 함께 쓰는 파일 저장소. 지우면 안 된다.
+  postgres: {}
+  data: {}
+
+networks:
+  default:
+    enable_ipv6: false
