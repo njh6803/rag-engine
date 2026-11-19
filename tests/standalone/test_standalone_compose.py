@@ -583,6 +583,17 @@ def test_띄우는_명령이_돌아온_직후의_첫_health가_502_없이_200이
     assert status == 200, (status, seconds)
 
 
+def test_띄우는_명령은_프록시가_TLS로_답한_뒤에_돌아온다(stack: Stack) -> None:
+    # 프록시에 건강 검사가 없으면 `up --wait`는 컨테이너가 떴다는 것만 보고 돌아와, 위 시험이
+    # nginx가 포트를 여는 속도에 기대게 된다.
+    health = {
+        str(service["Service"]): service.get("Health")
+        for service in json_objects(compose(stack, "ps", "--format", "json").stdout)
+    }
+
+    assert health.get("proxy") == "healthy", health
+
+
 def test_호스트에_열린_포트는_프록시의_443_하나다(stack: Stack) -> None:
     published: set[tuple[str, int]] = set()
     for service in json_objects(compose(stack, "ps", "--format", "json").stdout):
@@ -902,6 +913,9 @@ def test_옛_주소를_다른_컨테이너가_차지한_채_서버_컨테이너�
     finally:
         if holders:
             run(["docker", "rm", "-f", *holders], check=False)
+        # 도우미를 띄우다 실패해 서버를 올리지 못한 채 끝나도 뒤의 시험이 서버가 있는 스택에서 돈다.
+        # 정상 경로에서는 이미 떠 있어 아무것도 바꾸지 않는다.
+        compose(stack, "up", "-d", "--no-deps", "--wait", "server", check=False)
 
     assert taken, "대조군: 옛 주소를 다른 컨테이너가 차지하지 못했다"
     assert moved
