@@ -60,6 +60,14 @@ pre-commit의 인용 대조(`quotes` 훅)가 경고 다섯 건을 냈다. 훅은
 - `bug-perf-review`: 지적 0건. 바뀐 YAML이 문법상 유효하다는 것과, 이 일지와 티켓과 대기열에 적은 사실 주장 여섯(a~f)이 diff와 저장소에 맞는다는 것을 확인했다. 경계 메모로, `src/rag_engine/app/eval_report.py`의 `format_version`은 계약 번호가 아니라 평가 보고서 기록의 형식 번호라 이번 범위 밖이라는 점을 짚었다.
 - `/security-review`: 발견 없음. diff를 보면 리뷰 봇 지시문의 낱말 둘만 바뀌었고 권한, 도구 허용 목록, 비밀 처리의 줄은 바뀌지 않았다.
 
+## PR 봇 회차
+
+PR 79를 연 뒤 첫 회차(머리 `d54499a`)의 결과다. 이 PR은 리뷰 봇 지시문을 바꾸므로 claude-review 잡은 건너뛰는 것이 설계이고, 코멘트 0개 가드는 "이 워크플로를 바꾼 PR"으로 보아 코멘트를 세지 않는다. 그래서 이 잡의 초록은 리뷰가 아니다. 리뷰는 위 셀프 리뷰, PR 직전 리뷰 둘, CodeRabbit이 맡았다.
+
+- CodeRabbit(`@coderabbitai review`로 요청): "No actionable comments"로 끝났다. 인라인 지적과 리뷰 본문은 없고 요약 코멘트 하나뿐이다. 무료 한도에 걸리지 않고 끝까지 돌았다.
+- CI: `python`, `ticket`, `image`, `eval-fast`, `eval-full`, `verify`, `claude-review` 모두 통과(`tools/wait_ci.py 79`).
+- 이 절을 적으려고 일지만 바꾼 커밋이 하나 더 들어가므로 머리가 `d54499a`에서 바뀐다. 병합 전에 새 머리에서 CI를 다시 확인한다.
+
 ## 회고
 
 후보 셋을 냈고 승인 1, 기각 2, 넘김 0이다.
