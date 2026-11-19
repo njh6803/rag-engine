@@ -1,8 +1,8 @@
 """파서 레지스트리. entry point 그룹 `rag_engine.parsers`에서 파서를 찾는다(ADR 0012).
 
-내장 파서 셋도 같은 길로 등록한다. 인터페이스 판의 major가 다르면 그 파서를 거부하고 기록한다.
+내장 파서 셋도 같은 길로 등록한다. 인터페이스 버전의 major가 다르면 그 파서를 거부하고 기록한다.
 파싱은 자식 프로세스가 하므로 레지스트리는 파서의 이름과 불러올 자리(`모듈:클래스`)를 알려 주고,
-자식이 그 자리를 스스로 불러 쓴다. 부모는 받는 MIME과 판을 알려고 한 번 불러 본다.
+자식이 그 자리를 스스로 불러 쓴다. 부모는 받는 MIME과 버전을 알려고 한 번 불러 본다.
 """
 
 import logging
@@ -17,7 +17,7 @@ from rag_engine.domain.parsing import PARSER_INTERFACE_VERSION, Parser
 logger = logging.getLogger(__name__)
 
 PARSER_ENTRY_POINT_GROUP: Final = "rag_engine.parsers"
-# 내장 파서가 감싸는 라이브러리의 배포 이름. 파싱 결과 행의 "라이브러리 판"이 이 배포의 판이다.
+# 내장 파서가 감싸는 라이브러리의 배포 이름. 파싱 결과 행의 "라이브러리 버전"이 이 배포의 버전이다.
 _BUILTIN_LIBRARIES: Final = {"docx": "python-docx", "pdf": "pdfplumber", "hwpx": "python-hwpx"}
 
 

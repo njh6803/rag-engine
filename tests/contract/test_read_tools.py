@@ -57,7 +57,7 @@ async def _document_id(round_trip: RoundTrip, *paragraphs: str, **fields: str) -
     return document_id
 
 
-async def test_도구_목록은_셋이고_모두_읽기_전용_표지와_판이_든_출력_스키마가_있다(
+async def test_도구_목록은_셋이고_모두_읽기_전용_표지와_버전이_든_출력_스키마가_있다(
     round_trip: RoundTrip,
 ) -> None:
     tools = await _tools(round_trip)
@@ -83,7 +83,7 @@ async def test_도구_목록은_셋이고_모두_읽기_전용_표지와_판이_
         assert schema["properties"].keys() == models[name].model_json_schema()["properties"].keys()
 
 
-async def test_세_도구의_결과가_스키마와_형식의_판_1_1_0에_맞는다(round_trip: RoundTrip) -> None:
+async def test_세_도구의_결과가_스키마와_형식의_버전_1_1_0에_맞는다(round_trip: RoundTrip) -> None:
     document_id = await _document_id(round_trip, *휴가)
 
     searched = output(await round_trip.search("연차휴가"))
