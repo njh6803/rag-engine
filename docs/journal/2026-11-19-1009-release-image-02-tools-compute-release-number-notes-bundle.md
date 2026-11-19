@@ -28,6 +28,7 @@ release-image 티켓 여덟 가운데 셋째로 구현한 티켓(`02-tools-compu
 - 시험은 도구보다 먼저 썼으나 처음 빨강만 따로 돌려 보지는 않았다. 모듈이 없어 수집 단계에서 실패하는 상태였다.
 - 셀프 리뷰를 반영한 뒤 처음부터 돌린 `uv run python tools/run_checks.py`는 `test-db`, `check-ticket`, `zizmor`, `lint-imports`, `check-instructions`, `check-type-escapes`, `pyright-linux`, `pyright`, `run-hooks`, `pytest`(472.3초)가 모두 통과했다. 저장소 전체의 `ruff check`와 `ruff format --check`도 통과했다. `tools/sibling_overlap.py`는 번호 겹침이 없고 함께 고친 파일이 없다고 했다(헌법 판은 형제의 가장 높은 값 1.5.1보다 높은 1.5.2).
 - 그 뒤 PR 직전 리뷰를 반영해 도구 두 곳을 더 고쳤다(아래 "PR 직전 리뷰"). 그 변경은 이 파일만 돌린 시험 110개 통과로 확인했고, 전체 러너는 커밋이 부르는 pre-commit이 다시 돈다. 그 결과는 아래 "커밋"에 적는다.
+- CodeRabbit 첫 회차를 반영한 뒤(아래 "봇 회차") 이 파일만 돌린 시험은 118개가 통과했고, 타입 검사(`pyright`)는 두 파일에서 오류 0이었으며 저장소 전체 린트와 포맷 검사가 통과했다. 그 변경의 전체 러너는 셋째 커밋의 pre-commit이 돌렸다(아래 "커밋").
 - 아래 "셀프 리뷰"가 낸 사실 주장은 코드와 파일을 직접 읽어 확인했다.
 
 ## 셀프 리뷰
@@ -71,7 +72,7 @@ release-image 티켓 여덟 가운데 셋째로 구현한 티켓(`02-tools-compu
 
 ## 커밋
 
-첫 커밋은 `bcf1eae`(7개 파일, 2066줄 더함, 14줄 뺌)다. 커밋 전 `git branch --show-current`는 `feature/02-tools-compute-release-number-notes-bundle`이었고 `git fetch origin` 뒤 `origin/dev`는 기준과 같은 `75cb8ea`였다. 커밋이 부른 pre-commit은 `ruff check`, `ruff format`, 검사 러너(`parallel-checks` 447.25초. 그 안의 pytest는 446.9초), 표, 줄 구분 문자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지 훅이 모두 통과했다. 인용 대조가 막지 않는 경고 둘을 냈다. 티켓 Comments와 이 일지가 이미 없는 옛 문장이나 요약 문장을 따옴표로 옮긴 곳이다. 따옴표를 떼고 풀어 써서 이 절을 싣는 둘째 커밋에서 고쳤다.
+첫 커밋은 `bcf1eae`(7개 파일, 2066줄 더함, 14줄 뺌)다. 커밋 전 `git branch --show-current`는 `feature/02-tools-compute-release-number-notes-bundle`이었고 `git fetch origin` 뒤 `origin/dev`는 기준과 같은 `75cb8ea`였다. 커밋이 부른 pre-commit은 `ruff check`, `ruff format`, 검사 러너(`parallel-checks` 447.25초. 그 안의 pytest는 446.9초), 표, 줄 구분 문자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지 훅이 모두 통과했다. 인용 대조가 막지 않는 경고 둘을 냈다. 티켓 Comments와 이 일지가 이미 없는 옛 문장이나 요약 문장을 따옴표로 옮긴 곳이다. 따옴표를 떼고 풀어 써서 이 절을 싣는 둘째 커밋(`27a9e46`)에서 고쳤다. 둘째 커밋의 pre-commit도 같은 열 가지와 훅이 모두 통과했고(헌법 판 검사는 헌법 파일을 고치지 않아 Skipped) pytest는 408.5초였으며 인용 대조 경고는 없었다. CodeRabbit 첫 회차를 반영한 셋째 커밋은 `ee038a1`(3개 파일, 160줄 더함, 14줄 뺌)이고 pre-commit이 모두 통과했다(검사 러너 477.83초, pytest 477.5초. 인용 대조 경고 없음, 헌법 판 검사 Skipped). 이 일지를 마무리하는 넷째 커밋은 그 뒤에 푸시한다.
 
 ## 봇 회차
 
@@ -86,6 +87,8 @@ PR #77(헤드 `27a9e46`)의 첫 회차다. 검사 일곱(claude-review, eval-fas
 - 고쳤다(Minor): 이름공간 정규식이 점을 받아 `a.b-c`가 Docker에서 레지스트리 호스트로 읽혔다. 점을 뺐다. Docker Hub의 이름공간에는 점이 없다는 것은 명세가 아니라 Docker의 이름 해석에서 온 판단이고 이 저장소에서 재지 않았다. `localhost`도 호스트로 읽힌다는 지적은 따르지 않았다. 이름공간은 운영자가 정하는 환경 변수이고 게시하는 쪽이 `localhost`를 쓸 까닭이 없다.
 - 미뤘다(Major, 무거운 일): 업그레이드 원고를 더한 뒤 다른 이름으로 옮기며 고치면 옮긴 원고의 최종 글이 아니라 더한 커밋 시점의 글이 실린다. 이름 바꾸기를 추적해 최종 경로를 읽어야 한다. 같은 모양이 agent-os 원본에 있고, 이 티켓은 원본의 이식이다. 독스트링의 못 보는 것에 적어 두었고 아래 "다음"에도 적었다.
 - 미뤘다(Minor): 지난 릴리스에 있던 `intro/0.1.0.md`를 내용 그대로 `features/`로 옮기면 이름 바꾸기를 찾기 전에 경로로 걸러져 새 원고로 읽힌다. 위와 같은 이름 바꾸기 추적의 일부라 함께 미뤘고 같은 곳에 적었다.
+
+반영을 푸시한 헤드 `ee038a1`의 둘째 회차에서는 검사 일곱이 모두 통과했다. `claude-review`는 지적 없음으로 답했고 코멘트가 `tools/release.py`의 import와 경계, 헌법 판 1.5.2, 제목 접두를 실제로 읽은 것이라 초록 착시는 아니라고 보았다. CodeRabbit은 `@coderabbitai review`를 불러도 `Review rate limited`로 리뷰하지 못했다. 이 PR은 직전에 CodeRabbit CLI 리뷰를 이미 마쳤고 첫 회차 인라인 지적 아홉도 모두 판단했다. 한도에 걸려 리뷰가 없던 푸시는 회차로 세지 않으므로(`merge.md`) 둘째 회차의 새 지적은 없다. 인라인 코멘트는 아홉 그대로이고 모두 첫 회차의 것이다.
 
 이 회차에서 새로 쓴 사실 문장은 모두 코드와 `pyproject.toml`에서 읽은 값이거나 시험이 고정한 동작이다. 위 항목 가운데 Python 3.12의 `is_junction`은 `Path.is_junction`을 시험이 직접 부르는 것으로 확인했다.
 
