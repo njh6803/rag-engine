@@ -164,3 +164,25 @@ expect_output = ["스텝의 env 에 PR_TITLE 가 없다"]
 file = ".github/workflows/ci.yml"
 old = '''          PR_TITLE: ${{ github.event.pull_request.title }}'''
 new = '''          TITLE_UNUSED: ${{ github.event.pull_request.title }}'''
+
+[[mutation]]
+name = "ci.yml 의 노트 검사 호출을 주석으로 꺼 둔다"
+tests = ["tests/tools/test_check_notes.py::test_워크플로가_노트_검사를_부르고_제목을_환경_변수로_넘긴다"]
+expect = "red"
+expect_output = ["ci.yml 에 python3 tools/check_notes.py --ci 가 없다"]
+
+[[mutation.edit]]
+file = ".github/workflows/ci.yml"
+old = '''          python3 tools/check_notes.py --ci'''
+new = '''          # python3 tools/check_notes.py --ci'''
+
+[[mutation]]
+name = "PR 제목 워크플로의 types 를 바꾸고 옛 값을 주석에 남긴다"
+tests = ["tests/tools/test_check_notes.py::test_PR_제목_워크플로는_제목을_고칠_때만_돌고_필수_검사가_아니다"]
+expect = "red"
+expect_output = ["[opened]'] 이다"]
+
+[[mutation.edit]]
+file = ".github/workflows/pr-title.yml"
+old = '''    types: [edited]'''
+new = '''    types: [opened] # types: [edited]'''

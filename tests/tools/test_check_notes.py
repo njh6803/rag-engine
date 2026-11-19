@@ -415,6 +415,20 @@ def test_한_PR의_제품_변경과_끝_줄이_다른_커밋에_나뉘면_커밋
     assert f"{FEATURES}/fresh.md" in out
 
 
+def test_티켓과_제품_변경을_다른_커밋에_나눠_고친_기능은_커밋_검사가_단락을_막고_CI는_지난다(
+    저장소: Repo,
+) -> None:
+    저장소.commit({"src/app.py": "A = 2\n"})
+    저장소.commit({".scratch/fresh/issues/01-f.md": "# 01\n\n**Status:** done\n"})
+    # 제품 변경의 정의는 티켓 파일을 고친 커밋 가운데 제품 경로도 고친 것이 있는가다. 둘이 다른
+    # 커밋에 있으면 커밋 검사는 담지 않은 기능으로 읽는다. CI 는 PR 의 변경 전체에서 둘을 함께 본다
+    files = {".scratch/fresh/plan.md": PLAN + END, f"{FEATURES}/fresh.md": PARAGRAPH}
+    out = _막혔다(저장소.staged(files))
+    assert "제품 경로를 고친 적이 없는데" in out, f"막는 글이 다른 까닭이다: {out}"
+    저장소.git("commit", "-q", "-m", "끝")
+    _지났다(저장소.ci("feat: 기능을 더한다 (#1)"))
+
+
 def test_병합_커밋은_커밋_검사가_보지_않고_알린다(저장소: Repo) -> None:
     # 다른 기능이 main 에서 끝났다. 그 기능 단락을 들여오는 병합은 이 브랜치의 이력에 그 기능의
     # 제품 변경이 없어도 막히지 않는다
@@ -882,6 +896,16 @@ def _workflow(name: str) -> str:
     return (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
 
 
+def _active(name: str) -> str:
+    """워크플로에서 주석을 걷어 낸 글. 주석으로 꺼 둔 줄은 CI 가 돌리지 않으므로 세지 않는다."""
+    lines: list[str] = []
+    for line in _workflow(name).splitlines():
+        code = line.split(" #", 1)[0].rstrip()
+        if code.strip() and not code.lstrip().startswith("#"):
+            lines.append(code)
+    return "\n".join(lines)
+
+
 @pytest.mark.parametrize(
     ("name", "command"),
     [
@@ -890,7 +914,7 @@ def _workflow(name: str) -> str:
     ],
 )
 def test_워크플로가_노트_검사를_부르고_제목을_환경_변수로_넘긴다(name: str, command: str) -> None:
-    text = _workflow(name)
+    text = _active(name)
     assert command in text, f"{name} 에 {command} 가 없다"
     # 검사를 부르는 스텝 자신의 env 가 제목을 받아야 한다. 다른 스텝의 env 로 옮기면 빈 제목을 본다
     step = next(part for part in text.split("\n      - ") if command in part)
@@ -904,9 +928,9 @@ def test_워크플로가_노트_검사를_부르고_제목을_환경_변수로_�
 
 
 def test_PR_제목_워크플로는_제목을_고칠_때만_돌고_필수_검사가_아니다() -> None:
-    text = _workflow("pr-title.yml")
+    text = _active("pr-title.yml")
     types = [line.strip() for line in text.splitlines() if line.strip().startswith("types:")]
-    assert "types: [edited]" in text, f"types 줄이 {types} 이다"
+    assert types == ["types: [edited]"], f"types 줄이 {types} 이다"
     # ci.yml 의 verify 가 기다리는 잡에 들지 않는다. 필수 검사로 두면 제목을 고치지 않은 PR 이
     # 결과를 기다리며 병합이 대기한다
     assert "pr-title" not in _workflow("ci.yml").split("verify:", 1)[1]

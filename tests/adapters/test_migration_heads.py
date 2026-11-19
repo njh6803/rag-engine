@@ -21,8 +21,6 @@ from alembic.script import ScriptDirectory
 
 from rag_engine.adapters.postgres.migrate import MIGRATIONS_DIRECTORY
 
-TWO_HEADS = "head 가 둘이다"
-
 
 def head_problem(migrations: Path) -> str | None:
     """마이그레이션 폴더의 head 가 하나가 아니면 실패 문장, 하나면 None."""
@@ -34,10 +32,11 @@ def head_problem(migrations: Path) -> str | None:
     if not heads:
         return f"`{migrations}` 에 마이그레이션 리비전이 하나도 없다."
     return (
-        f"마이그레이션 리비전의 {TWO_HEADS}({', '.join(heads)}). 같은 부모를 가리키는"
-        " 리비전이 둘 이상 있다. 핫픽스가 main 에 더한 마이그레이션과 dev 에 더한"
-        " 마이그레이션이 같은 부모를 가리킬 때 운영에서 개발로 합치기 PR 에서 이렇게 된다."
-        " head 가 둘이면 `migrate` 가 실패해 서버가 뜨지 않는다."
+        f"마이그레이션 리비전의 head 가 {len(heads)}개다({', '.join(heads)})."
+        " 가장 흔한 까닭은 핫픽스가 main 에 더한 마이그레이션과 dev 에 더한"
+        " 마이그레이션이 같은 부모를 가리키는 것이다."
+        " 서로 이어지지 않은 리비전 사슬이 따로 있어도 head 는 여럿이 된다."
+        " head 가 하나가 아니면 `migrate` 가 실패해 서버가 뜨지 않는다."
         " 어느 리비전의 부모를 바꿀지, 합치는 리비전을 더할지는 짐작하지 말고"
         " 멈추고 사용자에게 묻는다. 운영에서 개발로 합치기 PR 은 머리가 main 이라"
         " 그 PR 에 합치는 리비전을 더할 자리가 없다."
@@ -69,8 +68,37 @@ def test_같은_부모를_가리키는_리비전_둘은_head가_둘이라_잡는
     _revision(versions, "0002_dev", "0002b", "0001")
     problem = head_problem(tmp_path)
     assert problem is not None
-    assert TWO_HEADS in problem
+    assert "head 가 2개다" in problem
     assert "0002a" in problem and "0002b" in problem
+
+
+def test_head가_셋이면_실제_개수와_모든_head를_적는다(tmp_path: Path) -> None:
+    versions = _임시_폴더(tmp_path)
+    _revision(versions, "0001_base", "0001", None)
+    _revision(versions, "0002_a", "0002a", "0001")
+    _revision(versions, "0002_b", "0002b", "0001")
+    _revision(versions, "0002_c", "0002c", "0001")
+    problem = head_problem(tmp_path)
+    assert problem is not None
+    assert "head 가 3개다" in problem
+    assert all(head in problem for head in ("0002a", "0002b", "0002c"))
+
+
+def test_서로_이어지지_않은_사슬_둘도_head가_둘이라_잡고_같은_부모라고_단정하지_않는다(
+    tmp_path: Path,
+) -> None:
+    versions = _임시_폴더(tmp_path)
+    _revision(versions, "0001_a", "a1", None)
+    _revision(versions, "0002_a", "a2", "a1")
+    _revision(versions, "0001_c", "c1", None)
+    _revision(versions, "0002_c", "c2", "c1")
+    problem = head_problem(tmp_path)
+    assert problem is not None
+    assert "head 가 2개다" in problem
+    assert "a2" in problem and "c2" in problem
+    # 까닭은 가능한 것으로만 적는다. 이어지지 않은 사슬이 원인일 수도 있다고 밝힌다
+    assert "가장 흔한 까닭" in problem
+    assert "이어지지 않은" in problem
 
 
 def test_head가_둘이면_실패_문장이_짐작하지_말고_멈추라고_적는다(tmp_path: Path) -> None:
