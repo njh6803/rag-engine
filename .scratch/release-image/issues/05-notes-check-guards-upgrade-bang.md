@@ -19,7 +19,7 @@ agent-os 커밋 `1aac0cf`의 `tools/check_notes.py`와 그 시험, `.github/work
 - [x] 원고 폴더 셋(`features/`, `upgrade/`, `intro/`)은 agent-os처럼 빈 폴더를 미리 두지 않는다. 첫 원고가 들 때 생긴다. 노트 검사와 02의 도구는 폴더가 없을 때도 돈다.
 - [x] 검사의 막는 글과 독스트링은 이 저장소의 이름(업그레이드할 때 할 일, 릴리스 노트 원고 등)으로 쓴다. 막는 글이 운영 문서의 절을 가리키면 06이 Comments에 적은 절 이름을 그대로 쓴다(06이 먼저 병합된다).
 - [ ] 병합하기 전에 사람 몫(세션이 대신할 수 없어 사용자가 직접 하는 준비) 하나가 끝났는지 본다. squash 병합의 제목을 PR 제목으로 쓰는 저장소 설정이다(명세 "사람 몫"). `gh api repos/njh6803/rag-engine --jq .squash_merge_commit_title`이 `PR_TITLE`이 아니면 사용자에게 알리고 기다린다. 바뀌기 전에 병합하면, 검사를 지난 PR 제목이 아니라 커밋 제목이 main에 남을 수 있다.
-- [ ] 이 티켓은 PR 서식과 `ci.yml`과 커밋 전 검사 러너를 고치는 하네스 일이기도 하다. 고친 뒤 커밋 전 검사가 새 항목을 실제로 도는지 한 번 커밋해 보고(작업 규약 3), 이 PR의 CI에서 `ticket` 잡이 노트 검사를 돌아 지난 것을 실행의 주소로 Comments에 적는다.
+- [x] 이 티켓은 PR 서식과 `ci.yml`과 커밋 전 검사 러너를 고치는 하네스 일이기도 하다. 고친 뒤 커밋 전 검사가 새 항목을 실제로 도는지 한 번 커밋해 보고(작업 규약 3), 이 PR의 CI에서 `ticket` 잡이 노트 검사를 돌아 지난 것을 실행의 주소로 Comments에 적는다.
 - [x] 검사 넷이 초록이다.
 
 ## Comments
@@ -38,4 +38,5 @@ agent-os 커밋 `1aac0cf`의 `tools/check_notes.py`와 그 시험, `.github/work
 - **헌법.** 사용자가 승인해 `docs/constitution/operations.md`에서 05가 노트 검사와 PR 서식 칸과 PR 제목 워크플로를 들인다고 미래형으로 적은 두 문장을 걷고 헌법 버전을 1.5.3에서 1.5.4(문구 patch)로 올렸다. 같은 문서의 "release-image의 07이 `claude-code-review.yml`에 더한다" 문장은 07이 병합돼 낡았지만 승인받은 범위 밖이라 두었다.
 - **squash 설정(병합 전 확인).** `gh api repos/njh6803/rag-engine --jq .squash_merge_commit_title`이 `COMMIT_OR_PR_TITLE`을 냈다(`PR_TITLE`이 아니다). 이 티켓의 지시대로 사용자에게 알리고, 설정이 바뀌기 전에는 병합하지 않는다.
 - **면제와 포크.** 머리 브랜치가 `main`이나 `dev`면 건너뛰는 면제는 포크에서 온 PR에도 열린다(포크의 기본 브랜치가 `main`이다). 기준이 머리 브랜치 이름인 것은 명세가 정했고 지금은 혼자 쓰는 저장소라 포크 PR이 없다. 팀원이 생겨 포크 PR이 열리면 같은 저장소의 머리만 면제하도록 조일지 ADR로 정한다. CodeRabbit CLI가 Major로 냈다.
+- **CI의 노트 검사 실행.** PR 80의 머리 `3aa88ae`에서 `ticket` 잡이 지났다(https://github.com/njh6803/rag-engine/actions/runs/44564490553/job/135702396602). 잡의 둘째 스텝이 `python3 tools/check_notes.py --ci`이고 이 스텝이 성공으로 끝났음을 `gh api repos/njh6803/rag-engine/actions/jobs/135702396602`의 스텝 목록으로 봤다. 실행 전체는 이 글을 쓸 때 `python`과 `eval-fast`가 아직 도는 중이었다.
 - **옛 말 잔존.** `docs/agents/issue-tracker.md`의 05가 들인다는 문장을 현재형으로 고쳤다. `docs/constitution/operations.md`의 07이 더한다는 문장은 승인 범위 밖이라 남아 있다. 사용자가 고치라고 하면 한 단어(더한다를 더했다로)다.
