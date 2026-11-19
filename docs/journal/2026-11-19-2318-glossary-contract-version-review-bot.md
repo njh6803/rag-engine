@@ -1,6 +1,6 @@
 # glossary-contract-version-review-bot: 리뷰 봇 지시문의 계약 번호 "판" 둘을 "계약 버전"으로 바꾼다 · 2026-11-19
 
-PR 78(일지 `2026-11-19-1044-glossary-contract-version-names.md`)을 병합한 같은 세션이 그 일지의 "다음" 둘째 항목을 이어서 한 기록이다(Sonnet 5.5, high). 티켓은 `.scratch/harness/issues/glossary-contract-version-review-bot.md`, 브랜치는 `chore/glossary-contract-version-review-bot`이고, PR 78의 워크트리 `glossary-contract-version-names`에서 `origin/dev`(`fa85261`)로 브랜치를 새로 땄다. 용어집의 이름을 agent-os의 결정에 맞추는 일의 여덟째 PR이다. 계기, 한 것, 훑은 것, 검증, 셀프 리뷰를 차례로 둔다. 커밋 이후의 절은 PR을 연 뒤 이어 쓴다.
+PR 78(일지 `2026-11-19-1044-glossary-contract-version-names.md`)을 병합한 같은 세션이 그 일지의 "다음" 둘째 항목을 이어서 한 기록이다(Sonnet 5.5, high). 티켓은 `.scratch/harness/issues/glossary-contract-version-review-bot.md`, 브랜치는 `chore/glossary-contract-version-review-bot`이고, PR 78의 워크트리 `glossary-contract-version-names`에서 `origin/dev`(`fa85261`)로 브랜치를 새로 땄다. 용어집의 이름을 agent-os의 결정에 맞추는 일의 여덟째 PR이다. 계기, 한 것, 훑은 것, 검증, 셀프 리뷰, 커밋, PR 직전 리뷰, 회고, 다음을 차례로 둔다. PR 봇 회차의 절은 PR을 연 뒤 이어 쓴다.
 
 ## 계기
 
@@ -46,3 +46,36 @@ PR 78 일지가 정한 훑기 모양(일치 지점의 앞뒤 글자, UTF-8, 양�
 **표준 축이 계약 번호 뜻으로 남았다고 짚은 곳(이번 범위 밖).** `tools/release.py`, `tests/tools/test_release.py`, `src/rag_engine/main.py`의 릴리스 노트 절 이름 "계약의 판"은 릴리스 영역의 몫이다. `.scratch/release-image/spec.md`와 `.scratch/search-eval/spec.md` 같은 명세는 릴리스 영역이거나 끝난 기능의 기록이다.
 
 **다시 돌린 명령.** 위 "검증"에 있다. 전체 pytest는 커밋의 pre-commit이 돈다.
+
+## 커밋
+
+커밋 `38808363`(제목 "chore: 리뷰 봇 지시문의 판을 버전으로 (harness glossary-contract-version-review-bot)")은 두 번째 시도에서 들어갔다. 첫 시도는 위 "검증"의 시간 시험 한 건(5.2초)에서 pre-commit이 실패했고, 파일을 하나도 바꾸지 않고 다시 커밋하자 같은 시험이 지나갔다. 같은 시험이 두 번 연속 실패한 것이 아니므로 `diagnosing-bugs`는 쓰지 않았다. 두 번째 시도의 pre-commit에서 `zizmor`와 `run-hooks`를 포함한 검사가 모두 초록이어서 티켓의 넷째 수용 기준을 체크했다.
+
+pre-commit의 인용 대조(`quotes` 훅)가 경고 다섯 건을 냈다. 훅은 막지 않고 알리기만 한다. 티켓 6·7행은 이번에 바꾼 옛 구절을 따옴표로 옮긴 것이라 저장소 어디에도 더는 글자 그대로 없고(바꾸기 전 문장을 보이려는 것이라 의도한 것이다), 이 일지의 사용자 질문 인용과 "93행에서 시작하는 스텝, 분기는 114~127행"은 요약해 옮긴 말이다. 따옴표를 떼지 않고 그대로 둔다. 원문 대조가 필요한 인용은 없다.
+
+## PR 직전 리뷰
+
+이 PR은 `.github/workflows/claude-code-review.yml`을 바꾸므로 PR 봇(claude-review)이 건너뛴다. 그래서 PR 직전 층 둘을 손으로 돌렸다. CodeRabbit CLI는 이 계정에서 거부되어 `bug-perf-review`와 `/security-review`로 갈음했다.
+
+- `bug-perf-review`: 지적 0건. 바뀐 YAML이 문법상 유효하다는 것과, 이 일지와 티켓과 대기열에 적은 사실 주장 여섯(a~f)이 diff와 저장소에 맞는다는 것을 확인했다. 경계 메모로, `src/rag_engine/app/eval_report.py`의 `format_version`은 계약 번호가 아니라 평가 보고서 기록의 형식 번호라 이번 범위 밖이라는 점을 짚었다.
+- `/security-review`: 발견 없음. diff를 보면 리뷰 봇 지시문의 낱말 둘만 바뀌었고 권한, 도구 허용 목록, 비밀 처리의 줄은 바뀌지 않았다.
+
+## 회고
+
+후보 셋을 냈고 승인 1, 기각 2, 넘김 0이다.
+
+- **커밋 제목 길이 검사가 느린 검사 뒤에 돈다**(승인, 회차를 센다). 사건: 앞 PR 78의 일지 커밋 제목이 75자로 72자 제한을 넘어 `parallel-checks`를 약 617초 돈 뒤에야 `commit-msg`가 막았다. 명령이 `git commit -m`이라 `hook_bash_commit_msg`가 못 보는 설계된 사각이다. 간 자리는 `.scratch/retro-queue/commit-msg-after-slow-checks.md`이고 6회차에서 7회차가 되었다. 더하는 것이라 다섯 번째에 반영하는 항목인데 이미 5회차를 넘었으므로, 다음 하네스 chore 배치의 대상이 된다(다섯 번째 이후의 반영 시점은 그 chore가 정한다).
+- **부하에서 5초 상한을 넘은 시간 시험**(기각). 사건: `tests/app/test_job_lease.py`의 한 시험이 11분 넘게 도는 pytest의 부하에서 5.2초가 되었다. 부하 시간 시험 종류는 사용자가 2026-11-15에 닫힌 채 두기로 했으므로 대기열에 잇지 않고 이 일지에만 적는다.
+- **훅이 모델이 스스로 낸 세션 카드를 막음**(기각). 이미 있는 훅이 그 자리에서 막았고(ADR 0037), 후속 일은 일지의 "다음"과 사용자에게 묻는 길로 갔다.
+
+만료할 항목은 없었다(`uv run python tools/queue_open_rows.py`의 "만료할 항목"이 비었다). 이 세션이 더한 대기열 변경은 `commit-msg-after-slow-checks`의 회차와 `glossary-plain-names-left`의 이어 쓴 문단뿐이다. `rename-sweep-misses-forms`는 PR 78에서 5회차가 되었고 이번 PR에서는 훑기가 이미 처방대로(앞뒤 글자, UTF-8, 양성 대조) 이뤄져 회차를 더하지 않았다.
+
+## 다음
+
+남은 판 영역은 셋이다. 어느 것이든 사용자가 시키면 이어 간다.
+
+1. **릴리스 번호를 가리키는 판.** PR 77이 병합되어 시작할 수 있다. 릴리스 노트의 절 이름 "계약의 판", `tools/release.py`와 그 시험, `--version` 출력, `.scratch/release-image/`의 명세와 티켓, `.scratch/diag-bundle/plan.md`를 함께 본다.
+2. **홀로 쓰인 판과 `format_version`.** `src/rag_engine/app/eval_report.py`의 `format_version` 주변 문구와 평가 묶음, 추론 기록의 형식 번호, 파일이나 도구의 사본·개정을 뜻하는 판, 이 파일의 21행과 87행처럼 외부 액션의 판을 가른다.
+3. **색인 판 계열**(색인 판, 현재 판, 건설 중인 판, 물러난 판, 살아 있는 판, 판 전환, 스키마 판, 토크나이저 판). 사용자가 "버전으로 바꾼다"를 골랐고 가장 마지막에 한다.
+
+하네스 chore 배치의 조건을 채운 대기열 항목에 `commit-msg-after-slow-checks`(7회차)와 `rename-sweep-misses-forms`(5회차)가 있다. 이 PR을 병합한 뒤 `tools/queue_open_rows.py --ref origin/dev`로 다시 센다.

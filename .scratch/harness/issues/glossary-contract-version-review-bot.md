@@ -14,13 +14,13 @@
 
 **대기열:** glossary-plain-names-left, rename-sweep-misses-forms
 
-**Status:** in-progress
+**Status:** done
 
 - [x] 78행의 계약 번호 "판" 둘이 "계약 버전"이 되었고 같은 줄과 파일의 다른 글자는 그대로다. 바뀐 파일은 이 파일, 이 티켓, 일지, 대기열뿐이다(가드)
 - [x] 파일에서 "판"을 앞뒤 글자와 함께 모두 찍었고(UTF-8, 양성 대조로 78행의 두 자리가 나옴), 남은 여섯 자리가 모두 "판단"이나 외부 액션의 판(21행, 87행)이다. 훑은 명령과 결과는 일지에 있다
 - [x] 바뀐 구절이 `docs/constitution/operations.md` 39행의 "계약 버전에서 앞자리를 올리는 변경"과 같은 말이다
-- [ ] 이 워크플로의 형식을 건드리지 않았다(`zizmor` 검사와 `tools/run_checks.py`의 `run-hooks`가 초록)
-- [ ] 이 파일을 바꾼 PR은 claude-review가 건너뛰므로 PR 직전 리뷰(`bug-perf-review`, `/security-review`)와 셀프 리뷰, CodeRabbit 코멘트를 손으로 본 결과가 일지에 있다
+- [x] 이 워크플로의 형식을 건드리지 않았다(`zizmor` 검사와 `tools/run_checks.py`의 `run-hooks`가 초록)
+- [x] 이 파일을 바꾼 PR은 claude-review가 건너뛰므로 PR 직전 리뷰(`bug-perf-review`, `/security-review`)와 셀프 리뷰, CodeRabbit 코멘트를 손으로 본 결과가 일지에 있다
 
 ## Comments
 
