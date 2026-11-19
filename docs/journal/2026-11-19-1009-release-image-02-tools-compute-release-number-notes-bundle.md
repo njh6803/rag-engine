@@ -40,7 +40,7 @@ release-image 티켓 여덟 가운데 셋째로 구현한 티켓(`02-tools-compu
 - 고쳤다(Minor): 새로 적은 못 보는 것 항목 "첫 줄까지 담아 넘겨도 그대로 싣는다"를 고정한 시험이 없었다. CRLF 맞춤과 첫 줄 포함을 함께 보는 시험을 더했다. 같은 이유로 UTF-8이 아닌 파일의 갈래를 `test_노트_도구는_계약의_판_파일이_없거나_읽지_못하면_실패한다`에 더했다.
 - 고쳤다(Minor): 실패 시험이 "계약의 판"만 대어 네 실패 갈래(옵션 없음, 읽기 실패, 빈 줄, 울타리)를 가르지 못했다. 갈래마다 다른 문구(`--contract-versions 가 없다`, `파일을 읽지 못했다`, `줄이 비었다`, `코드 울타리`)로 바꿨다.
 - 고쳤다(Minor): `notes`와 `bundle`을 스크립트 경로(`python3 tools/release.py …`)로 밟는 시험이 없었다. CI가 부르는 꼴 그대로 두 하위 명령을 subprocess로 돌려 한국어 노트가 깨지지 않는지, 묶음 경로가 나오는지 보는 시험을 더했다. 윈도의 텍스트 stdout이 줄바꿈을 CRLF로 내서 시험이 맞춘 뒤 대도록 했다.
-- 고쳤다(Nit): 모듈 독스트링의 "ci.yml 의 ticket 잡이 커밋 검사를 그렇게 부른다"가 부정확했다. `ci.yml`의 `ticket` 잡은 `python3 tools/check_ticket.py --ci`를 부른다. 그 문장으로 고쳤다.
+- 고쳤다(Nit): 모듈 독스트링의 ci.yml 의 ticket 잡이 커밋 검사를 그렇게 부른다는 옛 문장이 부정확했다. `ci.yml`의 `ticket` 잡은 `python3 tools/check_ticket.py --ci`를 부른다. 그 문장으로 고쳤다.
 - 고쳤다(Minor): `--full-history`의 근거를 "근거로 적은 것"이라 했으나 agent-os의 그 README 7번은 안전한 쪽이라는 것을 어림으로 적었다. "안전한 쪽이라고 어림해 적은 것"으로 고쳤다.
 - 남긴다: `"feat"` 분기, `(repo, since, head)` 뭉치 같은 smell은 원본에서 온 모양이다. 파일을 쪼개는 일은 이 티켓의 체크박스가 아니다. 독스트링이 후속 티켓(05, 08)을 미래형으로 부르는 문장은 지금 PR에서는 맞고 그 티켓이 닫힐 때 걷는다.
 - 남긴다: 계약 줄 처리의 BOM만 든 파일과 U+200B만 든 파일은 통과해 빈 `text` 블록이 선다. 공백이 아닌 문자가 있는 줄로 세는 것은 독스트링대로이고, 릴리스 워크플로가 `rag-engine --version`의 출력을 넘기므로 나올 길이 없다.
@@ -68,6 +68,10 @@ release-image 티켓 여덟 가운데 셋째로 구현한 티켓(`02-tools-compu
 - 오탐·보류: `judge_number_tag`의 HOLD가 08의 실제 buildx 출력과 다를 수 있다는 지적은 추측이고 HOLD는 안전한 쪽이라 08로 넘긴다(이 저장소에서 조회하지 않았다는 점은 두 파일의 주석에 이미 적었다). `_added`와 `_upgrade_entry`가 git의 `-z` 출력을 쓰지 않는 것은 `core.quotepath=false`가 이미 있고 원고 경로에 탭이나 줄바꿈이 올 일이 없어서 둔다.
 
 이 절에서 새로 쓴 사실 문장은 모두 서브에이전트의 보고와 내가 열어 본 파일에서 옮긴 것이다.
+
+## 커밋
+
+첫 커밋은 `bcf1eae`(7개 파일, 2066줄 더함, 14줄 뺌)다. 커밋 전 `git branch --show-current`는 `feature/02-tools-compute-release-number-notes-bundle`이었고 `git fetch origin` 뒤 `origin/dev`는 기준과 같은 `75cb8ea`였다. 커밋이 부른 pre-commit은 `ruff check`, `ruff format`, 검사 러너(`parallel-checks` 447.25초. 그 안의 pytest는 446.9초), 표, 줄 구분 문자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지 훅이 모두 통과했다. 인용 대조가 막지 않는 경고 둘을 냈다. 티켓 Comments와 이 일지가 이미 없는 옛 문장이나 요약 문장을 따옴표로 옮긴 곳이다. 따옴표를 떼고 풀어 써서 이 절을 싣는 둘째 커밋에서 고쳤다.
 
 ## 회고
 
