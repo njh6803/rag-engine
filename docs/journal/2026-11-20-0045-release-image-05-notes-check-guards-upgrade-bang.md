@@ -65,6 +65,20 @@ release-image 티켓 여덟 가운데 넷째로 구현한 티켓(`05-notes-check
 
 고치며 새로 쓴 사실 문장(병합 전 마지막 리뷰가 밀 주장):
 
-1. 이 절의 "`edited`가 제목·본문·base 변경에 모두 발동한다".
+1. 이 절이 `edited` 이벤트가 제목, 본문, base 변경에 모두 발동한다고 적은 문장.
 2. 변이 14가 `ci.yml`의 `PR_TITLE:` 줄 하나(그 파일에 하나뿐이다)의 키만 바꿔 검사 스텝의 env 갈래를 고정한다는 것.
 3. `docs/agents/issue-tracker.md`의 노트 검사를 `tools/check_notes.py`로 가리키는 문장.
+
+## 커밋
+
+첫 커밋은 `d768260`(15개 파일, 2031줄 더함, 19줄 뺌)이다. 커밋 전 `git branch --show-current`는 `feature/05-notes-check-guards-upgrade-bang`이었고 `git fetch origin` 뒤 `origin/dev`는 기준 `fa85261`과 같았다. 커밋이 부른 pre-commit이 새 항목을 실제로 돌렸다. `check-notes`가 0.8초에 통과했고 `ruff check`, `ruff format`, 검사 러너 열한 가지(`parallel-checks` 494.11초, 그 안의 pytest 493.8초), 표, 줄 구분 문자, 변이 표, 헌법 판, 인용 대조, 커밋 메시지 훅이 모두 통과했다. 앞서 손으로 돌린 전체 러너에서 한 번 빨갛던 연결 상한 시험(`tests/adapters/test_postgres_engine.py`)도 이번에는 통과했다. 인용 대조가 막지 않는 경고 둘을 냈다. 티켓 Comments와 이 일지가 이미 없는 옛 문장이나 요약 문장을 따옴표로 옮긴 곳이다. 따옴표를 떼고 풀어 써서 둘째 커밋에서 고쳤다.
+
+## 다음
+
+이 PR(base dev)은 헌법 판 1.5.4(문구 수정)를 올린다. 병합 전에 풀 일이 하나 있다. 티켓의 수락 기준이 병합 전에 보라고 한 저장소 설정 `squash_merge_commit_title`이 `COMMIT_OR_PR_TITLE`이고 `PR_TITLE`이 아니다. 설정이 `PR_TITLE`이 아니면 검사를 지난 PR 제목이 아니라 커밋 제목이 dev에 남을 수 있으므로 병합하지 않고 사용자에게 알린다. 이 PR은 커밋이 둘이라 `COMMIT_OR_PR_TITLE`에서는 PR 제목이 쓰이지만, 티켓의 지시가 `PR_TITLE`이 아니면 알리고 기다리라는 것이라 그대로 따른다.
+
+- 사용자 결정 하나: `docs/constitution/operations.md`의 07이 `claude-code-review.yml`에 더한다는 문장이 07의 병합(PR #75)으로 낡았다. 이 승인 범위 밖이라 두었다. 고치려면 한 낱말(더한다를 더했다로)이고 헌법 문서라 사용자 승인이 필요하다.
+- 08 이후: `tools/release.py` 29줄 근처의 08이 들인다는 문장은 08이 닫힐 때 걷는다.
+- 포크 PR이 열리게 되면 머리 브랜치 이름으로 하는 면제를 같은 저장소의 머리로 조일지 ADR로 정한다.
+- 이 PR의 CI에서 `ticket` 잡이 노트 검사를 돌아 지난 것을 실행의 주소로 티켓 Comments에 적는 일(티켓의 마지막에서 둘째 수락 기준)은 CI가 돈 뒤에 한다.
+- release-image의 프런티어: 05가 닫히면 03(단독 compose)이 이미 열려 있고 04는 03 뒤, 08은 01부터 07까지가 모두 닫힌 뒤다. 세션 경계와 병합은 `next-session` 스킬의 `merge.md`를 따른다.
