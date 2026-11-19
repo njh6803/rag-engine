@@ -112,9 +112,10 @@ SAMPLE_DIR: Final = ROOT / "tests" / "fixtures"
 QUERY: Final = "연차휴가"
 EXPECTED: Final = "연차휴가는 입사 일 년 뒤부터 발생한다"
 # 15초는 명세가 운영자에게 약속한 수치다(티켓 03, 명세 "단독 compose"). 그래서
-# .claude/rules/tests.md의 "홀로 돌린 시간의 넉넉한 배수" 규칙을 따르지 못한다. 개발 PC에서 홀로
-# 돌리면 8.0초와 9.5초였고, 다른 일이 겹친 실행에서 19.2초가 나온 적이 있다(티켓 Comments의 "회복
-# 시간"). 러너에서 흔들리면 이 수치를 시험이 아니라 명세에서 다시 정한다.
+# .claude/rules/tests.md의 "홀로 돌린 시간의 넉넉한 배수" 규칙을 따르지 못한다. 개발 PC에서 서버를
+# 죽이는 시험만 홀로 돌리면 8.0초와 9.5초였고, 깨뜨린 사본으로 전체를 느리게 돌린 실행에서 19.2초가
+# 나온 적이 있다(티켓 Comments의 "회복 시간"). 러너에서 흔들리면 이 수치를 시험이 아니라 명세에서
+# 다시 정한다.
 RECOVERY_SECONDS: Final = 15.0
 
 COMPOSE_TIMEOUT: Final = 300.0
@@ -353,7 +354,9 @@ def bearer(stack: Stack) -> dict[str, str]:
 
 def until_ready(stack: Stack, limit: float) -> float | None:
     """프록시를 지나 `/health`가 200이 될 때까지 0.5초마다 묻는다. 처음 200까지의 초를 돌려주고,
-    제한 안에 200이 없으면 None을 돌려준다."""
+    제한 안에 200이 없으면 None을 돌려준다. 제한은 다음 물음을 시작할지만 정하므로, 마지막 물음이
+    제한을 넘긴 뒤에 200을 받으면 제한보다 큰 값이 돌아올 수 있다. 호출하는 쪽이 그 값을 제한과 다시
+    견준다."""
     started = time.monotonic()
     while time.monotonic() - started < limit:
         try:
@@ -492,26 +495,30 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Stack]:
         assert any("\t" in line for line in ingested.stdout.splitlines()), ingested.stdout
         yield built
     finally:
-        if built is not None:
-            save_logs(built, tmp_path_factory)
-        run(
-            ["docker", "compose", "-p", project, "down", "-v", "--remove-orphans"],
-            cwd=directory,
-            env=clean_environment(),
-            check=False,
-        )
-        leftovers = run(
-            ["docker", "ps", "-aq", "--filter", f"name={project}-holder"], check=False
-        ).stdout.split()
-        if leftovers:
-            run(["docker", "rm", "-f", *leftovers], check=False)
-        own(
-            directory,
-            namespace,
-            version,
-            ["."],
-            f"{os.getuid()}:{os.getgid()}" if sys.platform == "linux" else "",
-        )
+        try:
+            if built is not None:
+                save_logs(built, tmp_path_factory)
+        finally:
+            # 로그를 남기다 실패해도 아래 정리는 반드시 돈다. 컨테이너와 볼륨이 남으면 다음 실행의
+            # 443을 막는다.
+            run(
+                ["docker", "compose", "-p", project, "down", "-v", "--remove-orphans"],
+                cwd=directory,
+                env=clean_environment(),
+                check=False,
+            )
+            leftovers = run(
+                ["docker", "ps", "-aq", "--filter", f"name={project}-holder"], check=False
+            ).stdout.split()
+            if leftovers:
+                run(["docker", "rm", "-f", *leftovers], check=False)
+            own(
+                directory,
+                namespace,
+                version,
+                ["."],
+                f"{os.getuid()}:{os.getgid()}" if sys.platform == "linux" else "",
+            )
 
 
 def save_logs(stack: Stack, tmp_path_factory: pytest.TempPathFactory) -> None:
