@@ -467,8 +467,10 @@ def 폴더_설명_어긋남(files: 묶음_파일) -> list[str]:
 def 고치지_말_것_어긋남(files: 묶음_파일) -> list[str]:
     """안내가 고치지 말라고 한 것을 compose 가 지키지 않는 곳."""
     problems: list[str] = []
-    if '"0.0.0.0:443:8443"' not in files.compose:
-        problems.append("compose 가 밖에 여는 포트가 프록시의 443 하나가 아니다")
+    blocks = re.findall(r"^    ports:\n((?:      - .*\n?)+)", files.compose, flags=re.MULTILINE)
+    published = [line.strip().removeprefix("- ") for block in blocks for line in block.splitlines()]
+    if published != ['"0.0.0.0:443:8443"']:
+        problems.append(f"compose 가 밖에 여는 포트가 프록시의 443 하나가 아니다: {published}")
     if "enable_ipv6: false" not in files.compose:
         problems.append("compose 가 안쪽 네트워크의 IPv6 를 끄지 않는다")
     if "고치지" not in files.guide:
@@ -532,6 +534,12 @@ REVISION = "5617a9f61b028005a4858fdac845db406aefb181"
     ("폴더 설명", "tls_note", "640", "600"),
     ("폴더 설명", "models_note", "폐쇄망", "오프라인"),
     ("고치지 말 것", "guide", "고치지", "건드리지"),
+    (
+        "고치지 말 것",
+        "compose",
+        '      - "0.0.0.0:443:8443"\n',
+        '      - "0.0.0.0:443:8443"\n      - "5432:5432"\n',
+    ),
     ("대응표", "guide", "| `reranker` |", "| `rerank` |"),
 )
 
