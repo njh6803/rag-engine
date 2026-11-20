@@ -7,6 +7,7 @@ standalone-test-fills-image-namespace). 이 파일은 `tests/tools/`에 두고, 
 """
 
 import importlib.util
+import inspect
 import subprocess
 import sys
 from collections.abc import Callable, Mapping
@@ -140,15 +141,8 @@ def test_서버가_멈춘_동안의_기다림은_프록시가_504를_내는_시�
     assert STANDALONE_MODULE.STOPPED_SERVER_TIMEOUT >= PROXY_UPSTREAM_TIMEOUT + 10
 
 
-def test_기다림_제한을_주면_요청까지_그대로_전해진다(monkeypatch: pytest.MonkeyPatch) -> None:
-    seen: list[float] = []
-
-    def fake_request(*args: object, **kwargs: float) -> tuple[int, dict[str, str], bytes]:
-        seen.append(kwargs["timeout"])
-        return 504, {}, b""
-
-    monkeypatch.setattr(STANDALONE_MODULE, "request", fake_request)
-    stack = STANDALONE_MODULE.Stack(
+def fake_stack() -> object:
+    return STANDALONE_MODULE.Stack(
         project="p",
         directory=Path("."),
         namespace="n",
@@ -157,8 +151,46 @@ def test_기다림_제한을_주면_요청까지_그대로_전해진다(monkeypa
         first_health=(200, 0.0),
     )
 
+
+def test_기다림_제한을_주면_요청까지_그대로_전해진다(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[float] = []
+
+    def fake_request(*args: object, **kwargs: float) -> tuple[int, dict[str, str], bytes]:
+        seen.append(kwargs["timeout"])
+        return 504, {}, b""
+
+    monkeypatch.setattr(STANDALONE_MODULE, "request", fake_request)
+    stack = fake_stack()
+
     status = STANDALONE_MODULE.get(stack, "/x", timeout=123.0)
     default = STANDALONE_MODULE.get(stack, "/x")
 
     assert (status, default) == (504, 504)
     assert seen == [123.0, STANDALONE_MODULE.HTTP_TIMEOUT]
+
+
+def test_표지_요청도_기다림_제한을_get까지_전한다(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[float] = []
+
+    def fake_get(*args: object, **kwargs: float) -> int:
+        seen.append(kwargs["timeout"])
+        return 504
+
+    monkeypatch.setattr(STANDALONE_MODULE, "get", fake_get)
+    stack = fake_stack()
+
+    _, status = STANDALONE_MODULE.marked_get(stack, timeout=7.0)
+    _, default_status = STANDALONE_MODULE.marked_get(stack)
+
+    assert (status, default_status) == (504, 504)
+    assert seen == [7.0, STANDALONE_MODULE.HTTP_TIMEOUT]
+
+
+def test_서버_정지_시험은_표지_요청에_긴_기다림을_준다() -> None:
+    # 그 시험을 띄우지 않고는 호출이 실제로 일어나는지 볼 수 없어, 시험 함수의 소스에 줄이 있는지로
+    # 지킨다. 누가 이 인자를 빼면 같은 간헐 실패가 돌아오는데, 위 두 시험은 초록으로 남기 때문이다.
+    source = inspect.getsource(
+        STANDALONE_MODULE.test_서버가_멈춘_동안에도_질의_문자열의_표지가_프록시_로그에_남지_않는다
+    )
+
+    assert "marked_get(stack, timeout=STOPPED_SERVER_TIMEOUT)" in source
