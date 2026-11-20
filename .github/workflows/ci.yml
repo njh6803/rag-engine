@@ -1,5 +1,6 @@
 # 로컬 pre-commit과 같은 검사. 훅은 각자 설치해야 하므로 CI가 최종 판정이다. 파이썬(python), 컨테이너 이미지(image),
-# 커밋 검사(ticket), 검색 평가의 빠른 게이트(eval-fast)와 전체 게이트(eval-full)가 잡 다섯으로 함께 돌고, 필수 검사는
+# 커밋 검사(ticket), 검색 평가의 빠른 게이트(eval-fast)와 전체 게이트(eval-full), 단독 compose 시험(standalone)이 잡
+# 여섯으로 함께 돌고, 필수 검사는
 # 그 결과를 모으는 verify 하나다(docs/constitution/operations.md).
 # 잡을 더하면 verify 의 needs 에 넣는다. 빠뜨리면 verify 가 빨갛다.
 # 체크아웃하는 잡은 모두 persist-credentials: false 다. 모두 PR 의 코드를 짓고 돌리는데 체크아웃 뒤에 github.com 을 상대로
@@ -11,7 +12,7 @@
 name: ci
 
 # 개발 브랜치 dev 가 서면(ADR 0016) 티켓 PR 은 dev 로, 출시 PR(dev→main)과 핫픽스는 main 으로 간다. PR 은 base 를
-# 가리지 않고 dev PR 과 main PR 이 같은 잡(python, image, ticket, eval-fast, eval-full)과 그 결과를 모으는 verify 를
+# 가리지 않고 dev PR 과 main PR 이 같은 잡(python, image, ticket, eval-fast, eval-full, standalone)과 그 결과를 모으는 verify 를
 # 돈다. 푸시는 main 과 dev 둘이다. 검색 평가의 빠른 게이트(eval-fast)는 검색에 영향을 주는 경로가 바뀐 PR 과 모든 푸시,
 # 수동 실행에서 평가하고(경로의 목록과 판정은 tools/eval_gate_paths.py), 나머지 PR 에서는 잡이 평가 스텝을 건너뛴 채
 # 성공으로 끝난다. 잡을 건너뛰면 verify 가 빨강으로 세기 때문이다. 전체 게이트(eval-full, search-eval 15)는 base 가
@@ -336,6 +337,74 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  # 단독 compose 시험(release-image 03). 설치하는 사람이 받는 배포 파일 묶음을 풀어 진짜 임베딩 서버까지 띄우고 443 으로
+  # 검색한다(tests/standalone, 입력 환경 변수의 뜻은 그 파일 머리). 이미지를 짓고 모델을 받는 데 오래 걸려 base 가 main 인
+  # PR 과 main 푸시에서만 시험한다. 늘 시작하고, 체크아웃 다음 스텝(gate)이 시험할지를 정한다. 그 밖(dev 로 가는 PR, dev 푸시, 수동 실행)
+  # 에서는 나머지 스텝을 스텝의 조건(if)으로 넘긴 채 성공으로 끝난다. 잡 자체를 건너뛰면 verify 가 빨강으로 센다.
+  # PR 값은 env 로 넘기고 식을 스크립트에 바로 펼치지 않는다.
+  # 제한 시간 60분의 셈은 캐시가 없는 최악이다. 이미지 둘을 처음부터 짓는 데 10분, 임베딩 서버의 첫 시작이 모델을 내려받고
+  # 올리는 기다림이 compose 의 --wait-timeout 1800초(30분), 그 뒤 검색 시험과 서버를 죽이고 다시 만드는 시험이 10분이다.
+  # 모델 폴더는 eval-fast 와 같은 캐시 키로 복원만 한다(저장은 eval-fast 가 맡는다. eval-full 의 머리 주석과 같다). 캐시가
+  # 없으면 빈 폴더로 시험하고 임베딩 서버가 내려받는다. 시험이 폴더를 작업 사본으로 복사하고 그 사본의 소유를 uid 10001 로
+  # 바꾸므로(시험 머리의 "운영자와 다르게 하는 일") 이 잡은 폴더를 만들기만 한다.
+  standalone:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      PYTHONUTF8: "1"
+      RAG_STANDALONE_MODELS: /tmp/rag-eval-tei
+      RAG_STANDALONE_LOGS: /tmp/rag-standalone-logs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ] && [ "$BASE_REF" = main ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" = push ] && [ "$REF" = refs/heads/main ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "main 으로 가는 PR 과 main 푸시가 아니라 단독 compose 시험을 건너뛴다($EVENT_NAME, base=$BASE_REF, ref=$REF)."
+          fi
+      - if: steps.gate.outputs.run == 'true'
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+      - if: steps.gate.outputs.run == 'true'
+        run: uv python install 3.12
+      - if: steps.gate.outputs.run == 'true'
+        run: uv sync --frozen
+      - if: steps.gate.outputs.run == 'true'
+        id: model
+        run: >
+          python3 -c "import json;
+          c = json.load(open('evals/public-docs/config.json', encoding='utf-8'));
+          print('key=eval-tei-%s-%s' % (c['embedding_model'].replace('/', '-'), c['tei_version']))"
+          >> "$GITHUB_OUTPUT"
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/rag-eval-tei
+          key: ${{ steps.model.outputs.key }}
+      - if: steps.gate.outputs.run == 'true'
+        run: mkdir -p "$RAG_STANDALONE_MODELS" "$RAG_STANDALONE_LOGS"
+      - if: steps.gate.outputs.run == 'true'
+        run: uv run pytest tests/standalone -q -p no:cacheprovider
+      # 시험이 실패해도 컨테이너 로그를 올린다. 로그에는 질문과 비밀이 없다(시험이 그것을 단언한다).
+      - if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-logs-${{ github.run_attempt }}
+          path: /tmp/rag-standalone-logs/
+          if-no-files-found: warn
+          retention-days: 14
+
   # 필수 검사. 건너뛴 잡은 필수 검사여도 성공으로 보고되고(GitHub 문서), 앞 잡이 실패하면 needs 로 이은 잡은
   # 기본적으로 건너뛴다. 그래서 always() 로 언제나 돌고, needs 의 결과가 모두 success 일 때만 초록이다.
   # failure 뿐 아니라 cancelled 와 skipped 도 빨강이다.
@@ -348,7 +417,7 @@ jobs:
   # 필수 검사 밖이다.
   verify:
     if: always()
-    needs: [python, image, ticket, eval-fast, eval-full]
+    needs: [python, image, ticket, eval-fast, eval-full, standalone]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
