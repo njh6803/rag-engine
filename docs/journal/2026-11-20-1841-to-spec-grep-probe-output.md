@@ -57,6 +57,15 @@ CodeRabbit CLI는 이 계정에서 쓰지 못해 `bug-perf-review`(밀 주장 �
 - 출력 성격의 파일이 이 꼴들 밖에도 있다는 참고(`fetch_raw*.txt`, `*_server_log.txt`, `report.md` 등). 새 문단이 이름 꼴을 정하지 않으므로 고칠 문장이 없다.
 - `.claude/rules/tools.md`가 Write·Edit 훅으로 든 열 훅 가운데 파일이 있는 것은 셋뿐이라는 참고. 아래 회고 후보에 옮겼다.
 
+## PR 봇 회차
+
+PR 86을 연 뒤 첫 회차(머리 `e77c12c`)의 결과다. `tools/wait_ci.py 86`이 모든 검사가 통과했고 CodeRabbit이 끝났다고 냈다.
+
+- claude-review: 지적 없음. 바뀐 것이 지침·기록 문서뿐이라 계약, 포트, MCP 도구, 플러그인 자리, 클라이언트 의존을 건드리지 않았다고 PR 코멘트에 적었다.
+- CodeRabbit(`@coderabbitai review`로 요청): 인라인 지적과 리뷰 본문 없이 요약 코멘트만 달고 `Finished`로 끝났다.
+- CI: `python`, `ticket`, `title`, `image`, `standalone`, `eval-fast`, `eval-full`, `verify`가 통과했다.
+- 이 절을 적으려고 일지만 바꾼 커밋이 하나 더 들어가므로 머리가 바뀐다. 병합 전에 새 머리에서 CI를 다시 확인한다.
+
 ## 회고
 
 후보 하나를 냈다.
