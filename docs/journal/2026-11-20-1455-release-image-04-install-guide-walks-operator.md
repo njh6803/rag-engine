@@ -31,9 +31,20 @@ release-image 티켓 여덟 가운데 다섯째로 구현한 티켓(`04-install-
 - 남긴 것: 백업과 복원의 절차는 backup-upgrade가 정하는 일이라 안내에 아직 없다고 적었다. 리눅스에서 `sudo`가 든 명령은 이 PC에서 치지 못했다.
 - 이 일지에 옮기기 전 티켓 Comments에 적은 두 문장(리랭커 검색 경로, 받은 리비전과 시험한 리비전이 같다)은 근거가 안내 본문에 없어 걷거나 낮췄다.
 
+## PR 직전 리뷰
+
+`coderabbit-review` 에이전트가 CodeRabbit CLI 0.7.5로 로컬 변경(기준 `origin/dev`, 파일 일곱 개, `origin/dev`를 합친 뒤)을 봤다. `Plan: Free`, `Seat: not assigned`였지만 `review_completed`까지 돌았고 한도 때문에 못 돈 일은 없다. CLI 지적은 셋이고 셋 모두 유효로 판정했다. 에이전트는 본 세션이 밀어 넣은 사실 문장 여섯도 대 봤고 모두 맞았다. 마이그레이션이 한 트랜잭션이라는 문장은 `env.py`가 `transaction_per_migration` 없이 `context.begin_transaction()`으로 전체를 묶는 것으로 읽었고, 일부러 실패시켜 보지는 않았다.
+
+- 고친 것(셋 모두 안내): ① `cp -r proxy proxy.old`는 `proxy.old`가 이미 있으면 그 안의 `proxy.old/proxy/`로 들어가, 두 번째 업그레이드부터 되돌리기가 직전 버전이 아니라 두 버전 전의 설정을 복원하고 `proxy/proxy/`가 딸려 온다. 에이전트가 임시 폴더에서 쳐서 확인했다. 복사 전에 `rm -rf proxy.old`를 넣었다. ② 폐쇄망 업그레이드가 `compose.override.yaml`의 태그를 고치는데 바꾸기가 그 파일을 백업하지 않고 되돌리기가 복원하지 않아, 옛 `compose.yaml`이 새 바깥 이미지로 뜬다. 폐쇄망 설치는 `compose.override.yaml.old`로 백업하고 되돌릴 때 복원하게 적었다. ③ `sudo tar`의 `cf`와 `xf`에 `--numeric-owner`를 더했다(싣는 기계에 uid 10001이 아닌 같은 이름의 사용자가 있으면 이름으로 소유가 정해지는 길을 막는다).
+- 고친 것(시험): 에이전트가 낸 Nit 셋을 받아들였다. `대응표_어긋남`과 `폐쇄망_어긋남`이 훑은 범위가 비면 실패하게 직접 단언을 더했고, 변이가 없던 가지(임베딩과 리랭커의 소유, 키 파일 이름, 모델 폴더 설명의 낱말)에 변이 사례를 더했다.
+- 남긴 것: 없다. `tests/adapters/test_migrations.py`에 일부러 실패시키는 시험이 있는지는 에이전트도 제목만 봤고, 우리 안내의 문장은 "코드를 읽어 확인했고 일부러 실패시키지는 않았다"로 정직하게 적혀 있어 그대로 둔다.
+- 고친 뒤 다시 돌릴 것: 시험, 린트, 포맷, 타입체크, 전체 검사 묶음. 결과는 아래 "검사"에 잇는다.
+
 ## 검사
 
 - `uv run pytest tests/tools/test_deploy_guide.py`: `14 passed in 0.40s`.
 - `uv run ruff check .`, `uv run ruff format --check .`, `uv run lint-imports`, `uv run pyright`: 모두 종료 0.
 - `uv run python tools/run_checks.py`: 종료 0. `test-db`, `check-ticket`, `lint-imports`, `zizmor`, `check-instructions`, `check-type-escapes`, `pyright`, `pyright-linux`, `run-hooks`, `pytest`(413.5초)가 모두 통과했다. 티켓을 `done`으로 올리고 확인란을 모두 채운 상태에서 돌렸다.
+- `origin/dev`(05 병합)를 합친 뒤 `tests/tools/test_deploy_guide.py`, `tests/tools/test_release.py`, `tests/test_plan_status.py`가 통과했고, 전체 검사 묶음도 종료 0이었다. 그 실행 도중에 PR 직전 리뷰의 고침이 파일을 바꾸었으므로 최종 판은 아래 커밋의 pre-commit이 갈음한다.
+- PR 직전 리뷰를 반영한 뒤 `tests/tools/test_deploy_guide.py`: 통과, `ruff check`와 `pyright` 종료 0.
 - `uv run python tools/plan_table.py`와 `uv run python tools/sibling_overlap.py`: 종료 0, 겹침 없음.

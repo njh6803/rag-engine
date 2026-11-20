@@ -99,6 +99,9 @@ REQUIRED: dict[str, str] = {
     "proxy/. proxy/": "업그레이드가 새 proxy 파일을 비운 폴더 안으로 복사하는 명령",
     "--pull never": "폐쇄망에서 이미지를 받으러 나가지 않게 하는 띄우기 옵션",
     "docker compose ps -a": "끝난 마이그레이션 컨테이너까지 보는 명령",
+    "rm -rf proxy.old": "지난 업그레이드의 복사본을 치워 덮어쓰기가 안으로 들어가지 않게 하는 명령",
+    "compose.override.yaml.old": "폐쇄망 설치의 되돌리기가 옛 이름을 복원하게 하는 백업",
+    "--numeric-owner": "받는 기계와 싣는 기계의 이름이 달라도 소유가 번호로 남게 하는 tar 옵션",
     "1GiB": "서버 /tmp의 기본 상한",
 }
 
@@ -479,9 +482,12 @@ def 대응표_어긋남(files: 묶음_파일) -> list[str]:
     if not table:
         return ["안내에 대응표가 없다"]
     text = "\n".join(table)
+    services = compose의_서비스(files.compose)
+    if not services:
+        return ["compose 에서 서비스를 하나도 읽지 못했다"]
     problems = [
         f"대응표에 서비스 {service} 가 없다"
-        for service in sorted(compose의_서비스(files.compose))
+        for service in sorted(services)
         if f"`{service}`" not in text
     ]
     repositories = re.findall(r"\}/(rag-engine-[a-z]+):", files.compose)
@@ -520,7 +526,11 @@ REVISION = "5617a9f61b028005a4858fdac845db406aefb181"
     ("환경 변수 칸", "guide", "POSTGRES_PASSWORD", "DB_PASSWORD"),
     ("소유", "guide", "sudo chown root:101 tls/privkey.pem", "sudo chown root:100 tls/privkey.pem"),
     ("리비전", "models_note", REVISION, "0" * 40),
+    ("소유", "guide", "sudo chown -R 10001:10001 models", "sudo chown -R 10001:10002 models"),
+    ("인증서 이름", "site", "privkey.pem", "key.pem"),
+    ("인증서 이름", "compose", "./tls:/etc/nginx/tls:ro", "./tls:/x:ro"),
     ("폴더 설명", "tls_note", "640", "600"),
+    ("폴더 설명", "models_note", "폐쇄망", "오프라인"),
     ("고치지 말 것", "guide", "고치지", "건드리지"),
     ("대응표", "guide", "| `reranker` |", "| `rerank` |"),
 )
@@ -583,7 +593,13 @@ def 폐쇄망_어긋남(guide: str, compose: str) -> list[str]:
         local_names[image] = name
         if not any(name in line for line in save_lines):
             problems.append(f"담는 목록(IMAGES)에 로컬 이름이 없다: {name}")
-    for service, image in 서비스의_바깥_이미지(compose).items():
+    outside = 서비스의_바깥_이미지(compose)
+    expected = {"proxy", "postgres", "embedding", "reranker"}
+    if set(outside) != expected:
+        problems.append(f"바깥 이미지를 쓰는 서비스가 {sorted(expected)} 가 아니다")
+    if set(override) != expected:
+        problems.append(f"안내의 override 가 {sorted(expected)} 를 덮지 않는다: {sorted(override)}")
+    for service, image in outside.items():
         name = local_names.get(image, "")
         if override.get(service) != name:
             problems.append(f"compose.override.yaml 의 {service} 가 {name!r} 을 쓰지 않는다")

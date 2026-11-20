@@ -301,8 +301,10 @@ for image in $IMAGES; do echo "$(docker image inspect --format '{{.Id}}' "$image
 받는 기계에서 4절의 띄우는 명령을 한 번 성공으로 끝내 모델을 받아 둔 뒤(임베딩 서버가 건강해진 뒤), 모델 폴더를 소유까지 담아 묶습니다. 리랭커를 켜는 설치는 `models/reranker`도 받아 둡니다. 내려받다 끊긴 폴더를 옮기면 폐쇄망의 임베딩 서버가 빠진 파일을 받으러 나가다 이름을 풀지 못해 멈출 수 있고, 그러면 네트워크 문제처럼 보입니다(재지 않은 어림입니다).
 
 ```bash
-sudo tar cf rag-engine-models.tar models
+sudo tar cf rag-engine-models.tar --numeric-owner models
 ```
+
+`--numeric-owner`는 소유를 이름이 아니라 번호(10001)로 담고 푸는 옵션입니다. 싣는 기계에 이름만 같은 다른 번호의 사용자가 있어도 소유가 바뀌지 않습니다. 개발 PC에서는 이 옵션을 `sudo` 없이 만들기와 풀기 모두 쳐서 도는 것만 보았습니다.
 
 `tar`에 압축(`z`)을 더하면 파일은 줄지만 오래 걸립니다. 개발 PC에서 두 모델의 폴더(각각 4.3GiB, 합 8.6GiB)를 묶는 데 압축 없이는 57초에 파일 8.5GiB, `z`를 더하면 29분 26초에 5.0GiB였습니다. 받는 기계와 싣는 기계에 이 크기만큼의 디스크 자리가 있어야 합니다. 리눅스에서는 폴더 크기를 재지 않았습니다. 옮길 길이 좁을 때만 `z`를 더하십시오.
 
@@ -313,7 +315,7 @@ sudo tar cf rag-engine-models.tar models
 모델 폴더는 root로 풀어야 소유(10001:10001)가 그대로 살아납니다.
 
 ```bash
-sudo tar xf rag-engine-models.tar
+sudo tar xf rag-engine-models.tar --numeric-owner
 ```
 
 이미지를 싣고 ID를 견줍니다.
@@ -368,12 +370,19 @@ docker compose up -d --wait --wait-timeout 1800 --pull never
 
 ### 바꾸기
 
-현재 설치 폴더 옆에 새 묶음을 풉니다. 아래에서 `<새 번호>`는 새 묶음의 번호입니다. 모든 명령은 현재 설치 폴더 안에서 칩니다. 먼저 옛 `compose.yaml`과 `proxy/`를 다른 이름으로 복사해 둡니다. 되돌릴 때 씁니다.
+현재 설치 폴더 옆에 새 묶음을 풉니다. 아래에서 `<새 번호>`는 새 묶음의 번호입니다. 모든 명령은 현재 설치 폴더 안에서 칩니다. 먼저 옛 `compose.yaml`과 `proxy/`를 다른 이름으로 복사해 둡니다. 되돌릴 때 씁니다. `rm -rf proxy.old`는 지난 업그레이드가 남긴 복사본을 치우는 것입니다. 남은 채로 `cp -r proxy proxy.old`를 치면 옛 복사본을 덮어쓰지 않고 그 안의 `proxy.old/proxy/`로 들어가, 되돌릴 때 직전 버전이 아니라 그 전 버전의 설정이 돌아옵니다.
 
 ```bash
 tar xzf <받은 위치>/rag-engine-<새 번호>.tar.gz -C ..
 cp compose.yaml compose.yaml.old
+rm -rf proxy.old
 cp -r proxy proxy.old
+```
+
+폐쇄망 설치(12절)라면 `compose.override.yaml`도 복사해 둡니다. 새 업그레이드는 이 파일의 이름(태그)을 고치고, 되돌릴 때는 옛 `compose.yaml`이 옛 바깥 이미지 이름을 써야 하기 때문입니다.
+
+```bash
+cp compose.override.yaml compose.override.yaml.old
 ```
 
 새 `compose.yaml`로 바꾸고, `proxy/` 폴더는 두고 그 안을 비운 뒤 새 묶음의 `proxy/` 안 파일을 같은 폴더로 복사합니다.
@@ -422,6 +431,8 @@ docker compose exec proxy nginx -s reload -c /etc/rag-engine/proxy/nginx.conf
 ### 되돌리기
 
 마이그레이션이 실패했을 때만 이 길로 되돌릴 수 있습니다. 스키마를 바꾸는 단계는 모든 리비전이 한 트랜잭션 안에서 돌기 때문에(마이그레이션 코드를 읽어 확인했습니다. 일부러 실패시켜 보지는 않았습니다) 실패하면 스키마가 그대로 남습니다. 마이그레이션이 끝난 뒤의 실패는 이 길로 되돌리지 못할 수 있으니, 업그레이드 전의 백업에서 복원해야 합니다.
+
+폐쇄망 설치라면 아래 명령을 치기 전에 `cp compose.override.yaml.old compose.override.yaml`로 옛 `compose.override.yaml`을 먼저 돌립니다. 옛 `compose.yaml`이 새 바깥 이미지 이름을 쓰는 override와 함께 뜨는 것을 막기 위해서입니다. 옛 이미지가 아직 Docker에 남아 있어야 하므로, 업그레이드 전에 지난 이미지를 지우지 마십시오. 이 설치 전용 복원은 개발 PC에서 치지 못했습니다.
 
 옛 `compose.yaml`과 옛 `proxy/`의 파일을 같은 길로 돌리고, 번호를 옛 번호로 되돌린 뒤 다시 띄웁니다.
 
