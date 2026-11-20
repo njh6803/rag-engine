@@ -73,7 +73,9 @@ def test_시험이_받은_이름공간과_번호가_올릴_묶음의_env에_들�
 
 
 def test_픽스처가_쓰는_함수가_묶음_폴더의_env를_시험용_이름공간으로_쓴다(tmp_path: Path) -> None:
-    # `stack` 픽스처가 부르는 함수 그대로다. 픽스처가 옛 두 칸 채우기로 돌아가면 이 시험이 빨개진다.
+    # `stack` 픽스처가 부르는 함수를 직접 부른다. 픽스처가 이 함수를 부르는지는 단독 시험을
+    # 띄워야 알 수 있어 이 시험이 지키지 않는다. 여기서는 함수가 `.env`에 이름공간과 번호를
+    # 채우는 것만 본다.
     (tmp_path / ".env.example").write_text(shipped_example(), encoding="utf-8")
 
     write_env(tmp_path, TEST_NAMESPACE, VERSION, "password")

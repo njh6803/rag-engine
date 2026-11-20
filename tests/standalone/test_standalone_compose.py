@@ -201,7 +201,11 @@ def env_values(namespace: str, version: str, password: str) -> dict[str, str]:
 
 
 def write_env(directory: Path, namespace: str, version: str, password: str) -> None:
-    """묶음 폴더의 `.env.example`을 채워 `.env`로 쓴다. `stack` 픽스처가 이 함수로 쓴다."""
+    """묶음 폴더의 `.env.example`을 채워 `.env`로 쓴다. `stack` 픽스처가 이 함수로 쓴다.
+
+    픽스처가 이 함수를 부르는지는 Docker로 띄우는 이 시험만 알 수 있다. Docker 없이 도는
+    `tests/tools/test_standalone_env.py`는 이 함수가 채우는 값까지만 본다.
+    """
     env_file = directory / ".env"
     env_file.write_text(
         fill_env(
