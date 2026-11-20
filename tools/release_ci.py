@@ -253,7 +253,7 @@ def precheck(
         if target != sha:
             raise ReleaseError(
                 f"그 번호의 초안 {draft_id} 이 다른 커밋({target})의 것이다. "
-                "앞 실행이 번호 태그를 붙인 판일 수 있어 지우지 않는다"
+                "앞 실행이 번호 태그를 붙인 릴리스일 수 있어 지우지 않는다"
             )
     return PrecheckPlan(PrecheckAction.PROCEED, tuple(draft_id for draft_id, _ in drafts))
 

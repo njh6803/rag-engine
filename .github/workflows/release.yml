@@ -90,7 +90,7 @@ jobs:
       # 남았거나 초안만 남은 릴리스 위에서 새 릴리스를 내지 않기 위해서다. 제품 변경이 없어 성공으로 끝나는 갈래보다 먼저
       # 본다. 버전 태그가 하나도 없는 첫 릴리스에서는 지난 릴리스가 없어 건너뛴다. 공개 GitHub 릴리스의 조회는 초안을 찾지
       # 못한다(404).
-      - name: 지난 판의 공개 릴리스 확인
+      - name: 지난 릴리스의 GitHub 릴리스 확인
         if: steps.plan.outputs.previous_tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
@@ -110,7 +110,7 @@ jobs:
             exit 1
           fi
           echo "지난 릴리스 $PREVIOUS_TAG 의 공개 GitHub 릴리스가 있다."
-      - name: 판 없음 알림
+      - name: 릴리스 없음 알림
         if: steps.plan.outputs.release != 'true'
         run: echo "제품 변경이 없어 릴리스를 내지 않는다."
 
@@ -238,7 +238,7 @@ jobs:
               "docker-archive:/in/$image.tar" -o spdx-json > "out/sbom-$image.spdx.json"
           done
           echo "warn=$warn" >> "$GITHUB_OUTPUT"
-      # 노트는 모델을 부르지 않고 릴리스 노트 원고와 커밋 제목으로 짠다. "계약의 판" 절은 지은 서버 이미지에서 설정 없이
+      # 노트는 모델을 부르지 않고 릴리스 노트 원고와 커밋 제목으로 짠다. "계약 버전" 절은 지은 서버 이미지에서 설정 없이
       # `rag-engine --version` 을 돌려 첫 줄(릴리스 번호)을 뺀 둘째 줄부터를 그대로 싣는다. 문턱을 넘은 이미지가 있으면 노트
       # 맨 위에 경고가 서야 한다. 서지 않았으면 노트 도구와 점검의 판정이 어긋난 것이라 실패한다.
       - name: 노트 짓기
@@ -402,7 +402,7 @@ jobs:
             --sha "$GITHUB_SHA" "${drafts[@]}" > "$RUNNER_TEMP/precheck.txt"
           cat "$RUNNER_TEMP/precheck.txt"
           cat "$RUNNER_TEMP/precheck.txt" >> "$GITHUB_OUTPUT"
-      - name: 이미 공개된 판
+      - name: 이미 공개된 릴리스
         if: steps.precheck.outputs.action == 'done'
         run: echo "이 번호의 공개 GitHub 릴리스가 이미 이 커밋을 가리킨다. 더 할 일이 없다."
       # 앞 실행이 남긴 이 커밋의 초안은 지우고 새로 만든다.
