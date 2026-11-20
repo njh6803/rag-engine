@@ -18,7 +18,7 @@
 
 - 고치기 전에 새 시험 둘이 빨갰다. `STOPPED_SERVER_TIMEOUT`이 없다는 `AttributeError`와 `get`이 `timeout`을 받지 않는다는 `TypeError`다(`uv run pytest tests/tools/test_standalone_env.py`, `2 failed, 6 passed`). 고친 뒤 `8 passed`(두 번: 65.94초, 셀프 리뷰 반영 뒤 119.90초. 다른 세션이 이 PC를 쓰는 때라 시간이 흔들린다).
 - `ruff check .`, `ruff format --check .`, `pyright`(오류 0), `lint-imports`(2 kept), `tools/check_type_escapes.py`, `tools/plan_table.py --check`가 초록이다. 테스트 전체는 커밋의 pre-commit이 갈음한다.
-- 이 PC에서 Docker로 서버 정지 시험을 돌리지 않았다. 고친 간헐 실패는 러너의 DNS가 느린 때에만 나서 이 PC에서 만들지 못한다. 서버 정지 시험이 실제로 도는 모습은 그 시험을 띄워야 알 수 있다. Docker 없는 시험은 값의 관계, `get`과 `marked_get`의 전달, 서버 정지 시험의 소스에 그 인자가 있는지까지 지킨다(PR 직전 리뷰 뒤에 더한 둘은 아래 절).
+- 이 PC에서 Docker로 서버 정지 시험을 돌리지 않았다. 고친 간헐 실패는 러너의 DNS가 느린 때에만 나서 이 PC에서 만들지 못한다. 서버 정지 시험이 실제로 도는 모습은 그 시험을 띄워야 알 수 있다. Docker 없는 시험은 값의 관계, `get`과 `marked_get`의 전달, 서버 정지 시험이 그 상수를 `marked_get`에 주는지까지 지킨다(PR 직전 리뷰와 PR 봇 회차 뒤에 더하고 바꾼 시험은 아래 절).
 
 ## 셀프 리뷰
 
@@ -38,6 +38,14 @@
   - Nit(고침): 상수 주석이 러너 DNS 지연을 단정처럼 적던 것에 "추정"을 붙였다.
 - 남긴 것: 서버 정지 시험의 최악 시간은 8 + 90 + 1초에 정리의 `until_ready(60)`을 더해 약 4분이고, CI 제한(`ci.yml` 60분, `release.yml` 90분) 안이다. 리눅스에서는 이 PC에서 돌려 보지 못했다(경로와 모듈 이름에 리눅스에서 막힐 것은 없다고 읽었다).
 - 다시 돌린 것: `ruff check .`, `ruff format --check .`, `pyright`(오류 0)가 초록이다. 이 고침 커밋의 테스트는 pre-commit이 갈음한다.
+
+## PR 봇 회차
+
+PR [#92](https://github.com/njh6803/rag-engine/pull/92)를 `main` 베이스로 열었다. CodeRabbit은 베이스가 `main`이면 자동 리뷰가 꺼져 있어(검사 이름 옆에 `reviews are disabled for this base branch`) `@coderabbitai review`를 남겨 불렀다. 첫 회차에서 CI는 전부 통과했고(`standalone` 잡 포함), 두 봇이 각각 Minor 하나를 냈다. 첫 회차라 Minor도 개별로 판정했다.
+
+- claude-review Minor(고침): 서버 정지 시험의 소스 글자를 찾는 시험은 인자를 변수에 담거나 줄을 나누면 행동은 같은데 빨개지는 구현 복제 시험이다. 서버 정지 시험 함수를 `compose`, `time`, `marked_get`, `service_logs`, `until_ready`를 가짜로 바꾼 채 직접 불러, `marked_get`이 받은 `timeout`이 `STOPPED_SERVER_TIMEOUT`인지 보는 시험으로 바꿨다. 인자를 뺀 사본에서 `fake_marked_get() missing 1 required keyword-only argument: 'timeout'`으로 빨개지는 것을 확인했다.
+- CodeRabbit Minor(고침): 프록시 설정 검사가 줄 머리가 `proxy_`인 것만 봐서 `location /slow { proxy_read_timeout 120s; }` 같은 한 줄 블록의 제한을 놓친다. 주석을 뺀 글에서 `proxy_…timeout` 낱말을 찾는 함수 `timeout_directives`로 바꾸고, 놓치던 입력을 잡는 시험과 주석에만 적힌 제한이 지나는 시험을 더했다. 못 보는 것(따옴표 안의 `#`, `include`, 변수)은 함수 독스트링에 적었다. 고친 뒤 `12 passed`(75.02초).
+- 다시 돌린 것: `ruff check .`, `ruff format --check .`, `pyright`(오류 0)가 초록이고 테스트는 이 고침 커밋의 pre-commit이 갈음한다.
 
 ## 회고
 

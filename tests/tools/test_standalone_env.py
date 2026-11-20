@@ -7,12 +7,12 @@ standalone-test-fills-image-namespace). 이 파일은 `tests/tools/`에 두고, 
 """
 
 import importlib.util
-import inspect
+import re
 import subprocess
 import sys
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Final
 
 import pytest
@@ -119,19 +119,41 @@ def test_검사_없이_부르면_실패해도_예외_없이_돌려준다() -> No
     assert done.returncode == 4
 
 
+def timeout_directives(config_text: str) -> list[str]:
+    """nginx 설정 글에서 주석을 뺀 뒤 `proxy_…timeout` 낱말을 모두 찾는다.
+
+    줄 머리에 기대지 않아 `location /slow { proxy_read_timeout 120s; }`처럼 블록과 같은 줄에 쓴
+    지시문도 잡는다. 못 보는 것: 따옴표 안의 `#`를 주석으로 읽어 그 뒤를 버리는 것, `include`로
+    들어오는 다른 파일의 지시문(이 폴더의 `.conf`는 모두 따로 훑는다), 변수 `$proxy_…timeout`을
+    지시문으로 잘못 세는 것.
+    """
+    return re.findall(r"\bproxy_\w*timeout\b", re.sub(r"#[^\n]*", "", config_text))
+
+
 def test_프록시는_뒷단_제한_시간을_따로_정하지_않아_nginx_기본_60초가_그대로다() -> None:
     # 서버가 멈춘 동안의 요청이 504로 끝나기까지의 시간이 60초라는 전제가 이 파일의 시험이 기대는
     # 값이다. 설정이 `proxy_*_timeout`을 정하면 그 전제가 틀어지므로 먼저 이 시험이 빨개진다.
     configs = sorted(PROXY_DIR.glob("*.conf"))
     assert PROXY_SITE in configs, configs  # 훑은 범위가 비면 아래 단언이 조용히 초록이 된다
     directives = [
-        f"{config.name}: {line.strip()}"
+        f"{config.name}: {name}"
         for config in configs
-        for line in config.read_text(encoding="utf-8").splitlines()
-        if line.strip().startswith("proxy_") and "timeout" in line
+        for name in timeout_directives(config.read_text(encoding="utf-8"))
     ]
 
     assert directives == []
+
+
+def test_블록과_같은_줄에_쓴_제한_시간_지시문을_잡는다() -> None:
+    text = "server {\n    location /slow { proxy_read_timeout 120s; }\n}\n"
+
+    assert timeout_directives(text) == ["proxy_read_timeout"]
+
+
+def test_주석에만_적힌_제한_시간은_지시문으로_세지_않는다() -> None:
+    text = "server {\n    # 답을 기다리는 시간(proxy_read_timeout)은 기본값 그대로 둔다.\n}\n"
+
+    assert timeout_directives(text) == []
 
 
 def test_서버가_멈춘_동안의_기다림은_프록시가_504를_내는_시간보다_길다() -> None:
@@ -186,11 +208,35 @@ def test_표지_요청도_기다림_제한을_get까지_전한다(monkeypatch: p
     assert seen == [7.0, STANDALONE_MODULE.HTTP_TIMEOUT]
 
 
-def test_서버_정지_시험은_표지_요청에_긴_기다림을_준다() -> None:
-    # 그 시험을 띄우지 않고는 호출이 실제로 일어나는지 볼 수 없어, 시험 함수의 소스에 줄이 있는지로
-    # 지킨다. 누가 이 인자를 빼면 같은 간헐 실패가 돌아오는데, 위 두 시험은 초록으로 남기 때문이다.
-    source = inspect.getsource(
-        STANDALONE_MODULE.test_서버가_멈춘_동안에도_질의_문자열의_표지가_프록시_로그에_남지_않는다
+def test_서버_정지_시험은_표지_요청에_긴_기다림을_준다(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 서버 정지 시험 함수를 Docker 없이 가짜 의존물로 직접 불러, 표지 요청이 받은 기다림을 본다.
+    # 누가 이 인자를 빼면 같은 간헐 실패가 돌아오는데, 위 두 시험은 초록으로 남기 때문이다.
+    seen: list[float] = []
+
+    def fake_marked_get(stack: object, *, timeout: float) -> tuple[str, int]:
+        seen.append(timeout)
+        return "marker", 504
+
+    def fake_compose(*args: object, **kwargs: object) -> None:
+        return None
+
+    def fake_sleep(seconds: float) -> None:
+        return None
+
+    def fake_service_logs(stack: object, service: str) -> str:
+        return ""
+
+    def fake_until_ready(stack: object, limit: float) -> float:
+        return 0.0
+
+    monkeypatch.setattr(STANDALONE_MODULE, "compose", fake_compose)
+    monkeypatch.setattr(STANDALONE_MODULE, "time", SimpleNamespace(sleep=fake_sleep))
+    monkeypatch.setattr(STANDALONE_MODULE, "marked_get", fake_marked_get)
+    monkeypatch.setattr(STANDALONE_MODULE, "service_logs", fake_service_logs)
+    monkeypatch.setattr(STANDALONE_MODULE, "until_ready", fake_until_ready)
+
+    STANDALONE_MODULE.test_서버가_멈춘_동안에도_질의_문자열의_표지가_프록시_로그에_남지_않는다(
+        fake_stack()
     )
 
-    assert "marked_get(stack, timeout=STOPPED_SERVER_TIMEOUT)" in source
+    assert seen == [STANDALONE_MODULE.STOPPED_SERVER_TIMEOUT]
