@@ -52,3 +52,35 @@ CodeRabbit CLI는 이 계정에서 거부되어(앞 PR들과 같다) 버그·성
 **남긴 것.** 없음.
 
 **다시 돌린 명령.** 고친 글은 문서뿐이다. 아래 "커밋"의 pre-commit 결과가 갈음한다.
+
+## 커밋
+
+브랜치 `chore/glossary-review-workflow-pan-names`에서 커밋 `2848a6b`(제목 `chore: 리뷰 워크플로 판을 버전으로 바꾼다 (harness glossary-review-workflow-pan-names)`, 71자)를 냈다. 파일 넷(워크플로, 티켓, 대기열 항목, 일지)을 담았다. 시도는 한 번이었고 pre-commit이 650.3초에 통과했다(pytest 649.9초, pyright 36.2초, run-hooks 42.1초). 푸시 전에 `git fetch origin`과 `git merge-base --is-ancestor origin/dev HEAD`로 `origin/dev`(`172b8cd`)를 품은 것을 보고 그대로 올렸다.
+
+## PR 봇 회차
+
+PR 91을 `dev`로 열고 마지막 푸시 뒤에 `@coderabbitai review`를 남겼다. 대기(`tools/wait_ci.py 91`) 결과는 헤드 `2848a6b`에서 모든 검사가 통과였다(`python`, `image`, `ticket`, `standalone`, `eval-fast`, `eval-full`, `verify`, `claude-review`).
+
+- claude-review: 이 워크플로 파일을 바꾼 PR이라 액션이 건너뛰고 스텝이 파일 집합만 본다. 성공으로 끝났고 리뷰 코멘트는 없다. 이 PR의 실질 리뷰는 위 셀프 리뷰와 PR 직전 리뷰다.
+- CodeRabbit: `Review rate limited`(무료 리뷰 한도)로 리뷰가 없었다. 한도에 걸린 것은 통과로 세는 규칙대로 기다리지 않았다. 리뷰를 받은 커밋은 없다.
+
+반영할 지적이 없어 고친 커밋은 없다. 보류한 지적도 없다.
+
+## 회고
+
+후보 2개를 냈고 판정은 승인 1, 기각 1, 넘김 0이다. 일지와 이 세션을 읽었고, 대기열은 `uv run python tools/queue_open_rows.py`로 읽었다(열린 항목 72개, 만료할 항목 없음).
+
+- 후보 1. 주석 두 줄과 기록만 바꾼 커밋의 pre-commit이 전체 pytest를 649.9초 돌았다. 승인(이미 처방한 사건). 열린 항목 `docs-only-commit-full-pytest`가 같은 사건을 처방하고 있어 9회차로 더했다. 항목은 게이트를 좁히는 일이라 넘김 대상으로 이미 사용자가 대기열에 두기로 답했고, 회차 5 이상이라 chore 계기 조건에 이미 들었으므로 새 항목을 쓰지 않았다.
+- 후보 2. 티켓이 같은 파일 가드를 "일지·티켓·프로브 밖의 파일"로 적은 것은 앞 티켓의 문구를 옮긴 좁은 요약이라 대기열 폴더가 빠졌다. 기각. 셀프 리뷰 두 축과 PR 직전 리뷰가 모두 잡았다. 리뷰가 제 몫을 한 사건이라 회차로 세지 않고, 반례를 일반 조항으로 올려야 하는 닫힌 목록도 아니다(허용 집합은 한 줄이고 119행이 원천이라 티켓은 그 줄을 댄다).
+
+반영한 것은 없어서 티켓에 `회고 반영` 줄을 더하지 않았다.
+
+## 다음
+
+병합은 이 세션이 이어서 한다. 병합 직전에 `git fetch origin`과 `git merge-base --is-ancestor origin/dev HEAD`로 뒤처졌는지 보고, `tools/sibling_overlap.py`와 `headRefOid` 대조를 거친다. 병합 결과(`주 체크아웃 미갱신` 한 줄 포함)는 일지가 아니라 병합 보고에 적는다.
+
+용어집 이름 맞추기에 남은 일은 하나다.
+
+1. 마지막 영역 PR: 홀로 쓰인 판이 든 `src/`와 검색 평가 묶음(`tools/search_eval.py`, `tests/tools/test_search_eval*`, `compose.eval.yml`)과 `README.md`, `GLOSSARY.md`(버전 항목을 이미지와 도구의 번호까지 넓히고 "버전 칸"의 예외를 적는다. 홀로 쓰인 판은 옛 이름을 적은 `_Avoid_` 줄뿐이라 남긴다), 색인 판 계열(`tests/tools/test_check_notes.py` 875행, `.claude/skills/code-review/SKILL.md` 108행, `docs/constitution/operations.md` 38행과 PR 서식 35행의 "색인 판" 포함). `deploy/standalone/compose.yaml` 78행 `CPU 버전`은 `CPU 이미지`가 낫다는 Nit(PR 90의 claude-review)를 이 영역이 이미지 종류를 가리키는 판을 다시 볼 때 같이 본다. `operations.md`의 agent-os ADR 0056 결정 이름 인용은 남길 것이다. 사용자가 색인 판은 버전으로 바꾼다를 이미 골랐다. 이 영역이 끝나면 대기열 `glossary-plain-names-left`(사람 몫)를 닫는다.
+
+이 세션의 정리 남은 일: `tidy-checkouts` 때 거부된 `remove-branch worktree-04-install-guide-walks-operator`, 건너뛴 `empty-trash`, 넘긴 `14-reindex-version-switch` 워크트리. 테스트용 PostgreSQL 컨테이너(`rag-engine-test-postgres-1`)는 켜 둔 채다.
