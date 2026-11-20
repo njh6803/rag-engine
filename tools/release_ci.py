@@ -72,7 +72,9 @@ _SHA = re.compile(r"[0-9a-f]{40}")
 # `target "<대상>" { … }` 한 덩어리. 닫는 중괄호는 줄 맨 앞에 있다(안쪽 블록은 들여 쓴다).
 _BAKE_TARGET = re.compile(r'^target\s+"(?P<target>[^"]+)"\s*\{(?P<body>.*?)^\}', re.M | re.S)
 _BAKE_TAGS = re.compile(r"^\s*tags\s*=\s*\[(?P<tags>[^\]]*)\]", re.M)
-_BAKE_REPOSITORY = re.compile(r'"\$\{NAMESPACE\}/(?P<name>[a-z0-9]+(?:-[a-z0-9]+)*):\$\{TAG\}"')
+_BAKE_TAG_ARRAY = re.compile(
+    r'\s*"\$\{NAMESPACE\}/(?P<name>[a-z0-9]+(?:-[a-z0-9]+)*):\$\{TAG\}"\s*,?\s*'
+)
 
 
 def _is_object(value: object) -> TypeGuard[dict[str, object]]:
@@ -188,13 +190,15 @@ def bake_repositories(text: str) -> dict[str, str]:
         tags = _BAKE_TAGS.search(block.group("body"))
         if tags is None:
             continue
-        names = _BAKE_REPOSITORY.findall(tags.group("tags"))
-        if len(names) != 1 or tags.group("tags").count('"') != 2:
+        # 배열 안 전체가 허용한 태그 글자 하나와 일치해야 한다. 변수(`EXTRA_TAG`)나 둘째 항목이
+        # 끼면 bake 가 그 태그도 평가해 올리므로 일부만 맞는 배열은 받지 않는다.
+        whole = _BAKE_TAG_ARRAY.fullmatch(tags.group("tags"))
+        if whole is None:
             raise ReleaseError(
                 f"{target} 의 tags 가 `${{NAMESPACE}}/<저장소>:${{TAG}}` 한 줄이 아니다: "
                 f"{tags.group('tags').strip()!r}"
             )
-        found[target] = names[0]
+        found[target] = whole.group("name")
     return found
 
 

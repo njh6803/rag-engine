@@ -136,13 +136,45 @@ def test_번호처럼_작은_출력은_잡지_않는다() -> None:
     assert metadata_expression_lines(text) == []
 
 
+def on_triggers(text: str) -> list[str]:
+    """`on:` 블록 바로 아래(두 칸 들여 쓴) 실행 계기의 이름들. 주석 줄은 보지 않는다.
+
+    못 보는 것: `on: [push]` 처럼 한 줄에 적은 꼴과 `on: push` 꼴(블록이 아니라 계기를 못 읽어 빈
+    목록이 된다). 그래서 이 저장소 시험은 빈 목록도 실패로 본다.
+    """
+    lines = code_lines(text)
+    if "on:" not in lines:
+        return []
+    found: list[str] = []
+    for line in lines[lines.index("on:") + 1 :]:
+        if line and not line.startswith(" "):
+            break
+        if (m := re.match(r"^  (?P<name>[A-Za-z_]+):", line)) is not None:
+            found.append(m["name"])
+    return found
+
+
 def test_이_저장소의_릴리스_워크플로는_main_푸시에서만_돌고_수동_실행이_없다() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     head = "\n".join(code_lines(text)).split("jobs:")[0]
     assert re.search(r"^on:\n  push:\n    branches: \[main\]\n", head, re.M) is not None
+    # 계기는 push 하나뿐이다. `repository_dispatch` 같은 다른 계기를 더하면 main 푸시가 아닌
+    # 실행으로 올리기가 돈다. 빈 목록은 `on:` 블록을 못 읽은 것이라 위반 0으로 초록이 되지 않게
+    # 막는다.
+    assert on_triggers(text) == ["push"]
     assert "workflow_dispatch" not in head
     assert "pull_request" not in head
     assert "schedule" not in head
+
+
+def test_main_푸시_말고_다른_실행_계기가_더해진_워크플로를_잡는다() -> None:
+    base = "name: x\non:\n  push:\n    branches: [main]\njobs:\n  a:\n"
+    assert on_triggers(base) == ["push"]
+    extra = base.replace("on:\n  push:", "on:\n  repository_dispatch:\n  push:")
+    assert on_triggers(extra) == ["repository_dispatch", "push"]
+    commented = base.replace("on:\n", "on:\n  # workflow_dispatch:\n")
+    assert on_triggers(commented) == ["push"]
+    assert on_triggers("name: x\njobs:\n  a:\n") == []
 
 
 def test_이_저장소의_릴리스_워크플로는_한_번에_하나만_돌고_기다리는_실행을_취소하지_않는다() -> (

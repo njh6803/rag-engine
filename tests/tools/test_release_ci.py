@@ -449,6 +449,9 @@ def test_짓기_목록의_태그가_없는_바탕_대상은_건너뛴다() -> No
         '["${NAMESPACE}/a:latest"]',
         '["docker.io/a:${TAG}"]',
         "[]",
+        # 둘째 항목이 변수라 따옴표 수가 같아도 bake 는 그 태그도 평가해 올린다.
+        '["${NAMESPACE}/a:${TAG}", EXTRA_TAG]',
+        '[EXTRA_TAG, "${NAMESPACE}/a:${TAG}"]',
     ],
 )
 def test_태그가_이름공간_저장소_태그_한_줄이_아니면_실패한다(tags: str) -> None:
@@ -490,7 +493,9 @@ COMPOSE = ROOT / "deploy" / "standalone" / "compose.yaml"
 SITE_CONF = ROOT / "deploy" / "standalone" / "proxy" / "site.conf"
 _PINNED = re.compile(r"@sha256:[0-9a-f]{64}")
 _ARG = re.compile(r"^ARG\s+(?P<name>\w+)=(?P<value>\S+)\s*$", re.M)
-_FROM = re.compile(r"^FROM\s+(?P<image>\S+)(?:\s+AS\s+(?P<stage>\S+))?\s*$", re.M | re.I)
+_FROM = re.compile(
+    r"^FROM\s+(?:--\S+\s+)*(?P<image>\S+)(?:\s+AS\s+(?P<stage>\S+))?\s*$", re.M | re.I
+)
 _COMPOSE_IMAGE = re.compile(r"^\s+image:\s*(?P<image>\S.*?)\s*$", re.M)
 _YAML_COMMENT = re.compile(r"\s+#.*$")
 # 우리가 짓는 이미지는 이름공간을 `.env` 에서 받는다. 이 접두의 줄은 바깥 이미지가 아니다.
@@ -592,6 +597,14 @@ def test_digest_없는_FROM을_잡는다() -> None:
     # 기본값이 이긴다.
     later = pinned + "ARG PY=python:3.12-slim\n"
     assert unpinned_from(later) == []
+    # `--platform=` 같은 옵션이 붙은 FROM 도 옵션 뒤의 이미지를 본다. 옵션 줄을 건너뛰면 고정되지
+    # 않은 단계를 하나 더해도 통과한다.
+    platform_unpinned = pinned + "FROM --platform=$BUILDPLATFORM python:3.12-slim AS helper\n"
+    assert unpinned_from(platform_unpinned) == ["python:3.12-slim"]
+    platform_pinned = (
+        pinned + f"FROM --platform=$BUILDPLATFORM python@sha256:{'c' * 64} AS helper\n"
+    )
+    assert unpinned_from(platform_pinned) == []
     # 반대로 고정 값을 첫 FROM 뒤에만 적으면 FROM 은 그 값을 못 읽는다.
     only_after = "FROM ${PY} AS build\nARG PY=python:3.12-slim@sha256:" + "a" * 64 + "\n"
     assert unpinned_from(only_after) == ["${PY}"]

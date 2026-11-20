@@ -99,7 +99,7 @@ jobs:
           if ! draft=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$PREVIOUS_TAG" --jq .draft 2> "$RUNNER_TEMP/err.txt"); then
             cat "$RUNNER_TEMP/err.txt" >&2
             if grep -q 'HTTP 404' "$RUNNER_TEMP/err.txt"; then
-              echo "::error::지난 릴리스 $PREVIOUS_TAG 의 공개 GitHub 릴리스를 찾지 못했다. 앞 실행이 정리 없이 끝나 태그나 초안이 남은 것이다. 사용자에게 청해 그 초안과 태그를 지운 뒤 이 실행 전체를 다시 돌린다(docs/constitution/operations.md)."
+              echo "::error::지난 릴리스 $PREVIOUS_TAG 의 공개 GitHub 릴리스를 찾지 못했다. 앞 실행이 정리 없이 끝나 태그나 초안이 남은 것이다(공개 릴리스 조회는 초안이 있어도 404 로 답한다). 지우기 전에 그 릴리스의 이미지 번호 태그가 레지스트리에 붙었는지 먼저 본다. 하나라도 붙었으면 이 실행 전체를 다시 돌리지 말고 남긴 초안으로 끝낸다. 하나도 없으면 사용자에게 청해 그 초안과 태그를 지운 뒤 이 실행 전체를 다시 돌린다(docs/constitution/operations.md)."
             else
               echo "::error::지난 릴리스 $PREVIOUS_TAG 의 GitHub 릴리스 조회가 404 가 아닌 오류로 끝났다. 일시 장애일 수 있으니 실패한 잡만 다시 돌린다(gh run rerun <실행 번호> --failed)."
             fi
