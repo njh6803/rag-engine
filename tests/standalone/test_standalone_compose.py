@@ -125,6 +125,12 @@ RECOVERY_SECONDS: Final = 15.0
 COMPOSE_TIMEOUT: Final = 300.0
 UP_TIMEOUT: Final = 2100.0  # 띄우는 명령의 기다림(1800초)보다 길다
 HTTP_TIMEOUT: Final = 60.0
+# 서버가 멈춘 동안 프록시는 뒷단을 기다리다 nginx 기본 60초(`proxy_connect_timeout`과
+# `proxy_read_timeout`의 기본값이고 설정이 정하지 않는다)에 504를 낸다. 어느 쪽이 먼저 걸리는지는
+# 가리지 않았다. 러너의 DNS가 멈춘 서버 이름을 늦게 실패시키면 그 60초를 다 쓴다. 클라이언트
+# 제한이 같은 60초면 504가 닿기 전에 끊겨 상태 코드를 못 받는다(첫 릴리스의 첫 시도: 504 60.026초,
+# 제한 60.0초). 그래서 이 경우만 프록시의 시간보다 길게 기다린다.
+STOPPED_SERVER_TIMEOUT: Final = 90.0
 
 
 # ------------------------------ 도우미 ------------------------------
@@ -373,13 +379,14 @@ def request(
     headers: Mapping[str, str] | None = None,
     body: bytes | None = None,
     cafile: Path,
+    timeout: float = HTTP_TIMEOUT,
 ) -> tuple[int, dict[str, str], bytes]:
     """프록시의 443으로 raw 요청 하나. Host 머리를 직접 정한다."""
     connection = http.client.HTTPSConnection(
         "127.0.0.1",
         PUBLISHED_PORT,
         context=ssl.create_default_context(cafile=str(cafile)),
-        timeout=HTTP_TIMEOUT,
+        timeout=timeout,
     )
     try:
         connection.request(method, path, body=body, headers={"Host": host, **(headers or {})})
@@ -394,10 +401,20 @@ def request(
 
 
 def get(
-    stack: Stack, path: str, *, host: str = HOST_NAME, headers: Mapping[str, str] | None = None
+    stack: Stack,
+    path: str,
+    *,
+    host: str = HOST_NAME,
+    headers: Mapping[str, str] | None = None,
+    timeout: float = HTTP_TIMEOUT,
 ) -> int:
     status, _, _ = request(
-        "GET", path, host=host, headers=headers, cafile=stack.directory / "tls" / "fullchain.pem"
+        "GET",
+        path,
+        host=host,
+        headers=headers,
+        cafile=stack.directory / "tls" / "fullchain.pem",
+        timeout=timeout,
     )
     return status
 
@@ -852,11 +869,16 @@ def test_2MB_올리기가_202이다(stack: Stack) -> None:
     assert status == 202
 
 
-def marked_get(stack: Stack) -> tuple[str, int | None]:
+def marked_get(stack: Stack, *, timeout: float = HTTP_TIMEOUT) -> tuple[str, int | None]:
     """질의 문자열에 표지를 실은 GET. 표지와 받은 상태 코드를 돌려준다. 연결 오류는 None이다."""
     marker = "e2e-key-" + secrets.token_hex(6)
     try:
-        status = get(stack, f"/api/v1/admin/documents?key={marker}&limit=1", headers=bearer(stack))
+        status = get(
+            stack,
+            f"/api/v1/admin/documents?key={marker}&limit=1",
+            headers=bearer(stack),
+            timeout=timeout,
+        )
     except OSError:
         status = None
     return marker, status
@@ -966,7 +988,7 @@ def test_서버가_멈춘_동안에도_질의_문자열의_표지가_프록시_�
     compose(stack, "stop", "server")
     try:
         time.sleep(8)  # 서버의 이름이 DNS에서 빠질 때까지 기다린다
-        marker, status = marked_get(stack)
+        marker, status = marked_get(stack, timeout=STOPPED_SERVER_TIMEOUT)
         time.sleep(1)
         log = service_logs(stack, "proxy")
     finally:

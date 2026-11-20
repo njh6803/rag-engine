@@ -20,6 +20,11 @@ from tools.release import NAMESPACE_MARKER, VERSION_MARKER
 ROOT: Final = Path(__file__).resolve().parents[2]
 STANDALONE: Final = ROOT / "tests" / "standalone" / "test_standalone_compose.py"
 ENV_EXAMPLE: Final = ROOT / "deploy" / "standalone" / ".env.example"
+PROXY_DIR: Final = ROOT / "deploy" / "standalone" / "proxy"
+PROXY_SITE: Final = PROXY_DIR / "site.conf"
+
+# nginx의 proxy_connect_timeout과 proxy_read_timeout 기본값. 설정이 정하지 않으므로 이 값이다.
+PROXY_UPSTREAM_TIMEOUT: Final = 60.0
 
 # 릴리스 워크플로가 방금 지어 러너에 실은 시험용 이미지의 이름공간과 올릴 묶음의 이름공간
 TEST_NAMESPACE: Final = "rag-engine-release-test"
@@ -111,3 +116,49 @@ def test_검사_없이_부르면_실패해도_예외_없이_돌려준다() -> No
     done = run([sys.executable, "-c", "import sys; sys.exit(4)"], check=False)
 
     assert done.returncode == 4
+
+
+def test_프록시는_뒷단_제한_시간을_따로_정하지_않아_nginx_기본_60초가_그대로다() -> None:
+    # 서버가 멈춘 동안의 요청이 504로 끝나기까지의 시간이 60초라는 전제가 이 파일의 시험이 기대는
+    # 값이다. 설정이 `proxy_*_timeout`을 정하면 그 전제가 틀어지므로 먼저 이 시험이 빨개진다.
+    configs = sorted(PROXY_DIR.glob("*.conf"))
+    assert PROXY_SITE in configs, configs  # 훑은 범위가 비면 아래 단언이 조용히 초록이 된다
+    directives = [
+        f"{config.name}: {line.strip()}"
+        for config in configs
+        for line in config.read_text(encoding="utf-8").splitlines()
+        if line.strip().startswith("proxy_") and "timeout" in line
+    ]
+
+    assert directives == []
+
+
+def test_서버가_멈춘_동안의_기다림은_프록시가_504를_내는_시간보다_길다() -> None:
+    # 같으면 프록시가 504를 내기 직전에 시험 클라이언트가 먼저 끊고 상태 코드를 못 받는다. 첫
+    # 릴리스의 첫 시도에서 서버 정지 시험이 그렇게 졌다(프록시 504가 60.026초, 클라이언트 제한이
+    # 60.0초). 러너가 느려도 504를 받도록 10초 이상 더 준다.
+    assert STANDALONE_MODULE.STOPPED_SERVER_TIMEOUT >= PROXY_UPSTREAM_TIMEOUT + 10
+
+
+def test_기다림_제한을_주면_요청까지_그대로_전해진다(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[float] = []
+
+    def fake_request(*args: object, **kwargs: float) -> tuple[int, dict[str, str], bytes]:
+        seen.append(kwargs["timeout"])
+        return 504, {}, b""
+
+    monkeypatch.setattr(STANDALONE_MODULE, "request", fake_request)
+    stack = STANDALONE_MODULE.Stack(
+        project="p",
+        directory=Path("."),
+        namespace="n",
+        version="v",
+        token="t",
+        first_health=(200, 0.0),
+    )
+
+    status = STANDALONE_MODULE.get(stack, "/x", timeout=123.0)
+    default = STANDALONE_MODULE.get(stack, "/x")
+
+    assert (status, default) == (504, 504)
+    assert seen == [123.0, STANDALONE_MODULE.HTTP_TIMEOUT]
