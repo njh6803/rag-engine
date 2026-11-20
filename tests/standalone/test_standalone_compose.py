@@ -25,7 +25,7 @@ compose가 갈린다.
   첫 시작이 모델을 내려받는다.
 - `RAG_STANDALONE_LOGS`: 컨테이너 로그를 남길 폴더. 없으면 pytest의 임시 폴더에만 남긴다.
 
-운영자와 다르게 하는 일은 둘이다. 둘 다 리눅스에서만 소유를 바꾸는 일이다.
+운영자와 다르게 하는 일은 셋이다. 앞의 둘은 리눅스에서만 소유를 바꾸는 일이다.
 
 1. 모델 폴더를 uid 10001에게 주는 `sudo chown -R 10001:10001 models` 대신 같은 일을 하는
    컨테이너(`chown`만 한다)를 쓴다. 러너에서 `sudo`를 시험이 칠 까닭이 없어서다. Windows의 Docker
@@ -33,6 +33,9 @@ compose가 갈린다.
    러너에서 처음 드러난다.
 2. 인증서의 키 파일을 `root:101`, `0640`으로 두는 것도 같은 컨테이너로 한다(프록시가 uid 101로 돌아
    키를 읽는다). Windows에서는 건너뛴다.
+3. `.env`의 `RAG_ENGINE_NAMESPACE`와 `RAG_ENGINE_VERSION`을 시험이 받은 이미지 이름공간과 번호로
+   덮어쓴다. 운영자는 이 두 칸을 고치지 않는다(`.env.example`에 묶음을 만든 릴리스의 값이 이미
+   적혀 있다). 시험은 러너에 싣는 시험용 이미지로 띄워야 해서 고친다. 묶음의 바이트는 그대로다.
 
 끝나면 로그를 남기고 이 시험이 띄운 프로젝트만 볼륨째 내린다. 리눅스에서는 컨테이너가 바꾼 소유를
 되돌려 pytest가 임시 폴더를 지울 수 있게 한다.
@@ -143,6 +146,17 @@ class Stack:
         return f"{self.namespace}/rag-engine-{target}:{self.version}"
 
 
+class CommandFailed(subprocess.CalledProcessError):
+    """종료 코드가 0이 아닌 명령. 메시지에 stdout과 stderr를 싣는다.
+
+    기본 `CalledProcessError`는 명령과 종료 코드만 적는다. 첫 릴리스에서 `docker compose up`이 이
+    예외로 실패했을 때 까닭(compose의 오류 문구)이 stderr에만 있어 로그에서 읽을 수 없었다.
+    """
+
+    def __str__(self) -> str:
+        return f"{super().__str__()}\n--- stdout ---\n{self.stdout}\n--- stderr ---\n{self.stderr}"
+
+
 def run(
     args: Sequence[str],
     *,
@@ -151,17 +165,56 @@ def run(
     check: bool = True,
     timeout: float = COMPOSE_TIMEOUT,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    done = subprocess.run(
         list(args),
         cwd=cwd,
         env=None if env is None else dict(env),
-        check=check,
+        check=False,
         timeout=timeout,
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
     )
+    if check and done.returncode != 0:
+        raise CommandFailed(done.returncode, list(args), done.stdout, done.stderr)
+    return done
+
+
+def env_values(namespace: str, version: str, password: str) -> dict[str, str]:
+    """`.env`에서 시험이 채울 칸 넷.
+
+    호스트 이름과 비밀번호는 운영자가 채우는 칸이다. 이미지 이름공간과 번호는 운영자가 고치지 않는
+    칸(`.env.example`에 묶음을 만든 릴리스의 값이 이미 적혀 있다)인데, 시험은 받은 값으로 덮어쓴다.
+    올릴 묶음의 이름공간(`njh6803` 등)과 릴리스 워크플로가 러너에 싣는 시험용 이미지의 이름공간
+    (`rag-engine-release-test`)이 다르면, 덮어쓰지 않은 `.env`로 띄운 compose는 러너에 없는
+    이미지를 레지스트리에서 받으려 한다. 이 PC에서 같은 입력으로 되풀이하자 `docker compose up`이
+    `manifest for njh6803/rag-engine-server:0.1.0-rc.1 not found`로 멈췄다(티켓 Comments).
+    묶음의 바이트는 그대로다.
+    """
+    return {
+        "RAG_ENGINE_NAMESPACE": namespace,
+        "RAG_ENGINE_VERSION": version,
+        "RAG_ALLOWED_HOSTS": f"localhost,{HOST_NAME}",
+        "POSTGRES_PASSWORD": password,
+    }
+
+
+def write_env(directory: Path, namespace: str, version: str, password: str) -> None:
+    """묶음 폴더의 `.env.example`을 채워 `.env`로 쓴다. `stack` 픽스처가 이 함수로 쓴다.
+
+    픽스처가 이 함수를 부르는지는 Docker로 띄우는 이 시험만 알 수 있다. Docker 없이 도는
+    `tests/tools/test_standalone_env.py`는 이 함수가 채우는 값까지만 본다.
+    """
+    env_file = directory / ".env"
+    env_file.write_text(
+        fill_env(
+            (directory / ".env.example").read_text(encoding="utf-8"),
+            env_values(namespace, version, password),
+        ),
+        encoding="utf-8",
+    )
+    env_file.chmod(0o600)
 
 
 def clean_environment() -> dict[str, str]:
@@ -447,15 +500,7 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Stack]:
     built: Stack | None = None
     try:
         password = secrets.token_hex(24)
-        env_file = directory / ".env"
-        env_file.write_text(
-            fill_env(
-                (directory / ".env.example").read_text(encoding="utf-8"),
-                {"RAG_ALLOWED_HOSTS": f"localhost,{HOST_NAME}", "POSTGRES_PASSWORD": password},
-            ),
-            encoding="utf-8",
-        )
-        env_file.chmod(0o600)
+        write_env(directory, namespace, version, password)
 
         (directory / "tls").mkdir(exist_ok=True)
         run(list(CERTIFICATE_COMMAND), cwd=directory)
@@ -539,12 +584,7 @@ def save_logs(stack: Stack, tmp_path_factory: pytest.TempPathFactory) -> None:
 
 def test_빈_필수_값이면_compose_config가_종료_1이고_그_값의_이름을_적는다(stack: Stack) -> None:
     template = (stack.directory / ".env").read_text(encoding="utf-8")
-    values = {
-        "RAG_ENGINE_NAMESPACE": stack.namespace,
-        "RAG_ENGINE_VERSION": stack.version,
-        "RAG_ALLOWED_HOSTS": "localhost",
-        "POSTGRES_PASSWORD": "x" * 8,
-    }
+    values = env_values(stack.namespace, stack.version, "x" * 8)
     for name in REQUIRED_VALUES:
         # 이름 하나만 비운 .env. 나머지 셋은 채워 둔다.
         empty = tmpfile(stack, {**values, name: ""}, template)
