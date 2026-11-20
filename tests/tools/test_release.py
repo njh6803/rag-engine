@@ -1163,7 +1163,7 @@ NOT_FOUND = "ERROR: registry.example/njh6803/rag-engine-server:0.1.0: not found"
 UNEXPECTED = "ERROR: unexpected status from HEAD request to http://r/v2/x/manifests/1: "
 # agent-os 저장소가 2026-11-16 에 로컬 `registry:3` 에 출처 증명과 SBOM 을 붙여 올린 이미지 색인
 # (릴리스 워크플로가 올리는 꼴)을 `docker buildx imagetools inspect <참조>` 로 조회해 적어 둔 꼴을
-# 옮기고 이름만 이 저장소의 것으로 바꿨다(그 워크플로는 release-image 의 08 이 들인다). 이
+# 옮기고 이름만 이 저장소의 것으로 바꿨다(그 워크플로는 release-image 의 08 이 들였다). 이
 # 저장소에서는 조회해 보지 않았다. 맨 앞 칸에서
 # 시작하는 첫 `Digest:` 줄은 하나이고, `Manifests:` 아래는 들여쓰며(증명 매니페스트의 `Annotations`
 # 아래 줄은 더 들여쓴다) 그 안의 digest 는 맨 앞 칸에서 시작하지 않는다.
