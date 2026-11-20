@@ -4,9 +4,9 @@ MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 �
 
 HTTP 서버가 `/health`(인증 밖), 토큰으로 닫힌 MCP 끝점(`/mcp`, 읽기 도구 `list_knowledge_bases`·`search`·`get_document`), 토큰 관리 API, 수집 API를 연다. 서버에 올려 쓰는 운영자는 릴리스의 배포 파일 묶음(`rag-engine-<번호>.tar.gz`)을 풀고 그 안의 설치 안내([deploy/standalone/README.md](deploy/standalone/README.md))를 따른다. 묶음을 풀기부터 첫 토큰, 문서 넣기, MCP 검색, 폐쇄망 설치, 업그레이드까지 거기 있다. 기능의 순서와 범위는 [.scratch/plan.md](.scratch/plan.md)에 있다.
 
-## 판
+## 릴리스 번호
 
-이 서버의 판은 semver다(`pyproject.toml`의 `version`). 첫 공개 판 0.1 전에는 `0.0.0`이다. 헌법의 버전은 따로이고 [docs/constitution/README.md](docs/constitution/README.md)에 있다.
+이 서버의 릴리스 번호는 semver다(`pyproject.toml`의 `version`). 첫 릴리스 0.1 전에는 `0.0.0`이다. 헌법의 버전은 따로이고 [docs/constitution/README.md](docs/constitution/README.md)에 있다.
 
 ## 개발
 

@@ -5,7 +5,7 @@
 꼴만 글자로 본다. YAML 을 풀지 않고 글을 줄 단위로 읽는다(PyYAML 은 이 저장소가 선언한 의존성이
 아니다).
 
-agent-os 의 같은 이름 시험(커밋 `1aac0cf`)은 판 내기의 첫 실제 실행(2026-11-17)이
+agent-os 의 같은 이름 시험(커밋 `1aac0cf`)은 릴리스의 첫 실제 실행(2026-11-17)이
 `시험한 이미지와 올린 이미지 대조` 단계에서 시작도 못 하고 `Argument list too long` 으로 죽은 일에서
 나왔다. 그 단계는 bake 액션의 `metadata` 출력(출처 증명에 든 GitHub 컨텍스트까지 실려 약 185KB)을
 환경 변수로 받았고, 리눅스의 환경 변수 하나는 커널 상한(`MAX_ARG_STRLEN`, 128KiB 로 본다. 러너에서
@@ -287,7 +287,7 @@ def test_이_저장소의_릴리스_워크플로는_이미지_이름과_짓기_�
         assert f'--digest "{image}=$DIGEST_{image.upper()}"' in text
 
 
-def test_이_저장소의_릴리스_워크플로는_지은_서버_이미지의_계약의_판을_노트에_넘긴다() -> None:
+def test_이_저장소의_릴리스_워크플로는_지은_서버_이미지의_계약_버전을_노트에_넘긴다() -> None:
     step = _step_text(WORKFLOW.read_text(encoding="utf-8"), "build", "노트 짓기")
     assert "rag-engine --version" in step
     assert "--contract-versions" in step

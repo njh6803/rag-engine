@@ -40,11 +40,11 @@ CONTRACT = (
     "파서 인터페이스 1.0.0\n"
     "색인 형식의 스키마 1\n"
 )
-CONTRACT_SECTION = f"## 계약의 판\n\n```text\n{CONTRACT}```"
+CONTRACT_SECTION = f"## 계약 버전\n\n```text\n{CONTRACT}```"
 
 
 def _계약_파일(tmp_path: Path) -> Path:
-    target = tmp_path / "계약의_판.txt"
+    target = tmp_path / "계약_버전.txt"
     target.write_text(CONTRACT, encoding="utf-8", newline="\n")
     return target
 
@@ -648,7 +648,7 @@ def test_정식_릴리스의_노트는_지난_정식_릴리스_뒤_전부를_싣
     assert "## 고친 것\n\n- 재개를 고친다 (#2)\n" in notes
     order = [
         "## 업그레이드할 때 할 일",
-        "## 계약의 판",
+        "## 계약 버전",
         "## 새 기능",
         "## 고친 것",
         "## 그 밖의 변경",
@@ -688,7 +688,7 @@ def test_범위_밖에서_더해진_원고는_범위_안에서_이름을_바꿔�
     assert "기능 소개" not in notes
 
 
-def test_빈_묶음은_머리째_빼지만_계약의_판은_늘_선다(repo: Repo) -> None:
+def test_빈_묶음은_머리째_빼지만_계약_버전은_늘_선다(repo: Repo) -> None:
     repo.product("feat: 첫 기능 (#1)")
     repo.tag("v0.1.0")
     repo.product("fix: 고친다 (#2)")
@@ -865,39 +865,39 @@ def test_노트_도구는_글을_표준_출력에_낸다(
     assert "NAME=PATH" in capsys.readouterr().err
 
 
-def test_계약의_판_줄은_받은_그대로_노트에_실린다(repo: Repo) -> None:
+def test_계약_버전_줄은_받은_그대로_노트에_실린다(repo: Repo) -> None:
     repo.product("feat: 첫 기능 (#1)")
     repo.tag("v0.1.0")
     repo.product("fix: 고친다 (#2)")
     lines = "검색 도구의 형식 1.1.0\n수집 API v1\n  들여쓴 줄도 그대로\n"
     notes = render_notes(repo.path, "0.1.1", lines)
     assert (
-        "## 계약의 판\n\n```text\n검색 도구의 형식 1.1.0\n수집 API v1\n  들여쓴 줄도 그대로\n```"
+        "## 계약 버전\n\n```text\n검색 도구의 형식 1.1.0\n수집 API v1\n  들여쓴 줄도 그대로\n```"
         in notes
     )
 
 
 @pytest.mark.parametrize("contract", ["", "\n", "  \n\n \t\n"])
-def test_계약의_판_줄을_받지_못하면_노트를_짓지_않는다(repo: Repo, contract: str) -> None:
+def test_계약_버전_줄을_받지_못하면_노트를_짓지_않는다(repo: Repo, contract: str) -> None:
     repo.product("feat: 첫 기능 (#1)")
-    with pytest.raises(ReleaseError, match="계약의 판 줄이 비었다"):
+    with pytest.raises(ReleaseError, match="계약 버전 줄이 비었다"):
         render_notes(repo.path, "0.1.0-rc.1", contract)
 
 
-def test_코드_울타리가_든_계약의_판_줄은_노트_꼴을_깨므로_받지_않는다(repo: Repo) -> None:
+def test_코드_울타리가_든_계약_버전_줄은_노트_꼴을_깨므로_받지_않는다(repo: Repo) -> None:
     repo.product("feat: 첫 기능 (#1)")
     with pytest.raises(ReleaseError, match="코드 울타리"):
         render_notes(repo.path, "0.1.0-rc.1", "검색 도구의 형식 1.1.0\n```\n## 가짜 절\n")
 
 
-def test_계약의_판_줄의_줄바꿈_꼴은_맞추고_첫_줄까지_담아도_그대로_싣는다(repo: Repo) -> None:
+def test_계약_버전_줄의_줄바꿈_꼴은_맞추고_첫_줄까지_담아도_그대로_싣는다(repo: Repo) -> None:
     """`rag-engine --version` 의 첫 줄까지 담아 넘겨도 도구는 거르지 않는다(못 보는 것)."""
     repo.product("feat: 첫 기능 (#1)")
     notes = render_notes(repo.path, "0.1.0-rc.1", "0.1.0-rc.1\r\n검색 도구의 형식 1.1.0\r\n")
-    assert "## 계약의 판\n\n```text\n0.1.0-rc.1\n검색 도구의 형식 1.1.0\n```" in notes
+    assert "## 계약 버전\n\n```text\n0.1.0-rc.1\n검색 도구의 형식 1.1.0\n```" in notes
 
 
-def test_노트_도구는_계약의_판_파일이_없거나_읽지_못하면_실패한다(
+def test_노트_도구는_계약_버전_파일이_없거나_읽지_못하면_실패한다(
     repo: Repo, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     repo.product("feat: 첫 기능 (#1)")
@@ -916,7 +916,7 @@ def test_노트_도구는_계약의_판_파일이_없거나_읽지_못하면_실
     empty = tmp_path / "빈.txt"
     empty.write_text("\n", encoding="utf-8")
     assert main([*base, "--contract-versions", str(empty)]) == 1
-    assert "계약의 판 줄이 비었다" in capsys.readouterr().err
+    assert "계약 버전 줄이 비었다" in capsys.readouterr().err
 
 
 # ---------- 배포 파일 묶음 ----------

@@ -270,7 +270,7 @@ def test_배포_파일_묶음이_빠져도_실패한다(tmp_path: Path) -> None:
         verify_files(tmp_path, "0.1.0-rc.1", SHA, _digests())
 
 
-def test_받은_파일의_판_번호가_다르면_실패한다(tmp_path: Path) -> None:
+def test_받은_파일의_릴리스_번호가_다르면_실패한다(tmp_path: Path) -> None:
     _files(tmp_path, "0.1.0-rc.1")
     manifest = {"number": "0.1.0-rc.2", "revision": SHA, "images": _digests()}
     (tmp_path / "release.json").write_text(json.dumps(manifest), "utf-8")
