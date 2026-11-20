@@ -51,7 +51,7 @@ deploy/images/             이미지 짓기. Dockerfile 하나와 bake 설정(`d
 | 2 | [backup-upgrade](backup-upgrade/plan.md) | 색인, 원본 문서, 데이터베이스를 명령 하나로 백업하고 복원하며, 업그레이드 때 다시 색인해야 하는지 알린다 | source-sync | todo |
 | 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 판, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync | todo |
 | 2 | [release-0-1](release-0-1/plan.md) | 첫 정식 릴리스 0.1.0을 낸다. 마지막 출시 후보로 0.1의 성공의 정의를 확인한 뒤 출시 후보 단계를 끝낸다 | release-image, admin, backup-upgrade, diag-bundle | todo |
-| 2 | [release-image](release-image/plan.md) | 릴리스마다 검색 서버와 수집 작업자의 이미지를 내고, 자기 PostgreSQL을 띄우는 단독 compose로 깨끗한 VM에 설치된다 | core | in-progress |
+| 2 | [release-image](release-image/plan.md) | 릴리스마다 검색 서버와 수집 작업자의 이미지를 내고, 자기 PostgreSQL을 띄우는 단독 compose로 깨끗한 VM에 설치된다 | core | done |
 | 2 | [search-eval](search-eval/plan.md) | 평가 세트로 검색의 상위 k개 적중률을 재고, 기준 보고서보다 떨어지면 CI가 실패한다 | core | done |
 | 2 | [source-sync](source-sync/plan.md) | 원천(업로드, 서버 경로, 수집 API)과 동기화. 원천에서 더하고 고치고 지운 문서가 다음 동기화 뒤 검색에 반영된다 | core, release-image | todo |
 | 3 | [change-log](change-log/plan.md) | 관리 변경 기록. 누가 언제 문서, 원천, 설정, 접근 그룹을 바꿨는지 남기고 조회하고 내보낸다 | admin, release-0-1 | todo |
@@ -62,4 +62,4 @@ deploy/images/             이미지 짓기. Dockerfile 하나와 bake 설정(`d
 
 ## 프론티어
 
-done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능이다. `release-image`
+done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능이다. `source-sync`

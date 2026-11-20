@@ -2,6 +2,7 @@
 **슬라이스:** 2
 **Blocked by:** core
 **설계:** ADR 0020. 일지 `docs/journal/2026-11-17-1716-release-image-design.md`
+**끝:** 2026-11-20
 
 설계(ADR 0020, 2026-11-17)가 정한 것: 릴리스 절차는 agent-os의 ADR 0056을 따른다. main이 움직일 때 지난 릴리스 뒤로 제품 변경이 있으면 CI가 릴리스를 내고, 정식 릴리스 0.1.0 전에는 출시 후보(`0.1.0-rc.N`)만 난다. 이미지 둘은 Docker Hub의 `njh6803/rag-engine-server`와 `njh6803/rag-engine-worker`에 올린다. 단독 compose는 프록시(nginx)를 더해 443 하나만 밖으로 연다. 올릴 때 운영자가 손댈 것이 있는 변경은 PR 제목에 느낌표를 붙이고, 마이그레이션, 재색인이 필요한 변경, 계약의 앞자리를 올리는 변경은 언제나 그렇게 한다. 단독 compose를 띄우는 느린 시험은 agent-os와 같이 main으로 가는 PR과 main 푸시에서만 돈다. 워크플로와 도구는 agent-os의 것을 복사해 이 저장소의 값으로 고친다. 첫 정식 릴리스는 release-0-1이 낸다. 사람 몫 가운데 Docker Hub 저장소 둘, 접근 토큰, GitHub 환경 `release`는 릴리스 워크플로를 처음 main에 싣는 출시 PR(차례대로면 이 기능의 출시 PR)을 병합하기 전에, squash 제목 설정은 PR 제목 검사를 옮기는 티켓을 병합하기 전에 끝나 있어야 한다(ADR 0020 Consequences "사람 몫"). 아래의 넘긴 것 문단들은 명세의 입력이다.
 
