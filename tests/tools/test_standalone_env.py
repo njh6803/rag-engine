@@ -91,10 +91,11 @@ def test_채울_칸은_필수_값_넷과_같다() -> None:
 
 
 def test_실패한_명령의_stderr와_종료_코드가_예외_메시지에_있다() -> None:
-    marker = "원인표지-7f3a"
+    marker = "cause-marker-7f3a"
     # 표지가 명령 줄에 그대로 들면 예외 메시지의 명령 부분만으로 단언이 지난다. 두 토막으로 쪼개
-    # 파이썬이 이어 붙인 stderr에만 온전한 표지가 있게 한다.
-    script = "import sys; sys.stderr.write('원인' + '표지-7f3a'); sys.exit(3)"
+    # 파이썬이 이어 붙인 stderr에만 온전한 표지가 있게 한다. PYTHONUTF8이 없는 Windows 셸에서는
+    # 자식의 stderr가 cp949로 나가 한글 표지가 깨지므로 표지는 ASCII로 둔다.
+    script = "import sys; sys.stderr.write('cause-' + 'marker-7f3a'); sys.exit(3)"
 
     with pytest.raises(subprocess.CalledProcessError) as caught:
         run([sys.executable, "-c", script])
