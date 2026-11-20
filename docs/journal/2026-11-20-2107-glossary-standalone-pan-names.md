@@ -70,3 +70,44 @@ CodeRabbit CLI는 이 계정에서 거부되어(앞 PR들과 같다) 보안 축�
 **남긴 것.** 없음.
 
 **다시 돌린 명령.** 고친 글은 문서뿐이다. 아래 "커밋"의 pre-commit 결과가 갈음한다.
+
+## 커밋
+
+브랜치 `chore/glossary-standalone-pan-names`에서 커밋 `68d788e`(제목 `chore: 홀로 쓰인 판을 버전으로 바꾼다 (harness glossary-standalone-pan-names)`)를 냈다. 78개 파일에서 429줄을 더하고 308줄을 지웠다. 시도는 세 번이었다.
+
+- 첫 시도: 전체 pytest가 4933건 통과, 1건 실패였다(1009초). 실패는 위 "검증"에 적은 `tests/test_serve_command.py`의 `ReadTimeout`이고, 그 파일만 다시 돌리니 통과했다.
+- 둘째 시도: 같은 PC에서 다른 세션들이 전체 스위트를 동시에 돌리고 있어 병렬 시험 일꾼(xdist)이 `MemoryError`로 죽었다(빈 메모리가 32GB 중 3GB까지 내려간 때가 있었다). 이 변경의 문제가 아니라서 다른 스위트가 끝나기를 기다렸다가 다시 쳤다.
+- 셋째 시도: 통과해 커밋이 만들어졌다.
+
+커밋 제목은 처음 쓴 것이 78자라 커밋 전에 훅이 막았고, 72자 안으로 줄여 다시 썼다. `git push -u origin chore/glossary-standalone-pan-names`는 `origin/dev`(`beef4af`)를 이미 품은 상태여서 그대로 올라갔다.
+
+## PR 봇 회차
+
+PR 90을 `dev`로 열고 마지막 푸시 뒤에 `@coderabbitai review`를 남겼다. 대기(`tools/wait_ci.py 90`) 결과는 헤드 `68d788e`에서 모든 검사가 통과였다(`python`, `image`, `ticket`, `standalone`, `eval-fast`, `eval-full`, `verify`).
+
+- claude-review: 첫 회차에 지적 없음. 표준과 경계 두 축을 봤고, 문자열이 바뀐 `tools/mutate.py`와 `tests/tools/test_mutate.py`의 짝이 맞는다고 확인했으며, 제목 접두 `chore:`에 느낌표가 없는 것도 기준에 맞다고 했다.
+- CodeRabbit: `Review rate limited`(무료 리뷰 한도, 다음 리뷰는 약 55분 뒤)로 리뷰가 없었다. 한도에 걸린 것은 통과로 세는 규칙대로 기다리지 않았다. 리뷰를 받은 커밋은 없다.
+- CI의 `standalone` 잡이 초록이다. 로컬에서 빨갛게 나온 `tests/standalone`의 Docker 시험 둘은 CI에서 재현되지 않았고, 따라서 로컬의 복구 시간 초과는 이 PC의 부하 때문이었을 가능성이 크다(추정이며 원인을 재지는 않았다).
+
+반영할 지적이 없어 고친 커밋은 없다. 보류한 지적도 없다.
+
+## 회고
+
+후보 3개를 냈고 판정은 승인 0, 기각 3, 넘김 0이다. 일지와 이 세션을 읽었고, 대기열은 `uv run python tools/queue_open_rows.py`로 읽었다(열린 항목 71개, 만료할 항목 없음).
+
+- 후보 1. 건너뛸 줄을 줄 번호로 지정한 일괄 바꾸기가 어긋나 파다(掘) 뜻의 판을 잘못 바꿨다(`tools/check_instructions.py` 360행). 기각. 스크래치 스크립트에서 난 사건 하나이고, 바꾼 줄을 뜻별로 다시 훑는 절차가 이미 잡아 되돌렸다. 저장소에 올릴 검사가 없다.
+- 후보 2. 커밋 제목이 78자라 길이 기준을 넘었다. 기각. 커밋 전에 훅이 막았으므로 이미 있는 훅이 그 자리에서 알린 것이다. `commit-msg-after-slow-checks`에 회차를 더하지 않는다.
+- 후보 3. 커밋 시도마다 전체 pytest가 부하에서만 빨갛게 나왔다(`ReadTimeout`, 동시 스위트로 인한 `MemoryError`). 기각. 부하 시간 시험 종류는 사용자가 2026-11-15에 닫아 두었으므로 새 사례는 일지에만 적는다.
+
+티켓의 대기열 줄에 든 `renamed-term-reintroduced-by-parallel-pr`는 병합 전에 열린 PR이 옛 낱말을 다시 들여오는지 보는 항목이다. 작업 중에 열린 PR을 확인했을 때는 main을 dev에 합치는 PR 하나뿐이어서 다시 들여온 곳이 없었고, 병합 직전에 `tools/sibling_overlap.py`로 한 번 더 본다. 이번 세션에서 회차를 더한 항목은 없다. 반영한 것도 없어서 티켓에 `회고 반영` 줄을 더하지 않았다.
+
+## 다음
+
+병합은 이 세션이 이어서 한다. 병합 직전에 `git fetch origin`과 `git merge-base --is-ancestor origin/dev HEAD`로 뒤처졌는지 보고, `tools/sibling_overlap.py`와 `headRefOid` 대조를 거친다. 병합 결과(`주 체크아웃 미갱신` 한 줄 포함)는 일지가 아니라 병합 보고에 적는다.
+
+용어집 이름 맞추기에 남은 일은 아래와 같다.
+
+1. 별도 작은 PR: `.github/workflows/claude-code-review.yml`의 21행과 87행에 남은 판 둘. 이 워크플로를 바꾸는 PR은 일지·티켓·프로브 밖의 파일을 함께 실을 수 없어서 이 PR에서 뺐다.
+2. 마지막 영역 PR: `src/`, 검색 평가 묶음(`tools/search_eval.py`, `tests/tools/test_search_eval*`, `compose.eval.yml`), 색인 판 계열(이 PR에서 남긴 두 줄 `tests/tools/test_check_notes.py` 875행과 `.claude/skills/code-review/SKILL.md` 108행 포함), `GLOSSARY.md`(버전 항목을 이미지와 도구의 번호까지 넓히는 풀이, 버전 칸 예외), `README.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `docs/constitution/operations.md`. 사용자가 색인 판은 버전으로 바꾼다를 이미 골랐다.
+3. 대기열 `glossary-plain-names-left`(사람 몫)에는 이 영역을 한 문단 더해 두었다. 남은 영역이 끝나면 닫는다.
+4. 이 세션의 정리 남은 일: `tidy-checkouts` 때 거부된 `remove-branch worktree-04-install-guide-walks-operator`, 건너뛴 `empty-trash`, 넘긴 `14-reindex-version-switch` 워크트리. 테스트용 PostgreSQL 컨테이너(`rag-engine-test-postgres-1`)는 켜 둔 채다.
