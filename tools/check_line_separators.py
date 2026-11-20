@@ -115,7 +115,7 @@ def _invisible_class(text: str) -> str | None:
     """`text` 에 든 ASCII 밖의 Zs·Cf 문자만 담은 정규식 문자 클래스. 없으면 None.
 
     범주는 글자마다 물어야 한다. 한글이 많은 이 저장소에서 비 ASCII 글자마다 물으면 전체 훑기가
-    줄 구분 문자만 보던 판의 약 1.8배였고, 서로 다른 글자(`set`)에만 물으면 약 1.25배였다
+    줄 구분 문자만 보던 버전의 약 1.8배였고, 서로 다른 글자(`set`)에만 물으면 약 1.25배였다
     (`.scratch/harness/probes/line_separators_scan_time.py`, 2026-10-12).
     """
     found = sorted(

@@ -148,7 +148,7 @@ def test_도움말을_묻는_푸시는_재지_않는다(command: str) -> None:
 )
 def test_값으로_먹히거나_대시_둘이나_주석_뒤의_h는_도움말이_아니다(command: str) -> None:
     """git 은 값으로 먹힌 `-h` 와 `--` 뒤의 `-h` 로는 사용법을 내지 않고, 셸은 주석을 git 에 넘기지
-    않는다. 주석을 읽은 판은 꼬리 주석의 `-h` 로 푸시를 재지 않고 지나가게 했다(셀프 리뷰 명세
+    않는다. 주석을 읽은 버전은 꼬리 주석의 `-h` 로 푸시를 재지 않고 지나가게 했다(셀프 리뷰 명세
     축)."""
     assert checks_push(command)
 
@@ -250,7 +250,7 @@ def real_push(repo: Path, args: list[str]) -> Pushed:
 def test_도움말_판정이_실제_git_과_같다(tmp_path: Path, args: list[str], outcome: str) -> None:
     """막는 훅이 git 이 푸시하지 않는 명령을 지나가게 한다고 주장하므로, 꼴마다 git 을 실제로 쳐
     푸시가 나갔는지와 훅의 판정을 함께 본다(`.claude/rules/tools.md`). 도움말은 사용법 표지와
-    푸시하지 않은 것으로 가르고, 사용법의 종료 코드는 git 판마다 달라 보지 않는다(harness 티켓
+    푸시하지 않은 것으로 가르고, 사용법의 종료 코드는 git 버전마다 달라 보지 않는다(harness 티켓
     018). 하위 명령 바로 뒤의 `--help` 는 `git help` 로 바뀐다. `--` 뒤의 `-h` 는 refspec 이라 git
     이 그 이름의 ref 를 찾다 실패할 뿐 도움말이 아니다."""
     result = real_push(push_repository(tmp_path), args)

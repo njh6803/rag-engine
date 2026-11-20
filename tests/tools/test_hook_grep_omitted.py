@@ -140,8 +140,8 @@ def test_Grep이_아닌_도구와_content가_없는_결과는_보지_않는다()
     assert context_for(count) is None
 
 
-def test_표지_문구나_결과_객체의_키가_바뀐_판에는_침묵한다() -> None:
-    """거짓 음성이다. 2.1.296 의 표지와 `content` 키에 기대므로, 판이 바뀌면 생략이 있어도
+def test_표지_문구나_결과_객체의_키가_바뀐_버전에는_침묵한다() -> None:
+    """거짓 음성이다. 2.1.296 의 표지와 `content` 키에 기대므로, 버전이 바뀌면 생략이 있어도
     지나간다."""
     renamed: HookPayload = {
         "tool_name": TOOL,

@@ -744,7 +744,7 @@ def test_nginx_t_c와_nginx_s_reload_c가_종료_코드_0이다(stack: Stack) ->
 
 
 def handshake(cafile: Path, port: int, version: ssl.TLSVersion) -> str | None:
-    """보안 수준을 낮춘(`SECLEVEL=0`) 클라이언트가 `version` 하나만 내밀어 손을 맺은 판. 거부되면
+    """보안 수준을 낮춘(`SECLEVEL=0`) 클라이언트가 `version` 하나만 내밀어 손을 맺은 버전. 거부되면
     None.
 
     수준을 낮추지 않으면 OpenSSL 3 클라이언트가 스스로 1.1을 거부해 서버의 설정과 상관없이 이 확인을
@@ -765,7 +765,7 @@ def handshake(cafile: Path, port: int, version: ssl.TLSVersion) -> str | None:
 
 
 def serve_only(directory: Path, version: ssl.TLSVersion) -> tuple[int, Path, threading.Thread]:
-    """대조군. `version` 하나만 받는 서버를 루프백에 띄워 한 번 받는다. 이 클라이언트가 그 판을
+    """대조군. `version` 하나만 받는 서버를 루프백에 띄워 한 번 받는다. 이 클라이언트가 그 버전을
     실제로 내밀 수 있다는 것을 보인다. 못 내밀면 프록시가 거부해도 서버의 설정과 상관없다.
 
     인증서는 `directory`에 새로 만든다. 스택의 키(`tls/privkey.pem`)는 리눅스에서 `root:101`,
@@ -822,7 +822,7 @@ def test_TLS_1_1만_내밀면_맺지_못하고_1_2와_1_3은_맺는다(stack: St
         "대조군: 이 클라이언트가 TLS 1.1을 내밀지 못한다. 확인이 서버와 상관없이 지난다"
     )
     # nginx 쪽 OpenSSL도 기본 보안 수준에서 1.1을 스스로 거절해, `ssl_protocols`에 1.1을 넣은
-    # 사본으로도 아래 손 맺기가 거부된다(깨뜨린 사본으로 봤다). 그래서 설정이 정한 판 목록을 실행
+    # 사본으로도 아래 손 맺기가 거부된다(깨뜨린 사본으로 봤다). 그래서 설정이 정한 버전 목록을 실행
     # 중인 프록시에서 직접 읽어 맞댄다.
     effective = compose(stack, "exec", "-T", "proxy", "nginx", "-T", "-c", PROXY_MAIN_CONFIG)
     protocols = [

@@ -32,7 +32,7 @@ Bash 에서 막는 모양 셋.
   `-g '!.env*'` 도 `-t py` 같은 좁힘도 없을 때, 또는 `-g`(`--glob`·`--iglob`, 붙여 쓴 `-g.env`, 묶은
   `-ig .env`)가 `.env` 를 고를 때 같은 판정이다. rg 의 `-g` 는 무시·숨김 규칙과 `-t` 를 이기고 뒤에
   온 glob 이 이기므로 `.env` 꼴의 견본마다 맞는 마지막 glob 으로 가른다(`_rg_reads`. `--hidden` 없는
-  `rg -g .env x .` 를 지나보낸 판이 있었다, 대기열 422). 루트인지는 페이로드의
+  `rg -g .env x .` 를 지나보낸 버전이 있었다, 대기열 422). 루트인지는 페이로드의
   `cwd` 기준으로 푼 경로가 cwd·`CLAUDE_PROJECT_DIR` 이거나 그 안에 `.env` 파일이 있는지(이름만
   본다)로 가른다. `.`·`..` 는 조각마다의 cwd 를 모르므로 언제나 루트로 본다 —
   `cd src && grep -r x .` 는 오탐이다.
@@ -45,8 +45,8 @@ awk 류의 첫 위치 인자는 패턴이라 파일로 보지 않는다(`grep .e
 `_shell_c_arguments`). 묶은 짧은 옵션은 앞에서 읽어 값 옵션의 값을 위치 인자로 세지 않고(`rg -ig
 .env KEY` 는 경로가 없다), `--` 뒤는 모두 위치 인자다. 줄임을 받는 명령에서 표의 이름과 그대로 같지
 않은데 표의 옵션 머리인 긴 옵션은 옵션마다 플래그로 읽을지 값 옵션의 줄임으로 읽을지를 정한 조합을
-모두 판정한다(`_readings`). 자리마다 표와 읽는 법을 따로 둔 판이 하류와 다르게 읽는 사례를 푸시마다
-새 자리에서 냈다(대기열 448, harness 티켓 012).
+모두 판정한다(`_readings`). 자리마다 표와 읽는 법을 따로 둔 버전이 하류와 다르게 읽는 사례를
+푸시마다 새 자리에서 냈다(대기열 448, harness 티켓 012).
 읽는 명령의 목록(`READERS`)에는 Claude Code 가 묻지 않고 돌린 `column`·`rev` 도 든다(대기열 162.
 `.scratch/harness/probes/review_git_read.py` 가 glob 경로로 `.git/config` 를 읽거나 권한 단계를
 지난 명령이다, 일지 2026-10-07-21). 명령 앞의 래퍼(`sudo`·`command`·`env`·`nice`·`timeout`·`exec`·
@@ -183,10 +183,10 @@ _GREP = OptionSpec(
         }
     ),
     # 표에 없던 `--exclude-from` 의 값을 경로로 세어 `grep -rn --exclude-from list.txt KEY` 가
-    # 루트를 훑지 않는다고 본 판이 있었다(셀프 리뷰 표준 축). `grep -f .env` 는 그 전부터
+    # 루트를 훑지 않는다고 본 버전이 있었다(셀프 리뷰 표준 축). `grep -f .env` 는 그 전부터
     # 지나갔다(셋째 푸시 뒤 자동 보안 리뷰).
     files=frozenset({"-f", "--file", "--exclude-from"}),
-    # 모든 명령에 같은 패턴 표를 쓴 판은 `--file` 의 앞글자 견줌으로 grep 의
+    # 모든 명령에 같은 패턴 표를 쓴 버전은 `--file` 의 앞글자 견줌으로 grep 의
     # `--files-with-matches` 를 패턴 옵션으로 읽어 `grep -rn --files-with-matches KEY` 를
     # 지나보냈고, ack 의 `--match` 를 grep 에도 견줘 `grep --ma=2 .env .gitignore`(`--max-count`)를
     # 막았다(셀프 리뷰 두 축).
@@ -196,7 +196,7 @@ _GREP = OptionSpec(
 )  # fmt: skip
 # rg 14.1.1 의 `rg --help` 에서 값을 받는 옵션을 모두 옮겼다(`-x VALUE, --long=VALUE` 와
 # `--long=VALUE` 꼴, 2026-10-23 손으로 봤다). `--maxdepth` 는 `--max-depth` 의 숨은 별칭이다. 빠진
-# `-r` 뒤의 `g` 를 `-g` 로 읽어 `rg -uu -rg ^ .` 를 지나보낸 판이 있었다(PR 직전 보안 리뷰).
+# `-r` 뒤의 `g` 를 `-g` 로 읽어 `rg -uu -rg ^ .` 를 지나보낸 버전이 있었다(PR 직전 보안 리뷰).
 _RG = OptionSpec(
     values=frozenset(
         {
@@ -222,11 +222,12 @@ _RG = OptionSpec(
 # 본다(막는 쪽). 그래서 모르면 뺀다. 값이 선택인 것도 뺀다. ag 의 `--after`·`--before`·`--context`
 # 는 `=` 로 붙인 값만 받고(짧은 `-A`·`-B`·`-C` 는 값을 꼭 받는다), ack 의 `-A`·`-B`·`-C`·`-p` 는
 # 숫자가 아닌 다음 낱말을 먹지 않는다. ack 의 `--pager` 는 값이 선택이지만 Getopt::Long 이 `-` 로
-# 시작하지 않는 다음 낱말을 값으로 먹어 둔다. 이 표의 앞선 두 판이 틀렸다. rg 의 표를 함께 쓴 판은
-# ag 의 `-t`(--all-text)·`-f`(--follow)를 값 옵션으로 읽어 `ag -t KEY .env` 를 지나보냈고(푸시 뒤
-# 자동 보안 리뷰, 대기열 422), man 페이지의 `-A NUM`·`-g PATTERN` 을 따른 판은 ack 의 `-A`·`-B`(값이
-# 선택인 숫자)와 `-g`(값 없는 플래그)를 값 옵션으로 읽어 `ack -A KEY .env` 를 지나보냈다(셀프 리뷰).
-# ag·ack 가 줄임을 받는다는 것은 파서(getopt_long, Getopt::Long)에서 미룬 것이고 재지 않았다.
+# 시작하지 않는 다음 낱말을 값으로 먹어 둔다. 이 표의 앞선 두 버전이 틀렸다. rg 의 표를 함께 쓴
+# 버전은 ag 의 `-t`(--all-text)·`-f`(--follow)를 값 옵션으로 읽어 `ag -t KEY .env` 를
+# 지나보냈고(푸시 뒤 자동 보안 리뷰, 대기열 422), man 페이지의 `-A NUM`·`-g PATTERN` 을 따른 버전은
+# ack 의 `-A`·`-B`(값이 선택인 숫자)와 `-g`(값 없는 플래그)를 값 옵션으로 읽어 `ack -A KEY .env` 를
+# 지나보냈다(셀프 리뷰). ag·ack 가 줄임을 받는다는 것은 파서(getopt_long, Getopt::Long)에서 미룬
+# 것이고 재지 않았다.
 _AG = OptionSpec(
     values=frozenset(
         {
@@ -239,10 +240,11 @@ _AG = OptionSpec(
     files=frozenset({"-p", "--path-to-ignore"}),
     abbreviation=Abbreviation.ACCEPTED,
 )  # fmt: skip
-# `--files-from` 을 값 옵션 표에만 넣은 판이 `ack KEY --files-from .env` 를 지나보냈다(셋째 푸시 뒤
-# 자동 보안 리뷰). ack 3 의 `--ignore-file` 은 파일이 아니라 거름 명세(`--ignore-file=FILTER:ARGS`,
-# ack 3 의 POD)라 파일 옵션에 넣지 않는다. `--match` 를 값 옵션 표에만 둔 판이 패턴을 값으로 먹고
-# `.env` 를 패턴으로 버려 `ack --match KEY .env` 를 지나보냈다(셀프 리뷰 명세 축).
+# `--files-from` 을 값 옵션 표에만 넣은 버전이 `ack KEY --files-from .env` 를 지나보냈다(셋째 푸시
+# 뒤 자동 보안 리뷰). ack 3 의 `--ignore-file` 은 파일이 아니라 거름
+# 명세(`--ignore-file=FILTER:ARGS`, ack 3 의 POD)라 파일 옵션에 넣지 않는다. `--match` 를 값 옵션
+# 표에만 둔 버전이 패턴을 값으로 먹고 `.env` 를 패턴으로 버려 `ack --match KEY .env` 를
+# 지나보냈다(셀프 리뷰 명세 축).
 _ACK = OptionSpec(
     values=frozenset(
         {
@@ -284,7 +286,7 @@ _AWK = OptionSpec(
     abbreviation=Abbreviation.ACCEPTED,
 )  # fmt: skip
 # diff·sort·head·tail·cut 는 GNU diffutils·coreutils. 값 옵션 표에 없는 옵션의 값은 위치 인자로 세어
-# 막는 쪽으로 기운다. `diff --from-file=.env`·`sort --files0-from=.env` 를 지나보낸 판이
+# 막는 쪽으로 기운다. `diff --from-file=.env`·`sort --files0-from=.env` 를 지나보낸 버전이
 # 있었다(대기열 448). diffutils 3.7 과 coreutils 8.32 의 `--help` 로 이름을 대 봤고, 가짜 파일로
 # `diff --from-file=` 이 그 내용을 차이로, `sort --files0-from=` 이 오류 문구로 내는 것을 2026-10-26
 # 손으로 봤다. diff 의 `--context`·`--unified` 는 값이 선택이라 값 옵션에, sort 의
@@ -351,7 +353,7 @@ OPTION_SPECS = {
 _NO_OPTIONS = OptionSpec()
 # 명령 자리 앞의 래퍼. 옵션은 getopt 처럼 읽고(`_read_options`), 첫 위치 인자에서 멈춘다. `timeout`
 # 은 옵션 뒤의 시간 하나를 더 먹는다. sudo 는 getopt_long 이라 줄임을 받는다(`sudo --us root`).
-# 그것을 모르던 판은 `sudo --us root cat .env` 의 `root` 를 명령으로 읽었다(대기열 448). `--login`
+# 그것을 모르던 버전은 `sudo --us root cat .env` 의 `root` 를 명령으로 읽었다(대기열 448). `--login`
 # 은 `--login-class` 의 머리인 플래그다.
 WRAPPERS: dict[str, OptionSpec] = {
     "sudo": OptionSpec(
@@ -387,14 +389,14 @@ WRAPPERS: dict[str, OptionSpec] = {
 }  # fmt: skip
 # git 의 하위 명령 앞 전역 옵션. git 은 줄임을 받지 않는다(2026-10-26 이 PC 의 git 2.32 가
 # `git --git-d=x status` 를 unknown option 으로 거부한 것을 손으로 봤다). 하위 명령을 첫 인자로만 본
-# 판이 `git -C . diff --no-index .env x` 를 지나보냈다(셀프 리뷰 표준 축).
+# 버전이 `git -C . diff --no-index .env x` 를 지나보냈다(셀프 리뷰 표준 축).
 _GIT = OptionSpec(
     values=frozenset(
         {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix"}
     )
 )  # fmt: skip
-# 셸의 `-c` 는 값을 먹지 않는 플래그이고, 명령 글은 첫 위치 인자다. 긴 옵션의 `c` 를 `-c` 로 센 판이
-# `bash --norc -c 'cat .env'` 의 `-c` 를 명령 글로 읽어 지나보냈다(셀프 리뷰 표준 축).
+# 셸의 `-c` 는 값을 먹지 않는 플래그이고, 명령 글은 첫 위치 인자다. 긴 옵션의 `c` 를 `-c` 로 센
+# 버전이 `bash --norc -c 'cat .env'` 의 `-c` 를 명령 글로 읽어 지나보냈다(셀프 리뷰 표준 축).
 _SHELL = OptionSpec(values=frozenset({"-o", "-O", "--rcfile", "--init-file"}))
 
 
@@ -486,7 +488,7 @@ def grep_tool_globs(glob: str) -> list[str]:
     """Grep 도구가 glob 칸을 rg 의 `--glob` 여럿으로 나누는 그대로 나눈다. 공백으로 나누고, 중괄호가
     없는 조각은 쉼표로도 나눈다. 중괄호가 있는 조각은 쉼표로 나누지 않는다. 2026-10-23 claude
     2.1.302 의 Grep 도구로 손으로 봤다(`*.md,x`·`*.md x` 가 무시된 `x` 를 읽었고 `{*.md},x` 는
-    아무것도 내지 않았다, 대기열 422). 통째로만 본 판이 `*.md,.env` 를 지나보냈다."""
+    아무것도 내지 않았다, 대기열 422). 통째로만 본 버전이 `*.md,.env` 를 지나보냈다."""
     pieces: list[str] = []
     for piece in glob.split():
         if "{" in piece and "}" in piece:
@@ -685,11 +687,11 @@ def _readings(args: list[str], spec: OptionSpec) -> list[Reading] | None:
     이름 그대로 두어 값 없는 플래그로 읽을지 값 옵션의 줄임으로 읽을지를 정한 조합마다 한
     글이다(`_every_choice`). 판정은 어느 글에서든 걸리면 막는다(`.claude/rules/tools.md` 의 다르게
     읽은 글을 모두 보는 항목). 훅은 하류의 플래그를 다 옮기지 않아 줄임이 모호한지 알 수 없기
-    때문이다. 조합이 너무 많으면 None 이다. 줄임을 몰랐던 판이 `grep --reg=KEY .env`·`sed --exp=1p
+    때문이다. 조합이 너무 많으면 None 이다. 줄임을 몰랐던 버전이 `grep --reg=KEY .env`·`sed --exp=1p
     .env` 의 `.env` 를 패턴으로 버렸고(GNU grep 3.1 의 `--reg=` 와 sed 4.8 의 `--exp=`·`--e=` 가
     파일을 읽었다, 2026-10-23 손으로 봤다, 셋째 푸시 뒤 자동 보안 리뷰), 값 옵션의 줄임을 몰랐던
-    판이 `grep -rn --max-c 5 KEY` 의 `KEY` 를 경로로 읽었다(대기열 448). 모든 옵션을 플래그로 읽은
-    글과 모두 줄임으로 읽은 글 둘만 본 판은 표에 없는 플래그(ack 의 `--color`)와 줄임(`--mat`)이
+    버전이 `grep -rn --max-c 5 KEY` 의 `KEY` 를 경로로 읽었다(대기열 448). 모든 옵션을 플래그로 읽은
+    글과 모두 줄임으로 읽은 글 둘만 본 버전은 표에 없는 플래그(ack 의 `--color`)와 줄임(`--mat`)이
     함께 든 `ack .env --color --mat X` 를 지나보냈다(셀프 리뷰 명세 축)."""
     if spec.abbreviation is Abbreviation.REFUSED:
         return [_read_options(args, spec, _Choices(0))]
@@ -750,13 +752,13 @@ def _read_options(
     하나이고, 판정은 그 결과만 본다(harness 티켓 012). 셸의 `-c` 는 옛 읽기(`_shell_c_arguments`)도
     함께 본다.
 
-    - `--` 뒤는 모두 위치 인자다. 그것을 모른 판이 `grep -- --file .env` 의 `.env` 를 `--file` 의
+    - `--` 뒤는 모두 위치 인자다. 그것을 모른 버전이 `grep -- --file .env` 의 `.env` 를 `--file` 의
       값으로 먹었다(대기열 448). `-` 하나도 위치 인자다(표준 입력).
     - 긴 옵션은 `--opt 값` 과 `--opt=값` 이다. 이름은 `_long_names` 가 푼다.
     - 짧은 옵션 묶음은 앞에서 읽어 처음 만난 값 옵션의 뒤 글자가, 뒤가 비었으면 다음 낱말이 값이다
-      (`-n5`, `-iu root`, `-uueKEY`). 묶음 속의 값 옵션을 보지 않은 판이 `rg -ig .env KEY` 의 `.env`
-      를 패턴, `KEY` 를 경로로 읽었고(푸시 뒤 자동 보안 리뷰, 대기열 422), 글자만 든 묶음을
-      정규식으로 센 판이 `rg -uueKEY_X` 의 `-uu` 를 세지 못했다(대기열 448).
+      (`-n5`, `-iu root`, `-uueKEY`). 묶음 속의 값 옵션을 보지 않은 버전이 `rg -ig .env KEY` 의
+      `.env` 를 패턴, `KEY` 를 경로로 읽었고(푸시 뒤 자동 보안 리뷰, 대기열 422), 글자만 든 묶음을
+      정규식으로 센 버전이 `rg -uueKEY_X` 의 `-uu` 를 세지 못했다(대기열 448).
     - 위치 인자 뒤의 옵션을 읽을지는 `order` 가 정한다.
     """
     options: list[Option] = []
@@ -856,8 +858,8 @@ def _grep_recurses_directories(reading: Reading) -> bool:
     """`-d recurse`(`--directories=recurse`)는 `-r` 과 같다. 값은 GNU grep 이 argmatch 로 읽어
     모호하지 않은 줄임(`rec`)도 받으므로 `recurse` 의 머리면 훑는다고 본다(`r`·`re` 는 `read` 와
     겹쳐 grep 이 거부한다. 막는 쪽이다. 2026-10-26 GNU grep 3.1 에서 `grep -d rec FAKEKEY .` 가 하위
-    폴더를 훑고 `-d r`·`-d re` 가 ambiguous argument 로 끝난 것을 손으로 봤다). `-r`·`-R` 만 본 판이
-    `grep -d recurse KEY .` 를 지나보냈다(셀프 리뷰 표준 축)."""
+    폴더를 훑고 `-d r`·`-d re` 가 ambiguous argument 로 끝난 것을 손으로 봤다). `-r`·`-R` 만 본
+    버전이 `grep -d recurse KEY .` 를 지나보냈다(셀프 리뷰 표준 축)."""
     values = reading.values_of(frozenset({"-d", "--directories"}))
     return any(value and "recurse".startswith(value) for value in values)
 
@@ -894,8 +896,8 @@ def _rg_reads(globs: list[str], sample: str, *, unrestricted: bool) -> bool:
     읽지 않았다). 2026-10-23 rg 14.1.1 로 손으로 봤고 `tests/tools/test_hook_env_read_rg.py` 가
     실제 rg 와 맞댄다(대기열 422). 맞는 glob 이 없으면 고르는 glob 이 하나도 없고 무시·숨김 규칙을
     모두 끄고 `-t` 로 좁히지 않은(`unrestricted`) 때만 읽는다. 견본마다 보지 않고 `.env` 꼴 하나라도
-    빼면 뺀다고 본 판이 `-g '.env*' -g '!.env'`·`-uu -g '!.env'` 의 `.env.local` 을 지나보냈다(푸시
-    뒤 자동 보안 리뷰)."""
+    빼면 뺀다고 본 버전이 `-g '.env*' -g '!.env'`·`-uu -g '!.env'` 의 `.env.local` 을
+    지나보냈다(푸시 뒤 자동 보안 리뷰)."""
     decision: bool | None = None
     for glob in globs:
         if glob.startswith("!"):
@@ -930,7 +932,7 @@ def _rg_excludes(pattern: str, sample: str) -> bool:
     셀프 리뷰 명세 축이 손으로 봤다). `--iglob` 과 `--glob-case-insensitive` 의 빼기도 가려 보아,
     `--iglob '!.ENV'` 는 빼지 않는다고 본다(거짓 양성). 앞의 `**/` 를 뗀 뒤에도 `/` 가 남은 glob 은
     한 폴더만 빼므로 빼지 않는다고 본다. `-g .env -g '!sub/.env'` 는 루트의 `.env` 를,
-    `-uu -g '!/.env'` 는 `sub/.env` 를 읽었는데 마지막 `/` 앞을 떼고 본 판이 둘을
+    `-uu -g '!/.env'` 는 `sub/.env` 를 읽었는데 마지막 `/` 앞을 떼고 본 버전이 둘을
     지나보냈다(2026-10-23 rg 14.1.1, PR 직전 bug-perf-review 가 손으로 봤다). 그래서 `!sub/**` 처럼
     그 폴더만 빼는 glob 도 빼지 않는다고 본다(거짓 양성)."""
     while pattern.startswith("**/"):
@@ -950,13 +952,13 @@ def _excludes_every_env(patterns: list[str]) -> bool:
     """grep 의 `--exclude` 값들이 합쳐 `.env` 꼴의 견본을 모두 빼는가. 견본마다 그것을 빼는 값이
     하나라도 있어야 한다(`--exclude .env --exclude '.env.*'` 는 모두 뺀다). 중괄호는 펼치지 않아,
     인용된 중괄호를 글자로 읽는 grep 이 `.env` 를 빼지 않는데도 뺀다고 보지 않게 한다. 하나만 빼는
-    glob(`.env`, `.env.local`)은 남은 꼴을 읽는다. 값 하나라도 견본 하나에 맞으면 뺀다고 본 판이
+    glob(`.env`, `.env.local`)은 남은 꼴을 읽는다. 값 하나라도 견본 하나에 맞으면 뺀다고 본 버전이
     `grep -r --exclude .env` 를 지나보냈고(푸시 뒤 자동 보안 리뷰가 rg 의 같은 판정에서 찾았다,
-    대기열 422), 값마다 견본 모두를 요구한 판은 합쳐야 모두 빼는 명령을 막았다(셀프 리뷰 두 축.
+    대기열 422), 값마다 견본 모두를 요구한 버전은 합쳐야 모두 빼는 명령을 막았다(셀프 리뷰 두 축.
     GNU grep 3.1 로 `--exclude .env` 가 `.env.local` 을 읽고 둘을 합치면 읽지 않는 것을 손으로
     봤다). rg 도 견본마다 본다(`_rg_reads`). 빼기는 대소문자를 가려 본다. GNU grep 3.1 이
-    `--exclude='.ENV*'` 로 `.env` 를 읽었는데 대소문자 없이 견준 판이 뺀다고 봤다(2026-10-23 손으로
-    봤다, 푸시 뒤 자동 보안 리뷰)."""
+    `--exclude='.ENV*'` 로 `.env` 를 읽었는데 대소문자 없이 견준 버전이 뺀다고 봤다(2026-10-23
+    손으로 봤다, 푸시 뒤 자동 보안 리뷰)."""
     matched = [_env_samples_excluded(pattern) for pattern in patterns]
     return bool(matched) and all(any(row[i] for row in matched) for i in range(len(_ENV_SAMPLES)))
 
@@ -996,7 +998,7 @@ def _glob_readings(pattern: str) -> set[str]:
     바꾼 글이다. 하나라도 닿으면 닿는다고 본다(`.claude/rules/tools.md` 의 이스케이프 항목). 실제 rg
     14.1.1 이 Windows 에서도 `-g '\\.env'`·`-g '\\.e\\nv'` 로 `.env` 를 읽고(`_BASH_RG_SAME`), GNU
     grep 3.1 이 `--include='\\.env'`·`--include='.e\\nv'` 로 읽었는데(2026-10-23 셀프 리뷰 표준 축이
-    손으로 봤다), 역슬래시를 글자나 `/` 로만 본 판이 rg·Grep 도구·grep 의 셋을 지나보냈다(푸시 뒤
+    손으로 봤다), 역슬래시를 글자나 `/` 로만 본 버전이 rg·Grep 도구·grep 의 셋을 지나보냈다(푸시 뒤
     자동 보안 리뷰, 셀프 리뷰 표준 축)."""
     return {pattern, _ESCAPE.sub(r"\1", pattern), pattern.replace("\\", "/")}
 
@@ -1004,7 +1006,7 @@ def _glob_readings(pattern: str) -> set[str]:
 def _candidates(pattern: str) -> list[str] | None:
     """닿는지 볼 glob 들. 펼친 갈래와 펼치기 전의 패턴이다. 대괄호 안의 `{`·`}` 는 bash·GNU grep·
     ripgrep 이 글자로 읽어 `.en[!{}]` 가 `.env` 에 맞는데, 펼치면 `[!{}]` 가 `[!]` 로 깨져 맞지
-    않는다. 펼친 갈래만 본 판이 그것을 지나보냈다(옛 판은 막았다, PR 직전 보안 리뷰). 갈래가
+    않는다. 펼친 갈래만 본 버전이 그것을 지나보냈다(옛 버전은 막았다, PR 직전 보안 리뷰). 갈래가
     너무 많으면 None 이다."""
     branches = _brace_branches(pattern)
     if branches is None:
@@ -1081,7 +1083,7 @@ def _paths_reach_root(reading: Reading, spec: OptionSpec, cwd: str | None) -> bo
 def _is_root(path: str, cwd: str | None) -> bool:
     """경로가 저장소 루트(또는 `.env` 가 있는 디렉터리)인가. 확장 전 변수·홈은 보수적으로 루트.
     `.` 을 다르게 쓴 꼴(`./.`, `.//`)도 루트다. 그 꼴을 루트로 보지 않아 `rg -g .env x ./.` 를
-    지나보낸 판이 있었다(PR 직전 bug-perf-review)."""
+    지나보낸 버전이 있었다(PR 직전 bug-perf-review)."""
     if path in _ROOTISH or os.path.normpath(path.replace("\\", "/")) in _ROOTISH:
         return True
     if path.startswith(("$", "~")):

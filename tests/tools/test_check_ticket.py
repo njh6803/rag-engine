@@ -188,7 +188,7 @@ def test_면제_모양만_바꾼_커밋은_지난다(저장소: Repo) -> None:
                 ".scratch/plan-head.md": "손 파일\n",
                 "docs/PRD.md": "범위\n",
                 "docs/constitution/tech.md": "스택\n",
-                "docs/constitution/README.md": "판\n",
+                "docs/constitution/README.md": "버전\n",
                 "docs/constitution/history.md": "기록\n",
                 ".scratch/feat/spec.md": "명세\n",
                 ".scratch/feat/plan.md": "기능 계획\n",
@@ -978,7 +978,7 @@ def test_CI는_헌법_버전_이력_기록만_바꾼_PR을_지난다(저장소: 
     저장소.git("switch", "-q", "-c", "docs/history")
     _훅을_건너뛰고_커밋한다(
         저장소,
-        {"docs/constitution/history.md": "기록\n", "docs/constitution/README.md": "판\n"},
+        {"docs/constitution/history.md": "기록\n", "docs/constitution/README.md": "버전\n"},
     )
     _CI가_지났다(_CI로_친다(저장소, _PR_병합_커밋(저장소, "docs/history")))
 

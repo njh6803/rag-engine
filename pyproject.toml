@@ -19,7 +19,7 @@ dependencies = [
     "uuid6>=2025.0.1",
     "pydantic>=2.14,<3",
     # 설정은 pydantic-settings(ADR 0015), 문장 분리기와 키워드 토크나이저는 kiwipiepy(ADR 0006)다.
-    # 03 은 kiwipiepy 를 import 하지 않고 설치된 판만 읽는다. 측정한 판은 프로브 kiwi/ 의 0.24.1 이다.
+    # 03 은 kiwipiepy 를 import 하지 않고 설치된 버전만 읽는다. 측정한 버전은 프로브 kiwi/ 의 0.24.1 이다.
     "pydantic-settings>=2.14,<3",
     "kiwipiepy>=0.24.1,<0.25",
     # 임베딩·리랭커 서버(TEI) 어댑터의 HTTP 클라이언트다(ADR 0010). mcp 가 끌어오는 전이 의존이지만
@@ -54,7 +54,7 @@ dev = [
     "import-linter",
     "pre-commit",
     "httpx>=0.28",
-    # 워크플로 하드닝의 판정자. 판은 uv.lock 이 고정해 pre-commit 러너와 CI 가 같은 판을 돈다.
+    # 워크플로 하드닝의 판정자. 버전은 uv.lock 이 고정해 pre-commit 러너와 CI 가 같은 버전을 돈다.
     "zizmor>=1.30.1",
     # pre-commit 러너의 pytest 만 프로세스 여럿에 나눠 돌린다. 손으로 치는 pytest 와 CI 는 한 프로세스다.
     "pytest-xdist>=3.8.0",
@@ -81,7 +81,7 @@ select = ["E", "W", "F", "I", "UP", "B", "DTZ", "TD", "FBT", "PLW0717"]
 ignore = ["TD003"]
 # PLW0717(except 가 붙은 try 몸통의 문장 수)은 preview 규칙이다. 코드로 이름을 댄 preview 규칙만 켜고,
 # 접두로 고른 E·B 같은 묶음의 preview 규칙은 들이지 않는다. preview 를 [tool.ruff] 가 아니라 여기 두어
-# 포매터의 서식은 그대로다. preview 규칙은 판마다 바뀔 수 있고 판은 uv.lock 이 고정한다.
+# 포매터의 서식은 그대로다. preview 규칙은 버전마다 바뀔 수 있고 버전은 uv.lock 이 고정한다.
 preview = true
 explicit-preview-rules = true
 

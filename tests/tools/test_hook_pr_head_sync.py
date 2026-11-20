@@ -270,7 +270,7 @@ def test_로컬에_있는_커밋인지_본다(tmp_path: Path) -> None:
 def test_gh_가_읽은_PR_head_를_로컬과_견준다(tmp_path: Path) -> None:
     """뒤처진 옛 head 는 막고, 앞선 head 와 로컬에 없는 head 는 지나간다.
 
-    로컬에 없는 head 는 대개 다른 곳이 푸시한 앞선 head 다. 첫 판은 이것을 막았고, 셀프 리뷰가
+    로컬에 없는 head 는 대개 다른 곳이 푸시한 앞선 head 다. 첫 버전은 이것을 막았고, 셀프 리뷰가
     재현했다 — 기다려도 같아지지 않고 푸시는 non-ff 라 거부 이유가 안내한 길로 풀리지 않았다.
     """
     work = _푸시한_저장소(tmp_path)

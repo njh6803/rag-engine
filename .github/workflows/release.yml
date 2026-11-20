@@ -19,8 +19,8 @@
 # 지우기, 초안 만들기, 자산 올리기, 공개, 실패할 때 초안과 그 번호의 git 태그 지우기다. 기본 토큰은 contents: read 뿐이다.
 # 할 일은 사람 몫이고 목록은 명세 "사람 몫"과 이 티켓의 일지에 있다.
 #
-# 쓰는 액션은 2026-11-20 에 릴리스 목록에서 고른 최신 판이고 커밋 해시로 고정했다(판은 줄 끝 주석). setup-uv 는 ci.yml 의
-# 판(v5.4.2)과 같다. 해시가 주석의 태그를 가리키는지는 `gh api repos/<저장소>/commits/<태그>` 로 대 보았다.
+# 쓰는 액션은 2026-11-20 에 릴리스 목록에서 고른 최신 버전이고 커밋 해시로 고정했다(버전은 줄 끝 주석). setup-uv 는 ci.yml 의
+# 버전(v5.4.2)과 같다. 해시가 주석의 태그를 가리키는지는 `gh api repos/<저장소>/commits/<태그>` 로 대 보았다.
 #
 # 제한 시간: build 는 캐시가 없는 첫 실행의 셈보다 길게 두었고 publish 는 어림이다. 첫 실제 실행의 소요 시간이 나오면 고친다.
 name: release
@@ -42,8 +42,8 @@ permissions:
   contents: read
 
 env:
-  # 점검 도구는 digest 로 고정한 공식 컨테이너 이미지다. 판은 Grype 0.121.3, Syft 1.57.1(ADR 0020이 따르는 agent-os
-  # 2026-11-13 의 고른 판. 이 저장소에서 다시 고르지 않았다).
+  # 점검 도구는 digest 로 고정한 공식 컨테이너 이미지다. 버전은 Grype 0.121.3, Syft 1.57.1(ADR 0020이 따르는 agent-os
+  # 2026-11-13 의 고른 버전. 이 저장소에서 다시 고르지 않았다).
   GRYPE_IMAGE: ghcr.io/anchore/grype@sha256:13113eeceab017260370cf540e1d25442c59665fd07d1b09b66d63bb0c282887
   SYFT_IMAGE: ghcr.io/anchore/syft@sha256:03215d0e98b661d0ecbc8575dbc14d65be1743b5de5df6410aecb7e80f95b060
 
@@ -151,7 +151,7 @@ jobs:
         if: steps.plan.outputs.release == 'true'
         run: uv sync --frozen
       # 모델 폴더는 eval-fast 잡과 같은 캐시 키로 복원만 한다(저장은 eval-fast 가 맡는다). 키는 평가 설정의 임베딩 모델과 TEI
-      # 판으로 만든다. 캐시가 없으면 빈 폴더로 시험하고 임베딩 서버의 첫 시작이 내려받는다.
+      # 버전으로 만든다. 캐시가 없으면 빈 폴더로 시험하고 임베딩 서버의 첫 시작이 내려받는다.
       - name: 임베딩 모델 캐시 키
         id: model
         if: steps.plan.outputs.release == 'true'

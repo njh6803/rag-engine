@@ -10,10 +10,10 @@ Docker 없이 그 정합이 깨지지 않는지만 잠근다. 안내의 명령�
 agent-os의 `tests/tools/test_deploy_guide.py`(기점 `b74a8adf2`)를 옮기며 뺀 것은 이 저장소에 없는
 것들이다. 위젯 테스트 페이지의 개인 키와 설정(`portal/`), 사이트 파일(`site/`), 관리 화면에 닿는 SSH
 포트 포워딩, 플러그인·기록 볼륨과 `npx`, `calc` 에이전트, IPv4 레코드(A, AAAA)와 `userland-proxy`의
-말, 80번 포트, Engine의 루프백 포트 경고 둘(`DOCKER_INSECURE_NO_IPTABLES_RAW`, 28.0.0 이전 판)이다.
-이 저장소의 단독 compose는 루프백에만 여는 포트가 없고 밖에 여는 포트가 프록시의 443 하나다. 더한
-것은 모델 폴더(소유와 리비전), 리랭커 켜기, 서버 `/tmp` 크기, 프록시 설정을 고친 뒤의 두 명령이다.
-안내의 띄우는 명령, 인증서를 만드는 명령, 모델 폴더의 명령이 단독 compose
+말, 80번 포트, Engine의 루프백 포트 경고 둘(`DOCKER_INSECURE_NO_IPTABLES_RAW`, 28.0.0 이전
+버전)이다. 이 저장소의 단독 compose는 루프백에만 여는 포트가 없고 밖에 여는 포트가 프록시의 443
+하나다. 더한 것은 모델 폴더(소유와 리비전), 리랭커 켜기, 서버 `/tmp` 크기, 프록시 설정을 고친 뒤의
+두 명령이다. 안내의 띄우는 명령, 인증서를 만드는 명령, 모델 폴더의 명령이 단독 compose
 시험(`tests/standalone/test_standalone_compose.py`)이 치는 것과 같은지도 본다(시험은 안내대로
 밟는다고 정했으므로 둘을 대는 검사가 없으면 한쪽만 고친 PR이 지난다).
 """
@@ -40,11 +40,11 @@ STANDALONE_TEST = REPO / "tests" / "standalone" / "test_standalone_compose.py"
 # 명세 "설치 안내"와 03의 일지가 넘긴 문장에서 안내가 반드시 가져야 할 낱말. 낱말마다 그 낱말이
 # 지키는 항목을 적는다.
 REQUIRED: dict[str, str] = {
-    "28.3.3": "지원하는 Docker Engine의 최소 판",
-    "2.20.2": "지원하는 Docker Compose의 최소 판",
-    "29.9.2": "잰 Docker Engine의 판",
-    "5.6.1": "잰 Docker Compose의 판",
-    "재지 않았": "최소 판에서는 재지 않았다는 말",
+    "28.3.3": "지원하는 Docker Engine의 최소 버전",
+    "2.20.2": "지원하는 Docker Compose의 최소 버전",
+    "29.9.2": "잰 Docker Engine의 버전",
+    "5.6.1": "잰 Docker Compose의 버전",
+    "재지 않았": "최소 버전에서는 재지 않았다는 말",
     "Podman": "보증하는 환경 밖",
     "ARM": "보증하는 환경 밖",
     "GPU": "GPU 이미지로 바꾸는 설치는 다루지 않는다는 말",
@@ -91,7 +91,7 @@ REQUIRED: dict[str, str] = {
     "100회": "Docker Hub의 받는 횟수 제한(로그인하지 않은 때)",
     "200회": "Docker Hub의 받는 횟수 제한(무료 개인 계정)",
     "docker login": "받는 횟수 제한에 걸렸을 때 할 일",
-    "업그레이드할 때 할 일": "판을 바꾸기 전에 릴리스 노트의 그 절을 먼저 본다는 것",
+    "업그레이드할 때 할 일": "버전을 바꾸기 전에 릴리스 노트의 그 절을 먼저 본다는 것",
     "find proxy -mindepth 1 -delete": "업그레이드가 proxy 폴더 안을 비우는 명령",
     "docker compose stop server worker": "업그레이드가 옛 서버와 작업자를 먼저 멈추는 명령",
     "--remove-orphans": "스키마 단계가 실패했을 때 되돌리는 명령",

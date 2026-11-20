@@ -2,8 +2,8 @@
 08).
 
 번호와 노트와 묶음은 tools/release.py(test_release.py)가 맡고, 여기는 워크플로의 단계가 넘기는 값을
-읽는 순수 판정을 본다. 이미지 아이디는 `docker save` 가 엔진 판에 따라 만드는 두 꼴(`<아이디>.json`
-과 `blobs/sha256/<해시>`)을 모두 만들어 넣는다. 올린 이미지 색인의 꼴은
+읽는 순수 판정을 본다. 이미지 아이디는 `docker save` 가 엔진 버전에 따라 만드는 두
+꼴(`<아이디>.json` 과 `blobs/sha256/<해시>`)을 모두 만들어 넣는다. 올린 이미지 색인의 꼴은
 `docker buildx imagetools inspect --raw` 가 내는 OCI 색인이다. agent-os 저장소의 같은 이름 시험(커밋
 `1aac0cf`)을 옮기고 이미지를 넷에서 둘로, 이름을 이 저장소의 값으로 고친 것이다.
 
