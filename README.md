@@ -2,7 +2,7 @@
 
 MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 검색 서버(지식베이스)다. 여러 원천에서 문서를 수집하고 색인해서, 근거 위치와 갱신일이 붙은 검색 결과를 MCP 읽기 도구로 돌려준다. 답을 생성하지는 않는다. 제품 의도와 성공의 정의는 [docs/PRD.md](docs/PRD.md)에 있다.
 
-지금은 core를 쌓는 중이다. HTTP 서버가 `/health`(인증 밖), 토큰으로 닫힌 MCP 끝점(`/mcp`, 아직 도구는 없다), 토큰 관리 API를 연다. 첫 기능은 core이고, 순서와 범위는 [.scratch/plan.md](.scratch/plan.md)에 있다.
+HTTP 서버가 `/health`(인증 밖), 토큰으로 닫힌 MCP 끝점(`/mcp`, 읽기 도구 `list_knowledge_bases`·`search`·`get_document`), 토큰 관리 API, 수집 API를 연다. 서버에 올려 쓰는 운영자는 릴리스의 배포 파일 묶음(`rag-engine-<번호>.tar.gz`)을 풀고 그 안의 설치 안내([deploy/standalone/README.md](deploy/standalone/README.md))를 따른다. 묶음을 풀기부터 첫 토큰, 문서 넣기, MCP 검색, 폐쇄망 설치, 업그레이드까지 거기 있다. 기능의 순서와 범위는 [.scratch/plan.md](.scratch/plan.md)에 있다.
 
 ## 판
 
@@ -34,7 +34,7 @@ PowerShell에서는 이렇게 친다.
 $env:RAG_TEST_DATABASE_URL = "postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test"; uv run pytest
 ```
 
-컨테이너 이미지:
+컨테이너 이미지(개발자가 이미지를 짓고 한 컨테이너를 띄워 보는 명령이다. 운영자가 서버 한 대에 PostgreSQL, 임베딩 서버, 프록시와 함께 올리는 법은 배포 파일 묶음의 [설치 안내](deploy/standalone/README.md)에 있다):
 
 ```bash
 VERSION=0.0.1-rc.1 TAG=dev NAMESPACE=local \
@@ -72,7 +72,9 @@ tests/
                실제 uvicorn 서버를 띄우는 `run_server`와 `server`, 서버 로그를 읽는 `log_capture`
   harness.py   시험이 함께 쓰는 값 객체(`RunningServer`, `LogCapture`)와 보조 함수. 시험은 `conftest`를 직접 import하지 않고 여기서 가져온다
   tools/       하네스 도구의 시험과 검색 평가 도구(`validate`, `index`)의 시험. `index`의 시험은 테스트 PostgreSQL이 필요하다
+  standalone/  단독 compose 시험. 묶음의 compose를 Docker로 실제로 띄워 본다(느리고 Docker와 모델 폴더가 필요하다. 모델 폴더의 경로는 환경 변수로 준다)
 deploy/images/ 검색 서버와 작업자의 이미지. Dockerfile 하나(단계 `server`, `worker`)와 그 무시 파일, 둘을 한 번에 짓는 bake 설정(docker-bake.hcl)
+deploy/standalone/ 배포 파일 묶음의 원천. 단독 compose(compose.yaml), 프록시 설정(proxy/), 환경 변수 틀(.env.example), 인증서와 모델 폴더의 설명(tls/README.txt, models/README.txt), 운영자의 설치 안내(README.md)
 compose.test.yml  테스트용 PostgreSQL(pgvector, 운영과 같은 이미지 판). 검사 러너가 없으면 띄운다
 compose.eval.yml  검색 평가 전용 PostgreSQL(데이터베이스 이름 rag_eval)과 임베딩 TEI. 머리 주석이 평가 전용 환경 변수 넷과 `judge`의 판정기 설정 셋의 값을 적는다
 evals/         검색 평가 재료. `public-docs/`가 공공 문서 묶음(문서 파일 `documents/`, 문서 목록 `documents.json`, 머리 `eval-set.json`, 구성 `config.json`, 기대 근거 `evidence.jsonl`, 질의 목록 `queries-human.jsonl`과 `queries-keyword.jsonl`, 임베딩과 리랭크 점수의 기록 `records/`)이다. 문서마다 출처와 이용 조건을 목록에 적는다
