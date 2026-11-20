@@ -126,6 +126,9 @@ jobs:
   # 커밋 검사. pre-commit 은 훅을 건너뛴 커밋(--no-verify)을 보지 못하므로 PR 마다 PR 의 머리 브랜치·머리 커밋·base
   # 커밋으로 같은 판정을 하고, 가리키는 티켓의 Status: 가 done 인지까지 본다. PR 값은 env 로 넘긴다(워크플로 감사가
   # 식의 바로 펼침을 주입으로 잡는다).
+  # 둘째 스텝은 노트 검사(tools/check_notes.py)다. PR 제목의 느낌표와 업그레이드 원고·마이그레이션 파일의 짝, 기능
+  # 단락의 빠뜨림, 원고의 모양을 본다. 제목은 사람이 고치는 값이라 식으로 펼치지 않고 env 로 넘긴다. 제목만 고쳤을
+  # 때는 이 워크플로가 다시 돌지 않으므로(on 에 edited 가 없다) .github/workflows/pr-title.yml 이 (가)만 다시 본다.
   ticket:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -142,6 +145,18 @@ jobs:
           marker=$(uuidgen)
           echo "::stop-commands::$marker"
           python3 tools/check_ticket.py --ci
+      # 앞 스텝이 빨강이어도 돌아 두 결과를 함께 본다.
+      - if: ${{ !cancelled() }}
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          marker=$(uuidgen)
+          echo "::stop-commands::$marker"
+          python3 tools/check_notes.py --ci
 
   # 검색 평가의 빠른 게이트(search-eval 11, ADR 0018). 평가 전용 compose(compose.eval.yml)로 PostgreSQL 과 임베딩 TEI 를
   # 띄우고 공공 문서 묶음을 색인해 빠른 실행(run --through fused)의 보고서를 기준 보고서(baseline-fast.json)와 견준다.
