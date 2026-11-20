@@ -1,8 +1,8 @@
 """tools/hook_env_read.py 의 glob 판정을 실제 rg 와 맞댄다(대기열 422, harness 티켓 007).
 
 훅은 하류(Grep 도구가 띄우는 rg, Bash 의 rg)가 읽는 `.env` 를 막는다고 주장하므로, 그 하류를 실제로
-띄워 판정과 견준다(`.claude/rules/tools.md` 의 하류 판정 항목). glob 의 중괄호를 bash 처럼 읽은 판이
-rg 의 `{.env}` 를 지나보냈고(대기열 422), 손으로 본 꼴만 시험한 판이 그것을 놓쳤다.
+띄워 판정과 견준다(`.claude/rules/tools.md` 의 하류 판정 항목). glob 의 중괄호를 bash 처럼 읽은
+버전이 rg 의 `{.env}` 를 지나보냈고(대기열 422), 손으로 본 꼴만 시험한 버전이 그것을 놓쳤다.
 
 전제 셋. 무엇으로 알았는지를 함께 적는다.
 - Grep 도구는 rg 를 띄우고, 숨김 파일은 읽고 gitignore 는 따른다. glob 은 공백으로 나누고, 중괄호가
@@ -177,7 +177,7 @@ _BASH_RG_SAME = [
     "rg -tpy -g .env {m} .", "rg -g .env -g '!.ENV' {m} .", "rg --glob=.env --glob='!.ENV' {m} .",
     "rg -uu -g '!.ENV' {m} .", "rg -g .env -- {m} .",
     # 표에 없던 값 옵션과 디렉터리가 붙은 빼기(PR 직전 보안 리뷰와 bug-perf-review 가 찾았다).
-    # `-rg` 는 `-r g` 다. 그 `g` 를 `-g` 로 읽은 판이 `-uu -rg ^` 를 지나보냈다.
+    # `-rg` 는 `-r g` 다. 그 `g` 를 `-g` 로 읽은 버전이 `-uu -rg ^` 를 지나보냈다.
     "rg -uu -rg {m} .", "rg -r X -g .env {m}", "rg -d 3 -g .env {m}",
     "rg --replace X -g .env {m}", "rg --max-filesize 1M -g .env {m}",
     "rg -g .env -g '!sub/.env' {m} .", "rg -uu -g '!/.env' {m} .", "rg -uu -g '!**/.env*' {m} .",
@@ -224,7 +224,7 @@ def test_Bash_의_rg_판정이_실제_rg_와_같다(
 def test_점을_다르게_쓴_경로를_루트로_본다(
     rg: tuple[list[str], str | None], repo: Path, 경로: str
 ) -> None:
-    """`_is_root` 가 `_ROOTISH` 에 없는 꼴을 루트가 아니라고 읽어 지나보낸 판이 있었다(PR 직전
+    """`_is_root` 가 `_ROOTISH` 에 없는 꼴을 루트가 아니라고 읽어 지나보낸 버전이 있었다(PR 직전
     bug-perf-review). 경로는 패턴 뒤에 와야 해 표(`_BASH_RG_SAME`)의 꼴로 띄우지 않는다."""
     assert _rg_reads_secret(rg, repo, ["-g", ".env"], (경로,))
     assert deny_reason_for_command(f"rg -g .env {_MARKER} {경로}", str(repo)) is not None

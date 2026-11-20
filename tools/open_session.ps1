@@ -231,7 +231,7 @@ function Send-Prompt {
     if ($quitMarker) {
         "quitting=$quitMarker"
         # 앱 안의 재시작(업데이트 배너, 메뉴의 끝내기)은 같은 깃발에 막혀 아무 일도 하지 않는다(앱 2.9939.2 번들의 `QA`·`$A` 의
-        # `ej()||`. 축약 이름이라 판이 바뀌면 달라진다. 뜻은 `Find-QuitMarker` 앞의 주석).
+        # `ej()||`. 축약 이름이라 버전이 바뀌면 달라진다. 뜻은 `Find-QuitMarker` 앞의 주석).
         throw "앱이 끝나는 중이라(위 quitting= 의 로그 줄부터) 딥링크를 버린다. 쏘지 않았다. 앱 안의 재시작(업데이트 배너, 메뉴의 끝내기)은 이 상태에서 아무 일도 하지 않는다. 사람이 작업 관리자에서 Claude 를 끝내고 다시 켠 뒤 이 스크립트를 다시 돌린다."
     }
 
@@ -928,8 +928,8 @@ function Wake-Display {
 }
 
 # 앱이 끝나는 중이면 딥링크를 받지 않는다. 데스크톱 앱(2.9939.2)의 `second-instance` 처리기는 첫 줄 `if(ej())return;` 에서
-# 끝내기 깃발 셋(`JA||YA||XA`)을 보고 로그 없이 돌아간다. 딥링크를 받은 두 번째 인스턴스는 제 기동 줄(그 판은 `Starting app`
-# 에서 `Not main instance` 까지, 2026-10-15 뒤 판은 `Starting app {` 과 `Quit requested before 'ready'`)만 남기고 물러나므로
+# 끝내기 깃발 셋(`JA||YA||XA`)을 보고 로그 없이 돌아간다. 딥링크를 받은 두 번째 인스턴스는 제 기동 줄(그 버전은 `Starting app`
+# 에서 `Not main instance` 까지, 2026-10-15 뒤 버전은 `Starting app {` 과 `Quit requested before 'ready'`)만 남기고 물러나므로
 # 스크립트는 `page=` 에서 원인 없이 끝난다. 깃발 가운데 업데이트를 위한
 # 끝내기(`JA`)와 끝낼 준비(`XA`)는 한 번 켜지면 풀리는 자리가 없다. 업데이트를 위한 끝내기가 시작되고 앱이 끝나지 않으면, 밖에서
 # 앱을 끝낼 때까지 모든 딥링크가 버려졌다(2026-09-29 12:19 부터 32시간 넘게). 앱 안의 재시작(업데이트 배너, 메뉴의 끝내기)도
@@ -944,7 +944,7 @@ function Wake-Display {
 #     때만 찍힌다.
 #   - `marking readyForQuit`: 끝내기 정리를 마쳐 `XA` 를 켰다.
 # 끝내기 처리기가 도는 중(`YA`)의 표지는 보지 않는다. 정리가 끝나면 실패해도 풀려(`finally`), 로그에 남은 표지가 지금 켜져 있다는
-# 뜻이 아니다. 못 보는 것: 문구가 바뀐 판의 끝내기, `JA` 를 켜고 표지를 찍기 전에 멈춘 끝내기. 그때는 전처럼 `page=` 에서 끝난다.
+# 뜻이 아니다. 못 보는 것: 문구가 바뀐 버전의 끝내기, `JA` 를 켜고 표지를 찍기 전에 멈춘 끝내기. 그때는 전처럼 `page=` 에서 끝난다.
 function Find-QuitMarker([string[]] $Lines, [datetime] $Since) {
     $markers = 'beforeQuitForUpdate handler fired|Update check still in flight|Session stop before update took|CLI exit before update|marking readyForQuit'
     foreach ($line in $Lines) {
@@ -1012,9 +1012,9 @@ function Get-AppQuitMarker {
 # 형식 catch 가 받고, 받은 뒤 놓기도 된다는 것을 2026-10-26 에 다른 pwsh 를 띄워 손으로 봤다). 아무도 기다리지 않았으면 마지막
 # 핸들과 함께 뮤텍스가 사라져 다음 열기는 새 뮤텍스를 잡는다(Win32 CreateMutexW 문서의 "The mutex object is destroyed when its
 # last handle has been closed.", 그것을 2026-10-26 에 손으로 본 기록은 시험의 `_RELEASED` 주석).
-# 몸이 부르는 함수는 이 함수의 인자와 지역 변수를 보지 않는다. PowerShell 은 변수를 부른 쪽의 범위로 거슬러 찾아, 첫 판에서는
+# 몸이 부르는 함수는 이 함수의 인자와 지역 변수를 보지 않는다. PowerShell 은 변수를 부른 쪽의 범위로 거슬러 찾아, 첫 버전에서는
 # `Send-Prompt` 가 부르는 `Wait-For` 의 기본값 `$TimeoutSec`(스크립트 파라미터)이 이 함수의 `$timeoutSec`(-LockTimeoutSec)이
-# 되었다(셀프 리뷰, 2026-10-26 에 pwsh 로 손으로 봤다). `param` 안에 `$private:` 를 붙인 판도 샜고, 몸에 들어가기 전에
+# 되었다(셀프 리뷰, 2026-10-26 에 pwsh 로 손으로 봤다). `param` 안에 `$private:` 를 붙인 버전도 샜고, 몸에 들어가기 전에
 # `Set-Variable -Option Private` 로 다시 매기니 막혔다.
 # 못 보는 것: 잠금을 놓은 뒤 새 세션 화면에 남은 지시문(`held=`, 폴더·모델 오류로 멈춰 사람이 보내기를 기다리는 화면)은 다음
 # 열기의 딥링크가 덮는다. `split`·`focus` 는 딥링크를 쏘지 않아 잠그지 않는다. 그 둘은 사이드바 행을 누르고(Invoke) 메뉴에

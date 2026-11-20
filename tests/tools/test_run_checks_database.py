@@ -127,7 +127,7 @@ def test_이름_풀이가_거절하는_호스트는_예외가_아니라_답하�
     assert not server_answers(host, 5432)
 
 
-def test_기본_주소는_compose_와_같은_판의_이미지_역할_포트를_가리킨다() -> None:
+def test_기본_주소는_compose_와_같은_버전의_이미지_역할_포트를_가리킨다() -> None:
     """compose 파일과 기본 주소가 따로 늙지 않게 한다. 둘 다 사람이 쓰므로 글자로 맞댄다."""
     compose = _글(COMPOSE_FILE)
     parts = urlsplit(TEST_DATABASE_URL)
