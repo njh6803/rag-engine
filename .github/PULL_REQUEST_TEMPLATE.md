@@ -24,19 +24,28 @@
 ### 계약 영향
 
 <!-- 계약(헌법 원칙 VII: 검색 도구의 형식, 수집 API, 커넥터·변환·파서 인터페이스, 색인 형식)과 헌법에 닿지 않았으면 "없음".
-     닿았으면 어느 계약의 무엇이 바뀌었는지, 그 때문에 함께 바꾼 것(칸을 지우거나 뜻을 바꿨으면 올린 판, ADR, 계약 시험 `tests/contract/`, 헌법 판 `docs/constitution/README.md`), 이 변경을 기다리는 티켓을 적는다 -->
+     닿았으면 어느 계약의 무엇이 바뀌었는지, 그 때문에 함께 바꾼 것(칸을 지우거나 뜻을 바꿨으면 올린 계약 버전, ADR, 계약 시험 `tests/contract/`, 헌법 버전 `docs/constitution/README.md`), 이 변경을 기다리는 티켓을 적는다 -->
+
+### 업그레이드할 때 운영자가 손댈 것
+
+<!-- 이 변경을 올리는 운영자가 자기가 쥔 것(설정, 환경 변수, 데이터, 플러그인 코드)을 고쳐야 하거나, 손대지 않으면 올린 뒤 동작이 멈추면 무엇을 무엇으로 바꾸는지 적는다. 없으면 "없음".
+     아래 셋은 기준에 언제나 드는 변경이라 따로 묻는다. 해당하는 것에 체크한다. 하나라도 있거나 위에 적을 것이 있으면 PR 제목 접두에 느낌표를 붙이고(`feat!: …`) `docs/release-notes/upgrade/<이름>.md`를 새로 싣는다. 기준은 `docs/constitution/operations.md`의 "릴리스 노트 원고". 노트 검사(`tools/check_notes.py`)가 느낌표와 그 파일의 짝을 CI에서 본다 -->
+
+- [ ] 데이터베이스 마이그레이션이 든다 (`src/rag_engine/adapters/postgres/migrations/versions/` 아래의 `.py`를 더하거나 고치거나 지우거나 옮겼다. 이미 릴리스된 마이그레이션을 고치는 것도 같다. 노트 검사가 이 항목은 제목의 느낌표와 맞대어 보고, 느낌표가 없으면 CI가 빨갛다. 원고는 업그레이드 전에 PostgreSQL 볼륨을 백업하라는 한 줄로 쓴다. 백업과 복원의 절차는 backup-upgrade가 정한다)
+- [ ] 재색인이 필요해진다 (색인 판의 요소가 바뀐다. ADR 0008. 기계가 알아보지 않으므로 여기서 직접 확인한다)
+- [ ] 계약의 판에서 앞자리를 올렸다 (칸을 지우거나 뜻을 바꿨다. 원칙 VII. 기계가 알아보지 않으므로 여기서 직접 확인한다)
 
 ## 변경된 영역
 
 <!-- 실제로 바뀐 경로만 체크한다. 괄호는 그 영역을 바꿀 때 같이 확인할 것 -->
 
-- [ ] `src/rag_engine/server/` — HTTP와 MCP 표면(FastAPI 앱, `/health`, `/mcp`)과 출력 모델 (MCP에는 읽기 도구만 등록했는가(원칙 IV, ADR 0001). 검색 도구의 형식을 바꿨으면 `tests/contract/`의 계약 시험과 판을 함께 바꿨는가(원칙 VII). 인증 없는 요청과, 접근 그룹을 쓰는 설치에서 주체 없는 요청을 거부하는가(원칙 V). 질문 내용·연결 정보·원본 문서의 내용이 로그·오류 응답에 실리지 않는가(원칙 V, ADR 0004). mcp·FastAPI의 타입이 계약과 도메인으로 새지 않는가(`CODING_STANDARDS.md`))
+- [ ] `src/rag_engine/server/` — HTTP와 MCP 표면(FastAPI 앱, `/health`, `/mcp`)과 출력 모델 (MCP에는 읽기 도구만 등록했는가(원칙 IV, ADR 0001). 검색 도구의 형식을 바꿨으면 `tests/contract/`의 계약 시험과 계약 버전을 함께 바꿨는가(원칙 VII). 인증 없는 요청과, 접근 그룹을 쓰는 설치에서 요청자 없는 요청을 거부하는가(원칙 V). 질문 내용·연결 정보·원본 문서의 내용이 로그·오류 응답에 실리지 않는가(원칙 V, ADR 0004). mcp·FastAPI의 타입이 계약과 도메인으로 새지 않는가(`CODING_STANDARDS.md`))
 - [ ] `src/rag_engine/main.py` — 관리 명령 (쓰기(수집, 삭제, 재색인)는 관리 명령·관리 API·수집 API로만 여는가(원칙 IV). `main → server` 방향은 `pyproject.toml`의 import-linter 계약이 판정한다)
 - [ ] `src/rag_engine/`의 새 모듈·층 — 층은 core 설계 인터뷰가 정한다 (새 층을 더했으면 import-linter 계약에 넣었는가, 플러그인 자리 셋(커넥터·변환·파서, ADR 0003) 밖의 새 추상화가 아닌가, 설치처의 정보가 들어오지 않았는가(ADR 0003))
 - [ ] `tests/contract/` — 계약 시험 (공식 MCP SDK의 클라이언트로 HTTP 접속해 보는가, 쓰기 도구가 없음을 계속 보는가)
 - [ ] `tests/` — 행동을 검증하는가, skip이 초록으로 읽히지 않는가(원칙 I)
 - [ ] `.claude/`, `tools/`, `.pre-commit-config.yaml` — 하네스 (실제 실행으로 확인했는가, 새 검사는 `tools/mutate.py`로 변이를 넣어 빨강을 봤는가, 이 검사가 **못 보는 것**을 어디에 적었고 그 주장을 쟀는가, 훅은 `tools/hook_payloads.toml`에 발동 페이로드와 발동하지 말아야 할 **실제** 입력을 더했는가(`tools/run_hooks.py`가 pre-commit에서 돈다), 구조가 바뀌었으면 README도 갱신했는가)
-- [ ] `docs/`, `CLAUDE.md`, `GLOSSARY.md`, `CODING_STANDARDS.md` — 지침·헌법·ADR (원천 하나, CLAUDE.md 200줄 이하, 헌법을 고쳤으면 판을 올렸는가)
+- [ ] `docs/`, `CLAUDE.md`, `GLOSSARY.md`, `CODING_STANDARDS.md` — 지침·헌법·ADR (원천 하나, CLAUDE.md 200줄 이하, 헌법을 고쳤으면 버전을 올렸는가)
 - [ ] `.github/` — 워크플로 (`claude-code-review.yml`을 바꾸면 별도 PR로 먼저 병합. 그 PR은 claude-review가 건너뛰므로(그 파일의 머리 주석) CodeRabbit 코멘트와 셀프 리뷰를 손으로 본다. 그 PR에서 코멘트 0개 가드(`Fail when Claude left no comment` 스텝)는 코멘트를 세지 않는 대신, 그 파일과 그 스텝이 허용한 경로(일지·대기열 등. 원천은 그 스텝의 패턴) 밖의 파일이 함께 실리면 실패한다. 그래서 그 워크플로의 동작을 서술한 문서 가운데 허용 경로 밖의 것(이 템플릿, `operations.md` 등)은 그 PR이 병합된 뒤 따로 고친다. 다른 워크플로만 바꾼 PR은 리뷰가 돌고 가드가 코멘트를 센다)
   - 필수 검사 `verify`의 판정을 바꿨으면 빨강이어야 하는 경우(실패·취소·건너뛴 잡, needs 밖의 잡)와 실패한 잡만 다시 돌린 시도를 실제 실행해 봤는가(`.github/workflows/ci.yml`의 verify 주석)
 
@@ -51,7 +60,7 @@
 - [ ] 커밋 전 `/code-review`로 셀프 리뷰하고 Critical·Major를 반영했다. 보류한 지적은 별도 티켓이나 회고 후보로 뺐고, 다른 층·티켓에 넘긴 것은 받는 쪽에 적었다
 - [ ] PR 직전 `coderabbit-review` 서브에이전트를 돌렸다(보안·버그·성능 축). **`coderabbit auth status`의 `Seat:` 줄은 보고에 옮기는 값이고, CLI 축인지는 리뷰가 실제로 끝까지 도는지로 가른다 — agent-os에서 `Seat: not assigned`에서도 리뷰가 돌았다.** CLI가 돌지 못하면(미설치, 로그인 없음, 좌석 거절, 한도 초과) 내장 `/security-review`(보안, 작업을 커밋하고 origin/<기준 브랜치>를 합친 뒤에. 기준 브랜치가 main인 핫픽스에서는 기본 브랜치가 dev인 동안 `origin/HEAD` 범위에 dev의 커밋이 섞이므로 `git merge-base origin/main HEAD` 이후로 손으로 좁힌다. `docs/constitution/operations.md` 리뷰 파이프라인)와 `bug-perf-review` 서브에이전트(버그·성능)를 대신 돌리고, 무엇이 돌았는지와 결과를 적는다. **문서만 바뀐 PR도 면제가 아니다** — 설계 문서의 침묵이 곧 구현의 침묵이다(agent-os에서 코드 0줄인 PR 넷에서 CWE 넷). 한도와 좌석은 `.claude/agents/coderabbit-review.md`
 - [ ] 결정을 바꿨다면 그것을 참조하는 스킬·훅·rules·명세도 같이 고쳤다
-- [ ] 새 환경 변수는 `.env.example`에 있다
+- [ ] 새 환경 변수는 `deploy/standalone/.env.example`에 있다
 
 ## 확인 방법
 

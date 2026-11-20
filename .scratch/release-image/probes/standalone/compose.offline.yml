@@ -1,0 +1,5 @@
+# compose.yml 위에 얹는 덮어쓰기(프로브). 바깥으로 나가는 길이 없는 네트워크(internal)에서 임베딩 서버만 띄워,
+# 모델 볼륨만으로 뜨는지 본다(run.py 의 offline 단계).
+networks:
+  default:
+    internal: true

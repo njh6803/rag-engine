@@ -53,7 +53,7 @@ def test_세_도구의_출력_스키마는_format_version을_필수로_공개한
         assert "format_version" in schema["required"]
 
 
-def test_검색_출력은_판과_쓴_지식베이스와_결과를_담는다() -> None:
+def test_검색_출력은_버전과_쓴_지식베이스와_결과를_담는다() -> None:
     output = SearchOutput(
         format_version=FORMAT_VERSION, knowledge_base="default", results=[_result()]
     )

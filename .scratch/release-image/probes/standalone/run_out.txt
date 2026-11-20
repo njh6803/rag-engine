@@ -1,0 +1,83 @@
+[판] Docker 29.9.2, 5.6.1
+[build] ri-probe/rag-engine-server:0.1.0-rc.1 를 지었다(5초, 캐시에 따라 다르다)
+[build] ri-probe/rag-engine-worker:0.1.0-rc.1 를 지었다(4초, 캐시에 따라 다르다)
+[build] server: 사용자 10001:10001, 크기 524MB, ENTRYPOINT ['/usr/bin/tini', '--'], CMD ['rag-engine', 'serve', '--host', '0.0.0.0', '--port', '8000'], 라벨 {'org.opencontainers.image.revision': 'e7eeab681cd144c07a19934c08e8fad5c901726d', 'org.opencontainers.image.source': 'unknown', 'org.opencontainers.image.version': '0.1.0-rc.1'}
+[build] server: 이미지 안의 패키지 번호와 uid 는 0.1.0-rc.1 10001
+[build] worker: 사용자 10001:10001, 크기 524MB, ENTRYPOINT ['/usr/bin/tini', '--'], CMD ['rag-engine', 'worker'], 라벨 {'org.opencontainers.image.revision': 'e7eeab681cd144c07a19934c08e8fad5c901726d', 'org.opencontainers.image.source': 'unknown', 'org.opencontainers.image.version': '0.1.0-rc.1'}
+[build] worker: 이미지 안의 패키지 번호와 uid 는 0.1.0-rc.1 10001
+[build] 층은 서버 8개, 작업자 8개이고 앞에서부터 8개가 같다
+[build] 번호 없이 지으면 종료 코드 1, 안내 문구가 출력에 있다
+[sse] 빨리 뜨는 뒷단과 함께 띄움, 프록시가 기다리지 않는다(depends_on 없음, 대조군): up --wait 6.6초, 그 뒤 200 이전에 본 것 ['502'], 5.4초
+[sse] 빨리 뜨는 뒷단과 함께 띄움, 프록시가 뒷단이 건강해지면 뜬다(service_healthy): up --wait 7.0초, 그 뒤 200 이전에 본 것 [], 0.0초
+[sse] site.conf, X-Accel-Buffering 없음: 상태 200, 사건 5개가 [0.02, 1.02, 2.03, 3.02, 4.02]초에 닿았다. 첫 사건과 끝 사건의 사이 4.00초. 온 대로 넘겼다
+[sse] site.conf, X-Accel-Buffering 있음: 상태 200, 사건 5개가 [0.0, 1.0, 2.02, 3.02, 4.03]초에 닿았다. 첫 사건과 끝 사건의 사이 4.03초. 온 대로 넘겼다
+[sse] site.buffered.conf, X-Accel-Buffering 없음: 상태 200, 사건 5개가 [4.02, 4.02, 4.02, 4.02, 4.02]초에 닿았다. 첫 사건과 끝 사건의 사이 0.00초. 모아서 넘겼다
+[sse] site.buffered.conf, X-Accel-Buffering 있음: 상태 200, 사건 5개가 [0.02, 1.03, 2.03, 3.03, 4.05]초에 닿았다. 첫 사건과 끝 사건의 사이 4.03초. 온 대로 넘겼다
+[up] 단독 compose 가 떴다(121초. 임베딩 서버가 모델을 올리는 시간이 든다)
+[up] up --wait 가 돌아온 직후 프록시의 /health: 200 이전에 본 것 [], 0.1초
+[up] embedding: running healthy
+[up] migrate: exited 종료 코드 0
+[up] postgres: running healthy
+[up] proxy: running
+[up] server: running healthy
+[up] worker: running
+[accept] bootstrap-token 종료 코드 0, JSON 로그가 아닌 출력 줄 1개
+[accept] ingest 종료 코드 0, 찍은 줄 ['created\tsmall_text.pdf']
+[accept] MCP 도구 목록 ['get_document', 'list_knowledge_bases', 'search']
+[accept] search('연차휴가') 결과 1개, format_version 1.1.0, 첫 결과의 키 small_text.pdf, 기대한 글이 들어 있다
+[checks] 호스트에 열린 포트: ['proxy 127.0.0.1:63565->8443']
+[checks] proxy: exec 의 uid 101, 1번 프로세스 /sbin/docker-init -- /docker-entrypoint.sh nginx -c /etc/rag-engine/nginx.conf -g daemon off;  / Uid:	101	101	101	101
+[checks] server: exec 의 uid 10001, 1번 프로세스 /usr/bin/tini -- rag-engine serve --host 0.0.0.0 --port 8000  / Uid:	10001	10001	10001	10001
+[checks] worker: exec 의 uid 10001, 1번 프로세스 /usr/bin/tini -- rag-engine worker  / Uid:	10001	10001	10001	10001
+[checks] postgres: exec 의 uid 0, 1번 프로세스 postgres  / Uid:	999	999	999	999
+[checks] embedding: exec 의 uid 0, 1번 프로세스 text-embeddings-router --model-id BAAI/bge-m3 --port 80 --max-batch-tokens 4096  / Uid:	0	0	0	0
+[checks] POST /mcp, Host rag.example.test: 200, content-type text/event-stream, x-accel-buffering None, strict-transport-security max-age=31536000
+[checks] POST /mcp, Host other.example.test: 421, content-type None, x-accel-buffering None, strict-transport-security max-age=31536000
+[checks] 토큰 없는 POST /mcp: 401
+[checks] GET /health: 200, server 머리 nginx
+[checks] GET /: 404, server 머리 nginx
+[checks] GET /docs: 404, server 머리 nginx
+[checks] GET /openapi.json: 404, server 머리 nginx
+[checks] GET /redoc: 404, server 머리 nginx
+[checks] GET /mcp/: 404, server 머리 nginx
+[checks] GET /api/v1/other: 404, server 머리 nginx
+[checks] TLSv1 로만 손을 내밀면 거부됐다(SSLError: [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1010))
+[checks] TLSv1_1 로만 손을 내밀면 거부됐다(SSLError: [SSL: TLSV1_ALERT_PROTOCOL_VERSION] tlsv1 alert protocol version (_ssl.c:1010))
+[checks] TLSv1_2 로만 손을 내밀면 맺었다(TLSv1.2)
+[checks] TLSv1_3 로만 손을 내밀면 맺었다(TLSv1.3)
+[checks] site.conf: 질의 문자열에 표지를 실은 GET 이 200, 프록시 로그에 표지가 남지 않았다
+[checks] site.conf: 그 요청의 접근 로그 줄 ['2026-11-18T06:53:41+00:00 172.21.0.1 GET /api/v1/admin/documents 200 16 0.012']
+[checks] site.conf: 0MB 올리기의 응답 202 action=created
+[checks] site.conf: 2MB 올리기의 응답 202 action=created
+[checks] site.conf: 20MB 올리기의 응답 202 action=created
+[checks] site.buffered.conf(대조군): 같은 GET 이 200, 프록시 로그에 표지가 남았다
+[checks] site.buffered.conf(대조군): 2MB 올리기의 응답 413 <html>
+<head><title>413 Request Entity Too Large</title></head>
+<body>
+<cente
+[checks] 임베딩 서버의 로그 26줄에서 질의와 문서의 글 ['연차휴가', '연차휴가는 입사 일 년 뒤부터 발생한다', '출장비', '\\uc5f0\\ucc28\\ud734\\uac00'] 가운데 나온 것: []
+[checks] 임베딩 서버 로그의 요청 줄 표본: [2m2026-11-18T06:53:14.305473Z[0m [32m INFO[0m [2mtext_embeddings_router::http::server[0m[2m:[0m [2mrouter/src/http/server.rs[0m[2m:[0m[2m1879:[0m Ready
+[checks] 임베딩 서버 로그의 요청 줄 표본: [2m2026-11-18T06:53:35.380220Z[0m [32m INFO[0m [1mopenai_embed[0m[1m{[0m[3mtotal_time[0m[2m=[0m"657.105603ms" [3mtokenization_time[0m[2m=[0m"4.35145ms" [3mqueue_time[0m[2m=[0m"6.059576ms" [3minference_time[0m[2m=[0m"645.95759ms"[1m}[0m[2m:[0m [2mtext_embeddings_router::http::server[0m[2m:[0m [2mrouter/src/http/server.rs[0m[2m:[0m[2m1316:[0m Success
+[checks] 임베딩 서버 로그의 요청 줄 표본: [2m2026-11-18T06:53:38.296124Z[0m [32m INFO[0m [1mopenai_embed[0m[1m{[0m[3mtotal_time[0m[2m=[0m"81.977913ms" [3mtokenization_time[0m[2m=[0m"1.972619ms" [3mqueue_time[0m[2m=[0m"2.453673ms" [3minference_time[0m[2m=[0m"77.480813ms"[1m}[0m[2m:[0m [2mtext_embeddings_router::http::server[0m[2m:[0m [2mrouter/src/http/server.rs[0m[2m:[0m[2m1316:[0m Success
+[checks] server 로그 31줄에서 질의, 문서 키, 토큰 가운데 나온 것: []
+[checks] worker 로그 16줄에서 질의, 문서 키, 토큰 가운데 나온 것: []
+[checks] 서버에 /tmp 가 없을 때(대조군): 0MB 올리기의 응답 202 action=created
+[checks] 서버에 /tmp 가 없을 때(대조군): 2MB 올리기의 응답 400 detail=There was an error parsing the body
+[recover] site.static.conf, 뒷단의 이름을 시작할 때만 푼다(대조군): 서버를 지우고 다시 만든 뒤(건강해진 때부터) 서버의 주소 172.21.0.5 -> 172.21.0.7(옛 주소를 다른 컨테이너가 차지했다, 띄운 컨테이너 1개), 200 이전에 본 것 ['502'], -1.0초
+[recover] site.conf, 뒷단의 이름을 다시 푼다: 서버를 지우고 다시 만든 뒤(건강해진 때부터) 서버의 주소 172.21.0.7 -> 172.21.0.8(옛 주소를 다른 컨테이너가 차지했다, 띄운 컨테이너 2개), 200 이전에 본 것 [], 0.0초
+[recover] 프록시와 서버를 함께 다시 시작한 뒤(restart 가 돌아온 때부터): 200 이전에 본 것 ['502'], 9.3초
+[recover] 서버 프로세스가 죽은 뒤(재시작 정책이 다시 띄운다. 다시 뜬 횟수 1): 200 이전에 본 것 ['502'], 5.1초
+[recover] 서버가 멈춘 동안 site.conf: 표지를 실은 GET 이 504, 프록시 로그에서 표지가 든 줄 0개, 그 가운데 오류 로그 줄([error]) 0개
+[recover] 서버가 멈춘 동안 site.buffered.conf: 표지를 실은 GET 이 502, 프록시 로그에서 표지가 든 줄 2개, 그 가운데 오류 로그 줄([error]) 1개
+[recover] 서버를 다시 켠 뒤(start 가 돌아온 때부터): 200 이전에 본 것 ['502'], 6.2초
+[recover] 프록시와 서버를 지우고 다시 띄움, 프록시가 기다리지 않는다(depends_on 없음, 대조군): up --wait 9.2초, 그 뒤 200 이전에 본 것 ['502'], 1.0초
+[recover] 프록시와 서버를 지우고 다시 띄움, 프록시가 서버 컨테이너가 시작하면 뜬다(service_started, 대조군): up --wait 9.1초, 그 뒤 200 이전에 본 것 [], 0.0초
+[recover] 프록시와 서버를 지우고 다시 띄움, 프록시가 서버가 건강해지면 뜬다(service_healthy): up --wait 8.9초, 그 뒤 200 이전에 본 것 [], 0.0초
+[down] 내렸다
+[offline] 모델이 든 볼륨, HF_HUB_OFFLINE 없음: up --wait 종료 코드 0(32초), 1번 프로세스 Uid: 0 0 0 0. 로그 끝 두 줄의 끝 ['uter::http::server\x1b[0m\x1b[2m:\x1b[0m \x1b[2mrouter/src/http/server.rs\x1b[0m\x1b[2m:\x1b[0m\x1b[2m1878:\x1b[0m Starting HTTP server: 0.0.0.0:80', '\x1b[0m \x1b[2mtext_embeddings_router::http::server\x1b[0m\x1b[2m:\x1b[0m \x1b[2mrouter/src/http/server.rs\x1b[0m\x1b[2m:\x1b[0m\x1b[2m1879:\x1b[0m Ready']
+[offline] 모델이 든 볼륨, HF_HUB_OFFLINE=1: up --wait 종료 코드 0(27초), 1번 프로세스 Uid: 0 0 0 0. 로그 끝 두 줄의 끝 ['uter::http::server\x1b[0m\x1b[2m:\x1b[0m \x1b[2mrouter/src/http/server.rs\x1b[0m\x1b[2m:\x1b[0m\x1b[2m1878:\x1b[0m Starting HTTP server: 0.0.0.0:80', '\x1b[0m \x1b[2mtext_embeddings_router::http::server\x1b[0m\x1b[2m:\x1b[0m \x1b[2mrouter/src/http/server.rs\x1b[0m\x1b[2m:\x1b[0m\x1b[2m1879:\x1b[0m Ready']
+[offline] 모델이 든 볼륨, uid 10001: up --wait 종료 코드 0(32초), 1번 프로세스 Uid: 10001 10001 10001 10001. 로그 끝 두 줄의 끝 ['uter::http::server\x1b[0m\x1b[2m:\x1b[0m \x1b[2mrouter/src/http/server.rs\x1b[0m\x1b[2m:\x1b[0m\x1b[2m1878:\x1b[0m Starting HTTP server: 0.0.0.0:80', '\x1b[0m \x1b[2mtext_embeddings_router::http::server\x1b[0m\x1b[2m:\x1b[0m \x1b[2mrouter/src/http/server.rs\x1b[0m\x1b[2m:\x1b[0m\x1b[2m1879:\x1b[0m Ready']
+[offline] 모델이 든 볼륨, uid 10001, 루트와 모델 볼륨이 읽기 전용: up --wait 종료 코드 0(32초), 1번 프로세스 Uid: 10001 10001 10001 10001. 로그 끝 두 줄의 끝 ['uter::http::server\x1b[0m\x1b[2m:\x1b[0m \x1b[2mrouter/src/http/server.rs\x1b[0m\x1b[2m:\x1b[0m\x1b[2m1878:\x1b[0m Starting HTTP server: 0.0.0.0:80', '\x1b[0m \x1b[2mtext_embeddings_router::http::server\x1b[0m\x1b[2m:\x1b[0m \x1b[2mrouter/src/http/server.rs\x1b[0m\x1b[2m:\x1b[0m\x1b[2m1879:\x1b[0m Ready']
+[offline] 모델이 든 볼륨, uid 10001, 읽기 전용, 리비전 고정: up --wait 종료 코드 1(3초), 1번 프로세스 없음. 로그 끝 두 줄의 끝 ['    4: failed to lookup address information: Temporary failure in name resolution', '_endpoint: None, otlp_service_name: "text-embeddings-inference.server", prometheus_port: 9000, cors_allow_origin: None }']
+[offline] 모델이 든 볼륨, 볼륨에 없는 리비전(대조군): up --wait 종료 코드 1(3초), 1번 프로세스 없음. 로그 끝 두 줄의 끝 ['    3: dns error', '    4: failed to lookup address information: Temporary failure in name resolution']
+[offline] 빈 볼륨, HF_HUB_OFFLINE=1(대조군): up --wait 종료 코드 1(2초), 1번 프로세스 없음. 로그 끝 두 줄의 끝 ['    4: failed to lookup address information: Temporary failure in name resolution', '_endpoint: None, otlp_service_name: "text-embeddings-inference.server", prometheus_port: 9000, cors_allow_origin: None }']

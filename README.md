@@ -2,11 +2,11 @@
 
 MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 검색 서버(지식베이스)다. 여러 원천에서 문서를 수집하고 색인해서, 근거 위치와 갱신일이 붙은 검색 결과를 MCP 읽기 도구로 돌려준다. 답을 생성하지는 않는다. 제품 의도와 성공의 정의는 [docs/PRD.md](docs/PRD.md)에 있다.
 
-지금은 core를 쌓는 중이다. HTTP 서버가 `/health`(인증 밖), 토큰으로 닫힌 MCP 끝점(`/mcp`, 아직 도구는 없다), 토큰 관리 API를 연다. 첫 기능은 core이고, 순서와 범위는 [.scratch/plan.md](.scratch/plan.md)에 있다.
+HTTP 서버가 `/health`(인증 밖), 토큰으로 닫힌 MCP 끝점(`/mcp`, 읽기 도구 `list_knowledge_bases`·`search`·`get_document`), 토큰 관리 API, 수집 API를 연다. 서버에 올려 쓰는 운영자는 릴리스의 배포 파일 묶음(`rag-engine-<번호>.tar.gz`)을 풀고 그 안의 설치 안내([deploy/standalone/README.md](deploy/standalone/README.md))를 따른다. 묶음을 풀기부터 첫 토큰, 문서 넣기, MCP 검색, 폐쇄망 설치, 업그레이드까지 거기 있다. 기능의 순서와 범위는 [.scratch/plan.md](.scratch/plan.md)에 있다.
 
 ## 판
 
-이 서버의 판은 semver다(`pyproject.toml`의 `version`). 첫 공개 판 0.1 전에는 `0.0.0`이다. 헌법의 판은 따로이고 [docs/constitution/README.md](docs/constitution/README.md)에 있다.
+이 서버의 판은 semver다(`pyproject.toml`의 `version`). 첫 공개 판 0.1 전에는 `0.0.0`이다. 헌법의 버전은 따로이고 [docs/constitution/README.md](docs/constitution/README.md)에 있다.
 
 ## 개발
 
@@ -34,32 +34,36 @@ PowerShell에서는 이렇게 친다.
 $env:RAG_TEST_DATABASE_URL = "postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test"; uv run pytest
 ```
 
-컨테이너 이미지:
+컨테이너 이미지(개발자가 이미지를 짓고 한 컨테이너를 띄워 보는 명령이다. 운영자가 서버 한 대에 PostgreSQL, 임베딩 서버, 프록시와 함께 올리는 법은 배포 파일 묶음의 [설치 안내](deploy/standalone/README.md)에 있다):
 
 ```bash
-docker build -t rag-engine .
+VERSION=0.0.1-rc.1 TAG=dev NAMESPACE=local \
+  docker buildx bake -f deploy/images/docker-bake.hcl --load
 docker run --rm -p 8000:8000 \
   -e RAG_DATABASE_URL=postgresql://사용자:비밀번호@호스트:5432/rag \
-  -e RAG_DATA_DIR=/data -e RAG_ALLOWED_HOSTS=localhost rag-engine
+  -e RAG_DATA_DIR=/data -e RAG_ALLOWED_HOSTS=localhost local/rag-engine-server:dev
+docker run --rm local/rag-engine-server:dev rag-engine --version
 ```
+
+`bake`가 서버 이미지(`rag-engine-server`)와 작업자 이미지(`rag-engine-worker`)를 한 번에 짓는다. 두 이미지는 내용물이 같고 시작 명령만 다르다. `VERSION`은 이미지에 들어가는 릴리스 번호이고 `X.Y.Z`나 `X.Y.Z-rc.N` 꼴이어야 한다.
 
 ## 트리
 
 ```
 src/rag_engine/
-  main.py      관리 명령(argparse). `rag-engine serve` 가 HTTP 서버를 띄우고 `rag-engine worker` 가 수집 작업자를 띄우며 `rag-engine migrate` 가 스키마를 올려 기본 레코드를 보장하며 `rag-engine bootstrap-token` 이 첫 admin 토큰을 내며 `rag-engine ingest` 가 파일이나 폴더를 서버 없이 수집한다
+  main.py      관리 명령(argparse). `rag-engine serve` 가 HTTP 서버를 띄우고 `rag-engine worker` 가 수집 작업자를 띄우며 `rag-engine migrate` 가 스키마를 올려 기본 레코드를 보장하며 `rag-engine bootstrap-token` 이 첫 admin 토큰을 내며 `rag-engine ingest` 가 파일이나 폴더를 서버 없이 수집하며 `rag-engine --version` 이 릴리스 번호와 계약 버전을 설정 없이 찍는다
   server/      FastAPI 앱(app.py)과 출력 모델. /health 와 MCP Streamable HTTP(/mcp)를 한 앱이 연다(ADR 0005).
                MCP 출력 모델(tool_models.py), 수집 API 모델(ingest_models.py), Problem Details(problems.py, problem_response.py),
-               요청 문맥 미들웨어(request_context.py: 요청 ID, 로그), 인증 미들웨어(auth.py), 토큰 관리 API(token_api.py), 수집 API(ingest_api.py), 작업·문서 조회 API(admin_api.py)와 그 응답 모델(admin_models.py)
-  worker/      작업자. assembly.py(조립과 상시 작업자 `run_worker`), processing.py(작업 하나의 처리와 임대 연장, `run_once`), service.py(`LISTEN`·폴링·동시 처리로 도는 `serve`), signals.py(종료 신호)
-  adapters/    포트의 구현. settings.py(설정 객체), log_format.py(JSON Lines·text 로그 포매터), index_elements.py(색인 판 요소), blob_store.py(로컬 폴더 원본 저장소), tei.py(임베딩 서버 어댑터), kiwi.py(키워드 토큰과 문장 분리), chunking.py(구조 우선 청킹), utf8_offsets.py(바이트 오프셋 변환), postgres/ 에 표 정의(tables.py), alembic 판(migrations/. 0001 첫 판, 0002 작업 표의 진행 중 작업 색인), 작업 단위와 Catalog·DocumentStore·JobQueue·VectorIndex·TokenStore 어댑터, migrate 와 bootstrap-token 의 조립(bootstrap.py), ingest 명령의 조립(ingest_command.py), 평가 세트 묶음의 경로 판정(bundle_paths.py)·읽기(eval_set_reader.py)·파일 판정(eval_bundle_files.py)·`validate` 조립(eval_validate.py), 평가 전용 환경과 설정 객체(eval_environment.py), 평가 데이터베이스 판정(eval_database.py), `index` 조립(eval_index.py), 묶음의 내용 해시(eval_bundle_hash.py), `run` 조립(eval_run.py), `run`과 `inspect`가 함께 지나는 준비와 조립(eval_assembly.py), `inspect` 조립(eval_inspect.py), 판정 파일의 읽기·쓰기(eval_judgments_file.py), 판정기의 설정(judge_settings.py)과 Claude 판정기(claude_judge.py), `judge` 조립(eval_judge.py)
+               요청 문맥 미들웨어(request_context.py: 요청 ID, 로그), 인증 미들웨어(auth.py), 토큰 관리 API(token_api.py), 수집 API(ingest_api.py), 수집·관리 API 경로의 버전(api_version.py), 작업·문서 조회 API(admin_api.py)와 그 응답 모델(admin_models.py)
+  worker/      작업자. assembly.py(조립과 상시 작업자 `run_worker`), processing.py(작업 하나의 처리와 작업 담당 기록 연장, `run_once`), service.py(`LISTEN`·폴링·동시 처리로 도는 `serve`), signals.py(종료 신호)
+  adapters/    포트의 구현. settings.py(설정 객체), log_format.py(JSON Lines·text 로그 포매터), index_elements.py(색인 판 요소), release_number.py(설치된 패키지의 릴리스 번호), blob_store.py(로컬 폴더 원본 저장소), tei.py(임베딩 서버 어댑터), kiwi.py(키워드 토큰과 문장 분리), chunking.py(구조 우선 청킹), utf8_offsets.py(바이트 오프셋 변환), postgres/ 에 표 정의(tables.py), alembic 판(migrations/. 0001 첫 판, 0002 작업 표의 진행 중 작업 색인), 작업 단위와 Catalog·DocumentStore·JobQueue·VectorIndex·TokenStore 어댑터, migrate 와 bootstrap-token 의 조립(bootstrap.py), ingest 명령의 조립(ingest_command.py), 평가 세트 묶음의 경로 판정(bundle_paths.py)·읽기(eval_set_reader.py)·파일 판정(eval_bundle_files.py)·`validate` 조립(eval_validate.py), 평가 전용 환경과 설정 객체(eval_environment.py), 평가 데이터베이스 판정(eval_database.py), `index` 조립(eval_index.py), 묶음의 내용 해시(eval_bundle_hash.py), `run` 조립(eval_run.py), `run`과 `inspect`가 함께 지나는 준비와 조립(eval_assembly.py), `inspect` 조립(eval_inspect.py), 판정 파일의 읽기·쓰기(eval_judgments_file.py), 판정기의 설정(judge_settings.py)과 Claude 판정기(claude_judge.py), `judge` 조립(eval_judge.py)
   app/         유스케이스. default_records.py(migrate 의 기본 레코드 보장), tokens.py(토큰 발급·인증·폐기), ingest.py(수집: 원본 저장, 문서 행과 작업 넣기), admin_queries.py(작업·문서 조회), await_documents.py(`ingest --wait`의 기다림), document_outcome.py(문서의 색인 실패 판정), check_eval_set.py(평가 세트 묶음의 목록 판정), check_eval_database.py(평가 데이터베이스의 소속과 현재 판의 요소 판정), check_indexed_documents.py(`validate --indexed`의 색인 판정), eval_passages.py(글귀의 본문 판정), eval_metrics.py(적중 판정과 지표), eval_run.py(단계별 순위. 빠른 실행은 합친 뒤까지, 전체 실행은 리랭크 뒤까지), eval_score_distribution.py(리랭크 점수의 분포), eval_judgments.py(판정할 쌍 고르기, 판정, `llm` 숫자), eval_report.py(보고서의 칸과 표), eval_stages.py(평가 단계), eval_misses.py(놓친 질의의 탈락 지점과 낱말 겹침), eval_breakdown.py(유형 표지와 필터 질의의 지표, 놓친 질의의 수), eval_inspect.py(`inspect`의 값과 글)
   domain/      엔티티, 포트 Protocol, 예외와 오류 코드, 파서 인터페이스, 색인에 넣는 글을 짓는 함수(index_text.py), 형식 판정(media_types.py), 평가 세트 묶음의 값(eval_set.py). 서드파티는 uuid6만 쓴다(금지 목록은 pyproject.toml의 import-linter 계약)
 typings/       서드파티 타입 스텁. kiwipiepy에 py.typed가 없어 쓰는 면만 적었다(ADR 0006)
 tests/
   contract/    MCP 계약 시험. 공식 SDK 클라이언트로 HTTP 접속해 도구 목록을 본다
   domain/      도메인 값 객체, 오류 코드, 파서 인터페이스, 형식 판정의 시험
-  server/      출력 모델, Problem Details, 인증, 토큰 관리 API, 수집 API, 요청 ID와 로그, MCP 전송 설정의 시험. 실제 uvicorn 서버에 HTTP로 접속한다
+  server/      출력 모델, Problem Details, 인증, 토큰 관리 API, 수집 API, 요청 ID와 로그, MCP 연결 방식 설정의 시험. 실제 uvicorn 서버에 HTTP로 접속한다
   adapters/    설정, 색인 판 요소, 작업 단위와 Catalog·DocumentStore·JobQueue·VectorIndex 어댑터, 로컬 원본 저장소, alembic 첫 판이 만드는 색인 형식, TEI 어댑터, Kiwi 키워드, 구조 우선 청킹, 오프셋 변환의 시험. 일부는 테스트 PostgreSQL이 필요하다
   app/         유스케이스(토큰 발급·인증·폐기, 수집의 동시 수집과 원본 정리)의 시험. 테스트 PostgreSQL이 필요하다
   support/     시험이 끼우는 부품. TEI 스텁 서버(tei_stub.py)와 글자 수로 세는 가짜 토큰 세기(token_meters.py)
@@ -68,6 +72,9 @@ tests/
                실제 uvicorn 서버를 띄우는 `run_server`와 `server`, 서버 로그를 읽는 `log_capture`
   harness.py   시험이 함께 쓰는 값 객체(`RunningServer`, `LogCapture`)와 보조 함수. 시험은 `conftest`를 직접 import하지 않고 여기서 가져온다
   tools/       하네스 도구의 시험과 검색 평가 도구(`validate`, `index`)의 시험. `index`의 시험은 테스트 PostgreSQL이 필요하다
+  standalone/  단독 compose 시험. 묶음의 compose를 Docker로 실제로 띄워 본다(느리고 Docker와 모델 폴더가 필요하다. 모델 폴더의 경로는 환경 변수로 준다)
+deploy/images/ 검색 서버와 작업자의 이미지. Dockerfile 하나(단계 `server`, `worker`)와 그 무시 파일, 둘을 한 번에 짓는 bake 설정(docker-bake.hcl)
+deploy/standalone/ 배포 파일 묶음의 원천. 단독 compose(compose.yaml), 프록시 설정(proxy/), 환경 변수 틀(.env.example), 인증서와 모델 폴더의 설명(tls/README.txt, models/README.txt), 운영자의 설치 안내(README.md)
 compose.test.yml  테스트용 PostgreSQL(pgvector, 운영과 같은 이미지 판). 검사 러너가 없으면 띄운다
 compose.eval.yml  검색 평가 전용 PostgreSQL(데이터베이스 이름 rag_eval)과 임베딩 TEI. 머리 주석이 평가 전용 환경 변수 넷과 `judge`의 판정기 설정 셋의 값을 적는다
 evals/         검색 평가 재료. `public-docs/`가 공공 문서 묶음(문서 파일 `documents/`, 문서 목록 `documents.json`, 머리 `eval-set.json`, 구성 `config.json`, 기대 근거 `evidence.jsonl`, 질의 목록 `queries-human.jsonl`과 `queries-keyword.jsonl`, 임베딩과 리랭크 점수의 기록 `records/`)이다. 문서마다 출처와 이용 조건을 목록에 적는다
@@ -85,7 +92,7 @@ docs/          헌법, ADR, PRD, 에이전트 문서, 일지
 | 사실 | 원천 | 비고 |
 |---|---|---|
 | 원칙과 거버넌스 | `docs/constitution/principles.md` | `CLAUDE.md`가 임포트 |
-| 스택과 의존성의 결정 | `docs/constitution/tech.md` | 구현은 `pyproject.toml`과 `Dockerfile`. 둘이 다르면 구현을 맞추거나 ADR |
+| 스택과 의존성의 결정 | `docs/constitution/tech.md` | 구현은 `pyproject.toml`과 `deploy/images/Dockerfile`. 둘이 다르면 구현을 맞추거나 ADR |
 | 검증·운영 규약 | `docs/constitution/operations.md` | 검증 명령은 `CLAUDE.md`, 실행은 `.pre-commit-config.yaml`(커밋마다 도는 검사는 그것이 부르는 `tools/run_checks.py`의 `CHECKS`)과 `.github/workflows/ci.yml`. 명령이 바뀌면 넷 다. 워크플로 감사의 설정은 `.github/zizmor.yml` |
 | 제품 의도와 성공의 정의 | `docs/PRD.md` | |
 | 용어 | `GLOSSARY.md` | 피할 말 포함. 첫 용어가 정해질 때 생긴다 |
@@ -101,4 +108,5 @@ docs/          헌법, ADR, PRD, 에이전트 문서, 일지
 | 기능 계획, 명세, 티켓 | `.scratch/<slug>/` | harness 티켓은 `.scratch/harness/issues/`. 규약은 `docs/agents/issue-tracker.md` |
 | 회고가 낸 미반영 후보 | `.scratch/retro-queue/` | 모양과 규칙은 그 폴더의 `README.md` |
 | 킥오프의 입력과 진행 | `.scratch/kickoff-input.md`, `.scratch/kickoff.md` | 킥오프 뒤에는 기록이다 |
+| 용어집의 이름을 agent-os의 결정에 맞추는 일의 입력 | `.scratch/glossary-names-input.md` | 사용자가 붙여 넣은 지시문의 원문이다. 받은 글 그대로의 기록이라 고치지 않는다 |
 | 설치된 스킬과 해시 | `skills-lock.json` | |

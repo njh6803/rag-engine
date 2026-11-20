@@ -4,9 +4,9 @@
 UPDATE` 한 문장으로 있는 행을 다시 쓴다. 있는지 보는 일과 넣는 일이 한 문장이어야 같은 문서에 동시에
 넣어도 대기 작업이 둘이 되지 않는다. 알림(`NOTIFY rag_jobs`)은 PostgreSQL이 커밋 때 보낸다.
 
-임대를 쓰는 문장(`finish`, `extend_lease`, `reschedule`)은 모두 작업 행 조건(`_attempt_of`)을 걸어,
-임대가 끝나 다른 작업자가 가져간 작업 행은 쓰지 않는다. 쓰지 않았음을 `finish`와 `extend_lease`는
-`AttemptLostError`로, `reschedule`은 `False`로 알린다.
+작업 담당 기록을 쓰는 문장(`finish`, `extend_lease`, `reschedule`)은 모두 작업 행 조건
+(`_attempt_of`)을 걸어, 작업 담당 기록의 기한이 끝나 다른 작업자가 가져간 작업 행은 쓰지 않는다.
+쓰지 않았음을 `finish`와 `extend_lease`는 `AttemptLostError`로, `reschedule`은 `False`로 알린다.
 """
 
 from collections.abc import Sequence
@@ -55,10 +55,10 @@ def _job(row: sa.RowMapping) -> Job:
 
 
 def _attempt_of(job: Job) -> list[sa.ColumnElement[bool]]:
-    """이 시도가 쓴 작업 행만 고르는 조건. 임대가 끝나 다른 작업자가 가져간 작업(작업자 ID나 시도
-    횟수가 다르다)은 고르지 않는다. 지식베이스 행을 잠금 순서에 맞게 작업 행 앞에서 잠그는 것은
-    부르는 쪽의 몫이다(다시 예약하기와 재시도 소진은 `app/job_failure.py`가, 색인 작업 자신의 작업
-    단위는 `app/index_document.py`가 잠근다)."""
+    """이 시도가 쓴 작업 행만 고르는 조건. 작업 담당 기록의 기한이 끝나 다른 작업자가 가져간
+    작업(작업자 ID나 시도 횟수가 다르다)은 고르지 않는다. 지식베이스 행을 잠금 순서에 맞게 작업 행
+    앞에서 잠그는 것은 부르는 쪽의 몫이다(다시 예약하기와 재시도 소진은 `app/job_failure.py`가, 색인
+    작업 자신의 작업 단위는 `app/index_document.py`가 잠근다)."""
     return [
         tables.jobs.c.id == job.id,
         tables.jobs.c.worker_id == job.worker_id,

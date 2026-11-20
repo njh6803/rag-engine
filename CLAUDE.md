@@ -22,7 +22,7 @@ MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 �
 | docs/PRD.md | 범위를 정하거나 스펙이 충돌할 때 | 사용자 승인으로 |
 | GLOSSARY.md, docs/adr/ | 용어를 쓰거나 결정을 바꾸기 전 | domain-modeling, 승인 뒤 |
 | CODING_STANDARDS.md | 리뷰 때 | retro가 다섯 번째 반복에서 더할 때 |
-| .scratch/plan.md(생성 파일), .scratch/<slug>/(기능 계획 plan.md, 명세, 티켓) | 이어서 할 때, 티켓 시작 전 | 전체 계획은 `uv run python tools/plan_table.py`가 기능 계획과 티켓에서 만든다(손으로 고치지 않는다). 기능 계획은 설계 인터뷰를 마친 세션(`설계` 줄)과 기능의 마지막 티켓을 닫는 커밋(`끝` 줄)이, 명세와 티켓은 to-spec, to-tickets가 |
+| .scratch/plan.md(생성 파일), .scratch/<slug>/(기능 계획 plan.md, 명세, 티켓) | 이어서 할 때, 티켓 시작 전 | 전체 계획은 `uv run python tools/plan_table.py`가 기능 계획과 티켓에서 만든다(손으로 고치지 않는다). 기능 계획은 설계 인터뷰를 마친 세션(`설계` 줄)과 기능의 마지막 티켓을 닫는 커밋(`끝` 줄. 제품 변경을 담은 기능이면 `docs/release-notes/features/`의 기능 단락도)이, 명세와 티켓은 to-spec, to-tickets가 |
 | .scratch/retro-queue/(폴더, 항목마다 파일 하나. 모양과 인용을 푸는 규칙은 그 README.md) | 회고 뒤, chore 브랜치를 딸 때 | 후보가 승인될 때와 반영을 닫을 때 |
 | docs/journal/ | 이어서 할 때 끝의 "다음" | 단계를 마칠 때 |
 | docs/agents/ | 트래커·도메인 문서 규약이 헷갈릴 때 | setup 스킬이 |
@@ -64,10 +64,11 @@ MCP를 쓰는 어떤 클라이언트에서도 쓸 수 있는 설치형 문서 �
 ## 환경 함정
 - 파이썬은 맨 `python`이 아니라 `uv run python <파일>`로 친다. 개발 기계(Windows)의 맨 `python`은 pyenv-win shim이고, stdin(heredoc)으로 넘긴 스크립트를 출력 없이 끝냈다(2026-11-09 킥오프에서 봤다).
 - 파이프와 `&&`·`;` 체인 뒤의 `$?`는 마지막 명령의 종료 코드다. 판정 명령은 파이프·체인 없이 돌린다. 훅이 경고한다.
-- 커밋 전에 `git branch --show-current`로 브랜치를 본다. 같은 체크아웃을 다른 세션이 옮길 수 있다. main과 dev 위의 커밋은 훅이 막는다. 브랜치를 딸 자리인 기준 브랜치는 핫픽스(`hotfix/*`)면 `origin/main`, 그 밖이면 이 클론에 `origin/dev`의 추적 ref가 있을 때 `origin/dev`, 없을 때 `origin/main`이다(`<기준 브랜치>`는 이 규칙이고 원천은 `docs/constitution/operations.md` 브랜치와 병합이다. 클론이 `git fetch origin`으로 dev를 받기 전에는 main이다). 그리고 `uv run python tools/sibling_overlap.py`를 쳐 ADR 번호와 헌법 판을 형제(origin/<기준 브랜치>, 열린 PR, 형제 워크트리)와 대 본다(무엇을 보는지는 그 독스트링). 1로 끝나면 출력대로 고친다. 번호는 "옮길 번호"대로 비켜 가고, 이 브랜치의 변경에서 옛 번호를 가리킨 인용도 고친다.
+- 커밋 전에 `git branch --show-current`로 브랜치를 본다. 같은 체크아웃을 다른 세션이 옮길 수 있다. main과 dev 위의 커밋은 훅이 막는다. 브랜치를 딸 자리인 기준 브랜치는 핫픽스(`hotfix/*`)면 `origin/main`, 그 밖이면 이 클론에 `origin/dev`의 추적 ref가 있을 때 `origin/dev`, 없을 때 `origin/main`이다(`<기준 브랜치>`는 이 규칙이고 원천은 `docs/constitution/operations.md` 브랜치와 병합이다. 클론이 `git fetch origin`으로 dev를 받기 전에는 main이다). 그리고 `uv run python tools/sibling_overlap.py`를 쳐 ADR 번호와 헌법 버전을 형제(origin/<기준 브랜치>, 열린 PR, 형제 워크트리)와 대 본다(무엇을 보는지는 그 독스트링). 1로 끝나면 출력대로 고친다. 번호는 "옮길 번호"대로 비켜 가고, 이 브랜치의 변경에서 옛 번호를 가리킨 인용도 고친다.
 
 ## 원칙
 - 답변과 문서는 한국어로 쓴다.
+- 사람에게 보이는 글은 처음 보는 사람이 읽고 바로 판단할 수 있게 쉬운 말과 구체적인 장면(화면에 무엇이 뜨는지, 무엇이 바뀌는지)으로 쓴다. 대화의 질문, 선택지, 계획, 보고, 설명과 파일로 쓰는 명세, 티켓, ADR 초안, 용어집(`GLOSSARY.md`)의 이름과 풀이가 모두 사람에게 보이는 글이다. 낱말은 사람이 흔히 쓰는 말에서 먼저 고른다. 어려운 한자어와 영어 이름은 흔히 쓰는 말로 바꾸고, 용어집의 이름처럼 바꿀 수 없는 말은 처음 나올 때 풀이를 붙인다. 선택지 라벨은 내부 이름(코드 이름, 형식 번호)이 아니라 고르면 실제로 바뀌는 것이고, 코드 이름은 꼭 필요할 때 괄호로 덧붙인다. agent-os에서 사용자가 코드 이름으로 쓴 선택지를 고르지 못했고 명세와 티켓과 용어집의 낯선 말도 고쳐 달라고 해서 그 저장소가 이 규칙을 넓혔고, 사용자가 같은 규칙을 이 저장소에 맞추게 했다(일지 `2026-11-18-1008-plain-words-in-written-artifacts.md`).
 
 ## Agent skills
 ### Issue tracker

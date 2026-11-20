@@ -1,8 +1,10 @@
-"""`JobQueue` 어댑터의 임대 연장과 인수(명세 "수집 파이프라인과 작업"의 작업자 항목, 티켓 13).
+"""`JobQueue` 어댑터의 작업 담당 기록 연장과 인수(명세 "수집 파이프라인과 작업"의 작업자 항목, 티켓
+13).
 
-임대 연장과 끝내기도 작업 행 조건(작업자 ID와 시도 횟수가 꺼낼 때 값 그대로)을 지나고, 임대를 잃은
-시도면 작업 행을 바꾸지 않고 `AttemptLostError`를 올려 임대를 잃은 시도가 끝낸 것으로 오해하지 않게
-한다. 인수 시험은 `RAG_JOB_LEASE_SECONDS=1`의 실제 시간으로 임대가 끝나기를 기다린다.
+작업 담당 기록 연장과 끝내기도 작업 행 조건(작업자 ID와 시도 횟수가 꺼낼 때 값 그대로)을 지나고,
+작업 담당 기록을 잃은 시도면 작업 행을 바꾸지 않고 `AttemptLostError`를 올려 작업 담당 기록을 잃은
+시도가 끝낸 것으로 오해하지 않게 한다. 인수 시험은 `RAG_JOB_LEASE_SECONDS=1`의 실제 시간으로 작업
+담당 기록의 기한이 끝나기를 기다린다.
 """
 
 import asyncio
@@ -30,7 +32,7 @@ async def _seed_documents(unit_of_work: PostgresUnitOfWork, count: int = 1) -> l
     return documents
 
 
-async def test_임대를_연장하면_임대_만료가_새_시각이_된다(engine: AsyncEngine) -> None:
+async def test_작업_담당_기록을_연장하면_만료_시각이_새_시각이_된다(engine: AsyncEngine) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
     (document,) = await _seed_documents(unit_of_work)
     async with unit_of_work.begin() as transaction:
@@ -54,7 +56,7 @@ async def test_임대를_연장하면_임대_만료가_새_시각이_된다(engi
     )
 
 
-async def test_임대를_잃은_시도의_연장은_작업_행을_바꾸지_않고_임대를_잃었다고_알린다(
+async def test_작업_담당_기록을_잃은_시도의_연장은_작업_행을_바꾸지_않고_잃었다고_알린다(
     engine: AsyncEngine,
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
@@ -83,7 +85,7 @@ async def test_임대를_잃은_시도의_연장은_작업_행을_바꾸지_않�
     )
 
 
-async def test_같은_작업자가_다시_꺼낸_뒤에도_이전_시도의_연장은_임대를_잃었다고_알린다(
+async def test_같은_작업자가_다시_꺼낸_뒤에도_이전_시도의_연장은_작업_담당_기록을_잃었다고_알린다(
     engine: AsyncEngine,
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
@@ -111,7 +113,7 @@ async def test_같은_작업자가_다시_꺼낸_뒤에도_이전_시도의_연�
     assert reread.leased_until == extended_until
 
 
-async def test_끝내기는_이_시도의_작업_행만_쓰고_잃은_시도는_임대를_잃었다고_알린다(
+async def test_끝내기는_이_시도의_작업_행만_쓰고_잃은_시도는_작업_담당_기록을_잃었다고_알린다(
     engine: AsyncEngine,
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
@@ -168,7 +170,7 @@ async def test_두_작업자가_동시에_꺼내도_모든_작업이_한_번씩�
     assert set(first).isdisjoint(second)
 
 
-async def test_임대가_1초인_작업은_1초가_지나면_다른_작업자가_가져가고_시도_횟수가_는다(
+async def test_작업_담당_기록의_기한이_1초인_작업은_1초_뒤_다른_작업자가_가져가고_시도_횟수가_는다(
     engine: AsyncEngine,
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
@@ -179,8 +181,8 @@ async def test_임대가_1초인_작업은_1초가_지나면_다른_작업자가
     async with unit_of_work.begin() as transaction:
         first = await transaction.jobs.claim("작업자-1", claimed_at, 1.0)
     assert first is not None
-    # 임대 중의 거부는 실제 시각이 아니라 첫 꺼내기 시각에서 반 초 뒤로 보인다. 부하로 조회가
-    # 늦어져 실제 시각이 임대 끝을 넘어도 이 단언이 흔들리지 않게 하기 위해서다.
+    # 기한 안의 거부는 실제 시각이 아니라 첫 꺼내기 시각에서 반 초 뒤로 보인다. 부하로 조회가
+    # 늦어져 실제 시각이 기한의 끝을 넘어도 이 단언이 흔들리지 않게 하기 위해서다.
     async with unit_of_work.begin() as transaction:
         during_lease = await transaction.jobs.claim(
             "작업자-2", claimed_at + timedelta(seconds=0.5), 1.0

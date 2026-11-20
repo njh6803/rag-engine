@@ -7,7 +7,7 @@ date: 2026-11-09
 
 킥오프의 층은 `rag_engine.main > rag_engine.server` 둘이었고 나머지는 core 설계 인터뷰가 정하기로 했다. 플러그인 자리 셋(ADR 0003)과 벡터 저장소(ADR 0006)의 교체가 모두 포트 뒤의 어댑터를 바꾸는 일이어야 하므로 포트·어댑터 모양으로 간다. `domain`에는 엔티티(원천, 그룹, 지식베이스, 문서, 조각, 작업)와 포트가 있다. 포트는 `typing.Protocol`이고 Connector, Transform, Parser, Chunker, Embedder, Reranker, VectorIndex, JobQueue, DocumentStore, BlobStore다(바뀜: 이력 2026-11-10 "포트 열에 작업 단위 포트 `UnitOfWork`를 더하고, 포트마다 교체 경계인지 테스트 가짜 자리인지를 밝힌다")(바뀜: 이력 2026-11-10 "포트 열에 `Catalog`와 `TokenStore`를 더한다")(바뀜: ADR 0019)(바뀜: 이력 2026-11-13 "포트 열에 `RelevanceJudge`를 더하고 `VectorIndex`에 진단용 메서드 `diagnose_candidates`를 더한다"). `app`에는 유스케이스(수집, 동기화, 검색, 재색인, 삭제, 토큰 발급)가 있고 포트만 부른다(바뀜: ADR 0018). DocumentStore, VectorIndex, JobQueue의 PostgreSQL 어댑터는 한 트랜잭션을 공유할 수 있어야 한다. 문서의 조각 교체(ADR 0006), 색인 판 전환(ADR 0008), 문서 상태와 작업 상태(ADR 0009)가 그것에 기댄다. 유스케이스가 그 경계를 열어 세 포트에 넘기는 모양(작업 단위 포트)은 명세가 정한다(바뀜: 이력 2026-11-10 "포트 열에 `Catalog`와 `TokenStore`를 더한다"). `adapters`에는 PostgreSQL(SQLAlchemy·alembic, ADR 0011), TEI(ADR 0010), 파서 라이브러리, 커넥터, 작업 대기열(ADR 0009), 파일 저장소(ADR 0013)의 구현이 있다. `server`는 FastAPI 앱을, `worker`는 작업자를 조립하고 나란히 서며, `main`의 관리 명령이 둘 중 하나를 띄운다. 경계는 `pyproject.toml`의 import-linter layers 계약이 판정한다. 계약을 `rag_engine.main` > `rag_engine.server | rag_engine.worker` > `rag_engine.adapters` > `rag_engine.app` > `rag_engine.domain`으로 고치는 일은 core의 첫 구현 티켓이 패키지를 만들 때 하고, 그때까지 계약은 킥오프의 둘 그대로다.
 
-프로세스와 이미지는 서버와 작업자 둘이고 같은 파이썬 패키지에서 나온다(`docs/constitution/tech.md`의 한 패키지 원칙). 둘 다 torch가 없다. 임베딩과 리랭커는 별도 컨테이너가 돌리기 때문이다(ADR 0010). 단독 compose의 기본 컨테이너는 서버, 작업자, PostgreSQL, 임베딩 TEI, 리랭커 TEI 다섯이다(바뀜: ADR 0010 이력 2026-11-17 "리랭커는 기본 설치에서 켜지 않고, 켜는 설치가 끝점을 설정한다").
+프로세스와 이미지는 서버와 작업자 둘이고 같은 파이썬 패키지에서 나온다(`docs/constitution/tech.md`의 한 패키지 원칙). 둘 다 torch가 없다. 임베딩과 리랭커는 별도 컨테이너가 돌리기 때문이다(ADR 0010). 단독 compose의 기본 컨테이너는 서버, 작업자, PostgreSQL, 임베딩 TEI, 리랭커 TEI 다섯이다(바뀜: ADR 0010 이력 2026-11-17 "리랭커는 기본 설치에서 켜지 않고, 켜는 설치가 끝점을 설정한다")(바뀜: ADR 0020).
 
 ## Considered Options
 
@@ -42,3 +42,7 @@ core 티켓을 쪼개면서 검사 러너가 테스트 PostgreSQL을 띄우는 �
 ### 2026-11-14 `RelevanceJudge`는 ADR 0003의 넷째 플러그인 자리가 아니다
 
 search-eval 12(Claude 판정기)를 구현하며 사용자가 승인했다. 앞 이력(2026-11-13)이 `RelevanceJudge`를 외부 서비스의 경계라고만 적어, 포트 열의 다른 외부 경계(Embedder, Reranker)처럼 ADR 0003의 플러그인 자리 셋(커넥터, 변환, 파서)에 더하는 넷째 자리로 읽힐 수 있었다. 명세(`.scratch/search-eval/spec.md`의 "LLM 관련성 판정")와 ADR 0019는 이미 그렇지 않다고 적었고, 그 가름을 이 ADR의 이력에도 남긴다. 판정기는 판을 붙여 밖에 여는 인터페이스가 아니다. 다른 제공자의 구현도 이 저장소의 `adapters`에 더하고, 평가 유스케이스만 부른다. 그래서 ADR 0003의 자리 수와 그 판(ADR 0012)은 바뀌지 않는다. 결정은 바뀌지 않고 읽는 법을 못 박는 기록이다.
+
+### 2026-11-19 용어집이 계약에 붙이는 번호의 이름을 판에서 버전으로 바꿨다
+
+계약에 붙이는 번호를 가리키는 말이 "판"에서 "버전"으로 바뀌었다. 본문과 앞 이력에서 포트와 인터페이스에 붙이는 번호를 뜻하는 "판"("포트와 인터페이스 판", "ADR 0003의 자리 수와 그 판" 같은 곳)은 "버전"으로 읽는다. "판정"처럼 다른 낱말의 일부인 글자는 상관이 없다. 이름만 바뀌었고 이 ADR의 결정은 그대로다. 같은 낱말을 바꾼 일의 까닭과 헌법 버전을 올린 까닭은 ADR 0016의 이력 2026-11-19 "계약에 붙이는 번호의 이름을 버전으로 바꿔 헌법 버전을 1.5.3으로 올렸다"에 있다(티켓 `.scratch/harness/issues/glossary-contract-version-names.md`).

@@ -1,5 +1,5 @@
-"""MCP 전송 설정 둘(`RAG_MCP_STATELESS`, `RAG_MCP_JSON_RESPONSE`)이 `/mcp`의 전송에 그대로 이어진다
-(명세 "층, 패키지, 조립"). 기본은 세션 없음 + SSE 응답이다."""
+"""MCP 연결 방식 설정 둘(`RAG_MCP_STATELESS`, `RAG_MCP_JSON_RESPONSE`)이 `/mcp`의 연결 방식에 그대로
+이어진다(명세 "층, 패키지, 조립"). 기본은 세션 없음 + SSE 응답이다."""
 
 from collections.abc import Callable
 

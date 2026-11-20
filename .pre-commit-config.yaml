@@ -57,11 +57,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-      # 이 가지가 헌법 파일(principles·tech·operations)을 고쳤는데 판이 origin/main 이나 merge-base 의 것과
-      # 같으면 막는다. 판정은 커밋에 들 판(색인)이라, 고친 커밋과 판을 올린 커밋을 나누면 앞 커밋이
-      # 막힌다. 같은 판정을 tools/sibling_overlap.py 가 작업 트리로 알린다. CI 에는 없다.
+      # 이 가지가 헌법 파일(principles·tech·operations)을 고쳤는데 버전이 origin/main 이나
+      # merge-base 의 것과 같으면 막는다. 판정은 커밋에 들 판(색인)이라, 고친 커밋과 버전을 올린
+      # 커밋을 나누면 앞 커밋이 막힌다. 같은 판정을 tools/sibling_overlap.py 가 작업 트리로 알린다.
+      # CI 에는 없다.
       - id: check-constitution-version
-        name: constitution version (헌법 파일을 고친 가지가 판을 올렸는지 — tools/check_constitution_version.py)
+        name: constitution version (헌법 파일을 고친 가지가 버전을 올렸는지 — tools/check_constitution_version.py)
         entry: uv run python -m tools.check_constitution_version
         language: system
         files: ^docs/constitution/[^/]+\.md$

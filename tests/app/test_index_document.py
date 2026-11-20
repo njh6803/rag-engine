@@ -36,7 +36,7 @@ SUCCEEDED = JobOutcome(JobStatus.SUCCEEDED, None)
 
 
 class _CountingRunner:
-    """실제 실행기를 감싸 파싱 횟수를 센다. `library_version`을 주면 파서의 판이 바뀐 것으로
+    """실제 실행기를 감싸 파싱 횟수를 센다. `library_version`을 주면 파서 버전이 바뀐 것으로
     본다."""
 
     def __init__(self, inner: SubprocessParseRunner, library_version: str | None = None) -> None:
@@ -180,7 +180,9 @@ async def test_임베딩하는_사이_세대가_올라가면_조각을_쓰지_�
     assert state is None
 
 
-async def test_임대를_잃은_시도는_세대를_올리지_못하고_버려진다(pipeline: Pipeline) -> None:
+async def test_작업_담당_기록을_잃은_시도는_세대를_올리지_못하고_버려진다(
+    pipeline: Pipeline,
+) -> None:
     ingested = await pipeline.ingest(휴가)
     stale = await pipeline.claim("worker-1")
     await pipeline.claim("worker-2", later=LEASE_SECONDS + 1)
@@ -193,7 +195,7 @@ async def test_임대를_잃은_시도는_세대를_올리지_못하고_버려�
     assert await pipeline.chunk_texts(ingested.document_id) == []
 
 
-async def test_내용이_같고_파서의_판도_같으면_파싱을_건너뛴다(pipeline: Pipeline) -> None:
+async def test_내용이_같고_파서_버전도_같으면_파싱을_건너뛴다(pipeline: Pipeline) -> None:
     runner = _CountingRunner(pipeline.parse_runner)
     ingested = await pipeline.ingest(휴가)
     await index_document(pipeline.deps(parse_runner=runner), await pipeline.claim())
@@ -222,7 +224,7 @@ async def test_내용이_바뀌면_다시_파싱하고_옛_조각을_새_조각�
     assert any("출장비" in text for text in new)
 
 
-async def test_파서의_판이_바뀌면_내용이_같아도_다시_파싱한다(pipeline: Pipeline) -> None:
+async def test_파서_버전이_바뀌면_내용이_같아도_다시_파싱한다(pipeline: Pipeline) -> None:
     first = _CountingRunner(pipeline.parse_runner)
     ingested = await pipeline.ingest(휴가)
     await index_document(pipeline.deps(parse_runner=first), await pipeline.claim())

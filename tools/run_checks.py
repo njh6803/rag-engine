@@ -10,7 +10,8 @@ ADR 0005 의 2026-10-07 이력). 그래서
 일부 파일만 커밋할 때 git 이 훅에 준 임시 색인(`GIT_INDEX_FILE`)이 자식까지 그대로 가야 한다.
 리눅스가 아닌 곳에서는 pyright 를 리눅스 플랫폼으로 한 번 더 돌아 열이다(`pyright_checks`, 대기열
 403). 여기까지는 agent-os 의 수다. rag-engine 은 web 검사(`pnpm -C web verify`)를 옮기지 않아
-여덟이고, 리눅스가 아닌 곳에서 아홉이다.
+여덟이고, 리눅스가 아닌 곳에서 아홉이다. 릴리스 노트 원고를 보는 노트 검사(`tools/check_notes.py`,
+release-image 05)가 더해져 리눅스에서 아홉, 그 밖에서 열이다.
 파일을 고치는 ruff 둘은 이 훅 앞에 따로 있어, 러너는 고친 뒤의 파일을 본다. 검사 목록의 원천은 여기
 하나다. CI 는 잡마다 명령을 직접 돈다(`.github/workflows/ci.yml`).
 
@@ -60,7 +61,8 @@ pytest 작업 프로세스 여덟이 일을 받지 못한 채 약 11시간 남�
   한다. CI 는 어차피 전부 돌아 로컬에서 건너뛰면 빨강이 PR 로 늦게 올 뿐이다. 대가는 Docker 가 없고
   닿는 PostgreSQL 도 없는 세션이 커밋을 못 한다는 것이고, next-session 결정표가 그 갈래를 적는다.
   `SKIP=pytest` 우회는 막지 않는다. 판정은 CI 의 `verify` 가 하고, 이 우회로 난 사고를 일지와 대기열
-  항목에서 찾지 못했으며(`SKIP=pytest` 를 grep 했다) 막는 훅은 교정 루프(CLAUDE.md)의 문턱 전이다.
+  항목에서 찾지 못했으며(`SKIP=pytest` 를 grep 했다) 막는 훅은 교정 루프(CLAUDE.md)의 추가 기준 횟수
+  전이다.
 - 테스트 데이터베이스 준비가 못 보는 것. (1) SSL 요청에 답한 서버가 `RAG_TEST_DATABASE_URL` 의
   역할과 데이터베이스까지 맞는지는 모른다. 55432 포트를 다른 PostgreSQL 이 쓰고 있으면 compose 를
   띄우지 않고, 이어서 시험이 인증 오류로 빨개질 것으로 어림한다. (2) 호스트 이름
@@ -179,6 +181,7 @@ CHECKS: tuple[Check, ...] = (
     Check("check-type-escapes", ("uv", "run", "python", "tools/check_type_escapes.py")),
     Check("run-hooks", ("uv", "run", "python", "tools/run_hooks.py")),
     Check("check-ticket", ("uv", "run", "python", "tools/check_ticket.py")),
+    Check("check-notes", ("uv", "run", "python", "tools/check_notes.py")),
     Check(
         "zizmor",
         ("uv", "run", "zizmor", "--offline", "--strict-collection")

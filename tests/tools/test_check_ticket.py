@@ -267,7 +267,7 @@ def test_독스트링의_면제_모양_원천이_기능_계획과_손_파일을_
     assert "`.scratch/plan-head.md`" in doc
 
 
-def test_독스트링의_면제_모양_원천이_헌법_판_이력_기록을_든다() -> None:
+def test_독스트링의_면제_모양_원천이_헌법_버전_이력_기록을_든다() -> None:
     doc = check_ticket.__doc__
     assert doc is not None
     assert "`docs/constitution/history.md`" in doc
@@ -974,7 +974,7 @@ def test_CI는_기능_계획과_손_파일만_바꾼_PR을_지난다(저장소: 
     _CI가_지났다(_CI로_친다(저장소, _PR_병합_커밋(저장소, "docs/plan")))
 
 
-def test_CI는_헌법_판_이력_기록만_바꾼_PR을_지난다(저장소: Repo) -> None:
+def test_CI는_헌법_버전_이력_기록만_바꾼_PR을_지난다(저장소: Repo) -> None:
     저장소.git("switch", "-q", "-c", "docs/history")
     _훅을_건너뛰고_커밋한다(
         저장소,
@@ -1112,7 +1112,8 @@ def test_CI는_머리_브랜치가_main인_PR을_지난다(저장소: Repo) -> N
 
 @pytest.mark.parametrize("branch", ["dev", "main"])
 def test_CI는_머리_브랜치가_dev나_main인_PR을_지난다(저장소: Repo, branch: str) -> None:
-    # dev→main 출시 PR 과 main→dev 되돌려 합치기는 티켓 하나를 가리키지 않는다(agent-os ADR 0043)
+    # dev→main 출시 PR 과 main→dev 운영에서 개발로 합치기는 티켓 하나를 가리키지 않는다
+    # (agent-os ADR 0043)
     _훅을_건너뛰고_커밋한다(저장소, {"tools/b.py": "B = 1\n"})
     head = 저장소.git("rev-parse", "HEAD")
     base = 저장소.git("rev-parse", "origin/main")

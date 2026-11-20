@@ -39,7 +39,7 @@ def _규정(document: DocxDocument) -> None:
     table.cell(1, 1).text = "15일"
 
 
-def test_파서는_DOCX_MIME을_받고_인터페이스_판을_밝힌다() -> None:
+def test_파서는_DOCX_MIME을_받고_인터페이스_버전을_밝힌다() -> None:
     parser = DocxParser()
 
     assert list(parser.mime_types) == [DOCX_MIME]

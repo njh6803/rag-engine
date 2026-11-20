@@ -23,3 +23,4 @@
 | [0017](0017-min-score-argument-requires-reranker.md) | 검색 도구에 최소 점수 인자를 두되 리랭커가 없으면 거부하고, 구현은 점수 분포를 잰 뒤에 한다 | accepted | 2026-11-12 |
 | [0018](0018-search-evaluation-in-app-and-baseline-gate.md) | 검색 평가의 핵심은 제품 코드의 유스케이스이고, 기대 근거로 채점하며, 기준 보고서보다 떨어지면 CI가 막는다 | accepted | 2026-11-12 |
 | [0019](0019-llm-relevance-judging-behind-a-port.md) | LLM은 검색 평가의 관련성 판정에만 쓰고, 판정기는 포트 뒤의 Claude 어댑터이며, 기본은 꺼짐이다 | accepted | 2026-11-12 |
+| [0020](0020-release-follows-agent-os-adr-0056.md) | 판 내기는 agent-os ADR 0056을 따르고, 이 저장소에서 다른 것만 적는다 | accepted | 2026-11-17 |

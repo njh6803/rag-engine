@@ -163,7 +163,7 @@ def _pending(
 
 def _mismatches(settings: JudgeSettings, config: EvalConfig) -> list[str]:
     """`RAG_JUDGE_MODEL`과 어댑터의 지시문 판이 `config.json`의 열쇠와 어긋난 곳. 값은 비밀이 아니라
-    싣는다(모델 이름과 판 번호)."""
+    싣는다(모델 이름과 버전 번호)."""
     found: list[str] = []
     if settings.model != config.judge_model:
         found.append(

@@ -12,8 +12,8 @@
 번호는 둘이고, 형제가 새로 매긴 번호를 이 브랜치도 새로 매겼으면 겹침이다.
 
 - ADR 번호: `docs/adr/NNNN-*.md`의 `NNNN`. 같은 번호에 다른 파일이면 겹침이다.
-- 헌법 판: `docs/constitution/README.md`의 `**Version**: X.Y.Z`.
-  둘이 같은 판으로 올렸으면 겹침이다.
+- 헌법 버전: `docs/constitution/README.md`의 `**Version**: X.Y.Z`.
+  둘이 같은 버전으로 올렸으면 겹침이다.
 
 harness 티켓(`.scratch/harness/issues/<slug>.md`)은 번호가 아니다. 세션이 영어 소문자로 시작하는
 이름을 직접 지어, 형제와 나눠 쓰는 순번이 없다(retro-queue-per-item 07, ADR 0037 "번호"의 개정).
@@ -33,14 +33,14 @@ harness 티켓(`.scratch/harness/issues/<slug>.md`)은 번호가 아니다. 세�
 그 merge-base와 기준 ref 어디에도 없는 번호만 그 형제의 것으로 본다. 그래서 기준 ref가
 이미 가진 번호는 그 줄에만 한 번 나온다. 이 브랜치의 새 번호에서는 기준 ref에 같은 번호·같은
 파일로 이미 든 것도 뺀다. 쌓아 올린 아래 PR이 squash로 병합된 뒤 main을 들이지 않은
-브랜치에서 그 번호는 공유한 이력인데, 새 번호로 세면 main에 있는 파일을 옮기라고 한다. 헌법 판은
+브랜치에서 그 번호는 공유한 이력인데, 새 번호로 세면 main에 있는 파일을 옮기라고 한다. 헌법 버전은
 내용을 가를 수 없어 빼지 않는다. 합치기를 커밋하기 전(`MERGE_HEAD` 가 있다)에는 합칠 머리(main 이
 아니어도, octopus 면 모두)의 번호를 이 브랜치 밖의 번호로 세고, 그와 같은 파일을 이 브랜치의 새
 번호에서 뺀다. merge-base 를 `git merge-base <기준 ref> HEAD MERGE_HEAD`(`tools/check_ticket.py` 의
 꼴)로 구하면 합칠 머리가 main 일 때 main 자체가 되어, 그 겹침과 main 이 함께 고친 파일까지 사라져
 그러지 않는다 (그 꼴로 바꾼 판에서 이 도구의 시험 둘이 빨개진 것을 손으로 봤다, harness 티켓 024).
 이 브랜치는 작업 트리(커밋하지 않은 변경과 미추적 파일)를 읽는다. merge-base에서 두 자리(ADR,
-헌법 판) 가운데 하나라도 비면 경로가 어긋난 것으로 보고 2로 끝난다(조용히 겹침 없음이 되지 않게).
+헌법 버전) 가운데 하나라도 비면 경로가 어긋난 것으로 보고 2로 끝난다(조용히 겹침 없음이 되지 않게).
 일지는 그 자리에 들지 않는다. 번호를 읽지 않아 비어도 겹침 없음이 되는 일이 없고, 일지 폴더가
 비었거나 순번 일지가 하나도 없는 merge-base에서도 대조가 멈추지 않는다. 대기열도 그 자리에 들지
 않는다. 대기열이 폴더가 된 뒤에는 옛 표 (`.scratch/retro-queue.md`)가 어느 브랜치의 merge-base에도
@@ -70,13 +70,13 @@ PR을 연 지 몇 분 안에는 그 ref가 아직 없어, 그 ref를 받는 fetc
 빠지는 것은 시험이 밟는다. GitHub 원격에서는 재지 않았다. 그래도 받지 못한 PR만 형제에서 빼고
 출력의 "받지 못해 대조에서 뺀 열린 PR" 줄로 알린다. 종료 코드는 남은 형제로 정한다.
 
-이 브랜치가 고친 파일(함께 고친 파일, 헌법 판, 카나리아, `--move` 가 쓰는 것)은 merge-base 뒤에
+이 브랜치가 고친 파일(함께 고친 파일, 헌법 버전, 카나리아, `--move` 가 쓰는 것)은 merge-base 뒤에
 고친 파일 가운데 main 과 내용이 다른 것과 미추적 파일이다. main 을 합치다 충돌을 풀고 커밋하기
 전에는 merge-base 가 옛 자리에 머물러, merge-base 와의 차이만 세면 main 이 들여온 파일이 모두
 섞인다. 그 상태에서 친 대조가 main 의 규칙과 스킬을 카나리아 누락으로 알리고 1로 끝났다(일지
-2026-10-15-15). 헌법 README 가 이 브랜치가 고친 파일이 아니면 디스크의 판도 이 브랜치의 새 판으로
-세지 않는다. 같은 상태에서 main 이 올린 판을 이 브랜치의 판으로 읽어 main 과 같은 판으로 겹쳤다고
-1로 끝났다.
+2026-10-15-15). 헌법 README 가 이 브랜치가 고친 파일이 아니면 디스크의 버전도 이 브랜치의 새
+버전으로 세지 않는다. 같은 상태에서 main 이 올린 버전을 이 브랜치의 버전으로 읽어 main 과 같은
+버전으로 겹쳤다고 1로 끝났다.
 
 HEAD가 닫힌 PR의 head와 같은 형제 워크트리는 커밋하지 않은 변경(그 HEAD 뒤의 변경과 미추적
 파일)만 고친 파일로 견주고, 형제 줄에서는 그 수만 접어 찍는다(대기열 194). 함께 고친 파일 서른여덟
@@ -93,28 +93,29 @@ PR을 읽으려고 이미 치는 `ls-remote`의 `refs/pull/*/head` 가운데 열
 다음 빈 번호는 찍지 않는다. 찍던 것은 harness 티켓의 세 자리 번호뿐이었고(대기열 157·182),
 티켓이 번호 없는 이름이 되며 뺐다. ADR 번호는 겹친 뒤 "옮길 번호"로 받고, 일지의 번호는 없다(위).
 
-형제가 쓴 가장 높은 헌법 판은 늘 찍는다(대기열 199). 판을 올리기 전의 대조는 겹침을 알리지
-못해, 올린 뒤 다시 친 대조가 형제가 먼저 매긴 같은 판을 알렸다. main은 가진 판, 다른 형제는
-새로 매긴 판이 후보이고, 판은 글자가 아니라 수로 견준다. 다음 판은 고르지 않는다(아래).
+형제가 쓴 가장 높은 헌법 버전은 늘 찍는다(대기열 199). 버전을 올리기 전의 대조는 겹침을 알리지
+못해, 올린 뒤 다시 친 대조가 형제가 먼저 매긴 같은 버전을 알렸다. main은 가진 버전, 다른 형제는
+새로 매긴 버전이 후보이고, 버전은 글자가 아니라 수로 견준다. 다음 버전은 고르지 않는다(아래).
 
 헌법 파일(`principles.md`·`tech.md`·`operations.md`)을 merge-base 뒤에 고쳤는데 이 브랜치가
-판을 새로 매기지 않았으면 알린다(대기열 224). `principles.md` 거버넌스는 원칙 변경을 major, 절
-추가를 minor, 문구 수정을 patch로 올리고, 판을 올리지 않은 변경은 뒤에 소급했다. 2.4.0과 2.5.1이
+버전을 새로 매기지 않았으면 알린다(대기열 224). `principles.md` 거버넌스는 원칙 변경을 major, 절
+추가를 minor, 문구 수정을 patch로 올리고, 버전을 올리지 않은 변경은 뒤에 소급했다. 2.4.0과 2.5.1이
 그런 PR 열셋을 묶었고(`docs/constitution/README.md`), `operations.md`를 고치고 올리지 않은 것을 셀프
 리뷰가 잡았다(일지 2026-10-13-18).
 
-main 이 이 브랜치 몫으로 비워 둔 헌법 판은 이 브랜치가 올린 판으로 센다(대기열 279). 함께 돌던
-형제가 이 브랜치가 매긴 판을 건너뛰어 더 높은 판으로 먼저 병합하면, 그 형제는 헌법 README 에
-"<판>은 함께 돌던 형제 브랜치(<백틱으로 감싼 이 브랜치의 이름>)가 먼저 매겨 비워 두었다" 를 한 줄에
-하나씩 적는다. 그 뒤 main 을 합친 이 브랜치는 판 줄을 main 의 판으로 두고 그 문장을 지운다. 그 판
-줄은 합치기를 커밋한 뒤 merge-base 와 같아 판을 올리지 않고 헌법 파일을 고쳤다고 1로 끝났고(합칠
-때마다, 두 번. 일지 2026-10-15-19), 합친 main 이 판 줄을 바꿨으면 커밋하기 전에는 main 과 같아 main
-과 같은 판으로 겹쳤다고 1로 끝난다. 그래서 판 줄이 merge-base 나 main 의 것이고 헌법 README 를
-고쳤을 때, 이 브랜치의 판 줄이 main 의 판 줄과 같고 main 의 README 에 지금 브랜치의 이름으로 비워
-둔 판의 문장이 있는데 이 브랜치의 README 에는 없으면 그 판을 이 브랜치의 새 판으로 센다. 판을 올린
-까닭은 헌법 README 가 아니라 그 변경의 ADR 이력이나 일지에 적는다(retro-queue-per-item 06. 헌법
-README 의 이력 문단을 더하던 옛 신호는 그 문단이 `docs/constitution/history.md` 로 옮겨 가 기록이
-되면서 없어졌다). 판 줄을 비워 둔 판으로 낮추는 길은 두지 않는다. 병합하면 main 의 판이 내려간다.
+main 이 이 브랜치 몫으로 비워 둔 헌법 버전은 이 브랜치가 올린 버전으로 센다(대기열 279). 함께 돌던
+형제가 이 브랜치가 매긴 버전을 건너뛰어 더 높은 버전으로 먼저 병합하면, 그 형제는 헌법 README 에
+"<버전>은 함께 돌던 형제 브랜치(<백틱으로 감싼 이 브랜치의 이름>)가 먼저 매겨 비워 두었다" 를 한
+줄에 하나씩 적는다. 그 뒤 main 을 합친 이 브랜치는 버전 줄을 main 의 버전으로 두고 그 문장을 지운다.
+그 버전 줄은 합치기를 커밋한 뒤 merge-base 와 같아 버전을 올리지 않고 헌법 파일을 고쳤다고 1로
+끝났고(합칠 때마다, 두 번. `일지 2026-10-15-19`), 합친 main 이 버전 줄을 바꿨으면 커밋하기 전에는
+main 과 같아 main 과 같은 버전으로 겹쳤다고 1로 끝난다. 그래서 버전 줄이 merge-base 나 main 의
+것이고 헌법 README 를 고쳤을 때, 이 브랜치의 버전 줄이 main 의 버전 줄과 같고 main 의 README 에 지금
+브랜치의 이름으로 비워 둔 버전의 문장이 있는데 이 브랜치의 README 에는 없으면 그 버전을 이 브랜치의
+새 버전으로 센다. 버전을 올린 까닭은 헌법 README 가 아니라 그 변경의 ADR 이력이나 일지에
+적는다(retro-queue-per-item 06. 헌법 README 의 이력 문단을 더하던 옛 신호는 그 문단이
+`docs/constitution/history.md` 로 옮겨 가 기록이 되면서 없어졌다). 버전 줄을 비워 둔 버전으로 낮추는
+길은 두지 않는다. 병합하면 main 의 버전이 내려간다.
 
 바꾼 하네스 파일의 카나리아도 본다(대기열 235). 이 브랜치가 merge-base 뒤에 고친 스킬 본문
 (`.claude/skills/*/*.md`. `SKILL.md` 가 Read 로 열게 하는 하위 파일도 카나리아의 하위 파일 갈래가
@@ -124,10 +125,10 @@ README 의 이력 문단을 더하던 옛 신호는 그 문단이 `docs/constitu
 새 `claude -p` 세션에서 불러 보고 그 명세의 `# 최신 결과:` 줄을
 고친다(`docs/constitution/operations.md` 환경 규약 상세). `next-session` 의 병합 절차(지금
 `merge.md`)를 바꾸고 카나리아를 돌리지 않은 채 셀프 리뷰 두 축과 PR 직전 리뷰를 지났고, 회고에서 그
-절을 다시 읽다 찾았다(일지 2026-10-13-38). 헌법 판처럼 커밋 전에 고칠 누락이라 이것도 1로 끝난다.
-다만 계정 한도로 카나리아를 돌리지 못하면 결과 줄을 고칠 수 없다. 그 갈래는 같은 절의 계정 한도
-항목대로 사전 확인만 돌리고 이 알림이 남은 채 커밋한다고 출력이 함께 말한다(셀프 리뷰 명세 축, 일지
-2026-10-15-15).
+절을 다시 읽다 찾았다(`일지 2026-10-13-38`). 헌법 버전처럼 커밋 전에 고칠 누락이라 이것도 1로
+끝난다. 다만 계정 한도로 카나리아를 돌리지 못하면 결과 줄을 고칠 수 없다. 그 갈래는 같은 절의 계정
+한도 항목대로 사전 확인만 돌리고 이 알림이 남은 채 커밋한다고 출력이 함께 말한다(셀프 리뷰 명세 축,
+`일지 2026-10-15-15`).
 rag-engine 에서는 카나리아 명세(`CANARY_SPECS`)가 하나도 없으면 이 판정을 끈다. 카나리아 도구와
 명세를 복사하지 않아(킥오프 7단계), 알림이 시키는 일(불러 보고 결과 줄 고치기)을 할 길이 없다. 첫
 명세가 생기면 그 저장소의 규칙(명세가 없는 하네스 파일도 알린다)대로 다시 돈다.
@@ -141,7 +142,7 @@ merge-base, main, 형제(열린 PR, 형제 워크트리의 커밋하지 않은 �
 파일에 적었다가 손으로 고쳤고(일지 2026-10-13-66), 짐작한 번호(60)를 카나리아 명세에 인용한 채
 셀프 리뷰까지 갔다(일지 2026-10-13-67). 뒤의 것은 그때 열린 PR #233 의 일지 번호와 같아 이 판정도
 지나갔을 것이고(못 보는 것의 뜻이 다른 일지), 그 PR 이 번호를 64로 옮긴 뒤에야 없는 번호가 되어
-걸린다. 판을 올리지 않은 헌법 파일처럼 커밋 전에 고칠 것이라 1로 끝난다. 인용 블록(`>` 로 시작하는
+걸린다. 버전을 올리지 않은 헌법 파일처럼 커밋 전에 고칠 것이라 1로 끝난다. 인용 블록(`>` 로 시작하는
 줄)은 사용자 프롬프트의 원문이고, 코드 스팬과 펜스 안은 옮기기 전의 옛 번호를 적은 기록이나 도구의
 출력이라 보지 않는다. `origin/main`(`df705c17`)의 추적 파일 전체에서 `일지` 인용의 번호 1389 가운데
 없는 번호는 일곱이었다. 코드 스팬 둘과 인용 블록 하나를 빼면 일지가 큰따옴표 안에 옮긴 도구 출력
@@ -180,12 +181,12 @@ claude-review 가 짚은 것이 세 번이었다(일지 2026-10-13-01·2026-10-1
 쓰임: `uv run python tools/sibling_overlap.py [저장소 안의 경로] [--move | --journal]`. 먼저
 `origin`의 main·dev(이 클론이 dev 추적 ref를 가졌을 때)와 열린 PR의 head를 fetch한다
 (기준 ref가 움직인다). 종료 코드는 번호 겹침도,
-판을 올리지 않고 고친 헌법 파일도, 카나리아 명세를 고치지 않고 바꾼 하네스 파일도, 어디에도 없는
+버전을 올리지 않고 고친 헌법 파일도, 카나리아 명세를 고치지 않고 바꾼 하네스 파일도, 어디에도 없는
 일지를 가리킨 인용도 없으면 0, 있으면 1, 대조나 옮기기를 끝내지 못하면(git 실패, 원격을 읽지
 못함, 번호의 자리가 빔, 옮길 자리에 무엇이 있음, 인자가 틀림) 2다. 1이면 출력대로 고친다. 겹쳤으면
 이 브랜치가 비켜 간다. 출력의 "옮길 번호"는 겹친 종류의 이 브랜치 새 번호 전부를 차례를 지켜
-형제들의 최대값 뒤로 붙인 것이다. 헌법 판은 고르지 않는다. 올림의 종류(major·minor·patch)는 바뀐
-내용이 정하고, 형제가 쓴 가장 높은 판보다 높으면 된다.
+형제들의 최대값 뒤로 붙인 것이다. 헌법 버전은 고르지 않는다. 올림의 종류(major·minor·patch)는 바뀐
+내용이 정하고, 형제가 쓴 가장 높은 버전보다 높으면 된다.
 
 `--journal` 은 대조하지 않고(fetch 도 하지 않는다) 이 브랜치의 일지 경로를 한 줄로 찍는다.
 merge-base 뒤에 더한
@@ -206,13 +207,14 @@ main 의 끝으로 옮겨, main 에서 들어온 남의 일지는 들지 않는�
 - PR이 닫힌 워크트리 가운데 HEAD가 그 head와 다른 것. head 뒤에 커밋을 더한 워크트리는 새 일이라
   접지 않는 것이 맞지만, head까지 따라가지 않은(head의 조상에 남은) 워크트리도 접지 않아 이미
   병합된 커밋이 함께 고친 파일에 나온다.
-- 헌법 판을 merge-base의 판에서 바꿨는지만 본다. 그보다 낮게 고쳐도, 올림의 종류가 바뀐 내용에
-  맞지 않아도(원칙을 바꾸고 patch로 올려도) 지나간다. 헌법 README의 판 줄 밖 문장(색인)과 세 파일
+- 헌법 버전을 merge-base의 버전에서 바꿨는지만 본다. 그보다 낮게 고쳐도, 올림의 종류가 바뀐 내용에
+  맞지 않아도(원칙을 바꾸고 patch로 올려도) 지나간다. 헌법 README의 버전 줄 밖 문장(색인)과 세 파일
   밖의 새 헌법 파일은 고쳐도 알리지 않는다.
-- main 이 비워 둔 헌법 판은 위의 꼴 그대로 적은 문장만 읽는다. 지금 브랜치의 이름이 그 문장의 이름과
-  다르면(이름을 바꿔 달았거나 분리 HEAD) 판을 올리지 않은 것으로 본다. 이 브랜치가 문장을 지우지
-  않고 그 꼴이 깨지게 고쳐도 그 판을 가져간 것으로 센다. 문장을 지운 까닭이 판을 가져가려는 것인지는
-  보지 않는다. main 을 합치기 전이라 판 줄이 main 과 다른 브랜치는 이 신호를 쓰지 않는다.
+- main 이 비워 둔 헌법 버전은 위의 꼴 그대로 적은 문장만 읽는다. 지금 브랜치의 이름이 그 문장의
+  이름과 다르면(이름을 바꿔 달았거나 분리 HEAD) 버전을 올리지 않은 것으로 본다. 이 브랜치가 문장을
+  지우지 않고 그 꼴이 깨지게 고쳐도 그 버전을 가져간 것으로 센다. 문장을 지운 까닭이 버전을
+  가져가려는 것인지는 보지 않는다. main 을 합치기 전이라 버전 줄이 main 과 다른 브랜치는 이 신호를
+  쓰지 않는다.
 - 일지 인용 가운데 `일지` 낱말 없이 든 번호, 목록의 줄인 꼴(`일지 2026-10-13-66·67` 의 67), 코드
   스팬·펜스·인용 블록 안의 인용, merge-base 나 main 의 판에 글자 그대로 있는 줄(옮겨 오거나 되돌린
   줄), 지운 파일과 UTF-8 로 읽지 못하는 파일, 커밋 메시지와 PR 본문의 인용. 파일이 있으면 뜻이 다른
@@ -256,10 +258,10 @@ main 의 끝으로 옮겨, main 에서 들어온 남의 일지는 들지 않는�
   끝난다. 다시 치면 그 PR은 열린 PR이 아니거나 ref 없는 PR의 길로 간다.
 - 이 브랜치가 고쳤어도 main 과 내용이 같아진 파일(main 의 같은 변경을 손으로 옮긴 것). 이 브랜치가
   고친 파일로 세지 않는다.
-- 가장 높은 헌법 판을 받은 뒤에 다른 세션이 같은 판을 쓰는 것. 그 순간의
-  형제만 본다. 그 뒤의 겹침은 커밋 직전의 대조가 잡는다. 이 브랜치의 판이 형제가 쓴 판보다 낮은
-  것은 그 줄에 찍히기만 하고 종료 코드를 바꾸지 않는다. 그 형제가 판을 새로 올렸으면 둘이 같은 판
-  줄을 고쳐, 나중에 병합하는 쪽에서 글자 충돌로 드러난다.
+- 가장 높은 헌법 버전을 받은 뒤에 다른 세션이 같은 버전을 쓰는 것. 그 순간의
+  형제만 본다. 그 뒤의 겹침은 커밋 직전의 대조가 잡는다. 이 브랜치의 버전이 형제가 쓴 버전보다 낮은
+  것은 그 줄에 찍히기만 하고 종료 코드를 바꾸지 않는다. 그 형제가 버전을 새로 올렸으면 둘이 같은
+  버전 줄을 고쳐, 나중에 병합하는 쪽에서 글자 충돌로 드러난다.
 - harness 티켓의 이름. 번호가 아니라 이름이라 겹침을 읽지 않는다. 같은 이름의 티켓을 두 세션이
   짓는 것은 함께 고친 파일로만 나온다. 기능 폴더(`.scratch/<slug>/issues/`)의 두 자리 번호도 한 기능
   안에서 한 세션이 매겨(`to-tickets`) 보지 않는다.
@@ -290,7 +292,7 @@ REMOTE = base_rule.REMOTE
 JOURNAL_DIR = "docs/journal"
 ADR_DIR = "docs/adr"
 CONSTITUTION = "docs/constitution/README.md"
-# 판을 올려야 하는 헌법 파일. 어느 변경이든 판을 올린다(`principles.md` 거버넌스의 semver)
+# 버전을 올려야 하는 헌법 파일. 어느 변경이든 버전을 올린다(`principles.md` 거버넌스의 semver)
 CONSTITUTION_TEXTS = frozenset(
     f"docs/constitution/{name}.md" for name in ("principles", "tech", "operations")
 )
@@ -315,7 +317,7 @@ type Json = dict[str, Json] | list[Json] | str | int | float | bool | None
 JOURNAL_CITE = re.compile(r"일지 (\d{4}-\d{2}-\d{2}-\d{2,4}(?:·\d{4}-\d{2}-\d{2}-\d{2,4})*)(?!\d)")
 CODE_SPAN = re.compile(r"`[^`\n]+`")
 FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
-# main 의 헌법 README 가 함께 돌던 형제 브랜치 몫으로 비워 둔 판(대기열 279)
+# main 의 헌법 README 가 함께 돌던 형제 브랜치 몫으로 비워 둔 버전(대기열 279)
 RESERVED = re.compile(
     r"(?<![\d.])(\d+\.\d+\.\d+)[은는] 함께 돌던 형제 브랜치\(`([^`]+)`\)가 먼저 매겨 비워 두었다"
 )
@@ -340,7 +342,7 @@ LOCAL_TIMEOUT = 30
 SHALLOW_HINT = "얕은 클론이면 `git fetch --unshallow origin` 뒤 다시 친다"
 
 USAGE = (
-    "이 브랜치가 새로 매긴 번호(ADR, 헌법 판)와 고친 파일을 형제(기준 ref,"
+    "이 브랜치가 새로 매긴 번호(ADR, 헌법 버전)와 고친 파일을 형제(기준 ref,"
     " 열린 PR, 형제 워크트리)와 대조한다. 바꾼 하네스 파일의 카나리아 명세를"
     " 고치지 않았거나, 이 브랜치가 더한 줄의 일지 인용이 어디에도 없는 일지를 가리키면 알린다."
     " 먼저 origin 의 오래 사는 브랜치(main, 있으면 dev)와 열린 PR 의 head 를 fetch 한다."
@@ -349,14 +351,14 @@ USAGE = (
 )
 EXITS = (
     "종료 코드: 0 고칠 것이 없다(함께 고친 파일은 알리기만 한다)."
-    " 1 출력대로 고친다(번호 겹침, 판을 올리지 않고 고친 헌법 파일, 카나리아 명세를 고치지"
+    " 1 출력대로 고친다(번호 겹침, 버전을 올리지 않고 고친 헌법 파일, 카나리아 명세를 고치지"
     " 않고 바꾼 하네스 파일, 어디에도 없는 일지를 가리킨 인용). `--journal` 에서는 이 브랜치가"
     " 더한 일지가 없다."
     " 2 대조하거나 옮기지 못했거나 인자가 틀렸다(stderr 의 할 일을 따른다)."
 )
 # 2로 끝날 때 stderr 에 함께 싣는 할 일(대기열 251)
 ON_FAILURE = (
-    "할 일: 번호(ADR, 헌법 판)를 손으로 고르지 않는다. 형제를 넘은 번호인지 알 수"
+    "할 일: 번호(ADR, 헌법 버전)를 손으로 고르지 않는다. 형제를 넘은 번호인지 알 수"
     " 없다. 원인을 고쳐 다시 친다. 번호를 쓸 파일이 아직 없으면 그동안 옮길 것은 스크래치 파일에"
     " 적어 두고, 번호를 받은 뒤 옮긴다. 일지는 번호가 없어 기다리지 않고 만든다"
 )
@@ -409,7 +411,8 @@ class Sibling:
     commit: str
     numbers: Numbers  # 이 형제만 새로 매긴 번호
     changed: frozenset[str] | None  # None 이면 merge-base 가 없어 알 수 없다
-    # 가장 높은 헌법 판의 후보. `latest` 와 같은 까닭으로 main 은 가진 판, 다른 형제는 새로 매긴 판
+    # 가장 높은 헌법 버전의 후보. `latest` 와 같은 까닭으로 main 은 가진 버전, 다른 형제는 새로 매긴
+    # 버전
     version: str | None
     # HEAD 가 닫힌 PR 의 head 인 워크트리면 그 PR 번호. `changed` 는 커밋하지 않은 변경뿐이다
     closed: int | None = None
@@ -426,7 +429,7 @@ class Survey:
     harness: list[str]  # 이 브랜치가 고친 하네스 파일 가운데 지금 있는 것
     specs: dict[str, str | None]  # 카나리아 명세 → 그 `source`
     base: str  # 이 브랜치와 main 의 merge-base. `--move` 가 둘 줄도 이 판에서 읽는다
-    # main 의 헌법 README 가 이 브랜치 몫으로 비워 둔 판의 문장을 이 브랜치가 지웠으면 그 판
+    # main 의 헌법 README 가 이 브랜치 몫으로 비워 둔 버전의 문장을 이 브랜치가 지웠으면 그 버전
     reserved: str | None
     # 이 브랜치가 고친 파일 → 이 브랜치가 더한 줄에서 어디에도 없는 일지 번호를 가리킨 인용의 번호
     dangling: list[tuple[str, list[str]]]
@@ -460,7 +463,7 @@ def fresh(numbers: Numbers, *known: Numbers) -> Numbers:
 def unshared(numbers: Numbers, other: Numbers) -> Numbers:
     """`other` 와 같은 번호에 같은 파일인 것(공유한 이력)을 뺀다. 일지는 번호가 아니라 비운다.
 
-    헌법 판은 판 줄로는 가를 수 없어 둔다. 같은 판이 공유한 이력인지 따로 올린 겹침인지는 헌법
+    헌법 버전은 버전 줄로는 가를 수 없어 둔다. 같은 버전이 공유한 이력인지 따로 올린 겹침인지는 헌법
     README 가 main 과 같은지로 `survey` 가 가른다.
     """
     adrs = {k: v for k, v in numbers.adrs.items() if other.adrs.get(k) != v}
@@ -502,7 +505,7 @@ def moves(ours: Numbers, taken: list[Numbers], found: list[Clash]) -> list[Move]
     """겹친 종류의 이 브랜치 새 번호 전부를 형제들의 최대값 뒤로 옮긴다.
 
     겹친 번호만 옮기면 이 브랜치의 다른 새 번호와 부딪히거나 차례가 뒤집힌다.
-    헌법 판은 고르지 않는다.
+    헌법 버전은 고르지 않는다.
     """
     if not any(clash.kind == "ADR" for clash in found):
         return []
@@ -516,7 +519,8 @@ def _version_key(version: str) -> tuple[int, ...]:
 
 
 def highest_version(held: Sequence[tuple[str, str | None]]) -> tuple[str, list[str]] | None:
-    """(자리, 판) 가운데 가장 높은 판과 그 판을 쓴 자리 전부. 판은 글자가 아니라 수로 견준다."""
+    """(자리, 버전) 가운데 가장 높은 버전과 그 버전을 쓴 자리 전부. 버전은 글자가 아니라 수로
+    견준다."""
     versions = [version for _, version in held if version is not None]
     if not versions:
         return None
@@ -525,11 +529,11 @@ def highest_version(held: Sequence[tuple[str, str | None]]) -> tuple[str, list[s
 
 
 def reserved_version(branch: str | None, main_text: str, ours_text: str) -> str | None:
-    """main 의 헌법 README(`main_text`)가 `branch` 몫으로 비워 둔 판 가운데, 이 브랜치의 헌법
-    README(`ours_text`)가 그 문장을 지운 것. 이 브랜치의 판 줄이 main 의 판 줄과 같아야 한다. 판
-    줄이 다르면 판 줄로 보고(main 을 합치기 전의 브랜치는 그 문장이 아예 없다), 판 줄이 없는
-    글(지웠거나 비운 README)은 가져간 판이 없다. 둘 이상이면 가장 높은 판이다. 분리 HEAD(`branch` 가
-    None)의 몫은 없다."""
+    """main 의 헌법 README(`main_text`)가 `branch` 몫으로 비워 둔 버전 가운데, 이 브랜치의 헌법
+    README(`ours_text`)가 그 문장을 지운 것. 이 브랜치의 버전 줄이 main 의 버전 줄과 같아야 한다.
+    버전 줄이 다르면 버전 줄로 보고(main 을 합치기 전의 브랜치는 그 문장이 아예 없다), 버전 줄이
+    없는 글(지웠거나 비운 README)은 가져간 버전이 없다. 둘 이상이면 가장 높은 버전이다. 분리
+    HEAD(`branch` 가 None)의 몫은 없다."""
     ours_line, main_line = VERSION.search(ours_text), VERSION.search(main_text)
     if ours_line is None or main_line is None or ours_line[1] != main_line[1]:
         return None
@@ -578,7 +582,7 @@ def dangling_cites(
 
 
 def unbumped(changed: frozenset[str], ours: Numbers) -> list[str]:
-    """이 브랜치가 판을 새로 매기지 않았는데 고친 헌법 파일."""
+    """이 브랜치가 버전을 새로 매기지 않았는데 고친 헌법 파일."""
     return [] if ours.version is not None else sorted(changed & CONSTITUTION_TEXTS)
 
 
@@ -1368,11 +1372,11 @@ def survey(root: Path, remote: Remote) -> Survey:
     changed = _own_changes(root, base, main_sha)
     reserved: str | None = None
     if CONSTITUTION not in changed:
-        # 판 줄이 main 과 같다. 합치기를 커밋하기 전에는 main 이 올린 판이 디스크에 있다
+        # 버전 줄이 main 과 같다. 합치기를 커밋하기 전에는 main 이 올린 버전이 디스크에 있다
         ours = replace(ours, version=None)
     elif ours.version in (None, main_numbers.version):
-        # 판 줄은 merge-base 나 main 의 것이다. main 이 이 브랜치 몫으로 비워 둔 판의 문장을 이
-        # 브랜치가 지웠으면 그 판으로 올린 것이다(대기열 279)
+        # 버전 줄은 merge-base 나 main 의 것이다. main 이 이 브랜치 몫으로 비워 둔 버전의 문장을 이
+        # 브랜치가 지웠으면 그 버전으로 올린 것이다(대기열 279)
         main_text = Tree(root, main_sha).text(CONSTITUTION)
         disk_text = Disk(root).text(CONSTITUTION)
         reserved = reserved_version(branch, main_text, disk_text)
@@ -1410,7 +1414,7 @@ def findings(result: Survey) -> list[tuple[Sibling, Clash]]:
 
 def _describe(clash: Clash) -> str:
     if clash.kind == "헌법":
-        return "이 브랜치와 그쪽이 같은 판으로 올렸다"
+        return "이 브랜치와 그쪽이 같은 버전으로 올렸다"
     return f"이 브랜치 {clash.ours}, 그쪽 {clash.theirs}"
 
 
@@ -1433,8 +1437,8 @@ class Verdict:
 
     found: list[tuple[Sibling, Clash]]
     shifted: list[Move]
-    top_version: tuple[str, list[str]] | None  # 형제가 쓴 가장 높은 헌법 판과 그 자리
-    unbumped: list[str]  # 판을 올리지 않고 고친 헌법 파일
+    top_version: tuple[str, list[str]] | None  # 형제가 쓴 가장 높은 헌법 버전과 그 자리
+    unbumped: list[str]  # 버전을 올리지 않고 고친 헌법 파일
     # 카나리아 명세를 고치지 않고 바꾼 하네스 파일과 그 파일을 원천으로 든 명세
     uncanaried: list[tuple[str, list[str]]]
     # 이 브랜치가 더한 줄에서 어디에도 없는 일지를 가리킨 인용(파일, 인용)
@@ -1487,14 +1491,14 @@ def render(result: Survey, verdict: Verdict) -> str:
     if verdict.top_version:
         version, labels = verdict.top_version
         lines.append(
-            f"형제가 쓴 가장 높은 헌법 판: {version}({', '.join(labels)})."
-            " 판을 올리면 이보다 높게 고른다"
+            f"형제가 쓴 가장 높은 헌법 버전: {version}({', '.join(labels)})."
+            " 버전을 올리면 이보다 높게 고른다"
         )
     lines.append(_ours_line(result.ours))
     if result.reserved:
         lines.append(
-            f"올린 판으로 센 헌법 {result.reserved}: {result.main.label} 의 헌법 README 가"
-            " 이 브랜치 몫으로 비워 둔 판이고, 이 브랜치가 그 문장을 지웠다"
+            f"올린 버전으로 센 헌법 {result.reserved}: {result.main.label} 의 헌법 README 가"
+            " 이 브랜치 몫으로 비워 둔 버전이고, 이 브랜치가 그 문장을 지웠다"
         )
     if verdict.found:
         lines.append(f"번호 겹침 {len(verdict.found)}:")
@@ -1503,8 +1507,8 @@ def render(result: Survey, verdict: Verdict) -> str:
         lines.append("번호 겹침 없음")
     if verdict.unbumped:
         lines.append(
-            f"헌법 파일을 고치고 판을 올리지 않았다: {', '.join(verdict.unbumped)}."
-            " 위의 가장 높은 판보다 높게 올린다(원칙 변경은 major, 절 추가는 minor,"
+            f"헌법 파일을 고치고 버전을 올리지 않았다: {', '.join(verdict.unbumped)}."
+            " 위의 가장 높은 버전보다 높게 올린다(원칙 변경은 major, 절 추가는 minor,"
             " 문구 수정은 patch)"
         )
     if verdict.uncanaried:

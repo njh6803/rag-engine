@@ -25,6 +25,7 @@ from rag_engine.adapters.postgres.engine import create_engine
 from rag_engine.adapters.postgres.index_maintenance import PostgresIndexMaintenance
 from rag_engine.adapters.postgres.token_store import PostgresTokenStore
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
+from rag_engine.adapters.release_number import release_number
 from rag_engine.adapters.settings import Settings
 from rag_engine.adapters.tei import TeiEmbedderPool, TeiRerankerPool
 from rag_engine.app.search import SearchDeps
@@ -111,7 +112,8 @@ def create_app(settings: Settings) -> ASGIApp:
 
     embedders = TeiEmbedderPool(tei_client, batch_size=settings.tei_batch_size)
     rerankers = TeiRerankerPool(tei_client, batch_size=settings.tei_batch_size)
-    mcp = MCPServer(name="rag-engine")
+    release = release_number()
+    mcp = MCPServer(name="rag-engine", version=release)
     register_search_tool(
         mcp,
         SearchDeps(
@@ -155,7 +157,7 @@ def create_app(settings: Settings) -> ASGIApp:
                     finally:
                         await engine.dispose()
 
-    app = FastAPI(title="rag-engine", lifespan=lifespan)
+    app = FastAPI(title="rag-engine", version=release, lifespan=lifespan)
     _install_error_handlers(app)
     app.add_api_route("/health", health, methods=["GET"])
     token_router = build_token_router(token_store, unit_of_work)

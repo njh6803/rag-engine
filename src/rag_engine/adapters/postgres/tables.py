@@ -198,7 +198,7 @@ chunks = sa.Table(
     sa.Index("ix_chunks_keywords", "keywords", postgresql_using="gin"),
 )
 
-# 보관 표는 같은 칸에 보관 시각을 더한 것이고 벡터·키워드 색인은 없다.
+# 삭제 보관함은 같은 칸에 보관 시각을 더한 것이고 벡터·키워드 색인은 없다.
 archived_chunks = sa.Table(
     "archived_chunks",
     metadata,

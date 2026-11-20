@@ -122,7 +122,7 @@ class Pipeline:
         await delete_document(self.unit_of_work, key, now=self.clock[0])
 
     async def archived_texts(self, document_id: UUID) -> list[str]:
-        """보관 표에 있는 그 문서의 조각 글(순번 순)."""
+        """삭제 보관함에 있는 그 문서의 조각 글(순번 순)."""
         async with self.engine.connect() as connection:
             rows = await connection.execute(
                 sa.text(
@@ -186,11 +186,12 @@ class Pipeline:
             )
 
     async def claim(self, worker_id: str = "worker-1", *, later: float = 0.0) -> Job:
-        """작업 하나를 꺼낸다. `later`초 뒤의 시각에서 꺼내면 임대가 끝난 작업도 꺼낸다.
+        """작업 하나를 꺼낸다. `later`초 뒤의 시각에서 꺼내면 작업 담당 기록이 만료된 작업도
+        꺼낸다.
 
-        꺼내기는 `FOR UPDATE SKIP LOCKED`라서, 처리 중인 작업의 임대 연장 트랜잭션이 그 행을 잠근
-        순간에 부르면 행을 건너뛰어 아무것도 꺼내지 못한다. 그 순간은 짧으므로 기한 안에서 다시
-        시도한다. 꺼낼 작업이 정말 없으면 기한이 지나 실패한다."""
+        꺼내기는 `FOR UPDATE SKIP LOCKED`라서, 처리 중인 작업의 작업 담당 기록 연장 트랜잭션이 그
+        행을 잠근 순간에 부르면 행을 건너뛰어 아무것도 꺼내지 못한다. 그 순간은 짧으므로 기한 안에서
+        다시 시도한다. 꺼낼 작업이 정말 없으면 기한이 지나 실패한다."""
         when = self.clock[0] + timedelta(seconds=later)
         deadline = time.monotonic() + CLAIM_RETRY_SECONDS
         while True:

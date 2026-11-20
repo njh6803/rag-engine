@@ -1,0 +1,7 @@
+# compose.offline.yml 위에 더 얹는 덮어쓰기(프로브). 임베딩 서버에 HF_HUB_OFFLINE=1 을 주어, 이 변수가
+# 있을 때와 없을 때 모델 볼륨만으로 뜨는 것이 달라지는지 견준다(run.py 의 offline 단계). 바깥으로 나가는
+# 길을 막는 것은 이 파일이 아니라 compose.offline.yml 의 내부 네트워크다.
+services:
+  embedding:
+    environment:
+      HF_HUB_OFFLINE: "1"

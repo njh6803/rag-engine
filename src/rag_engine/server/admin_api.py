@@ -25,6 +25,7 @@ from rag_engine.server.admin_models import (
     JobListResponse,
     JobResponse,
 )
+from rag_engine.server.api_version import API_VERSION
 from rag_engine.server.problems import ProblemDetails
 
 DEFAULT_LIMIT: Final = 50
@@ -44,7 +45,7 @@ _DOCUMENT_NOT_FOUND: dict[int | str, dict[str, object]] = {
 
 
 def build_admin_query_router(unit_of_work: UnitOfWork) -> APIRouter:
-    router = APIRouter(prefix="/api/v1/admin")
+    router = APIRouter(prefix=f"/api/{API_VERSION}/admin")
 
     @router.get("/jobs/{job_id}", responses=_JOB_NOT_FOUND)
     async def job(job_id: UUID) -> JobDetailResponse:

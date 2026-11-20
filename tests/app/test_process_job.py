@@ -1,8 +1,9 @@
 """작업자의 작업 하나 처리(`process_job`, `run_once`, 티켓 07).
 
-유스케이스가 어떻게 끝나든 작업 행이 그 모양으로 끝나는지, 임대를 잃은 시도는 남의 작업 행을
-건드리지 않는지 본다. 파싱의 영구 실패 종결은 `test_index_document.py`와 `test_parse_pipeline.py`가,
-재시도와 재시도 소진은 `test_job_retry.py`가 맡아 여기서는 07의 단순한 끝냄만 잰다.
+유스케이스가 어떻게 끝나든 작업 행이 그 모양으로 끝나는지, 작업 담당 기록을 잃은 시도는 남의 작업
+행을 건드리지 않는지 본다. 파싱의 영구 실패 종결은 `test_index_document.py`와
+`test_parse_pipeline.py`가, 재시도와 재시도 소진은 `test_job_retry.py`가 맡아 여기서는 07의 단순한
+끝냄만 잰다.
 """
 
 import json
@@ -75,7 +76,7 @@ async def test_어느_갈래에도_들지_않는_예외는_internal_error로_끝
     assert await _job_row(pipeline, ingested.document_id) == ("failed", "internal_error", 1)
 
 
-async def test_임대를_잃은_시도는_남의_작업_행을_끝내지_않고_잃었다고_남긴다(
+async def test_작업_담당_기록을_잃은_시도는_남의_작업_행을_끝내지_않고_잃었다고_남긴다(
     pipeline: Pipeline, caplog: pytest.LogCaptureFixture
 ) -> None:
     ingested = await pipeline.ingest(휴가)

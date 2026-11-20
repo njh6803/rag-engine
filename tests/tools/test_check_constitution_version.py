@@ -1,4 +1,4 @@
-"""tools/check_constitution_version.py 의 헌법 판 검사.
+"""tools/check_constitution_version.py 의 헌법 버전 검사.
 
 판정은 커밋에 들 판(색인), `origin/main`, 그 둘의 merge-base 를 견준다. 그래서 시험은 임시 원격과
 클론에서 실제 git 으로 돈다(`.claude/rules/tests.md`).
@@ -51,7 +51,7 @@ def _커밋한다(root: Path, files: dict[str, str], message: str) -> None:
 
 
 def _헌법(version: str, vacated: str = "") -> str:
-    """판 줄과, 아직 쓰이지 않은 비워 둔 판의 문장(한 줄에 하나)만 든 헌법 README."""
+    """버전 줄과, 아직 쓰이지 않은 비워 둔 버전의 문장(한 줄에 하나)만 든 헌법 README."""
     return f"# 헌법\n\n**Version**: {version} | **Ratified**: 2026-09-19\n\n{vacated}\n"
 
 
@@ -109,36 +109,36 @@ def _판정(root: Path) -> tuple[int, str]:
         "고친_헌법_파일이_없다",
         "main_과_merge_base_둘과_다르다",
         "둘과_같다",
-        "main_이_같은_판을_먼저_매겼다",
-        "merge_base_의_판_그대로다",
-        "판_줄이_없다",
-        "main_이_이_가지_몫으로_비워_둔_판의_문장을_지웠다",
+        "main_이_같은_버전을_먼저_매겼다",
+        "merge_base_의_버전_그대로다",
+        "버전_줄이_없다",
+        "main_이_이_가지_몫으로_비워_둔_버전의_문장을_지웠다",
     ],
 )
-def test_판을_올렸는지는_main_과_merge_base_의_판_둘과_다른지로_본다(
+def test_버전을_올렸는지는_main_과_merge_base_의_버전_둘과_다른지로_본다(
     judged: Judged, *, 기대: bool
 ) -> None:
     assert judged.passes is 기대
 
 
-def test_헌법_파일을_고치고_판을_올리지_않으면_막는다(저장소: tuple[Path, Path]) -> None:
-    """거버넌스의 semver 문장이 있는데도 PR 열하나(#19~#50)가 판을 올리지 않았다(대기열 31)."""
+def test_헌법_파일을_고치고_버전을_올리지_않으면_막는다(저장소: tuple[Path, Path]) -> None:
+    """거버넌스의 semver 문장이 있는데도 PR 열하나(#19~#50)가 버전을 올리지 않았다(대기열 31)."""
     work, _ = 저장소
     _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n"})
 
     code, 출력 = _판정(work)
 
     assert code == 1
-    assert "판을 올리지 않았다" in 출력
+    assert "버전을 올리지 않았다" in 출력
     assert OPERATIONS in 출력
     assert "1.0.0" in 출력
-    # 막는 글은 이력 문단을 더하라는 말 대신 비워 둔 판의 신호와 까닭을 적을 자리를 알려 준다
+    # 막는 글은 이력 문단을 더하라는 말 대신 비워 둔 버전의 신호와 까닭을 적을 자리를 알려 준다
     assert "이력 문단" not in 출력
     assert "비워 둔" in 출력
     assert "ADR 이력이나 일지" in 출력
 
 
-def test_같은_커밋에서_판을_올리면_지나간다(저장소: tuple[Path, Path]) -> None:
+def test_같은_커밋에서_버전을_올리면_지나간다(저장소: tuple[Path, Path]) -> None:
     work, _ = 저장소
     _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n", README: _헌법("1.0.1")})
 
@@ -147,11 +147,11 @@ def test_같은_커밋에서_판을_올리면_지나간다(저장소: tuple[Path
     assert code == 0, 출력
 
 
-def test_못_보는_것_고친_커밋과_판을_올린_커밋을_나누면_앞_커밋이_막힌다(
+def test_못_보는_것_고친_커밋과_버전을_올린_커밋을_나누면_앞_커밋이_막힌다(
     저장소: tuple[Path, Path],
 ) -> None:
-    """판정은 커밋에 들 판이라, 가지 전체로는 판을 올렸어도 판을 올리기 전의 커밋은 막힌다(잘못
-    막는다). 판을 올린 커밋은 지나간다."""
+    """판정은 커밋에 들 판이라, 가지 전체로는 버전을 올렸어도 버전을 올리기 전의 커밋은 막힌다(잘못
+    막는다). 버전을 올린 커밋은 지나간다."""
     work, _ = 저장소
     _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n"})
 
@@ -163,11 +163,11 @@ def test_못_보는_것_고친_커밋과_판을_올린_커밋을_나누면_앞_�
     assert _판정(work)[0] == 0
 
 
-def test_못_보는_것_판_줄만_바뀌면_크기와_까닭을_적었는지는_보지_않고_지나간다(
+def test_못_보는_것_버전_줄만_바뀌면_크기와_까닭을_적었는지는_보지_않고_지나간다(
     저장소: tuple[Path, Path],
 ) -> None:
     """문구 하나를 고치고 major 로 올리며 까닭을 어디에도 적지 않아도 지나간다(놓친다). 헌법
-    README 에는 판 줄 곁에 비워 둔 판의 문장만 있고 이력 문단이 없다."""
+    README 에는 버전 줄 곁에 비워 둔 버전의 문장만 있고 이력 문단이 없다."""
     work, _ = 저장소
     _스테이지한다(work, {OPERATIONS: "운영의 문구\n", README: _헌법("2.0.0")})
 
@@ -177,10 +177,10 @@ def test_못_보는_것_판_줄만_바뀌면_크기와_까닭을_적었는지는
     assert "2.0.0은" not in (work / README).read_text(encoding="utf-8")
 
 
-def test_앞_커밋에서_판을_올렸으면_다른_헌법_파일만_고친_커밋도_지나간다(
+def test_앞_커밋에서_버전을_올렸으면_다른_헌법_파일만_고친_커밋도_지나간다(
     저장소: tuple[Path, Path],
 ) -> None:
-    """판은 가지(PR)마다 한 번 올린다. 헌법 README 의 2.4.0 이 PR 열하나를 한 번에 묶었다."""
+    """버전은 가지(PR)마다 한 번 올린다. 헌법 README 의 2.4.0 이 PR 열하나를 한 번에 묶었다."""
     work, _ = 저장소
     _커밋한다(work, {OPERATIONS: "운영을 고쳤다\n", README: _헌법("1.0.1")}, "운영")
     _스테이지한다(work, {TECH: "스택을 고쳤다\n"})
@@ -190,7 +190,7 @@ def test_앞_커밋에서_판을_올렸으면_다른_헌법_파일만_고친_커
     assert code == 0, 출력
 
 
-def test_main_이_같은_판을_먼저_매겼으면_막는다(저장소: tuple[Path, Path]) -> None:
+def test_main_이_같은_버전을_먼저_매겼으면_막는다(저장소: tuple[Path, Path]) -> None:
     work, pusher = 저장소
     _main_에_민다(work, pusher, {TECH: "그쪽 스택\n", README: _헌법("1.0.1")})
     _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n", README: _헌법("1.0.1")})
@@ -198,13 +198,13 @@ def test_main_이_같은_판을_먼저_매겼으면_막는다(저장소: tuple[P
     code, 출력 = _판정(work)
 
     assert code == 1
-    assert "판을 올리지 않았다" in 출력
+    assert "버전을 올리지 않았다" in 출력
 
 
-def test_main_이_이_가지_몫으로_비워_둔_판의_문장을_지웠으면_지나간다(
+def test_main_이_이_가지_몫으로_비워_둔_버전의_문장을_지웠으면_지나간다(
     저장소: tuple[Path, Path],
 ) -> None:
-    """main 을 합치며 판 줄을 main 의 것으로 두고 이 가지 몫으로 비워 둔 문장을 지우는 모양이다
+    """main 을 합치며 버전 줄을 main 의 것으로 두고 이 가지 몫으로 비워 둔 문장을 지우는 모양이다
     (대기열 279, retro-queue-per-item 06, `tools/sibling_overlap.py` 의 `reserved_version`)."""
     work, pusher = 저장소
     _main_에_민다(work, pusher, {TECH: "그쪽 스택\n", README: _헌법("1.0.2", RESERVE)})
@@ -215,11 +215,11 @@ def test_main_이_이_가지_몫으로_비워_둔_판의_문장을_지웠으면_
     assert code == 0, 출력
 
 
-def test_비워_둔_판의_문장을_지우지_않고_판_줄만_main_과_같으면_막는다(
+def test_비워_둔_버전의_문장을_지우지_않고_버전_줄만_main_과_같으면_막는다(
     저장소: tuple[Path, Path],
 ) -> None:
-    """판 줄이 main 과 같아도 main 이 이 가지 몫으로 비워 둔 문장을 그대로 두면 판을 가져가지 않은
-    것이다. 다른 가지 몫의 문장을 지운 것도 이 가지의 판이 아니다."""
+    """버전 줄이 main 과 같아도 main 이 이 가지 몫으로 비워 둔 문장을 그대로 두면 버전을 가져가지
+    않은 것이다. 다른 가지 몫의 문장을 지운 것도 이 가지의 버전이 아니다."""
     work, pusher = 저장소
     other = "1.0.3은 함께 돌던 형제 브랜치(`other`)가 먼저 매겨 비워 두었다."
     main_헌법 = _헌법("1.0.4", f"{RESERVE}\n{other}")
@@ -252,19 +252,19 @@ def test_main_이_고친_헌법_파일은_이_가지가_고친_것으로_세지_
     assert code == 0, 출력
 
 
-def _dev_가_판을_올렸다(work: Path, pusher: Path, version: str) -> None:
-    """원격에 main 에서 딴 dev 를 두고 dev 에서 헌법 판을 올린 뒤 작업 클론이 받아 온다."""
+def _dev_가_버전을_올렸다(work: Path, pusher: Path, version: str) -> None:
+    """원격에 main 에서 딴 dev 를 두고 dev 에서 헌법 버전을 올린 뒤 작업 클론이 받아 온다."""
     _git(pusher, "checkout", "-q", "-b", "dev", "main")
-    _커밋한다(pusher, {README: _헌법(version)}, "dev 가 판을 올린다")
+    _커밋한다(pusher, {README: _헌법(version)}, "dev 가 버전을 올린다")
     _git(pusher, "push", "-q", "origin", "dev")
     _git(work, "fetch", "-q", "origin")
 
 
-def test_origin_dev_가_있으면_dev_가_먼저_매긴_판과_겹치면_막고_dev_를_기준으로_알린다(
+def test_origin_dev_가_있으면_dev_가_먼저_매긴_버전과_겹치면_막고_dev_를_기준으로_알린다(
     저장소: tuple[Path, Path],
 ) -> None:
     work, pusher = 저장소
-    _dev_가_판을_올렸다(work, pusher, "1.0.1")
+    _dev_가_버전을_올렸다(work, pusher, "1.0.1")
     _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n", README: _헌법("1.0.1")})
 
     code, 출력 = _판정(work)
@@ -274,12 +274,12 @@ def test_origin_dev_가_있으면_dev_가_먼저_매긴_판과_겹치면_막고_
     assert "origin/main" not in 출력
 
 
-def test_origin_dev_가_있어도_hotfix_브랜치는_main_을_기준으로_판을_견준다(
+def test_origin_dev_가_있어도_hotfix_브랜치는_main_을_기준으로_버전을_견준다(
     저장소: tuple[Path, Path],
 ) -> None:
-    """같은 변경이라도 기준이 main 이면 dev 의 판과 겹치지 않아 지나간다."""
+    """같은 변경이라도 기준이 main 이면 dev 의 버전과 겹치지 않아 지나간다."""
     work, pusher = 저장소
-    _dev_가_판을_올렸다(work, pusher, "1.0.1")
+    _dev_가_버전을_올렸다(work, pusher, "1.0.1")
     _git(work, "checkout", "-q", "-b", "hotfix/x")
     _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n", README: _헌법("1.0.1")})
 
@@ -288,7 +288,7 @@ def test_origin_dev_가_있어도_hotfix_브랜치는_main_을_기준으로_판�
     assert code == 0, 출력
 
 
-def test_색인을_보고_작업_트리에서만_올린_판은_세지_않는다(저장소: tuple[Path, Path]) -> None:
+def test_색인을_보고_작업_트리에서만_올린_버전은_세지_않는다(저장소: tuple[Path, Path]) -> None:
     work, _ = 저장소
     _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n"})
     _쓴다(work, {README: _헌법("1.0.1")})
@@ -342,7 +342,7 @@ def test_얕은_클론에서_merge_base_가_없으면_2이고_안내한_명령�
     code, 출력 = _판정(shallow)
 
     assert code == 1, 출력
-    assert "판을 올리지 않았다" in 출력
+    assert "버전을 올리지 않았다" in 출력
 
 
 def _이_훅만_든_설정(tmp_path: Path) -> Path:
@@ -405,7 +405,7 @@ def test_못_보는_것_헌법_파일을_지우기만_한_커밋에는_pre_commi
     assert "exit code: 3" in 출력, 출력
 
 
-def test_못_보는_것_받지_않은_main_이_같은_판을_먼저_매겼어도_지나간다(
+def test_못_보는_것_받지_않은_main_이_같은_버전을_먼저_매겼어도_지나간다(
     저장소: tuple[Path, Path],
 ) -> None:
     """`origin/main` 은 로컬의 것이다(놓친다). 받아 오면 막는다."""
@@ -421,10 +421,10 @@ def test_못_보는_것_받지_않은_main_이_같은_판을_먼저_매겼어도
     assert _판정(work)[0] == 1
 
 
-def test_못_보는_것_분리_HEAD_에서는_비워_둔_판을_찾지_못해_막는다(
+def test_못_보는_것_분리_HEAD_에서는_비워_둔_버전을_찾지_못해_막는다(
     저장소: tuple[Path, Path],
 ) -> None:
-    """비워 둔 판은 브랜치 이름으로 찾는다(잘못 막는다). 같은 색인이 가지 위에서는 지나간다."""
+    """비워 둔 버전은 브랜치 이름으로 찾는다(잘못 막는다). 같은 색인이 가지 위에서는 지나간다."""
     work, pusher = 저장소
     _main_에_민다(work, pusher, {TECH: "그쪽 스택\n", README: _헌법("1.0.2", RESERVE)})
     _스테이지한다(work, {OPERATIONS: "운영을 고쳤다\n", README: _헌법("1.0.2")})
@@ -435,7 +435,7 @@ def test_못_보는_것_분리_HEAD_에서는_비워_둔_판을_찾지_못해_�
     code, 출력 = _판정(work)
 
     assert code == 1
-    assert "판을 올리지 않았다" in 출력
+    assert "버전을 올리지 않았다" in 출력
 
 
 def test_인자가_둘_이상이면_2다(tmp_path: Path) -> None:
@@ -463,5 +463,5 @@ def test_pre_commit_처럼_띄우면_막는_까닭을_UTF_8_로_알린다(저장
     stdout = done.stdout.decode("utf-8")
 
     assert done.returncode == 1, done.stderr.decode("utf-8", "replace")
-    assert "판을 올리지 않았다" in stdout
+    assert "버전을 올리지 않았다" in stdout
     assert OPERATIONS in stdout

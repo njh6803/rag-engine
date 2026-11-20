@@ -10,6 +10,7 @@ from pydantic import AwareDatetime, BaseModel, Field
 from rag_engine.app.tokens import TokenView, issue_token, list_tokens, revoke_token
 from rag_engine.domain.entities import TokenRole
 from rag_engine.domain.ports import TokenStore, UnitOfWork
+from rag_engine.server.api_version import API_VERSION
 
 
 class IssueTokenRequest(BaseModel):
@@ -58,7 +59,7 @@ def _summary(view: TokenView) -> TokenSummary:
 
 
 def build_token_router(token_store: TokenStore, unit_of_work: UnitOfWork) -> APIRouter:
-    router = APIRouter(prefix="/api/v1/admin")
+    router = APIRouter(prefix=f"/api/{API_VERSION}/admin")
 
     @router.post("/tokens", status_code=201)
     async def issue(body: IssueTokenRequest) -> IssuedTokenResponse:

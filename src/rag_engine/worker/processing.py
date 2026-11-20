@@ -3,21 +3,22 @@
 `run_once`는 지금 꺼낼 수 있는 작업을 더는 없을 때까지 하나씩 꺼내 처리하고 돌아온다. 테스트와 첫
 왕복이 쓰는 입구다. 상시로 도는 작업자(`LISTEN`, 폴링, 동시 처리, 종료 신호)는 `service.py`다.
 
-`lease_seconds`를 주면 처리하는 동안 그 삼분의 일마다 임대를 늘린다. 연장이 작업 행 조건에 걸리면
-임대가 끝나 다른 작업자가 가져간 것이라 처리를 멈추고 그 시도를 버린다. 시도 횟수를 이미 다 쓴
-작업을 임대 인수로 꺼냈으면 다시 돌리지 않고 `worker_lost`로 끝낸다. 동기 CPU 호출(청킹의 문장
-분리와 키워드 토큰화)은 이벤트 루프 안에서 부르므로 아주 큰 문서에서는 연장이 늦을 수 있다. 그래도
-임대를 잃은 시도는 작업 행 조건에 걸려 문서에도 작업 행에도 쓰지 못하므로 데이터는 어긋나지 않는다.
-다만 인수마다 시도 횟수가 오르므로, 임대보다 오래 루프를 막는 문서는 인수가 되풀이되다
-`worker_lost`로 끝날 수 있다.
+`lease_seconds`를 주면 처리하는 동안 그 삼분의 일마다 작업 담당 기록의 기한을 늘린다. 연장이 작업
+행 조건에 걸리면 작업 담당 기록의 기한이 끝나 다른 작업자가 가져간 것이라 처리를 멈추고 그 시도를
+버린다. 시도 횟수를 이미 다 쓴 작업을 작업 담당 기록 인수로 꺼냈으면 다시 돌리지 않고
+`worker_lost`로 끝낸다. 동기 CPU 호출(청킹의 문장 분리와 키워드 토큰화)은 이벤트 루프 안에서
+부르므로 아주 큰 문서에서는 연장이 늦을 수 있다. 그래도 작업 담당 기록을 잃은 시도는 작업 행 조건에
+걸려 문서에도 작업 행에도 쓰지 못하므로 데이터는 어긋나지 않는다. 다만 인수마다 시도 횟수가
+오르므로, 작업 담당 기록의 기한보다 오래 루프를 막는 문서는 인수가 되풀이되다 `worker_lost`로 끝날
+수 있다.
 
 작업 하나는 `job_started`와 `job_finished` 이벤트를 남기고, 끝낸 뒤 물러난 판에 남은 것을 정리하면
 `retired_version_cleaned`(판 ID, 지식베이스 ID, 지운 조각 수)를, 정리가 실패하면
 `retired_cleanup_failed`를 남긴다. 요청 ID는 작업 행이 든 수집 요청의 ID다.
 싣는 칸은 작업 ID, 종류, 문서 ID, 시도 횟수, 결과, 오류 코드, 파싱·임베딩·쓰기 지연이고 문서의 키와
 제목은 싣지 않는다(원칙 V). 결과는 작업이 시도 뒤에 놓인 상태다. 성공은 `succeeded`, 영구 실패는
-`failed`, 다시 예약한 일시 실패는 `queued`, 임대를 잃은 시도는 `lost`이고, 오류 코드는 실패한 시도의
-것이다. 실패한 시도도 그때까지의 지연을 싣는다.
+`failed`, 다시 예약한 일시 실패는 `queued`, 작업 담당 기록을 잃은 시도는 `lost`이고, 오류 코드는
+실패한 시도의 것이다. 실패한 시도도 그때까지의 지연을 싣는다.
 
 파싱의 영구 실패는 08이 문서와 색인에 적고 이 모듈이 작업을 재시도 없이 `failed`와 그 코드로
 끝낸다. 일시 실패는 시도가 남아 있으면 백오프 뒤로 다시 예약하고 다 썼으면 재시도 소진으로 끝낸다.
@@ -51,8 +52,8 @@ from rag_engine.domain.ports import JobOutcome
 logger = logging.getLogger(__name__)
 
 _MS_PER_SECOND: Final = 1000.0
-# 임대 기간 안에서 연장하는 횟수. 간격은 앞 연장이 끝난 뒤부터 센다. 연장 한 번이 임대 기간의
-# 삼분의 일 안에 실패로 돌아오면 임대가 끝나기 전에 한 번 더 시도한다.
+# 작업 담당 기록의 기한 안에서 연장하는 횟수. 간격은 앞 연장이 끝난 뒤부터 센다. 연장 한 번이 그
+# 기한의 삼분의 일 안에 실패로 돌아오면 기한이 끝나기 전에 한 번 더 시도한다.
 _EXTENSIONS_PER_LEASE: Final = 3
 
 type _Settle = Callable[[IndexDocumentDeps, Job, ErrorCode], Awaitable[JobOutcome]]
@@ -68,7 +69,7 @@ class _JobRow(Enum):
 
 @dataclass(frozen=True, slots=True)
 class _Settled:
-    """시도가 끝난 모양. `outcome`이 `None`이면 임대를 잃은 시도다."""
+    """시도가 끝난 모양. `outcome`이 `None`이면 작업 담당 기록을 잃은 시도다."""
 
     outcome: JobOutcome | None
     timings: IndexTimings
@@ -90,8 +91,8 @@ async def run_once(deps: IndexDocumentDeps, *, worker_id: str, lease_seconds: fl
 async def process_job(
     deps: IndexDocumentDeps, job: Job, *, lease_seconds: float | None = None
 ) -> None:
-    """꺼낸 작업 하나를 처리한다. `lease_seconds`가 `None`이면 임대를 늘리지 않는다(한 번에 끝나는
-    시험용이다. 작업자는 항상 임대 기간을 준다)."""
+    """꺼낸 작업 하나를 처리한다. `lease_seconds`가 `None`이면 작업 담당 기록의 기한을 늘리지 않는다
+    (한 번에 끝나는 시험용이다. 작업자는 항상 그 기한을 준다)."""
     started = time.perf_counter()
     log_event(
         logger,
@@ -155,8 +156,8 @@ async def _clean_retired_versions(deps: IndexDocumentDeps, job: Job) -> None:
 
 
 async def _finish(deps: IndexDocumentDeps, job: Job, outcome: JobOutcome) -> JobOutcome | None:
-    """작업 행을 끝낸 상태로 쓴다. 끝내기 직전에 임대를 잃었으면 작업 행은 새 작업자의 것이라 쓰지
-    못하고 `None`을 낸다."""
+    """작업 행을 끝낸 상태로 쓴다. 끝내기 직전에 작업 담당 기록을 잃었으면 작업 행은 새 작업자의
+    것이라 쓰지 못하고 `None`을 낸다."""
     try:
         async with deps.unit_of_work.begin() as transaction:
             await transaction.jobs.finish(job, outcome, deps.now())
@@ -166,11 +167,11 @@ async def _finish(deps: IndexDocumentDeps, job: Job, outcome: JobOutcome) -> Job
 
 
 async def _run(deps: IndexDocumentDeps, job: Job, lease_seconds: float | None) -> _Settled:
-    """유스케이스를 돌려 끝난 모양을 낸다. 임대를 잃은 시도는 끝낼 작업 행이 이미 남의 것이라 끝난
-    모양이 `None`이다. 일시 실패는 다시 예약하거나 재시도 소진으로, 어느 갈래에도 들지 않는
-    예외는 `internal_error`로 재시도 소진과 같이 끝낸다. 시도를 이미 다 쓴 작업을 임대 인수로 꺼낸
-    시도는 유스케이스를 돌리지 않고 `worker_lost`로 재시도 소진과 같이 끝낸다. 실패한 시도도
-    그때까지의 지연을 싣는다."""
+    """유스케이스를 돌려 끝난 모양을 낸다. 작업 담당 기록을 잃은 시도는 끝낼 작업 행이 이미 남의
+    것이라 끝난 모양이 `None`이다. 일시 실패는 다시 예약하거나 재시도 소진으로, 어느 갈래에도 들지
+    않는 예외는 `internal_error`로 재시도 소진과 같이 끝낸다. 시도를 이미 다 쓴 작업을 작업 담당
+    기록 인수로 꺼낸 시도는 유스케이스를 돌리지 않고 `worker_lost`로 재시도 소진과 같이 끝낸다.
+    실패한 시도도 그때까지의 지연을 싣는다."""
     timer = IndexTimer()
     if deps.retry.is_overrun(job.attempts):
         return await _settle(deps, job, timer, ErrorCode.WORKER_LOST, exhaust)
@@ -197,8 +198,9 @@ async def _run(deps: IndexDocumentDeps, job: Job, lease_seconds: float | None) -
 async def _index(
     deps: IndexDocumentDeps, job: Job, timer: IndexTimer, lease_seconds: float | None
 ) -> IndexResult:
-    """유스케이스를 돌리면서 임대를 늘린다. 연장이 임대를 잃었다고 알리면 유스케이스를 취소하고
-    `AttemptLostError`를 올린다. 유스케이스가 끝나거나 실패하면 연장을 멈춘다."""
+    """유스케이스를 돌리면서 작업 담당 기록의 기한을 늘린다. 연장이 작업 담당 기록을 잃었다고 알리면
+    유스케이스를 취소하고 `AttemptLostError`를 올린다. 유스케이스가 끝나거나 실패하면 연장을
+    멈춘다."""
     if lease_seconds is None:
         return await index_document(deps, job, timer)
     work = asyncio.create_task(index_document(deps, job, timer))
@@ -216,15 +218,15 @@ async def _index(
 
 
 def extension_interval_seconds(lease_seconds: float) -> float:
-    """임대를 늘리는 간격. 임대 기간의 삼분의 일이다."""
+    """작업 담당 기록의 기한을 늘리는 간격. 그 기한의 삼분의 일이다."""
     return lease_seconds / _EXTENSIONS_PER_LEASE
 
 
 async def _keep_lease(deps: IndexDocumentDeps, job: Job, lease_seconds: float) -> None:
-    """임대 기간의 삼분의 일마다 임대를 늘린다. 연장이 작업 행 조건에 걸려 임대를 잃은 것이 드러나면
-    돌아온다. 그 밖의 이유로 연장하지 못한 것(일시 실패, 잠금 대기 시간 초과 같은 예기치 않은
-    오류)은 알리고 다음 간격에 다시 한다. 연장이 죽어 건강한 작업이 같이 실패하는 것보다, 계속
-    실패해 임대가 끝나고 다른 작업자가 인수하는 쪽이 안전하다."""
+    """작업 담당 기록의 기한을 그 삼분의 일마다 늘린다. 연장이 작업 행 조건에 걸려 작업 담당 기록을
+    잃은 것이 드러나면 돌아온다. 그 밖의 이유로 연장하지 못한 것(일시 실패, 잠금 대기 시간 초과 같은
+    예기치 않은 오류)은 알리고 다음 간격에 다시 한다. 연장이 죽어 건강한 작업이 같이 실패하는
+    것보다, 계속 실패해 작업 담당 기록의 기한이 끝나고 다른 작업자가 인수하는 쪽이 안전하다."""
     while True:
         await asyncio.sleep(extension_interval_seconds(lease_seconds))
         try:

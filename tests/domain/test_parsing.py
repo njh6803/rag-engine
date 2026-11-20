@@ -25,7 +25,7 @@ class _FakeParser:
         return [Block(BlockKind.PARAGRAPH, data.decode(), None, 1, 0)]
 
 
-def test_파서_인터페이스의_판은_1_0_0이다() -> None:
+def test_파서_인터페이스의_버전은_1_0_0이다() -> None:
     assert PARSER_INTERFACE_VERSION == "1.0.0"
 
 

@@ -1,0 +1,8 @@
+# compose.yml 위에 얹는 덮어쓰기(프로브). 서버 자리에 시간 간격을 두고 이어 보내는 가짜 뒷단(sse_stub.py)을 띄워,
+# 같은 프록시 설정이 응답을 모으는지 본다. 프록시와 서버 둘만 띄운다(run.py 의 sse 단계).
+services:
+  server:
+    command: ["python", "/stub/sse_stub.py"]
+    depends_on: !reset {}
+    volumes:
+      - ./sse_stub.py:/stub/sse_stub.py:ro

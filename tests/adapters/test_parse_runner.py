@@ -71,7 +71,7 @@ async def _failure_code(
     return caught.value.code
 
 
-async def test_실제_DOCX를_자식_프로세스에서_파싱해_블록과_파서_판을_낸다() -> None:
+async def test_실제_DOCX를_자식_프로세스에서_파싱해_블록과_파서_버전을_낸다() -> None:
     parsed = await _runner(_registry()).parse(_docx_bytes(), DOCX_MIME)
 
     assert parsed.parser_name == "docx"
@@ -205,7 +205,7 @@ async def test_메모리_한도는_리눅스에서_걸리고_Windows에서는_�
     assert bool(not_applied) is (sys.platform == "win32")
 
 
-async def test_실제_PDF를_자식_프로세스에서_파싱해_블록과_파서_판을_낸다() -> None:
+async def test_실제_PDF를_자식_프로세스에서_파싱해_블록과_파서_버전을_낸다() -> None:
     parsed = await _runner(_registry()).parse((FIXTURES / "small_text.pdf").read_bytes(), PDF_MIME)
 
     assert (parsed.parser_name, parsed.library_version) == ("pdf", version("pdfplumber"))
@@ -217,7 +217,7 @@ async def test_실제_PDF를_자식_프로세스에서_파싱해_블록과_파�
     ]
 
 
-async def test_실제_HWPX를_자식_프로세스에서_파싱해_블록과_파서_판을_낸다() -> None:
+async def test_실제_HWPX를_자식_프로세스에서_파싱해_블록과_파서_버전을_낸다() -> None:
     data = hwpx_bytes(HwpxHeading("제1조", level=1), HwpxParagraph("본문이다."))
 
     parsed = await _runner(_registry()).parse(data, HWPX_MIME)

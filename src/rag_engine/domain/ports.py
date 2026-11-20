@@ -5,7 +5,7 @@
 연결의 한 트랜잭션을 공유한다. 나머지는 트랜잭션 밖에서 부른다. 서드파티 예외는 어댑터가 `domain`의
 영구·일시 실패 예외(`rag_engine.domain.errors`)로 바꿔 올리고 메시지는 옮기지 않는다.
 
-`Parser`는 플러그인 자리라 인터페이스 판과 함께 `rag_engine.domain.parsing`에 있다. `Connector`와
+`Parser`는 플러그인 자리라 인터페이스 버전과 함께 `rag_engine.domain.parsing`에 있다. `Connector`와
 `Transform`의 Protocol은 처음 쓰는 source-sync가 만든다(명세 Further Notes).
 """
 
@@ -233,7 +233,7 @@ class DocumentStore(Protocol):
         ...
 
     async def list_documents(self, query: DocumentQuery) -> list[Document]:
-        """조건에 맞는 문서를 최근 순(ID의 내림차순)으로 낸다. 지운 문서와 묘비 행도 든다."""
+        """조건에 맞는 문서를 최근 순(ID의 내림차순)으로 낸다. 지운 문서와 삭제 기록 행도 든다."""
         ...
 
 
@@ -253,7 +253,7 @@ class VectorIndex(Protocol):
 
     async def update_chunk_copies(self, document: Document) -> None:
         """그 문서의 모든 판의 조각(물러난 판의 것도)에서 복사 칸(그룹, 갱신일, 시행일, 접근 그룹)을
-        문서 행의 지금 값으로 고친다. 보관 표는 되살림이 문서 행의 값으로 다시 쓰므로 건드리지
+        문서 행의 지금 값으로 고친다. 삭제 보관함은 되살림이 문서 행의 값으로 다시 쓰므로 건드리지
         않는다."""
         ...
 
@@ -262,7 +262,7 @@ class VectorIndex(Protocol):
         ...
 
     async def archive_chunks(self, document_id: UUID, archived_at: datetime) -> None:
-        """그 문서의 모든 판의 조각을 보관 표로 옮긴다. 검색 표에는 남기지 않는다."""
+        """그 문서의 모든 판의 조각을 삭제 보관함으로 옮긴다. 검색 표에는 남기지 않는다."""
         ...
 
     async def restore_archived_chunks(
@@ -270,9 +270,9 @@ class VectorIndex(Protocol):
     ) -> dict[UUID, int]:
         """보관 조각 가운데 `index_version_ids`의 판의 것이면서 만든 내용 해시가 문서의 내용 해시와
         같은 것을 복사 칸(그룹, 갱신일, 시행일, 접근 그룹)을 문서의 지금 값으로 쓴 채 검색 표로
-        되돌리고, 조각이 돌아온 판마다 돌아온 수를 낸다. 돌아온 판만 키로 든다. 보관 표는 건드리지
-        않는다(`delete_archived_chunks`가 지운다). 되돌리는 일과 센 수가 한 문장이어야 해서 조회와
-        변경을 나누지 않고 수를 돌려준다."""
+        되돌리고, 조각이 돌아온 판마다 돌아온 수를 낸다. 돌아온 판만 키로 든다. 삭제 보관함은
+        건드리지 않는다(`delete_archived_chunks`가 지운다). 되돌리는 일과 센 수가 한 문장이어야
+        해서 조회와 변경을 나누지 않고 수를 돌려준다."""
         ...
 
     async def delete_archived_chunks(self, document_id: UUID) -> None:
@@ -377,8 +377,9 @@ class JobQueue(Protocol):
 
     async def hold_attempt(self, job: Job) -> bool:
         """작업 행을 잠그고 작업자 ID와 시도 횟수가 이 시도가 꺼낼 때 쓴 값 그대로인지 본다(작업 행
-        조건). 아니면 임대가 끝나 다른 작업자가 가져간 것이라 `False`이고, 부른 쪽은 아무것도
-        쓰지 않고 작업 단위를 롤백한다. 문서 행과 지식베이스 행을 잠근 뒤 마지막에 부른다."""
+        조건). 아니면 작업 담당 기록의 기한이 끝나 다른 작업자가 가져간 것이라 `False`이고, 부른
+        쪽은 아무것도 쓰지 않고 작업 단위를 롤백한다. 문서 행과 지식베이스 행을 잠근 뒤 마지막에
+        부른다."""
         ...
 
     async def record_raised_generation(self, job: Job, generation: int) -> None:
@@ -386,18 +387,18 @@ class JobQueue(Protocol):
         ...
 
     async def finish(self, job: Job, outcome: JobOutcome, now: datetime) -> None:
-        """작업을 끝낸 상태로 쓴다. 이 시도가 쓴 작업 행이 아니면(임대가 끝나 다른 작업자가
-        가져갔다) 아무것도 쓰지 않고 `AttemptLostError`를 올린다. 부른 쪽이 끝난 줄 알고 지나가지
-        못하게 반환값이 아니라 예외로 알린다."""
+        """작업을 끝낸 상태로 쓴다. 이 시도가 쓴 작업 행이 아니면(작업 담당 기록의 기한이 끝나 다른
+        작업자가 가져갔다) 아무것도 쓰지 않고 `AttemptLostError`를 올린다. 부른 쪽이 끝난 줄 알고
+        지나가지 못하게 반환값이 아니라 예외로 알린다."""
         ...
 
     async def reschedule(self, job: Job, run_after: datetime, error_code: ErrorCode) -> bool:
-        """일시 실패한 시도의 작업을 `queued`로 되돌려 `run_after`와 마지막 오류 코드를 두고 임대와
-        작업자와 올린 세대를 비운다(시도 횟수는 둔다). 같은 문서에 다른 대기 작업이 있거나 이
-        시도가 쓴 작업 행이 아니면 아무것도 쓰지 않고 `False`다. 같은 문서의 대기 작업은 부분 유일
-        색인으로 하나라서, 되돌리는 일과 다른 대기 작업을 보는 일이 한 문장이어야 해 조회와 변경을
-        나누지 않는다(`CODING_STANDARDS.md`의 CQS에 대한 의도한 예외다). 문서 행과 지식베이스
-        행(`SHARE`)을 잠근 뒤 `hold_attempt` 다음에 부른다."""
+        """일시 실패한 시도의 작업을 `queued`로 되돌려 `run_after`와 마지막 오류 코드를 두고 작업
+        담당 기록과 작업자와 올린 세대를 비운다(시도 횟수는 둔다). 같은 문서에 다른 대기 작업이
+        있거나 이 시도가 쓴 작업 행이 아니면 아무것도 쓰지 않고 `False`다. 같은 문서의 대기 작업은
+        부분 유일 색인으로 하나라서, 되돌리는 일과 다른 대기 작업을 보는 일이 한 문장이어야 해
+        조회와 변경을 나누지 않는다(`CODING_STANDARDS.md`의 CQS에 대한 의도한 예외다). 문서 행과
+        지식베이스 행(`SHARE`)을 잠근 뒤 `hold_attempt` 다음에 부른다."""
         ...
 
     async def has_other_job_from_start(self, document_id: UUID, excluding_job_id: UUID) -> bool:
@@ -406,9 +407,10 @@ class JobQueue(Protocol):
         ...
 
     async def extend_lease(self, job: Job, leased_until: datetime) -> None:
-        """임대 만료를 `leased_until`로 늘린다. 작업 행 조건을 지날 때만 쓰고, 아니면 임대가 끝나
-        다른 작업자가 가져간 것이라 아무것도 쓰지 않고 `AttemptLostError`를 올린다(부른 쪽은 그
-        시도를 버린다). 문서 행을 잠그지 않고 작업 행 하나만 쓰므로 잠금 순서를 거스르지 않는다."""
+        """작업 담당 기록의 만료 시각을 `leased_until`로 늘린다. 작업 행 조건을 지날 때만 쓰고,
+        아니면 그 기한이 끝나 다른 작업자가 가져간 것이라 아무것도 쓰지 않고 `AttemptLostError`를
+        올린다(부른 쪽은 그 시도를 버린다). 문서 행을 잠그지 않고 작업 행 하나만 쓰므로 잠금 순서를
+        거스르지 않는다."""
         ...
 
 

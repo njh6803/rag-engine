@@ -99,7 +99,7 @@ async def test_같은_문서에_다른_대기_작업이_있으면_다시_예약�
     assert other_row.status is JobStatus.QUEUED
 
 
-async def test_임대를_잃은_시도는_다시_예약하지_못한다(engine: AsyncEngine) -> None:
+async def test_작업_담당_기록을_잃은_시도는_다시_예약하지_못한다(engine: AsyncEngine) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
     (document,) = await _seed(unit_of_work)
     lost = await _claimed(unit_of_work, document, "작업자-1")
