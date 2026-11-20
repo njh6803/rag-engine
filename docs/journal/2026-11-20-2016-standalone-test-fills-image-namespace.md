@@ -1,0 +1,31 @@
+# 핫픽스 standalone-test-fills-image-namespace: 릴리스 워크플로의 단독 compose 시험이 시험용 이미지 이름으로 묶음을 띄우게 고친다 · 2026-11-20
+
+release-image의 첫 릴리스(출시 PR 84의 병합 커밋 `24f814d`)가 `build` 잡의 `단독 compose 시험`에서 실패해 그 고침을 같은 세션에서 이어 했다. 브랜치는 `hotfix/standalone-test-fills-image-namespace`(기준 `origin/main`), 작업은 `08-ci-releases-from-main` 워크트리에서 했다. 모델은 Sonnet 5.5 / high이다. 레지스트리와 GitHub에는 올라간 것이 없다(Docker Hub 태그, GitHub 릴리스, git 태그를 모두 읽어 비었다). 준비, 한 일, 확인한 것, 셀프 리뷰, 남은 것을 차례로 두고, PR과 병합과 릴리스 결과는 그 뒤에 잇는다.
+
+## 준비
+
+- 실패한 실행 https://github.com/njh6803/rag-engine/actions/runs/44716196490 의 로그를 읽었다. `docker compose up -d --wait`이 종료 1이고 시작부터 끝까지 약 20초였다. 컨테이너 로그(`compose.log`)는 0바이트였고 stderr는 로그에 없었다(시험의 `run`이 삼킨다).
+- 원인은 이렇게 보았다. 올릴 묶음은 `njh6803`으로 짓고 시험용 이미지는 `rag-engine-release-test/…`로 지어 러너에 싣는다. 시험이 `.env`에서 두 칸만 채워 `RAG_ENGINE_NAMESPACE=njh6803`이 그대로 남았다.
+
+## 한 일
+
+- `tests/standalone/test_standalone_compose.py`: `.env` 채우기를 `write_env(directory, namespace, version, password)`로 뺐다. 채우는 칸 넷은 순수 함수 `env_values`가 정하고, 이름공간과 번호를 시험이 받은 값으로 덮어쓴다. `run`이 실패하면 stdout과 stderr를 메시지에 싣는 `CommandFailed`(`CalledProcessError`의 하위 클래스)를 던진다. 모듈 독스트링의 "운영자와 다르게 하는 일"을 둘에서 셋으로 고쳤다. 기존 시험 `test_빈_필수_값이면…`이 손으로 적던 네 칸을 `env_values`로 바꿨다.
+- `tests/tools/test_standalone_env.py`(새 파일): 단독 시험 모듈을 경로로 불러 `env_values`, `write_env`, `run`을 Docker 없이 본다. `tests/standalone/`이 기본 수집에서 빠지므로 `tests/tools/`에 뒀다. 표지 상수는 `tools/release.py`의 것을 쓴다.
+- `.scratch/harness/issues/standalone-test-fills-image-namespace.md`: 티켓과 Comments.
+- `release.yml`과 `ci.yml`은 바꾸지 않았다. 워크플로가 같은 시험을 같은 환경 변수로 부른다.
+
+## 확인한 것
+
+- 고치기 전에 시험이 빨갰다: 새 시험 다섯 중 셋이 빨갛다. `env_values`가 없다는 `AttributeError` 둘과, `str(CalledProcessError)`에 stderr 표지가 없다는 단언 실패 하나다. 표지는 명령 줄에 그대로 들지 않게 두 토막으로 쪼갰다(그대로 두면 명령 부분만으로 단언이 지난다).
+- 이 PC에서 틈을 되풀이했다. 고치기 전 픽스처와 같게 두 칸만 채워 `docker compose up`을 치면 `manifest for njh6803/rag-engine-server:0.1.0-rc.1 not found: manifest unknown`으로 종료 1이다. 첫 릴리스의 원인이 같다고 확정한 것은 아니고 같은 자리에서 같은 코드로 멈춘 것까지다.
+- 고친 뒤 환경 변수 경로(이름공간 `rag-engine-test`, 묶음은 `njh6803`)로 `tests/standalone`을 돌렸다. `up`을 지나 `2 failed, 23 passed in 758.17s`였고, 실패한 둘(MCP 검색의 `ReadTimeout` 60초, 서버 프로세스를 죽인 뒤 회복 20.8초 대 상한 15초)만 다시 돌리니 `2 passed in 335.04s`였다. 다른 세션이 이 PC를 쓰는 때라 CPU가 80%대였다. 한 번에 전부 통과한 실행은 얻지 못했다. 앞서 한 번은 같은 부하로 서버 건강 검사가 늦어 `up`이 `server-1 is unhealthy`로 실패했고, 그 문구를 읽을 수 있었던 것이 `run` 고침의 효과다.
+- 커밋의 pre-commit 첫 시도에서 pytest가 `2 failed, 4937 passed in 1236.17s`였다. 실패는 `tests/test_serve_command.py`(서버가 30초 안에 뜨지 않았다)와 `tests/app/test_job_lease.py`(처리 5.7초 대 상한 5초)로 둘 다 시간 상한이고, 이 변경이 닿지 않는 코드다. 둘째 시도는 `1 failed, 4938 passed in 887.44s`로 `test_serve_command.py`의 같은 시험이 같은 문구로 졌다. 그 파일을 홀로 돌리면 `2 passed in 10.58s`(그 시험의 호출이 9.74초)였다. 다른 세션이 이 PC를 쓰며 CPU가 60~80%대였고 전체 실행은 평소 7.5분 남짓인데 15~20분이 걸렸다. 부하에서만 지는 시간 시험이라 새 항목을 만들지 않고 이 일지에만 남긴다.
+- `ruff check .`, `ruff format --check .`, `pyright`(오류 0), `lint-imports`(2 kept), `tools/check_type_escapes.py`가 초록이다. 테스트는 커밋의 pre-commit이 갈음한다.
+
+## 셀프 리뷰
+
+`/code-review`를 기준 `origin/main`(`24f814d`)으로 돌렸다. 범위는 고친 파일 하나, 새 파일 둘, 커밋 없음이다. 표준 축은 Major 하나와 Minor 다섯과 Nit 둘, 명세 축은 Major 하나와 Minor 몇 개를 냈다.
+
+- 고친 것: ① `env_values`가 운영자의 `.env` 채우기와 같다고 적은 것은 거짓이었다. `.env.example`이 두 칸을 "고치지 않는다"고 적는다(Major). 독스트링과 모듈 독스트링, 티켓을 고쳤다. ② 픽스처가 옛 두 칸 채우기로 돌아가도 새 시험이 초록이던 틈(명세 축 Major)은 `.env` 쓰기를 `write_env`로 빼고 그 함수를 시험해 닫았다. ③ 원인을 사실처럼 적던 문장을 이 PC에서 되풀이한 값으로 바꾸고 추정임을 티켓에 남겼다. ④ 항상 참인 단언 `"3" in str(...)`을 `"exit status 3"`으로 바꿨다. ⑤ 시험이 손으로 다시 구현하던 표지 치환을 `tools.release`의 상수로 바꿨다. 같은 네 칸을 적던 기존 시험도 `env_values`를 쓴다. ⑥ 지금 코드 경로에 없는 옛 호출을 재던 시험을 지웠다.
+- 남긴 것: 실패 메시지에 stdout 전체가 실려, 토큰을 내는 호출이 실패하면 시험용 일회성 토큰이 로그에 남을 수 있다(영향 작음). 묶음 안 `.env.example`의 이름공간이 틀려도 이 시험은 이제 잡지 못한다. `tests/tools/test_release.py`가 표지 치환을 따로 잰다.
+- 다시 돌린 것: 위 `확인한 것`의 검사 다섯. 전체 리뷰는 다시 돌리지 않았다.
