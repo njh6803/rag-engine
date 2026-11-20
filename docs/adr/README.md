@@ -24,3 +24,5 @@
 | [0018](0018-search-evaluation-in-app-and-baseline-gate.md) | 검색 평가의 핵심은 제품 코드의 유스케이스이고, 기대 근거로 채점하며, 기준 보고서보다 떨어지면 CI가 막는다 | accepted | 2026-11-12 |
 | [0019](0019-llm-relevance-judging-behind-a-port.md) | LLM은 검색 평가의 관련성 판정에만 쓰고, 판정기는 포트 뒤의 Claude 어댑터이며, 기본은 꺼짐이다 | accepted | 2026-11-12 |
 | [0020](0020-release-follows-agent-os-adr-0056.md) | 판 내기는 agent-os ADR 0056을 따르고, 이 저장소에서 다른 것만 적는다 | accepted | 2026-11-17 |
+| [0021](0021-push-and-pull-sources-and-source-ownership.md) | 원천은 밀어 넣는 원천과 가져오는 원천으로 가르고, 수집 API는 원천 이름을 받으며, 서버 경로 원천은 붙인 부모 폴더 아래만 읽는다 | accepted | 2026-11-20 |
+| [0022](0022-worker-starts-sync-on-cron-schedule.md) | 동기화는 작업자가 cron 일정으로 시작하고, 목록이 비면 지우지 않으며, 색인할 글이 없는 문서는 건너뜀으로 남긴다 | accepted | 2026-11-20 |
