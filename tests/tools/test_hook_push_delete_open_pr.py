@@ -226,9 +226,9 @@ def test_git_push_도움말의_옵션이_먹는_낱말을_git_처럼_가른다()
     """대기열 296. 옵션 표는 git 의 옵션 목록을 손으로 옮긴 것이라, 값을 먹는 옵션을 먹지 않는다고
     적으면 그 값을 원격으로 읽어 지우는 푸시를 놓친다(`--recurse-submodules` 칸이 그랬다). 표에 없는
     옵션은 git 이 거절할 푸시로 보고 지나간다. 이 기계의 git 이 적는 옵션마다 값을 하나 끼운
-    지우는 푸시에서 원격과 브랜치를 git 처럼 가르는지 본다. 다른 판의 git 이 더한 옵션은 그 git 에서
-    이 시험이 빨개진다. 낱말을 가르는 것만 본다. `--all`·`--mirror`·`--tags` 는 git 이 `--delete` 와
-    함께 거절하는데 이 훅은 지우는 푸시로 읽는다(아래 못 보는 것 시험)."""
+    지우는 푸시에서 원격과 브랜치를 git 처럼 가르는지 본다. 다른 버전의 git 이 더한 옵션은 그 git
+    에서 이 시험이 빨개진다. 낱말을 가르는 것만 본다. `--all`·`--mirror`·`--tags` 는 git 이
+    `--delete` 와 함께 거절하는데 이 훅은 지우는 푸시로 읽는다(아래 못 보는 것 시험)."""
     options = _도움말이_적는_옵션()
     words = {word for word, _ in options}
     assert {"--delete", "-d", "--recurse-submodules", "-o", "--force-with-lease"} <= words
@@ -328,9 +328,9 @@ def _repository(tmp_path: Path, *, merge_ref: bool) -> Path:
     ],
 )
 def test_도움말_판정이_실제_git_과_같다(tmp_path: Path, args: list[str], outcome: str) -> None:
-    """대기열 300. `-h` 를 값 없는 옵션으로 넘기던 판은 도움말을 지우는 푸시로 읽었다. 꼴마다 git 을
-    실제로 쳐 origin 의 `chore/x` 가 지워졌는지, 도움말의 표지와 훅의 판정을 함께 본다. 사용법의
-    종료 코드는 git 판마다 달라 보지 않는다(harness 티켓 018). 하위 명령 바로 뒤의 `--help` 는
+    """대기열 300. `-h` 를 값 없는 옵션으로 넘기던 버전은 도움말을 지우는 푸시로 읽었다. 꼴마다 git
+    을 실제로 쳐 origin 의 `chore/x` 가 지워졌는지, 도움말의 표지와 훅의 판정을 함께 본다. 사용법의
+    종료 코드는 git 버전마다 달라 보지 않는다(harness 티켓 018). 하위 명령 바로 뒤의 `--help` 는
     `git help` 로 바뀐다. 도움말 페이지를 띄우지 않게 `help.format` 을 man 으로, 뷰어를 없는
     이름으로 둔다(윈도 git 의 기본 html 은 브라우저를 연다)."""
     repo = _repository(tmp_path, merge_ref=True)

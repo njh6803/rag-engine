@@ -75,7 +75,7 @@ services:
       retries: 30
 
   embedding:
-    # 임베딩 서버(TEI)의 CPU 판을 digest 로 고정했다. 이미지의 기본 사용자는 root 라 아래에서 uid 10001 로 바꾼다.
+    # 임베딩 서버(TEI)의 CPU 버전을 digest 로 고정했다. 이미지의 기본 사용자는 root 라 아래에서 uid 10001 로 바꾼다.
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4@sha256:2538ea1c9640d3763b15af668039d24172d063b42337b0c27796fc2be180c78d
     # --max-batch-tokens 는 TEI 기본값 16384 가 아니라 4096 이다. 기본값에서는 컨테이너 하나가 13.25GiB 를 썼다
     # (docker stats 로 손으로 본 값이고 compose.eval.yml 의 머리 주석이 적는다).

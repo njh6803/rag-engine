@@ -30,10 +30,10 @@ doctest 줄(`>>>`, `...`), 코드 펜스(백틱 셋)의 여닫는 줄과 그 안
 지시 주석(`# noqa: B010`, `# pyright:` 등)이면 그 앞의 코드만 재고, 코드를 들지 않은 `# noqa` 와
 E501 을 든 noqa 는 그 줄을 넘친 줄로 보지 않는다. 그 판정들을 ruff 와 대조하는 것은
 `.scratch/harness/probes/rewrap_width.py` 이고, 이 저장소의 줄과 그 프로브가 더한 줄만 잰다. 판정이
-ruff 판에 묶여 있으니 ruff 를 올리면 그 프로브를 다시 돌린다. 줄 길이는 파일마다 ruff 처럼 조상에서
-가장 가까운 설정(`.ruff.toml`, `ruff.toml`, `tool.ruff` 표가 든 `pyproject.toml`)에서 읽는다.
-`lint.pycodestyle.max-line-length` 가 있으면 그것, 없으면 `line-length`, 그것도 없으면 ruff 의
-기본값 88이다.
+ruff 버전에 묶여 있으니 ruff 를 올리면 그 프로브를 다시 돌린다. 줄 길이는 파일마다 ruff 처럼
+조상에서 가장 가까운 설정(`.ruff.toml`, `ruff.toml`, `tool.ruff` 표가 든 `pyproject.toml`)에서
+읽는다. `lint.pycodestyle.max-line-length` 가 있으면 그것, 없으면 `line-length`, 그것도 없으면 ruff
+의 기본값 88이다.
 
 사용: `uv run python tools/rewrap_comments.py <파일> [<파일> ...]`. 파일을 고쳐 쓰고 감은 자리와
 감은 뒤에도 넘친 줄을 줄마다 알린다. 종료 0 은 넘친 줄이 남지 않았다, 1 은 남았다, 2 는 인자가

@@ -103,7 +103,7 @@ def test_링크_대상과_URL_은_세지_않는다() -> None:
 
 
 def test_인용_블록의_영어는_세지_않는다() -> None:
-    """첫 판의 탐침에서 막힌 한국어 답의 모양(트랜스크립트 828f69a1, 비율 0.18)."""
+    """첫 버전의 탐침에서 막힌 한국어 답의 모양(트랜스크립트 828f69a1, 비율 0.18)."""
     message = (
         "본문에 서브에이전트의 보고에 대해 하라는 말은 없고, 사실 찾기를 맡기라는 말만 있다.\n\n"
         "> When a frontier question needs a fact from the environment (filesystem, tools, git),\n"

@@ -40,13 +40,13 @@ from tools.hook_env_read import (
         "sudo --us root cat .env",
         # 표에 없는 플래그(ack·ag 의 `--color`, ag 의 `--ackmate`)가 값 옵션 이름의 머리이고 같은
         # 명령에 진짜 줄임이 함께 있다. 모든 옵션을 플래그로 읽은 글과 모두 줄임으로 읽은 글 둘만 본
-        # 판이 지나보냈다(셀프 리뷰 명세 축). 옵션마다의 조합을 모두 본다.
+        # 버전이 지나보냈다(셀프 리뷰 명세 축). 옵션마다의 조합을 모두 본다.
         "ack .env --color --mat X",
         "ack --color --files-f .env KEY",
         "ag --color --path .env KEY",
         "ag --ackmate --path .env KEY",
         # 셸·git 의 옵션도 레코드로 읽는다. `--norc` 의 `c` 를 `-c` 로 세거나 하위 명령을 첫
-        # 인자로만 본 판이 지나보냈다(셀프 리뷰 표준 축). `+o` 는 옛 읽기가 맡는다.
+        # 인자로만 본 버전이 지나보냈다(셀프 리뷰 표준 축). `+o` 는 옛 읽기가 맡는다.
         "bash --norc -c 'cat .env'",
         "bash --rcfile x -c 'cat .env'",
         "bash -x -c 'cat .env'",
@@ -65,13 +65,13 @@ from tools.hook_env_read import (
         "rg -ie ANTHROPIC .env",
         "sed -ne 1p .env",
         "rg -ig '*' ANTHROPIC .env",
-        # ag 의 `-t`(--all-text)·`-f`(--follow)는 값을 먹지 않는다. rg 의 표를 쓴 판이 `KEY` 를
+        # ag 의 `-t`(--all-text)·`-f`(--follow)는 값을 먹지 않는다. rg 의 표를 쓴 버전이 `KEY` 를
         # 값으로 먹어 `.env` 를 패턴으로 버렸다(푸시 뒤 자동 보안 리뷰, 대기열 422).
         "ag -it ANTHROPIC .env",
         "ag -t ANTHROPIC .env",
         "ag -ft ANTHROPIC .env",
         # ack 3 의 `-A`·`-B` 는 값이 선택인 숫자라 숫자가 아닌 `KEY` 를 먹지 않는다(ConfigLoader.pm
-        # 의 `A|after-context:-1`). man 페이지의 `-A NUM` 을 따른 판이 지나보냈다(셀프 리뷰).
+        # 의 `A|after-context:-1`). man 페이지의 `-A NUM` 을 따른 버전이 지나보냈다(셀프 리뷰).
         "ack -A ANTHROPIC .env",
         "ack -B ANTHROPIC .env",
         "ack --after-context ANTHROPIC .env",
@@ -84,8 +84,8 @@ from tools.hook_env_read import (
         "ag --workers 2 ANTHROPIC .env",
         "ack --type python ANTHROPIC .env",
         "ack --pager less ANTHROPIC .env",
-        # 파일을 값으로 받아 읽는 옵션의 값. `--files-from` 을 값 옵션 표에 넣은 판이 뒤의 `.env` 를
-        # 값으로 먹어 `ack KEY --files-from .env` 를 지나보냈다(셋째 푸시 뒤 자동 보안 리뷰).
+        # 파일을 값으로 받아 읽는 옵션의 값. `--files-from` 을 값 옵션 표에 넣은 버전이 뒤의 `.env`
+        # 를 값으로 먹어 `ack KEY --files-from .env` 를 지나보냈다(셋째 푸시 뒤 자동 보안 리뷰).
         "ack ANTHROPIC --files-from .env",
         "ack --files-from=.env ANTHROPIC",
         "ack --ackrc .env ANTHROPIC src/",
@@ -187,7 +187,7 @@ def test_env_를_읽는_명령을_막는다(명령: str) -> None:
         "time -p cat .env",
         "command nice timeout 5 rev .env",
         # 값 옵션(`--login-class`)의 머리인 플래그. `flags` 에 없어도 플래그로 읽은 글이 막으므로 이
-        # 입력은 `flags` 를 재지 않는다. 옛 판도 막던 것을 고정한다(harness 티켓 012).
+        # 입력은 `flags` 를 재지 않는다. 옛 버전도 막던 것을 고정한다(harness 티켓 012).
         "sudo --login cat .env",
         "sudo -- cat .env",
         "env - cat .env",
@@ -255,11 +255,11 @@ def test_입력_리다이렉션도_읽기다() -> None:
         # 긴 옵션 줄임을 패턴 옵션으로 보는 것은 파일 읽기 판정만이고 훑기 판정은 그대로다. grep 은
         # `--reg KEY` 를 `--regexp KEY` 로 읽어 경로 없이 루트를 훑는다.
         "grep -rn --reg KEY",
-        # 값을 먹는 긴 옵션은 값 옵션 표에도 있어야 그 값을 경로로 세지 않는다. 표에 없던 판이
+        # 값을 먹는 긴 옵션은 값 옵션 표에도 있어야 그 값을 경로로 세지 않는다. 표에 없던 버전이
         # `list.txt` 를 위치 인자로 세어 `KEY` 를 경로로 읽었다(셀프 리뷰 표준 축이 grep 3.1 로
         # 봤다).
         "grep -rn --exclude-from list.txt KEY",
-        # GNU grep 의 다른 긴 값 옵션도 같다. 표에 없던 판이 `5` 를 패턴, `KEY` 를 경로로 읽었다
+        # GNU grep 의 다른 긴 값 옵션도 같다. 표에 없던 버전이 `5` 를 패턴, `KEY` 를 경로로 읽었다
         # (넷째 푸시 뒤 CodeRabbit·자동 보안 리뷰). 줄임(`--max-c 5`)은 아래에 있다(대기열 448).
         "grep -rn --max-count 5 KEY",
         "grep -rn --after-context 3 KEY",
@@ -275,13 +275,13 @@ def test_입력_리다이렉션도_읽기다() -> None:
         # `--file` 의 앞글자 견줌이 `--files-with-matches` 를 패턴 옵션으로 읽어 `KEY` 를 경로로
         # 봤다.
         "grep -rn --files-with-matches KEY",
-        # 긴 값 옵션의 줄임과, 묶음 속 값 옵션 뒤의 글자. 옛 판은 `5` 를 패턴, `KEY` 를 경로로
+        # 긴 값 옵션의 줄임과, 묶음 속 값 옵션 뒤의 글자. 옛 버전은 `5` 를 패턴, `KEY` 를 경로로
         # 읽었고, `_` 가 든 묶음을 묶음으로 보지 않아 `-uu` 를 세지 못했다(대기열 448).
         "grep -rn --max-c 5 KEY",
         "grep -n --recur KEY",
         "rg -uueKEY_X",
         "rg -uue KEY_X",
-        # `-d recurse` 는 `-r` 과 같다. `-r`·`-R` 만 본 판이 지나보냈다(셀프 리뷰 표준 축).
+        # `-d recurse` 는 `-r` 과 같다. `-r`·`-R` 만 본 버전이 지나보냈다(셀프 리뷰 표준 축).
         "grep -d recurse KEY .",
         "grep --directories=rec KEY",
         "grep -nd recurse KEY",
@@ -432,7 +432,7 @@ def test_Grep_도구는_경로와_glob_을_본다() -> None:
     ],
 )
 def test_Grep_도구의_glob_은_중괄호_갈래마다_본다(glob: str) -> None:
-    """한 갈래만 `.env` 에 닿아도 막는다. 마지막 `/` 뒤 조각만 본 판은 `{.claude/**,docs/*.md}` 를
+    """한 갈래만 `.env` 에 닿아도 막는다. 마지막 `/` 뒤 조각만 본 버전은 `{.claude/**,docs/*.md}` 를
     지나보냈다(대기열 369). Grep 도구는 `{*.md,**}` 로 gitignore 된 숨김 파일을 읽었다(2026-10-22
     손으로 봤다)."""
     assert deny_reason_for_grep_tool("C:/project/agent", glob) is not None
@@ -520,15 +520,15 @@ def test_못_보는_것_빼는_glob_의_중괄호는_펼치지_않아_막는다(
 )
 def test_대괄호_안의_중괄호는_펼치기_전의_glob_으로도_본다(명령: str) -> None:
     """bash·GNU grep·ripgrep 은 대괄호 안의 `{`·`}` 를 글자로 읽어 `.en[!{}]` 가 `.env` 에 맞는다.
-    펼친 갈래만 본 판은 `[!{}]` 를 `[!]` 로 깨뜨려 지나보냈다(옛 판은 막았다. PR 직전 보안 리뷰가
-    판정 함수와 가짜 숨김 파일로 봤다)."""
+    펼친 갈래만 본 버전은 `[!{}]` 를 `[!]` 로 깨뜨려 지나보냈다(옛 버전은 막았다. PR 직전 보안
+    리뷰가 판정 함수와 가짜 숨김 파일로 봤다)."""
     assert deny_reason_for_command(명령) is not None
 
 
 @pytest.mark.parametrize("glob", ["\\.env", "\\.e\\nv", "**/\\.env*"])
 def test_Grep_도구의_glob_의_역슬래시는_이스케이프로도_읽는다(glob: str) -> None:
     """Grep 도구는 glob 을 rg 에 넘기고 rg 는 역슬래시를 이스케이프로 읽는다. 역슬래시를 `/` 로만
-    바꿔 본 판이 지나보냈다(셀프 리뷰 표준 축)."""
+    바꿔 본 버전이 지나보냈다(셀프 리뷰 표준 축)."""
     assert deny_reason_for_grep_tool("C:/project/agent", glob) is not None
 
 

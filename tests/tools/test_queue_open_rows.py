@@ -888,7 +888,7 @@ def test_못_보는_것_README와_하위_폴더_파일과_다른_확장자는_�
 def test_main은_search를_주면_맞은_항목만_찍고_기본_출력을_내지_않는다(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """라벨 줄이 온전한 항목만 둔다. 빠진 항목이 있으면 기본 출력도 1로 끝나, 기본 출력을 낸 판이
+    """라벨 줄이 온전한 항목만 둔다. 빠진 항목이 있으면 기본 출력도 1로 끝나, 기본 출력을 낸 버전이
     출력 단언에 닿기 전에 종료 코드 단언에서 빨개진다."""
     write_folder(
         tmp_path,

@@ -164,7 +164,7 @@ jobs:
   # (tools/eval_gate_paths.py)이 평가할지를 정한다. 평가하지 않으면 나머지 스텝을 스텝의 조건(if)으로 넘긴 채 성공으로
   # 끝난다. 잡 자체를 건너뛰면 verify 가 빨강으로 세기 때문이다. 체크아웃은 merge-base 를 구하도록 전체 역사를 받는다.
   # 모델 파일(bge-m3)은 actions/cache 에 둔다(setup-uv 의 enable-cache 가 uv 의 캐시를 복원하고 저장하는 것은 python 잡과
-  # 같다). 키는 config.json 의 임베딩 모델과 TEI 판으로 만들어 판정 칸 같은 모델과 무관한 칸이 바뀌어도 캐시가 바뀌지
+  # 같다). 키는 config.json 의 임베딩 모델과 TEI 버전으로 만들어 판정 칸 같은 모델과 무관한 칸이 바뀌어도 캐시가 바뀌지
   # 않는다. 모델을 다 받은 뒤(TEI 가 healthy 가 된 뒤)에만 저장해 부분 폴더가 같은 키로 굳지 않게 한다.
   # 포크 PR 이 캐시를 오염시킬 수 있는지는 GitHub 문서 "Dependency caching
   # reference"(docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)의 "Restrictions for accessing a

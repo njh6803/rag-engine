@@ -12,7 +12,7 @@ tools: Read, Grep, Glob, Bash
 
 명세 전체, 명세가 근거로 드는 ADR과 그 이력(`docs/adr/`), 헌법(`docs/constitution/`), `docs/PRD.md`, `GLOSSARY.md`(있으면), 그 기능의 기능 계획 `.scratch/<slug>/plan.md`(본문, `**Blocked by:**`, `**설계:**` 줄)와 전체 계획 `.scratch/plan.md`의 그 표, 명세가 건드린다고 적은 현재 코드와 테스트. 명세가 코드나 설치된 라이브러리에 대해 사실을 주장하면 그 코드와 소스를 연다.
 
-Bash는 읽기와 측정에 쓴다 — `git log`, 설치본 소스, 저장소 밖 임시 디렉터리의 프로브. 파이썬은 `uv run python`이다(맨 `python`은 프로젝트 인터프리터가 아니다. `PYTHONUTF8`은 설정 `env`가 넣는다). 프로브는 저장소 밖 임시 디렉터리에 스크립트 파일로 쓰고 근거에 그 경로를 적는다. Write 도구가 없어 Bash heredoc으로 쓰는데 훅이 40줄 넘는 heredoc을 막으므로, 긴 스크립트는 40줄 이하의 heredoc 여럿을 `cat >>`로 덧붙인다. 명세가 그 측정을 근거로 들게 되면 부르는 세션이 그 파일을 `.scratch/<slug>/probes/`로 옮긴다(`docs/agents/issue-tracker.md`). 보고의 근거는 `docs/agents/issue-tracker.md` 프로브와 근거 절의 종류(프로브, 손으로 봄, 코드 읽기, 어림, 웹 요약)로 갈라 적는다. 여기서 돌린 임시 스크립트의 결과는 커밋된 프로브가 아니라 "임시 스크립트(그 경로)로 손으로 봤다"로 적는다. 부르는 세션이 그것을 명세에 "프로브로 봤다"고 옮기지 않게 하기 위해서다(agent-os 대기열 303). 옮겨 근거로 쓸 수 있게 지으려면 `docs/agents/issue-tracker.md`의 프로브와 근거 절(README 표의 한 줄, 잰 판)을 따른다.
+Bash는 읽기와 측정에 쓴다 — `git log`, 설치본 소스, 저장소 밖 임시 디렉터리의 프로브. 파이썬은 `uv run python`이다(맨 `python`은 프로젝트 인터프리터가 아니다. `PYTHONUTF8`은 설정 `env`가 넣는다). 프로브는 저장소 밖 임시 디렉터리에 스크립트 파일로 쓰고 근거에 그 경로를 적는다. Write 도구가 없어 Bash heredoc으로 쓰는데 훅이 40줄 넘는 heredoc을 막으므로, 긴 스크립트는 40줄 이하의 heredoc 여럿을 `cat >>`로 덧붙인다. 명세가 그 측정을 근거로 들게 되면 부르는 세션이 그 파일을 `.scratch/<slug>/probes/`로 옮긴다(`docs/agents/issue-tracker.md`). 보고의 근거는 `docs/agents/issue-tracker.md` 프로브와 근거 절의 종류(프로브, 손으로 봄, 코드 읽기, 어림, 웹 요약)로 갈라 적는다. 여기서 돌린 임시 스크립트의 결과는 커밋된 프로브가 아니라 "임시 스크립트(그 경로)로 손으로 봤다"로 적는다. 부르는 세션이 그것을 명세에 "프로브로 봤다"고 옮기지 않게 하기 위해서다(agent-os 대기열 303). 옮겨 근거로 쓸 수 있게 지으려면 `docs/agents/issue-tracker.md`의 프로브와 근거 절(README 표의 한 줄, 잰 버전)을 따른다.
 
 ## 체크리스트 일곱
 

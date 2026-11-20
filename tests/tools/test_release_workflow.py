@@ -44,7 +44,7 @@ BUILD_WORST_CASE_MINUTES = 80
 
 
 def code_lines(text: str) -> list[str]:
-    """YAML 주석 줄(`#` 으로 시작하는 줄)을 뺀 줄. 줄 끝의 `# 판` 주석은 그대로 둔다."""
+    """YAML 주석 줄(`#` 으로 시작하는 줄)을 뺀 줄. 줄 끝의 `# 버전` 주석은 그대로 둔다."""
     return [line for line in text.splitlines() if not line.lstrip().startswith("#")]
 
 
@@ -76,7 +76,7 @@ def step_names(job: str) -> list[str]:
 def unpinned_uses(text: str) -> list[str]:
     """커밋 해시(40자)로 고정되지 않은 `uses:` 의 값을 모은다. 주석 줄은 보지 않는다.
 
-    못 보는 것: 해시가 그 저장소의 실제 커밋인지, 뒤의 판 주석이 해시와 맞는지(릴리스를 고를 때
+    못 보는 것: 해시가 그 저장소의 실제 커밋인지, 뒤의 버전 주석이 해시와 맞는지(릴리스를 고를 때
     손으로 태그를 해시로 풀어 대 보았다), 컨테이너를 `docker://` 로 부르는 꼴(이 워크플로는 쓰지
     않는다).
     """

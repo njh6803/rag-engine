@@ -4,7 +4,7 @@ description: Break a plan, spec, or the current conversation into a set of trace
 disable-model-invocation: true
 ---
 
-<!-- 프로젝트 사본. agent-os가 덧댄 판을 2026-11-09 킥오프에서 옮겼고, 이 주석과 본문의 괄호 속 ADR·대기열 번호는 agent-os의 기록이다. 원본(mattpocock/skills)에 여섯을 더했다. 1단계의 기능 실행 순서(대기열 7 — 그 순서가 런북에만 있었다), 5단계의 받는 쪽 확인(대기열 3)과 옮기는 테스트의 이음매 확인(대기열 106), 5단계 로컬 파일의 stem이 구현 브랜치가 된다는 것(agent-os ADR 0037), 템플릿 뒤 문단의 경로 규칙을 저장소 관행에 맞춘 것(대기열 400), 2단계의 쉬운 말 문장(이 저장소의 harness 티켓 `plain-words-in-written-artifacts`). 이 주석이 `tools/check_instructions.py`의 센티널이라 지우면 검사가 빨강이 된다. -->
+<!-- 프로젝트 사본. agent-os가 덧댄 버전을 2026-11-09 킥오프에서 옮겼고, 이 주석과 본문의 괄호 속 ADR·대기열 번호는 agent-os의 기록이다. 원본(mattpocock/skills)에 여섯을 더했다. 1단계의 기능 실행 순서(대기열 7 — 그 순서가 런북에만 있었다), 5단계의 받는 쪽 확인(대기열 3)과 옮기는 테스트의 이음매 확인(대기열 106), 5단계 로컬 파일의 stem이 구현 브랜치가 된다는 것(agent-os ADR 0037), 템플릿 뒤 문단의 경로 규칙을 저장소 관행에 맞춘 것(대기열 400), 2단계의 쉬운 말 문장(이 저장소의 harness 티켓 `plain-words-in-written-artifacts`). 이 주석이 `tools/check_instructions.py`의 센티널이라 지우면 검사가 빨강이 된다. -->
 
 # To Tickets
 

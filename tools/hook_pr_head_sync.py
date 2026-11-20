@@ -17,13 +17,13 @@ head 의 리뷰가 남는다.
 1. 선택자(PR 번호·URL·브랜치) 없이 쳤으면 지금 브랜치의 PR 이다. upstream(`@{u}`)이 같은 이름의
    원격 브랜치이고, 로컬 HEAD 가 그것과 다르며 그 조상도 아니면 푸시하지 않은 커밋이 있다는 것이라
    막는다. PR head 는 기껏해야 upstream 이므로 로컬 HEAD 와 같을 수 없다. 네트워크 없이 판정한다.
-   upstream 이 다른 이름(base 를 추적하는 작업 브랜치)이면 이 단계를 건너뛴다 — 첫 판은 그 upstream
-   으로 재서 푸시한 뒤에도 영원히 막았다(PR #120 claude-review).
+   upstream 이 다른 이름(base 를 추적하는 작업 브랜치)이면 이 단계를 건너뛴다 — 첫 버전은 그
+   upstream 으로 재서 푸시한 뒤에도 영원히 막았다(PR #120 claude-review).
 2. 그 밖에는 `gh pr view [선택자] --json headRefOid,headRefName` 으로 PR head 를 읽는다. PR 의
    브랜치가 지금 브랜치이고, PR head 가 로컬 HEAD 와 다르고, 로컬에 있는 커밋이며, 로컬 HEAD 가
    PR head 의 조상도 아니면 막는다. PR 쪽이 앞선 것은 당기지 않았을 뿐이라 리뷰는 맞는 것을 본다.
    로컬에 없는 PR head 는 앞섰는지 알 수 없어 지나간다. 이 클론이 푸시한 옛 head 는 로컬에 있고,
-   없는 것은 대개 다른 곳(GitHub 화면의 제안 커밋, 다른 세션)이 푸시한 앞선 head 다. 첫 판은 이
+   없는 것은 대개 다른 곳(GitHub 화면의 제안 커밋, 다른 세션)이 푸시한 앞선 head 다. 첫 버전은 이
    경우를 막았다. 셀프 리뷰 두 축이 따로 재현했고, 기다려도 같아지지 않고 푸시는 non-ff 로
    거부되어 거부 이유가 안내한 길로는 풀리지 않았다.
 git 과 gh 는 페이로드의 `cwd` 에서 돌고, 저장소를 가리키는 `GIT_*` 는 벗긴다(hook_git_main_commit).

@@ -10,7 +10,7 @@
 래퍼로 더하면 돌았다(2026-10-02, `.scratch/harness/probes/hook_registration/run.sh`).
 
 지나갈 때는 stdout 에 JSON 하나를 낸다. 사용자에게는 `systemMessage`, 모델에게는 `CONTEXT_EVENTS`
-일 때 `additionalContext` 다(`notice`). 첫 판은 stderr 에 한 줄만 남겼는데, 종료 0의 stderr 는
+일 때 `additionalContext` 다(`notice`). 첫 버전은 stderr 에 한 줄만 남겼는데, 종료 0의 stderr 는
 디버그 로그로만 가서 `.env` 읽기 차단(`hook_env_read`)이 꺼져도 세션이 몰랐다(대기열 93, PR #121
 claude-review). `claude -p` 세션에서 PreToolUse 의 알림은 모델이 모델 몫의 문장을 옮겼고, Stop 의
 알림은 사용자 알림 하나로 끝나 대화가 이어지지 않았다(2026-10-02, 같은 `run.sh` 의 E·F, 대조군
@@ -41,7 +41,7 @@ Write·Edit 마다 알려 같은 문단이 약 마흔 번 컨텍스트에 쌓였
   이 파일을 들이는 PR 이 병합된 뒤 주 체크아웃을 당기기 전, 주 체크아웃이 그보다 앞서 딴 브랜치에
   있을 때, 이 파일의 이름을 바꾼 뒤다. 그래서 이 파일을 들인 PR 은 병합 직후 주 체크아웃을 당긴다
   (주 체크아웃 세션의 tidy-checkouts, next-session merge.md 의 "워크트리에서 병합할 때").
-- 훅 파일은 있지만 그 판이 등록과 맞지 않는 것(주 체크아웃의 옛 훅이 새 등록의 이벤트로 도는 것).
+- 훅 파일은 있지만 그 버전이 등록과 맞지 않는 것(주 체크아웃의 옛 훅이 새 등록의 이벤트로 도는 것).
 - 알림이 데스크톱 앱에서 어떻게 보이는지. `systemMessage` 는 `claude -p` 의 stream-json 에서
   `informational` 이벤트로 오는 것만 봤다. 공식 hooks 문서는 Setup 이 JSON 출력(`systemMessage`
   포함)을 버리고 StopFailure 가 출력을 무시한다고 적는다 — 그 이벤트에 훅을 등록하면 알림이 없다.

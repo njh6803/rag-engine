@@ -30,7 +30,7 @@ Decisions). 표준 라이브러리만 쓴다. agent-os 저장소의 같은 이�
 
 - `image-id` 는 `manifest.json` 하나가 가리키는 설정 파일의 바이트를 읽을 뿐이다. 그 바이트가 두 꼴
   (`<아이디>.json` 과 `blobs/sha256/<해시>`)에서 같은 해시를 낸다는 것은 두 꼴을 만들어 넣어 본
-  것이다. 어느 엔진이 어느 꼴을 내는지는 엔진 판에 따라 갈린다. 이 저장소의 개발 PC(Docker 29.9.2,
+  것이다. 어느 엔진이 어느 꼴을 내는지는 엔진 버전에 따라 갈린다. 이 저장소의 개발 PC(Docker 29.9.2,
   저장 드라이버 overlay2)의 `docker save` 는 `blobs/sha256/<해시>` 꼴을 냈고, 그 값은 `docker image
   inspect` 의 `Id` 와 같았다. `<아이디>.json` 꼴은 agent-os 가 자기 PC와 GitHub 러너의
   `docker save` 에서 읽었다고 적은 것이고 이 저장소에서는 읽어 보지 않았다. 이 저장소의 GitHub
@@ -98,7 +98,7 @@ def _json(text: str, what: str) -> object:
 def image_config_digest(tar_path: Path) -> str:
     """`docker save` 파일의 `manifest.json` 이 가리키는 설정 파일의 sha256.
 
-    엔진 판에 따라 `<아이디>.json` 이나 `blobs/sha256/<해시>` 를 가리킨다. 둘 다 설정 파일의
+    엔진 버전에 따라 `<아이디>.json` 이나 `blobs/sha256/<해시>` 를 가리킨다. 둘 다 설정 파일의
     바이트가 이미지 설정 그대로이므로 그 해시는 설정과 레이어(`rootfs.diff_ids`)를
     함께 가리킨다.
     """

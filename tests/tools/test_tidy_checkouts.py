@@ -3074,7 +3074,7 @@ def test_judge_는_폴더_없는_등록의_옆_이름_폴더가_있으면_남긴
 def test_judge_는_폴더_없는_분리_HEAD_등록을_origin_main_에_없으면_넘기고_있으면_걷는다(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """명세 축 리뷰(Critical). 폴더 없는 등록을 무조건 걷던 첫 판은 `origin/main` 에 없는 커밋의
+    """명세 축 리뷰(Critical). 폴더 없는 등록을 무조건 걷던 첫 버전은 `origin/main` 에 없는 커밋의
     마지막 참조를 걷어 그 커밋이 매달렸다(리뷰가 임시 저장소에서 재현했다). 잠긴 등록도 걷지
     않는다."""
     unique, _ = _add_detached(repo, "unique")
@@ -3472,7 +3472,7 @@ def test_judge_는_대소문자가_바뀌어_찍힌_브랜치도_그_제목의_�
 ) -> None:
     """윈도에서 낱개 참조의 폴더(`refs/heads/chore/`)가 이미 있으면 `Chore/Upper` 가 그 폴더 아래에
     들어가 `for-each-ref` 가 `chore/Upper` 로 찍는다. 세션 제목은 친 그대로다. 대소문자를 가린
-    판은 그 세션의 브랜치를 지울 후보로 냈다(대기열 286 의 반박 시험)."""
+    버전은 그 세션의 브랜치를 지울 후보로 냈다(대기열 286 의 반박 시험)."""
     _git("branch", "chore/x", cwd=repo)
     _git("branch", "Chore/Upper", cwd=repo)
     if sys.platform == "win32":
@@ -3487,7 +3487,7 @@ def test_judge_와_remove_branch_는_대소문자가_바뀌어_찍힌_체크아�
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """윈도에서 `Chore/Upper` 워크트리의 등록은 친 그대로 찍히고 `for-each-ref` 는 `chore/Upper` 로
-    찍는다. 글자 그대로 견준 판은 그 브랜치를 체크아웃되지 않은 것으로 보아 지울 후보로 냈고,
+    찍는다. 글자 그대로 견준 버전은 그 브랜치를 체크아웃되지 않은 것으로 보아 지울 후보로 냈고,
     `remove-branch` 가 지워 커밋하지 않은 파일이 든 워크트리의 HEAD 가 끊겼다(git 의 `branch -D` 도
     대소문자를 가려 막지 않았다. 대기열 286 셀프 리뷰 명세 축)."""
     _git("branch", "chore/x", cwd=repo)
