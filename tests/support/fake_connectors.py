@@ -76,6 +76,11 @@ def create_chained(config: Mapping[str, JsonValue]) -> FakeConnector:
     raise ConnectorError(ConnectorFailureReason.INVALID_CONFIG) from ValueError(LEAKED_TEXT)
 
 
+def create_unreadable(config: Mapping[str, JsonValue]) -> FakeConnector:
+    """만들 때 낼 수 없는 사유(`unreadable`)를 낸다. 계약을 어긴 커넥터다."""
+    raise ConnectorError(ConnectorFailureReason.UNREADABLE)
+
+
 def create_broken(config: Mapping[str, JsonValue]) -> FakeConnector:
     """인터페이스에 없는 예외를 비밀번호처럼 보이는 글과 함께 낸다."""
     raise RuntimeError(LEAKED_TEXT)

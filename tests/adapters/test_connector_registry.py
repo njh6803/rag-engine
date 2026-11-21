@@ -113,9 +113,24 @@ def test_사유_예외에_원인이_묶여_있으면_끊고_사유만_전한다(
         registry.create("chained", {})
 
     assert caught.value.reason is ConnectorFailureReason.INVALID_CONFIG
+    # `from None`만으로는 `__context__`에 원래 예외가 남아, 그 원인의 글을 사슬로 걸어 읽을 수 있다.
     assert caught.value.__cause__ is None
-    assert caught.value.__suppress_context__
+    assert caught.value.__context__ is None
     assert LEAKED_TEXT not in str(caught.value)
+
+
+def test_만들_때_invalid_config가_아닌_사유는_쓸_수_없는_커넥터로_거부한다(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    registry = _registry(_entry("unreadable", "create_unreadable"))
+
+    with caplog.at_level(logging.DEBUG), pytest.raises(ConnectorUnavailableError) as caught:
+        registry.create("unreadable", {})
+
+    logged = " ".join(repr(record.__dict__) for record in caplog.records)
+    assert "connector_rejected" in logged
+    assert "ConnectorError" in logged
+    assert caught.value.__context__ is None
 
 
 def test_설정이_맞으면_같은_커넥터가_만들어진다() -> None:
@@ -139,7 +154,7 @@ def test_만드는_함수가_인터페이스_밖의_예외를_내면_쓸_수_없
     assert LEAKED_TEXT not in logged
     assert "RuntimeError" in logged
     assert caught.value.__cause__ is None
-    assert caught.value.__suppress_context__
+    assert caught.value.__context__ is None
 
 
 def test_인터페이스_버전이_문자열이_아니면_쓸_수_없는_커넥터로_거부한다(

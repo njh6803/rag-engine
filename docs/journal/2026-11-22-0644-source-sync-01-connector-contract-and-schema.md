@@ -81,7 +81,7 @@ source-sync 티켓을 나눈 세션이 낸 지시문으로 연 세션의 기록�
 
 ## PR 직전 리뷰
 
-CodeRabbit CLI(`coderabbit-review` 서브에이전트가 부른다)는 권한 분류기가 명령을 막아 돌지 못했다. 우회하지 않았다. 같은 자리의 `bug-perf-review` 서브에이전트가 커밋 `4401df4`를 읽고 임시 데이터베이스로 내려 보는 것까지 했고, 그 보고를 받은 턴에 아래로 옮긴다. 보안 축은 이 세션의 내장 `/security-review`가 보는 몫이라 고친 뒤에 돌리고 결과를 이 절 끝에 적는다.
+CodeRabbit CLI(`coderabbit-review` 서브에이전트가 부른다)는 권한 분류기가 명령을 막아 돌지 못했다. 우회하지 않았다. 대신 서브에이전트가 커밋 `4401df4`를 읽고 임시 데이터베이스로 내려 보는 것까지 했고(첫 판), 고친 커밋 `5c7418f` 위에서 `bug-perf-review`가 다시 읽었다(두 번째 판). 보안 축은 이 세션의 내장 `/security-review`가 맡았다. 보고는 받은 턴에 아래로 옮겼다.
 
 **보고.** Critical과 Major는 없었고 유효한 Minor 셋이었다.
 
@@ -96,6 +96,18 @@ CodeRabbit CLI(`coderabbit-review` 서브에이전트가 부른다)는 권한 �
 - 레지스트리가 `ConnectorError`를 받으면 사유만 들어 새로 올리고 원인은 끊는다(`from None`). 원인이 묶인 `ConnectorError`를 내는 가짜 함수(`create_chained`)와 시험을 더했다.
 - 내리기가 멈추는 두 경우를 재는 시험 둘을 더했다. 모두 `IntegrityError`로 멈추고, 멈춘 뒤에도 판은 0004이고 `sync_records`가 남는다.
 - `SyncRecord.listed`를 `int | None`으로 고쳤다.
+
+### 두 번째 판(커밋 `5c7418f` 뒤)
+
+고친 상태를 `bug-perf-review` 서브에이전트가 다시 읽고 임시 데이터베이스 둘(0004로 지은 것과 `metadata.create_all`로 지은 것)의 제약, 색인, 칸을 `pg_constraint`, `pg_indexes`, `information_schema.columns`로 대 보았다. `alembic_version` 표 말고는 차이가 없었다. 기존 시험의 `compare_metadata`는 CHECK와 외래 키 이름을 비교하지 않는데 이 대조가 그것을 새로 확인했다. 보고는 Critical·Major 없음, Minor 셋이었다.
+
+- **`from None`이 원인 사슬을 다 끊지 못한다(Minor, 맞다).** `except` 안에서 새 예외를 올리면 `__context__`에 원래 예외가 남고 그 예외의 `__cause__`에 설치처의 글이 있다. `ConnectorUnavailableError`도 같은 길이다. 직전 반영이 절반만 닫혔다. 고쳤다: 두 예외를 모두 `except` 밖에서 올린다. 시험 둘이 `__cause__`와 `__context__`가 모두 비었는지 본다(앞서의 `__suppress_context__` 단언은 없앴다).
+- **레지스트리가 `invalid_config`가 아닌 사유를 그대로 전한다(Minor, 맞다).** 만들 때 낼 수 있는 사유는 `invalid_config` 하나이고 04와 06이 그것을 믿고 쓴다. 고쳤다: 다른 사유는 `ConnectorUnavailableError`로 알리고 예외 종류 이름만 기록한다. 가짜 함수(`create_unreadable`)와 시험을 더했다.
+- **버전 major를 만든 뒤에 확인하고 `interface_version` 문자열을 길이 제한 없이 기록한다(Minor, 남긴다).** 버전은 인스턴스의 속성이라 만든 뒤에야 읽을 수 있고, 문자열은 설치처가 정하는 값이다. 설치처는 신뢰 경계 안쪽이고 비밀이 아니라 원칙 V에 닿지 않는다. 만든 객체를 닫지 않고 버리는 일은 이 인터페이스에 닫는 메서드가 없어서 그렇다.
+
+**보안 리뷰(`/security-review`).** 소스 열 개를 읽는 하위 작업이 확신도 7 이상인 취약점을 하나도 내지 않았다. 오탐을 거르는 단계로 넘길 후보가 없었다. 읽지 않은 범위는 ADR 0012와 0023의 본문이다. 참고로 `sources.config`에 비밀이 들어오는 것을 입력 쪽에서 막는지 원천 보기를 만드는 뒤 티켓이 확인해야 한다.
+
+**다시 돌린 명령.** 두 번째 반영 뒤에 `ruff format`, `ruff check`(통과), `pyright`(0 errors), `lint-imports`, `check_type_escapes`와 시험 두 파일(`test_connector_registry.py`, `test_connectors.py`) 36개 통과.
 
 ## 회고
 
