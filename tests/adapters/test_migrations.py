@@ -848,14 +848,29 @@ def test_원천이_빈_값끼리도_같은_값으로_보는_부분_유일_색인
     assert "succeeded" not in definition
 
 
+def _index_predicate(connection: psycopg.Connection, name: str) -> str:
+    """부분 색인의 `WHERE` 술어만 읽는다. 색인 정의 전체의 글자를 찾으면 이름에 든 낱말과 잘못된
+    비교 연산자도 맞아 버린다."""
+    row = connection.execute(
+        "SELECT pg_get_expr(indpred, indrelid) FROM pg_index WHERE indexrelid = to_regclass(%s)",
+        [name],
+    ).fetchone()
+    assert row is not None, f"{name} 색인이 없다"
+    predicate: str | None = row[0]
+    assert predicate is not None, f"{name} 색인에 술어가 없다"
+    return predicate
+
+
 def test_꺼내기용_부분_색인은_색인_작업이_아닌_작업만_담는다(migrated_url: str) -> None:
     with _connect(migrated_url) as connection:
         definition = _index_definition(connection, "ix_jobs_not_index_document_run_after")
+        predicate = _index_predicate(connection, "ix_jobs_not_index_document_run_after")
 
     assert "(run_after, id)" in definition
-    assert "index_document" in definition
-    assert "<>" in definition or "<> " in definition
-    assert "succeeded" not in definition
+    assert "<> 'index_document'" in predicate
+    assert "'queued'" in predicate
+    assert "'running'" in predicate
+    assert "succeeded" not in predicate
 
 
 def test_동기화_기록은_목록_건수가_비어_있고_나머지_개수는_영이며_사유별_개수는_빈_객체다(
@@ -958,6 +973,14 @@ def test_동기화_기록은_원천마다_가장_최근_것을_찾는_색인을_
         definition = _index_definition(connection, "ix_sync_records_source_id_created_at")
 
     assert "(source_id, created_at)" in definition
+
+
+def test_동기화_기록은_작업_행을_지울_때_기록을_찾는_색인을_가진다(migrated_url: str) -> None:
+    with _connect(migrated_url) as connection:
+        definition = _index_definition(connection, "ix_sync_records_job_id")
+
+    assert "ON public.sync_records" in definition
+    assert "(job_id)" in definition
 
 
 def test_마지막_판을_내리면_이_기능의_표와_칸과_제약이_모두_사라지고_다시_올라간다(

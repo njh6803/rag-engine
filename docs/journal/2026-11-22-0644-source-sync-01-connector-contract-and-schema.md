@@ -107,7 +107,19 @@ CodeRabbit CLI(`coderabbit-review` 서브에이전트가 부른다)는 권한 �
 
 **보안 리뷰(`/security-review`).** 소스 열 개를 읽는 하위 작업이 확신도 7 이상인 취약점을 하나도 내지 않았다. 오탐을 거르는 단계로 넘길 후보가 없었다. 읽지 않은 범위는 ADR 0012와 0023의 본문이다. 참고로 `sources.config`에 비밀이 들어오는 것을 입력 쪽에서 막는지 원천 보기를 만드는 뒤 티켓이 확인해야 한다.
 
-**다시 돌린 명령.** 두 번째 반영 뒤에 `ruff format`, `ruff check`(통과), `pyright`(0 errors), `lint-imports`, `check_type_escapes`와 시험 두 파일(`test_connector_registry.py`, `test_connectors.py`) 36개 통과.
+### CodeRabbit 첫 회차(PR #99, 머리 `be28b80`)
+
+검사는 모두 통과했고 claude-review는 지적이 없었다. CodeRabbit이 Minor 다섯을 냈다. 첫 회차라 지적마다 판단했다.
+
+- **entry point 탐색 실패가 `ConnectorUnavailableError`로 바뀌지 않는다(고쳤다).** `create`가 `except` 밖에서 `discover`를 불러, 다른 패키지의 메타데이터가 깨지면 그 예외가 그대로 나갔다. 탐색도 같은 방식으로 감싸고, 새 예외는 `except` 밖에서 올린다. 로그에는 예외 종류 이름만 싣는다. 시험을 더했다.
+- **`sync_records.job_id`에 색인이 없다(고쳤다).** `JobQueue.delete_queued`가 작업 행을 지우면 `ON DELETE SET NULL`이 그 작업의 기록을 찾는데 색인이 없으면 기록 표를 훑는다. 마이그레이션과 표 정의에 `ix_sync_records_job_id`를 더하고 시험을 더했다.
+- **부분 색인 시험이 정의 전체의 글자만 본다(고쳤다).** `pg_get_expr`로 `WHERE` 술어만 읽어 비교 연산자와 활성 상태 둘을 함께 본다.
+- **`skipped` 문서는 `skip_reason`이 있어야 한다(남긴다).** 위 "남긴 것"과 "다음"에 이미 있다. 건너뜀을 쓰는 02가 사유를 정한 뒤에 건다.
+- **업그레이드 전에 서버를 정상 종료하라는 문구(남긴다).** 원고는 백업하라는 한 줄로 쓰고 백업과 복원의 절차는 backup-upgrade가 정한다고 PR 템플릿이 적는다. 그 기능의 일지 "다음"으로 넘긴다.
+
+**다시 돌린 명령.** 이 반영 뒤에 `ruff format`, `ruff check`, `pyright`(0 errors), `lint-imports`, `check_type_escapes`와 시험 세 파일(`test_connector_registry.py`, `test_migrations.py`, `test_connectors.py`) 120개 통과.
+
+**다시 돌린 명령(두 번째 반영).** 두 번째 반영 뒤에 `ruff format`, `ruff check`(통과), `pyright`(0 errors), `lint-imports`, `check_type_escapes`와 시험 두 파일(`test_connector_registry.py`, `test_connectors.py`) 36개 통과.
 
 ## 회고
 
@@ -130,4 +142,5 @@ CodeRabbit CLI(`coderabbit-review` 서브에이전트가 부른다)는 권한 �
 - **작업 단위 안에서 얻는 포트가 넷이라는 문장**은 07이 고친다.
 - **작업이 지워질 때 동기화 기록을 닫는 일은 11이 맡는다.** `sync_records.job_id`는 `ON DELETE SET NULL`이라 원천 삭제가 대기 중인 동기화 작업을 지워도 기록은 남고 작업 칸만 빈다. 그 기록을 `failed`와 `source_deleted`로 닫는 코드는 아직 없고 명세 269행이 11의 일로 둔다.
 - **`skipped` 문서의 `skip_reason`** 보강 CHECK는 02가 건너뜀 사유를 정할 때 같이 본다.
+- **업그레이드 원고의 백업 조건**(서버를 정상 종료한 뒤 볼륨을 복사해야 일관된 백업이다)은 backup-upgrade가 백업과 복원의 절차를 정할 때 함께 정한다. 이 PR의 원고는 템플릿이 정한 대로 백업하라는 한 줄이다.
 - **첫 비색인 작업을 넣는 티켓(07)이 먼저 고칠 것.** `JobQueue.claim`이 작업 종류를 거르지 않고, 작업 행을 엔티티로 바꾸는 함수가 `document_id`를 UUID로 가정한다. 문서를 가리키지 않는 작업이 처음 들어가면 작업자가 그 행을 색인 작업으로 꺼내 거기서 깨진다.

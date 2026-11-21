@@ -185,6 +185,9 @@ def _create_sync_records() -> None:
     op.create_index(
         "ix_sync_records_source_id_created_at", "sync_records", ["source_id", "created_at"]
     )
+    # 작업 행을 지우면 `ON DELETE SET NULL`이 그 작업의 기록을 찾는다. 색인이 없으면 지울 때마다
+    # 기록 표를 처음부터 끝까지 훑는다.
+    op.create_index("ix_sync_records_job_id", "sync_records", ["job_id"])
 
 
 def upgrade() -> None:

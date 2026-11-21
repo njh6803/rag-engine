@@ -338,6 +338,8 @@ sync_records = sa.Table(
     sa.CheckConstraint("jsonb_typeof(failed) = 'object'", name="failed_is_object"),
     # 원천마다 가장 최근 기록을 찾는다.
     sa.Index("ix_sync_records_source_id_created_at", "source_id", "created_at"),
+    # 작업 행을 지우면 `ON DELETE SET NULL`이 그 작업의 기록을 찾는다.
+    sa.Index("ix_sync_records_job_id", "job_id"),
 )
 
 tokens = sa.Table(

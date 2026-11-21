@@ -4,7 +4,8 @@
 entry point가 가리키는 것은 설정을 받아 커넥터를 돌려주는 보통 함수다. 만드는 함수는 원천에 닿지
 않으므로 이 호출에는 커넥터 호출의 한도를 걸지 않는다. 인터페이스 버전의 major가 1이 아니면 그
 커넥터를 거부하고 기록한다. 설치되지 않은 이름과 major가 다른 커넥터와 불러오다 깨진 커넥터는
-`ConnectorUnavailableError` 하나로 알린다. 만드는 함수가 올린 `ConnectorError`가 설정이 틀렸다는
+`ConnectorUnavailableError` 하나로 알린다. entry point를 읽다 깨진 것(다른 패키지의 손상된
+메타데이터)도 같다. 만드는 함수가 올린 `ConnectorError`가 설정이 틀렸다는
 `invalid_config`이면 그 사유만 들어 새로 올린다. 만들 때 낼 수 있는 사유는 이 하나뿐이라 다른 사유는
 계약을 어긴 것이고 불러오다 깨진 것과 같이 `ConnectorUnavailableError`로 알린다.
 
@@ -51,7 +52,21 @@ class EntryPointConnectorRegistry:
         self._discover = discover if discover is not None else _discover_entry_points
 
     def create(self, name: str, config: Mapping[str, JsonValue]) -> Connector:
-        entry = next((entry for entry in self._discover() if entry.name == name), None)
+        entry: EntryPoint | None = None
+        discovery_failed = False
+        try:
+            entry = next((entry for entry in self._discover() if entry.name == name), None)
+        except Exception as error:  # 다른 패키지의 깨진 메타데이터도 이 호출에 닿는다
+            discovery_failed = True
+            log_event(
+                logger,
+                "connector_rejected",
+                level=logging.WARNING,
+                connector=name,
+                exception_type=type(error).__name__,
+            )
+        if discovery_failed:
+            raise ConnectorUnavailableError
         if entry is None:
             log_event(logger, "connector_rejected", level=logging.WARNING, connector=name)
             raise ConnectorUnavailableError

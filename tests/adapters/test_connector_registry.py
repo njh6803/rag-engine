@@ -177,6 +177,25 @@ def test_불러올_수_없는_entry_point는_쓸_수_없는_커넥터로_거부�
         registry.create("gone", {})
 
 
+def test_entry_point를_읽다_깨지면_쓸_수_없는_커넥터로_거부하고_글은_남기지_않는다(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def broken_discovery() -> list[EntryPoint]:
+        raise UnicodeDecodeError("utf-8", LEAKED_TEXT.encode(), 0, 1, LEAKED_TEXT)
+
+    registry = EntryPointConnectorRegistry(broken_discovery)
+
+    with caplog.at_level(logging.DEBUG), pytest.raises(ConnectorUnavailableError) as caught:
+        registry.create("fake", {})
+
+    logged = " ".join(repr(record.__dict__) for record in caplog.records)
+    assert "UnicodeDecodeError" in logged
+    assert LEAKED_TEXT not in logged
+    assert LEAKED_TEXT not in str(caught.value)
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
+
+
 def test_거부한_커넥터는_이름과_버전을_기록하고_설정은_기록하지_않는다(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
