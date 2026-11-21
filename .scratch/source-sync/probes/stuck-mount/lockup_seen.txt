@@ -1,0 +1,321 @@
+stuck-mount 프로브의 첫 실행(probe_out.txt, 2026-11-21) 가운데 CIFS 칸 여섯이 함께 돌던 때, 커널이 CPU
+하나에서 헛돈 동안(soft lockup)과 그 뒤에 손으로 친 명령과 그 출력이다. 스크립트가 낸 출력이 아니다.
+명령은 모두 개발 PC 의 Git Bash 에서 쳤고, `docker exec stuckmnt-host ...` 는 프로브의 "서버 기계"
+컨테이너(특권 Docker-in-Docker) 안에서 돈다. 긴 출력은 줄였고, 줄인 자리는 "(줄임)"으로 적었다. 명령을
+친 시각은 대화 기록에 남은 시각(UTC. 한국 시간은 9시간을 더한다)이다.
+
+시계가 둘이다. 커널 로그의 대괄호 안 수(아래에서 "커널 로그의 시각")와 `/proc/uptime` 은 같은 수가
+아니다. 이 PC 에서 `/proc/uptime` 이 58.6초 앞서 있었다(아래 9절에서 쟀다). 아래에서 `/proc/uptime` 으로
+읽은 수는 58.6을 빼 커널 로그의 시각으로 옮겨 견줬다.
+
+차례는 이렇다(커널 로그의 시각).
+- 첫 soft lockup 추적은 cifs-hard-pause 칸이 서버를 얼린 지 218.1초 뒤에 찍혔다(probe_out.txt 의 그 칸
+  커널 로그). 알림은 28초마다 다시 찍혔다. 아래 1절의 줄(709838.6, "stuck for 443s")에서 28초씩 거슬러
+  가면 첫 알림은 709390.6 이고, 알림의 "stuck for" 수가 한 번에 26씩 느니 첫 알림의 수는 27쯤이다. 그러니
+  헛돌기 시작한 때는 709362쯤, 그 칸이 서버를 얼린 지 189초쯤이다(셈한 값이다). 같은 칸의 커널 로그에는
+  끊고 186.1초에 "has not responded in 180 seconds. Reconnecting..." 이, 189.6초에 "Serverclose failed 4
+  times, giving up" 이 찍혀 있다.
+- 마지막 soft lockup 줄은 710398.6 이고, 710419.4 에 밀려 있던 네트워크 일이 한꺼번에 풀렸다(6절).
+  709362쯤부터 710419.4 까지 17분 37초쯤이다. 시계로는 13:17:39 에서 13:35:17 쯤(UTC), 한국 시간 22:17:39
+  에서 22:35:17 쯤이다.
+- 풀리기 2.9초 전(710416.5. `/proc/uptime` 으로 710475.08)에 손으로 주소 바꿔치기 규칙 둘을 넣었다(8절).
+  닿지 않던 두 서버(cifs-hard-disconnect 의 10.213.77.14, cifs-hard-kill 의 10.213.77.16)로 가는 SMB 연결을
+  살아 있던 서버(10.213.77.12)로 돌리는 규칙이다. 17분 넘게 풀리지 않던 것이 규칙을 넣은 지 3초 안에
+  풀렸으니 이 규칙이 푼 것으로 본다. 다만 근거는 시각이 맞아떨어진다는 것 하나이고, 다시 일으켜 확인하지
+  않았다.
+- 프로브가 친 서버를 다시 잇는 명령들(start, network connect)은 헛도는 동안 돌아오지 않았다(4절).
+
+== 1. 커널 로그의 soft lockup 한 덩이(명령: docker exec stuckmnt-host dmesg. 13:25쯤)
+[709838.632780] watchdog: BUG: soft lockup - CPU#9 stuck for 443s! [kworker/9:2:31830]
+[709838.632786] Modules linked in: cmac nfsd nfs_acl rpcsec_gss_krb5 krb5 auth_rpcgss nfsv4 nfs lockd grace cifs nls_ucs2_utils libarc4 cifs_md4 dns_resolver tls ip_set_hash_net sch_fq_codel autofs4 n
+[709838.632824] CPU: 9 UID: 0 PID: 31830 Comm: kworker/9:2 Tainted: G             L      6.18.58.1-microsoft-standard-WSL2 #1 PREEMPT(none) 
+[709838.632827] Tainted: [L]=SOFTLOCKUP
+[709838.632831] Workqueue: deferredclose smb2_deferred_work_close [cifs]
+[709838.632855] RIP: 0010:free_rsp_buf+0xa/0x50 [cifs]
+[709838.632873] Code: 8a b5 cb 66 66 2e 0f 1f 84 00 00 00 00 00 66 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 0f 1f 40 d6 0f 1f 44 00 00 55 <89> f8 48 89 f7 48 89 e5 83 f8 01 74 10 48 85 f6 74
+[709838.632875] RSP: 0018:ffffce7f178e3b70 EFLAGS: 00000246
+[709838.632877] RAX: ffffce7f178e3c20 RBX: 00000000fffffff5 RCX: 0000000000000006
+[709838.632879] RDX: 0000000000000001 RSI: 0000000000000000 RDI: 0000000000000000
+[709838.632880] RBP: ffffce7f178e3c70 R08: ffffce7f178e3bc4 R09: 0000000000000000
+[709838.632881] R10: 00000000fffffff5 R11: 0000000000000001 R12: ffff889196562000
+[709838.632882] R13: ffffce7f178e3c88 R14: ffff8892d777b000 R15: ffff8892d777f000
+[709838.632886] FS:  0000000000000000(0000) GS:ffff889467fb6000(0000) knlGS:0000000000000000
+[709838.632888] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[709838.632889] CR2: 00005ce06535e814 CR3: 0000000135c96000 CR4: 0000000000350ef0
+[709838.632891] Call Trace:
+[709838.632893]  <TASK>
+[709838.632937]  ? __SMB2_close+0x2a3/0x530 [cifs]
+[709838.632958]  ? __flush_work+0x14d/0x3a0
+[709838.632965]  cifs_toupper+0x1de8/0x4080 [cifs]
+[709838.632980]  ? cifs_toupper+0x1de8/0x4080 [cifs]
+[709838.632994]  ? enable_work+0x32/0xf0
+[709838.632997]  ? srso_return_thunk+0x5/0x5f
+[709838.633003]  _cifsFileInfo_put+0x2ad/0x4e0 [cifs]
+[709838.633025]  smb2_deferred_work_close+0x59/0x70 [cifs]
+[709838.633040]  process_one_work+0x1a2/0x3d0
+[709838.633044]  worker_thread+0x1ae/0x330
+[709838.633046]  ? srso_return_thunk+0x5/0x5f
+[709838.633049]  ? __pfx_worker_thread+0x10/0x10
+[709838.633052]  kthread+0x111/0x260
+[709838.633055]  ? __pfx_kthread+0x10/0x10
+[709838.633057]  ? srso_return_thunk+0x5/0x5f
+[709838.633059]  ? _raw_spin_unlock+0x12/0x30
+[709838.633061]  ? srso_return_thunk+0x5/0x5f
+[709838.633063]  ? finish_task_switch.isra.0+0x8d/0x2b0
+[709838.633066]  ? srso_return_thunk+0x5/0x5f
+[709838.633069]  ? _raw_spin_unlock_irq+0x12/0x30
+[709838.633071]  ? __pfx_kthread+0x10/0x10
+[709838.633073]  ret_from_fork+0x137/0x190
+[709838.633077]  ? __pfx_kthread+0x10/0x10
+[709838.633079]  ret_from_fork_asm+0x1a/0x30
+[709838.633086]  </TASK>
+
+== 2. 커널 로그의 soft lockup 줄과 막힌 작업 줄 모두(같은 명령을 두 번 쳐 얻은 두 벌에서 겹치는 줄은 한 번만)
+(커널 로그는 오래된 줄부터 밀려 나가서, 709832 앞의 줄은 명령을 쳤을 때 이미 없었다)
+[709832.698940] INFO: task jbd2/sdd-8:294 blocked for more than 241 seconds.
+[709832.700785] INFO: task dockerd:18946 blocked for more than 241 seconds.
+[709832.702816] INFO: task dockerd:645 blocked for more than 362 seconds.
+[709832.706524] INFO: task kworker/u64:5:19484 blocked for more than 362 seconds.
+[709832.708367] Workqueue: ipv6_addrconf addrconf_verify_work
+[709832.709671] INFO: task dockerd:12688 blocked for more than 241 seconds.
+[709832.712593] INFO: task dockerd:12700 blocked for more than 241 seconds.
+[709832.716456] INFO: task dockerd:14197 blocked for more than 362 seconds.
+[709832.718817] INFO: task dockerd:15901 blocked for more than 241 seconds.
+[709832.721570] INFO: task umount:13119 blocked for more than 362 seconds.
+[709832.723668] INFO: task runc:[1:CHILD]:14388 blocked for more than 362 seconds.
+[709838.632780] watchdog: BUG: soft lockup - CPU#9 stuck for 443s! [kworker/9:2:31830]
+[709866.630968] watchdog: BUG: soft lockup - CPU#9 stuck for 469s! [kworker/9:2:31830]
+[709894.629154] watchdog: BUG: soft lockup - CPU#9 stuck for 495s! [kworker/9:2:31830]
+[709922.627368] watchdog: BUG: soft lockup - CPU#9 stuck for 521s! [kworker/9:2:31830]
+[709950.625610] watchdog: BUG: soft lockup - CPU#9 stuck for 548s! [kworker/9:2:31830]
+[709953.523212] INFO: task jbd2/sdd-8:294 blocked for more than 362 seconds.
+[709953.524854] INFO: task dockerd:18946 blocked for more than 362 seconds.
+[709953.526247] INFO: task dockerd:645 blocked for more than 483 seconds.
+[709953.528533] INFO: task kworker/u64:5:19484 blocked for more than 483 seconds.
+[709953.531214] Workqueue: ipv6_addrconf addrconf_verify_work
+[709953.532529] INFO: task dockerd:12688 blocked for more than 362 seconds.
+[709953.535439] INFO: task dockerd:12700 blocked for more than 362 seconds.
+[709953.538140] INFO: task dockerd:14197 blocked for more than 483 seconds.
+[709953.540372] INFO: task dockerd:15901 blocked for more than 362 seconds.
+[709953.542710] INFO: task umount:13119 blocked for more than 483 seconds.
+[709953.544799] INFO: task runc:[1:CHILD]:14388 blocked for more than 483 seconds.
+[709978.623820] watchdog: BUG: soft lockup - CPU#9 stuck for 574s! [kworker/9:2:31830]
+[710006.621956] watchdog: BUG: soft lockup - CPU#9 stuck for 600s! [kworker/9:2:31830]
+[710034.620161] watchdog: BUG: soft lockup - CPU#9 stuck for 626s! [kworker/9:2:31830]
+[710062.618483] watchdog: BUG: soft lockup - CPU#9 stuck for 652s! [kworker/9:2:31830]
+[710074.347484] INFO: task jbd2/sdd-8:294 blocked for more than 483 seconds.
+[710074.349109] INFO: task dockerd:18946 blocked for more than 483 seconds.
+[710074.350510] INFO: task dockerd:645 blocked for more than 604 seconds.
+[710074.352720] INFO: task kworker/u64:5:19484 blocked for more than 604 seconds.
+[710074.354590] Workqueue: ipv6_addrconf addrconf_verify_work
+[710074.355549] INFO: task dockerd:12688 blocked for more than 483 seconds.
+[710074.358190] INFO: task dockerd:12700 blocked for more than 483 seconds.
+[710074.360773] INFO: task dockerd:14197 blocked for more than 604 seconds.
+[710074.363451] INFO: task dockerd:15901 blocked for more than 483 seconds.
+[710074.366000] INFO: task umount:13119 blocked for more than 604 seconds.
+[710074.367962] INFO: task runc:[1:CHILD]:14388 blocked for more than 604 seconds.
+[710090.616722] watchdog: BUG: soft lockup - CPU#9 stuck for 678s! [kworker/9:2:31830]
+[710118.615089] watchdog: BUG: soft lockup - CPU#9 stuck for 704s! [kworker/9:2:31830]
+[710146.613319] watchdog: BUG: soft lockup - CPU#9 stuck for 730s! [kworker/9:2:31830]
+[710174.611525] watchdog: BUG: soft lockup - CPU#9 stuck for 756s! [kworker/9:2:31830]
+[710195.175953] INFO: task jbd2/sdd-8:294 blocked for more than 604 seconds.
+[710195.177985] INFO: task dockerd:18946 blocked for more than 604 seconds.
+[710195.179560] INFO: task dockerd:645 blocked for more than 724 seconds.
+[710195.182534] INFO: task kworker/u64:5:19484 blocked for more than 725 seconds.
+[710195.184512] Workqueue: ipv6_addrconf addrconf_verify_work
+[710195.185462] INFO: task dockerd:12688 blocked for more than 604 seconds.
+[710202.609712] watchdog: BUG: soft lockup - CPU#9 stuck for 782s! [kworker/9:2:31830]
+[710230.607939] watchdog: BUG: soft lockup - CPU#9 stuck for 808s! [kworker/9:2:31830]
+[710258.606362] watchdog: BUG: soft lockup - CPU#9 stuck for 834s! [kworker/9:2:31830]
+[710286.604619] watchdog: BUG: soft lockup - CPU#9 stuck for 860s! [kworker/9:2:31830]
+[710314.602942] watchdog: BUG: soft lockup - CPU#9 stuck for 887s! [kworker/9:2:31830]
+[710342.601181] watchdog: BUG: soft lockup - CPU#9 stuck for 913s! [kworker/9:2:31830]
+[710370.599411] watchdog: BUG: soft lockup - CPU#9 stuck for 939s! [kworker/9:2:31830]
+[710398.597621] watchdog: BUG: soft lockup - CPU#9 stuck for 965s! [kworker/9:2:31830]
+
+== 3. 막힌 작업 가운데 디스크 저널 스레드의 한 덩이(같은 커널 로그)
+[709832.698940] INFO: task jbd2/sdd-8:294 blocked for more than 241 seconds.
+[709832.699488]       Tainted: G             L      6.18.58.1-microsoft-standard-WSL2 #1
+[709832.700005] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[709832.700537] task:jbd2/sdd-8      state:D stack:0     pid:294   tgid:294   ppid:2      task_flags:0x240040 flags:0x00080000
+[709832.700545] Call Trace:
+[709832.700548]  <TASK>
+[709832.700555]  __schedule+0x4c4/0xb70
+[709832.700567]  ? __pfx_bit_wait_io+0x10/0x10
+[709832.700571]  schedule+0x2b/0xb0
+[709832.700574]  io_schedule+0x50/0x80
+[709832.700578]  bit_wait_io+0x15/0x70
+[709832.700617]  __wait_on_bit+0x38/0xa0
+[709832.700623]  ? srso_return_thunk+0x5/0x5f
+[709832.700630]  out_of_line_wait_on_bit+0x8e/0xb0
+[709832.700635]  ? __pfx_wake_bit_function+0x10/0x10
+[709832.700641]  __wait_on_buffer+0x34/0x40
+[709832.700647]  jbd2_journal_commit_transaction+0x15a0/0x1940
+(줄임)
+
+== 4. 그때 서버 기계 컨테이너 안에서 돌아오지 않고 있던 명령(13:27:57)
+명령: docker exec stuckmnt-host sh -c 'COLUMNS=200 ps -o pid,ppid,stat,etime,args | grep -v -e "reader.py" -e containerd-shim -e "\[" | head -n 80'
+PID   PPID  STAT ELAPSED COMMAND
+(줄임)
+10671  1708 D     9:11   umount /srv/stuckmnt/cifs-soft-kill/sources/share
+11122  1618 S     8:54   docker -H unix:///var/run/outer.sock network connect --ip 10.213.77.14 stuckmnt-net stuckmnt-cifs-hard-disconnect-srv
+11150  1812 S     8:53   docker -H unix:///var/run/outer.sock start stuckmnt-cifs-hard-kill-srv
+11421  1275 S     8:29   docker -H unix:///var/run/outer.sock network connect --ip 10.213.77.13 stuckmnt-net stuckmnt-cifs-soft-disconnect-srv
+11452  1018 S     8:27   docker rm -f stuckmnt-cifs-hard-pause-w1 stuckmnt-cifs-hard-pause-w2 stuckmnt-cifs-hard-pause-w3 stuckmnt-cifs-hard-pause-w4 stuckmnt-cifs-hard-pause-reader
+12043   846 S     6:52   docker -H unix:///var/run/outer.sock unpause stuckmnt-cifs-soft-pause-srv
+(줄임. pid 는 서버 기계 컨테이너 안에서 본 번호라, 2절의 커널 로그에 찍힌 번호와 다르다)
+13:25:36 에 바깥 Docker 에 친 `docker inspect stuckmnt-cifs-...-srv`(서버 여섯)도 120초 안에 돌아오지
+않았다. `docker ps -a` 와 `docker exec` 는 그동안에도 바로 돌아왔다. unpause 는 명령이 돌아오지 않았을 뿐
+서버는 녹아 있었다(probe_out.txt 의 cifs-soft-pause 칸에서 다시 잇는 명령 뒤의 호출이 성공했다).
+
+== 5. 그 명령들이 커널 안에서 기다리던 자리(13:28:26)
+명령: docker exec stuckmnt-host sh -c 'cat /proc/10671/stack; (상태가 D 인 작업마다) head -n 14 /proc/<pid>/task/<tid>/stack'
+-- umount(pid 10671)
+[<0>] __flush_workqueue+0x13b/0x430
+[<0>] __probestub_smb3_smbd_connect_done+0xff2/0x10b0 [cifs]
+[<0>] deactivate_locked_super+0x39/0xe0
+[<0>] deactivate_super+0x44/0x50
+[<0>] cleanup_mnt+0xf0/0x180
+[<0>] __cleanup_mnt+0x16/0x20
+[<0>] task_work_run+0x64/0xa0
+[<0>] exit_to_user_mode_loop+0xcf/0xf0
+[<0>] do_syscall_64+0x26b/0xfa0
+[<0>] entry_SYSCALL_64_after_hwframe+0x76/0x7e
+-- 안쪽 dockerd 의 스레드 하나(pid 24, tid 662). 브리지에서 가상 랜선을 떼는 중이고 네트워크 설정 잠금을 쥐고 있다
+[<0>] __flush_work+0x2c5/0x3a0
+[<0>] flush_work+0x20/0x30
+[<0>] br_multicast_del_port+0x74/0xa0 [bridge]
+[<0>] nbp_backup_change+0x2ab/0x3f0 [bridge]
+[<0>] br_del_if+0x36/0x90 [bridge]
+[<0>] 0xffffffffc0612404
+[<0>] notifier_call_chain+0x65/0xd0
+[<0>] raw_notifier_call_chain+0x1a/0x20
+[<0>] call_netdevice_notifiers_info+0x54/0x90
+[<0>] unregister_netdevice_many_notify+0x6f3/0xc90
+[<0>] rtnl_dellink+0x16d/0x390
+[<0>] rtnetlink_rcv_msg+0x34e/0x3f0
+[<0>] netlink_rcv_skb+0x60/0x110
+[<0>] rtnetlink_rcv+0x19/0x20
+-- 안쪽 dockerd 의 다른 스레드 셋(tid 51, 63, 747). 그 잠금을 기다린다
+[<0>] rtnetlink_rcv_msg+0x10b/0x3f0
+[<0>] netlink_rcv_skb+0x60/0x110
+[<0>] rtnetlink_rcv+0x19/0x20
+[<0>] netlink_unicast+0x282/0x3d0
+[<0>] netlink_sendmsg+0x20c/0x440
+[<0>] __sys_sendto+0x1ee/0x200
+[<0>] __x64_sys_sendto+0x28/0x30
+[<0>] x64_sys_call+0x15e7/0x20f0
+[<0>] do_syscall_64+0x6e/0xfa0
+[<0>] entry_SYSCALL_64_after_hwframe+0x76/0x7e
+(이 커널에는 함수 이름표가 다 들어 있지 않아, `[cifs]` 가 붙은 이름 가운데 일부는 가까운 다른 함수의
+이름으로 찍힌 것일 수 있다. 1절의 `cifs_toupper` 도 그렇다)
+
+== 6. 풀린 때의 커널 로그(같은 명령으로 13:36쯤에 얻은 둘째 벌)
+[710398.597621] watchdog: BUG: soft lockup - CPU#9 stuck for 965s! [kworker/9:2:31830]
+[710398.597626] Modules linked in: cmac nfsd nfs_acl rpcsec_gss_krb5 krb5 auth_rpcgss nfsv4 nfs lockd grace cifs nls_ucs2_utils libarc4 cifs_md4 dns_resolver tl
+[710398.597674] CPU: 9 UID: 0 PID: 31830 Comm: kworker/9:2 Tainted: G             L      6.18.58.1-microsoft-standard-WSL2 #1 PREEMPT(none) 
+[710398.597679] Tainted: [L]=SOFTLOCKUP
+[710398.597681] Workqueue: deferredclose smb2_deferred_work_close [cifs]
+(줄임)
+[710419.417386] docker0: port 12(veth03a7eb2) entered disabled state
+[710419.417469] docker0: port 2(veth40b9b8f) entered disabled state
+[710419.417511] vethce4320d: renamed from eth0
+[710419.470621] veth77468d5: renamed from eth0
+[710419.472732] docker0: port 11(vethe9e76cc) entered disabled state
+[710419.472864] veth975b2d8: renamed from eth0
+[710419.599996] docker0: port 12(veth03a7eb2) entered disabled state
+[710419.600382] veth03a7eb2 (unregistering): left allmulticast mode
+[710419.600387] veth03a7eb2 (unregistering): left promiscuous mode
+[710419.600390] docker0: port 12(veth03a7eb2) entered disabled state
+[710419.601140] br-e73fc6a491dc: port 5(veth80b2bf7) entered blocking state
+[710419.601146] br-e73fc6a491dc: port 5(veth80b2bf7) entered disabled state
+[710419.601164] veth80b2bf7: entered allmulticast mode
+[710419.601242] veth80b2bf7: entered promiscuous mode
+(줄임)
+[710419.806030] CIFS: VFS: \\10.213.77.13 has not responded in 180 seconds. Reconnecting...
+(줄임)
+[710434.503009] stuckmnt nfs-hard-disconnect T0
+[710437.972403] stuckmnt nfs-soft-disconnect T0
+[710439.201616] stuckmnt nfs-hard-kill T0
+[710440.933734] stuckmnt nfs-soft-kill T0
+[710441.190248] stuckmnt nfs-hard-pause T0
+
+== 7. 풀리기 직전의 CIFS 연결 상태(13:34:44)
+명령: docker exec stuckmnt-host sh -c 'grep -n -E "^[0-9]+\) ConnectionId|Hostname|TCP status|...(줄임)" /proc/fs/cifs/DebugData | cut -c1-220 | head -n 90'
+9:1) ConnectionId: 0xb Hostname: 10.213.77.16
+13:TCP status: 3 Instance: 1
+48:2) ConnectionId: 0xa Hostname: 10.213.77.15
+52:TCP status: 1 Instance: 5
+87:3) ConnectionId: 0x9 Hostname: 10.213.77.14
+91:TCP status: 3 Instance: 1
+126:4) ConnectionId: 0x8 Hostname: 10.213.77.13
+130:TCP status: 3 Instance: 1
+165:5) ConnectionId: 0x7 Hostname: 10.213.77.12
+169:TCP status: 1 Instance: 5
+204:6) ConnectionId: 0x6 Hostname: 10.213.77.11
+208:TCP status: 1 Instance: 12
+(줄임. 주소의 끝자리는 11 soft-pause, 12 hard-pause, 13 soft-disconnect, 14 hard-disconnect, 15 soft-kill,
+16 hard-kill 이다. 상태 3 은 다시 잇기를 기다리는 것, 1 은 멀쩡한 것으로 읽었다. 커널 소스의 이름을 기억으로
+옮긴 것이고 이 커널의 소스와 대조하지는 못했다. 15 가 멀쩡한 것은 죽인 서버를 다시 띄우는 명령이 헛돌기
+전에 돌아왔기 때문이다)
+
+== 8. 손으로 건드린 것
+헛도는 것을 풀어 보려고 서버 기계 컨테이너의 네트워크 이름공간에 주소 바꿔치기 규칙 둘을 넣었다가 뺐다.
+명령(13:35:12 에 쳐서 13:35:14 에 돌아왔다):
+  docker exec stuckmnt-host sh -c 'wc -l < /proc/modules; iptables -t nat -I OUTPUT 1 -d 10.213.77.16 -p tcp --dport 445 -j DNAT --to-destination 10.213.77.12:445; echo "rule16 exit $?"; iptables -t nat -I OUTPUT 1 -d 10.213.77.14 -p tcp --dport 445 -j DNAT --to-destination 10.213.77.12:445; echo "rule14 exit $?"; wc -l < /proc/modules; iptables -t nat -S OUTPUT; cut -d" " -f1 /proc/uptime'
+40
+rule16 exit 0
+rule14 exit 0
+40
+-P OUTPUT ACCEPT
+-A OUTPUT -d 10.213.77.14/32 -p tcp -m tcp --dport 445 -j DNAT --to-destination 10.213.77.12:445
+-A OUTPUT -d 10.213.77.16/32 -p tcp -m tcp --dport 445 -j DNAT --to-destination 10.213.77.12:445
+-A OUTPUT -d 127.0.0.11/32 -j DOCKER_OUTPUT
+-A OUTPUT ! -d 127.0.0.0/8 -m addrtype --dst-type LOCAL -j DOCKER
+710475.08
+(40 은 올라와 있는 커널 모듈의 수다. 규칙을 넣어도 새 모듈이 올라가지 않았다)
+명령(13:35:48 에 쳐서 13:35:52 에 돌아왔다):
+  docker exec stuckmnt-host sh -c 'iptables -t nat -D OUTPUT -d 10.213.77.14 ...(넣은 규칙과 같다); echo "del14 exit $?"; iptables -t nat -D OUTPUT -d 10.213.77.16 ...; echo "del16 exit $?"; iptables -t nat -S OUTPUT; grep -cE " (cifs|nfs4?) " /proc/mounts; ...'
+del14 exit 0
+del16 exit 0
+-P OUTPUT ACCEPT
+-A OUTPUT -d 127.0.0.11/32 -j DOCKER_OUTPUT
+-A OUTPUT ! -d 127.0.0.0/8 -m addrtype --dst-type LOCAL -j DOCKER
+5
+(줄임. 남은 마운트 다섯은 그때 막 시작한 NFS 칸들의 것이다. CIFS 마운트는 없었다)
+규칙을 넣은 때는 `/proc/uptime` 으로 710475.08, 커널 로그의 시각으로 옮기면 710416.5 다. 풀린 때는
+710419.4 다(6절). 규칙이 있던 36초쯤 동안 cifs-hard-disconnect 와 cifs-hard-kill 의 마운트는 제 서버가
+아니라 cifs-hard-pause 의 서버에 다시 붙었을 수 있다. 그 두 칸의 호출 시간표는 그보다 13분쯤 앞서 끝나
+있었으니 probe_out.txt 의 값에는 닿지 않는다(그 칸들의 정리 줄에 찍힌 초만 이 조치 뒤에 끝난 값이다).
+
+== 9. 두 시계의 차이와, soft 세 칸만 다시 돈 실행에 soft lockup 이 없었다는 확인
+명령(13:58:59. 잠깐 띄우고 지운 컨테이너):
+  MSYS_NO_PATHCONV=1 docker run --rm --privileged --name stuckmnt-clock alpine:3.22 sh -c 'a=$(cut -d" " -f1 /proc/uptime); echo "stuckmnt clock check" > /dev/kmsg; b=$(cut -d" " -f1 /proc/uptime); echo "uptime before $a after $b"; date -u +%H:%M:%S; dmesg | grep "stuckmnt clock check" | tail -n 1; ...'
+uptime before 711900.96 after 711900.96
+13:58:59
+[711842.363716] stuckmnt clock check
+(같은 순간에 `/proc/uptime` 은 711900.96, 커널 로그의 시각은 711842.36 이다. 차이 58.6초. 첫 실행 때 친
+`cut -d" " -f1 /proc/uptime; date` 는 709849.16 과 13:24:47 을 냈고, 두 쌍의 간격이 2051.8초와 2052초로
+맞으니 그 사이에 차이가 달라지지 않았다고 본다)
+명령(14:05:10. `probe_out_cifs_pause.txt` 를 만드는 실행이 서버 기계 컨테이너를 띄운 직후, 칸을 돌기 전):
+  docker exec stuckmnt-host sh -c 'date -u +%H:%M:%S; cut -d" " -f1 /proc/uptime; dmesg | head -n 1 | cut -c1-60; dmesg | grep "soft lockup" | cut -c1-90; dmesg | grep -E "stuckmnt (cifs|nfs|wave|clock)" | cut -c1-90'
+14:05:10
+712272.20
+[710258.606452] FS:  0000000000000000(0000) GS:ffff889467fb6
+[710286.604619] watchdog: BUG: soft lockup - CPU#9 stuck for 860s! [kworker/9:2:31830]
+[710314.602942] watchdog: BUG: soft lockup - CPU#9 stuck for 887s! [kworker/9:2:31830]
+[710342.601181] watchdog: BUG: soft lockup - CPU#9 stuck for 913s! [kworker/9:2:31830]
+[710370.599411] watchdog: BUG: soft lockup - CPU#9 stuck for 939s! [kworker/9:2:31830]
+[710398.597621] watchdog: BUG: soft lockup - CPU#9 stuck for 965s! [kworker/9:2:31830]
+[710434.503009] stuckmnt nfs-hard-disconnect T0
+[710437.972403] stuckmnt nfs-soft-disconnect T0
+[710439.201616] stuckmnt nfs-hard-kill T0
+[710440.933734] stuckmnt nfs-soft-kill T0
+[710441.190248] stuckmnt nfs-hard-pause T0
+[711301.241170] stuckmnt cifs-soft-pause T0
+[711304.530290] stuckmnt cifs-soft-disconnect T0
+[711304.901345] stuckmnt cifs-soft-kill T0
+[711842.363716] stuckmnt clock check
+(커널 로그에 남은 가장 오래된 줄이 710258.6 이고 soft lockup 줄은 710398.6 이 마지막이다. 그 뒤로 이 명령을
+친 때까지, 곧 첫 실행의 NFS 칸들과 soft 세 칸만 다시 돈 실행(`probe_out_cifs_soft.txt`. 칸들이 서버를
+끊은 때가 711301 에서 711305) 내내 soft lockup 줄은 없었다)

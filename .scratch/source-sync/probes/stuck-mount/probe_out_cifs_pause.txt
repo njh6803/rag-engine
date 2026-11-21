@@ -1,0 +1,527 @@
+== 바깥 Docker
+  server 29.9.2 linux / kernel 6.18.58.1-microsoft-standard-WSL2
+  Docker Desktop
+  돌지 않는 칸(STUCKMNT_LOCKUP_CELLS=1 을 줄 때만 돈다): cifs-hard-disconnect cifs-hard-kill 
+== 서버 기계 노릇의 컨테이너(docker:29.9.2-dind)
+  안쪽 dockerd 준비: yes
+  안쪽 server 29.9.2 / kernel 6.18.58.1-microsoft-standard-WSL2
+  측정 전에 올라와 있는 커널 모듈(이름과 쓰는 수): nfsd(0) nfs_acl(1) rpcsec_gss_krb5(0) krb5(1) auth_rpcgss(2) nfsv4(0) nfs(1) lockd(2) grace(2) cifs(0) nls_ucs2_utils(1) libarc4(1) cifs_md4(1) dns_resolver(2) sunrpc(8) 
+  붙이는 도구: cifs-utils-7.5-r1 mount-2.42.3-r1 nfs-utils-2.6.4-r6 
+  읽는 쪽 이미지 rag-engine-test/rag-engine-worker:0.1.0-rc.1: Python 3.12.16 Linux-6.18.58.1-microsoft-standard-WSL2-x86_64-with-glibc2.41 uid 10001
+== cifs 칸 2개를 함께 돈다: cifs-soft-pause cifs-hard-pause
+== 칸 cifs-soft-pause: cifs, 붙이는 옵션 (더하지 않음), 서버를 끊는 법 pause, 한도 400초
+  mount 종료 코드: 0
+  실제로 걸린 옵션: cifs ro,relatime,vers=3.1.1,sec=none,cache=strict,upcall_target=app,uid=0,noforceuid,gid=0,noforcegid,addr=10.213.77.11,file_mode=0755,dir_mode=0755,soft,nounix,serverino,mapposix,reparse=nfs,nativesocket,symlink=native,rsize=4194304,wsize=4194304,bsize=1048576,echo_interval=60,actimeo=1,closetimeo=1
+  서버가 살아 있을 때: open().read()(/sources/share/warm/ok.txt): 성공(3바이트), 0.34초
+-- 호출의 시간표(reader.py suite). 서버를 끊고 400.10초에 다시 잇는 명령을 쳤다
+  [끊고    1.0초] 제품의 모양을 띄웠다(daemon 스레드가 open().read()(t007/a.txt) 를 부르고 주 스레드는 12초 뒤 그냥 끝난다)
+  [끊고    1.0초] 신호를 보낼 프로세스 셋을 띄웠다(주 스레드의 open().read(). t004, t005, t006)
+  [끊고    1.0초] 첫 묶음을 띄웠다: os.listdir(t001/sub), os.stat(t002/a.txt), open().read()(t003/a.txt)
+  [끊고    1.0초] 다른 컨테이너(w4)가 볼 폴더를 먼저 본 호출을 띄웠다: os.stat(t060/b.txt)
+  [끊고    5.0초] SIGTERM 처리기를 달지 않은 프로세스에 SIGTERM: 0.003초 뒤 끝났다(종료 코드 -15, 보내기 전 스레드 상태 D)
+  [끊고    5.0초] 같은 모양의 프로세스에 SIGKILL: 0.003초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고    5.0초] 미리 열어 둔 파일(big2.bin)을 읽는 프로세스에 SIGKILL: 0.003초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고    9.0초] 제품의 모양: 주 스레드가 끝나기 전 스레드 상태(주, daemon 순서) S,D
+  [끊고   13.0초] 같은 폴더 t040 를 처음 보는 프로세스 셋을 띄웠다(먼저 a.txt 의 os.stat, 1초 뒤 b.txt 의 os.stat 과 sub/x.txt 의 open().read())
+  [끊고   13.4초] 제품의 모양: 주 스레드가 끝난 지 0.052초 뒤 프로세스가 사라졌다(종료 코드 0). 그때 daemon 스레드는 읽기에 막혀 있었다
+  [끊고   15.2초] SIGTERM 처리기를 단 프로세스에 SIGTERM: 10초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고   15.2초] 그 프로세스에 이어서 SIGKILL: 0.003초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고   24.2초] t040 를 나중에 본 b.txt 쪽에 SIGKILL: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고   24.2초] t040 를 먼저 본 a.txt 쪽에 SIGKILL: 0.003초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고   30.0초] 30초 묶음을 띄웠다: os.stat(t010/a.txt), open().read()(t011/a.txt)
+  [끊고   44.2초] 앞서 SIGKILL 을 받은 t040/b.txt 쪽: a.txt 쪽이 죽어도 남아 있다
+  [끊고   44.2초] t040 를 나중에 본 sub/x.txt 쪽에 SIGKILL: 0.003초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고   51.8초] 다른 컨테이너(w4)가 볼 폴더를 먼저 본 호출 os.stat(t060/b.txt): 결과 줄 없이 끝났다(종료 코드 -9, 출력 ['start\t1795269981.528'])
+  [끊고   90.0초] 90초 묶음을 띄웠다: os.listdir(t012/sub), open().read()(t013/a.txt)
+  [끊고  120.0초] 120초 시점: 미리 열어 둔 파일 read()(big1.bin): 아직 돌아오지 않았다(부른 지 119.0초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 첫 묶음 os.listdir(t001/sub): 아직 돌아오지 않았다(부른 지 118.7초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 첫 묶음 os.stat(t002/a.txt): 아직 돌아오지 않았다(부른 지 118.7초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 첫 묶음 open().read()(t003/a.txt): 아직 돌아오지 않았다(부른 지 118.7초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 30초 묶음 os.stat(t010/a.txt): 아직 돌아오지 않았다(부른 지 89.8초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 30초 묶음 open().read()(t011/a.txt): 아직 돌아오지 않았다(부른 지 89.8초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 90초 묶음 os.listdir(t012/sub): 아직 돌아오지 않았다(부른 지 29.8초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 90초 묶음 open().read()(t013/a.txt): 아직 돌아오지 않았다(부른 지 29.7초째, 스레드 상태 D)
+  [끊고  195.0초] 늦은 신호 시험: 끊고 1초에 띄워 둔 프로세스 둘(t050, t051)에 더해 새 프로세스(t052)를 띄웠다
+  [끊고  207.5초] 90초 묶음 os.listdir(t012/sub): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 117.2초 뒤
+  [끊고  207.5초] 90초 묶음 open().read()(t013/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 117.2초 뒤
+  [끊고  208.2초] 늦은 신호 시험: 처음부터 막힌 t051 쪽에 SIGTERM: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고  216.4초] 늦은 신호 시험: 처음부터 막힌 t050 쪽에 SIGKILL: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고  224.6초] 늦은 신호 시험: 5초 전에 띄운 t052 쪽에 SIGKILL: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고  225.6초] 같은 폴더 t041 를 처음 보는 프로세스 셋을 띄웠다(먼저 a.txt 의 os.stat, 1초 뒤 b.txt 의 os.stat 과 sub/x.txt 의 open().read())
+  [끊고  229.0초] 첫 묶음 os.listdir(t001/sub): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 227.7초 뒤
+  [끊고  229.0초] 첫 묶음 os.stat(t002/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 227.7초 뒤
+  [끊고  229.0초] 첫 묶음 open().read()(t003/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 227.7초 뒤
+  [끊고  229.0초] 30초 묶음 os.stat(t010/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 198.8초 뒤
+  [끊고  229.0초] 30초 묶음 open().read()(t011/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 198.8초 뒤
+  [끊고  229.5초] 첫 묶음이 돌아온 직후 묶음을 띄웠다: os.stat(t020/a.txt), open().read()(t021/a.txt)
+  [끊고  236.8초] t041 를 나중에 본 b.txt 쪽에 SIGKILL: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고  236.8초] t041 를 먼저 본 a.txt 쪽에 SIGKILL: 보내기 전에 호출이 이미 돌아와 있었다(OSError errno 112 EHOSTDOWN(Host is down))
+  [끊고  256.8초] 앞서 SIGKILL 을 받은 t041/b.txt 쪽: a.txt 쪽이 죽어도 남아 있다
+  [끊고  259.0초] 첫 묶음이 돌아오고 30초 뒤 묶음을 띄웠다: os.stat(t022/a.txt), open().read()(t023/a.txt)
+  [끊고  265.0초] t041 를 나중에 본 sub/x.txt 쪽에 SIGKILL: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고  293.5초] 첫 묶음이 돌아온 직후 묶음 os.stat(t020/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 63.8초 뒤
+  [끊고  293.5초] 첫 묶음이 돌아온 직후 묶음 open().read()(t021/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 63.8초 뒤
+  [끊고  315.0초] 첫 묶음이 돌아오고 30초 뒤 묶음 os.stat(t022/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 55.7초 뒤
+  [끊고  315.0초] 첫 묶음이 돌아오고 30초 뒤 묶음 open().read()(t023/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 55.7초 뒤
+  [끊고  319.0초] 첫 묶음이 돌아오고 90초 뒤 묶음을 띄웠다: os.stat(t024/a.txt), open().read()(t025/a.txt)
+  [끊고  336.5초] 첫 묶음이 돌아오고 90초 뒤 묶음 open().read()(t025/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 17.2초 뒤
+  [끊고  358.0초] 첫 묶음이 돌아오고 90초 뒤 묶음 os.stat(t024/a.txt): OSError errno 112 EHOSTDOWN(Host is down), 부른 지 38.7초 뒤
+  [끊고  400.0초] 400초 시점: 미리 열어 둔 파일 read()(big1.bin): 아직 돌아오지 않았다(부른 지 399.0초째, 스레드 상태 D)
+  [끊고  400.1초] 서버를 다시 잇는 명령을 친다(inner.sh)
+  [끊고  400.6초] 미리 열어 둔 파일 read()(big1.bin): 성공(8388608바이트), 부른 지 399.6초 뒤(서버를 다시 잇는 명령을 친 지 0.4초 뒤)
+  [끊고  402.1초] 서버를 다시 이은 뒤 묶음을 띄웠다: os.listdir(t030/sub), os.stat(t031/a.txt), open().read()(t032/a.txt)
+  [끊고  402.5초] 서버를 다시 이은 뒤 묶음 os.listdir(t030/sub): 성공(항목 3개), 부른 지 0.0초 뒤(서버를 다시 잇는 명령을 친 지 2.4초 뒤)
+  [끊고  402.5초] 서버를 다시 이은 뒤 묶음 os.stat(t031/a.txt): 성공(크기 65536바이트), 부른 지 0.0초 뒤(서버를 다시 잇는 명령을 친 지 2.4초 뒤)
+  [끊고  402.5초] 서버를 다시 이은 뒤 묶음 open().read()(t032/a.txt): 성공(65536바이트), 부른 지 0.0초 뒤(서버를 다시 잇는 명령을 친 지 2.4초 뒤)
+  [끊고  430.1초] 서버를 다시 잇고 30초 뒤 묶음을 띄웠다: os.stat(t033/a.txt), open().read()(t034/a.txt)
+  [끊고  430.6초] 서버를 다시 잇고 30초 뒤 묶음 os.stat(t033/a.txt): 성공(크기 65536바이트), 부른 지 0.0초 뒤(서버를 다시 잇는 명령을 친 지 30.5초 뒤)
+  [끊고  430.7초] 서버를 다시 잇고 30초 뒤 묶음 open().read()(t034/a.txt): 성공(65536바이트), 부른 지 0.0초 뒤(서버를 다시 잇는 명령을 친 지 30.5초 뒤)
+  [끊고  431.2초] 끝에 남은 자식 0개에 SIGKILL 을 보냈다. 그래도 끝나지 않은 수 0
+-- 서버 기계에서 본 ps(셋째 칸이 상태 글자다. 스레드도 한 줄씩 나와 같은 명령이 두 줄일 수 있다)
+  끊고 9.00초에 서버 기계에서 본 ps -T -o pid,ppid,stat,args(이 칸의 것만):
+    1063 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause preopened /sources/share/big1.bin /ctl pre1
+      커널 안에서 기다리는 자리(위에서 여덟): folio_wait_bit_common filemap_get_pages filemap_read netfs_buffered_read_iter cifs_strict_readv vfs_read ksys_read __x64_sys_read 
+    1242 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t051/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1243 1031 S /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause shape /sources/share/t007/a.txt 12.0
+    1261 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause shape /sources/share/t007/a.txt 12.0
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1247 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t050/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1251 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t006/a.txt handler
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1253 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call listdir /sources/share/t001/sub plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1255 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t002/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1257 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t003/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1259 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t060/b.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1327 1303 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t101/a.txt daemon-thread
+    1341 1327 S python -u /probe/reader.py cifs-soft-pause worker /sources/share/t101/a.txt daemon-thread
+    1392 1327 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t101/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1386 1361 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t102/a.txt main-thread
+    1401 1386 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t102/a.txt main-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1446 1423 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t060/a.txt daemon-thread
+    1461 1446 S python -u /probe/reader.py cifs-soft-pause worker /sources/share/t060/a.txt daemon-thread
+    1543 1446 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t060/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): d_alloc_parallel __lookup_slow walk_component link_path_walk path_openat do_filp_open do_sys_openat2 __x64_sys_openat 
+    1519 1483 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t103/a.txt daemon-thread
+    1559 1519 S python -u /probe/reader.py cifs-soft-pause worker /sources/share/t103/a.txt daemon-thread
+    1599 1519 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t103/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+  끊고 22.01초에 서버 기계에서 본 ps -T -o pid,ppid,stat,args(이 칸의 것만):
+    1063 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause preopened /sources/share/big1.bin /ctl pre1
+      커널 안에서 기다리는 자리(위에서 여덟): folio_wait_bit_common filemap_get_pages filemap_read netfs_buffered_read_iter cifs_strict_readv vfs_read ksys_read __x64_sys_read 
+    1242 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t051/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1247 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t050/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1253 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call listdir /sources/share/t001/sub plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1255 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t002/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1257 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t003/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1259 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t060/b.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1386 1361 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t102/a.txt main-thread
+    1401 1386 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t102/a.txt main-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1446 1423 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t060/a.txt daemon-thread
+    1461 1446 S python -u /probe/reader.py cifs-soft-pause worker /sources/share/t060/a.txt daemon-thread
+    1543 1446 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t060/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): d_alloc_parallel __lookup_slow walk_component link_path_walk path_openat do_filp_open do_sys_openat2 __x64_sys_openat 
+    1519 1483 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t103/a.txt daemon-thread
+    1559 1519 S python -u /probe/reader.py cifs-soft-pause worker /sources/share/t103/a.txt daemon-thread
+    1599 1519 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t103/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    2248 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t040/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    2346 2324 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t101/a.txt daemon-thread
+    2364 2346 S python -u /probe/reader.py cifs-soft-pause worker /sources/share/t101/a.txt daemon-thread
+    2374 2346 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t101/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    2370 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t040/b.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): d_alloc_parallel __lookup_slow walk_component link_path_walk path_lookupat filename_lookup vfs_statx vfs_fstatat 
+    2372 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t040/sub/x.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): d_alloc_parallel __lookup_slow walk_component link_path_walk path_openat do_filp_open do_sys_openat2 __x64_sys_openat 
+  끊고 198.00초에 서버 기계에서 본 ps -T -o pid,ppid,stat,args(이 칸의 것만):
+    1063 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause preopened /sources/share/big1.bin /ctl pre1
+      커널 안에서 기다리는 자리(위에서 여덟): folio_wait_bit_common filemap_get_pages filemap_read netfs_buffered_read_iter cifs_strict_readv vfs_read ksys_read __x64_sys_read 
+    1242 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t051/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    1247 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t050/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    1253 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call listdir /sources/share/t001/sub plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    1255 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t002/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    1257 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t003/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    1519 1483 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t103/a.txt daemon-thread
+    1559 1519 S python -u /probe/reader.py cifs-soft-pause worker /sources/share/t103/a.txt daemon-thread
+    1599 1519 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t103/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    2346 2324 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t101/a.txt daemon-thread
+    2364 2346 S python -u /probe/reader.py cifs-soft-pause worker /sources/share/t101/a.txt daemon-thread
+    2374 2346 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t101/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    2879 2855 S /usr/bin/tini -- python -u /probe/reader.py cifs-soft-pause worker /sources/share/t102/a.txt main-thread
+    2893 2879 D python -u /probe/reader.py cifs-soft-pause worker /sources/share/t102/a.txt main-thread
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3187 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call stat /sources/share/t010/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3189 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t011/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3564 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call listdir /sources/share/t012/sub plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3566 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t013/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3725 1031 D /app/.venv/bin/python -u /probe/reader.py cifs-soft-pause call read /sources/share/t052/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+-- 컨테이너의 주 프로세스일 때(tini 가 1번, 그 아래 파이썬)
+  (나-1) daemon 스레드 하나가 읽기에 막힌 컨테이너(stuckmnt-cifs-soft-pause-w1, 대상 t101), 끊고 10.00초
+    상태: running, 종료 코드 0, 주 프로세스 pid 1327
+    | 14:06:23.686 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:23.687 읽기를 시작한다(daemon-thread)
+  docker stop(유예 10초): 0.22초(명령의 종료 코드 0)
+    상태: exited, 종료 코드 0, 주 프로세스 pid 0
+    | 14:06:23.686 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:23.687 읽기를 시작한다(daemon-thread)
+    | 14:06:30.289 SIGTERM 처리기가 14:06:30.289 에 돌았고 주 스레드가 끝난다
+  멈춘 컨테이너에 docker restart: 0.20초(명령의 종료 코드 0)
+    상태: running, 종료 코드 0, 주 프로세스 pid 2046
+    | 14:06:23.686 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:23.687 읽기를 시작한다(daemon-thread)
+    | 14:06:30.289 SIGTERM 처리기가 14:06:30.289 에 돌았고 주 스레드가 끝난다
+    | 14:06:30.931 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:30.931 읽기를 시작한다(daemon-thread)
+  돌고 있는 컨테이너에 docker restart(유예 10초): 0.38초(명령의 종료 코드 0)
+    상태: running, 종료 코드 0, 주 프로세스 pid 2346
+    | 14:06:23.686 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:23.687 읽기를 시작한다(daemon-thread)
+    | 14:06:30.289 SIGTERM 처리기가 14:06:30.289 에 돌았고 주 스레드가 끝난다
+    | 14:06:30.931 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:30.931 읽기를 시작한다(daemon-thread)
+    | 14:06:32.821 SIGTERM 처리기가 14:06:32.820 에 돌았고 주 스레드가 끝난다
+    | 14:06:33.407 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:33.408 읽기를 시작한다(daemon-thread)
+  (나-2) 주 스레드가 읽기에 막힌 컨테이너(stuckmnt-cifs-soft-pause-w2, 대상 t102), 끊고 15.00초
+    상태: running, 종료 코드 0, 주 프로세스 pid 1386
+    | 14:06:23.975 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:23.976 읽기를 시작한다(main-thread)
+  docker stop(유예 10초): 10.24초(명령의 종료 코드 0)
+    상태: exited, 종료 코드 137, 주 프로세스 pid 0
+    | 14:06:23.975 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:23.976 읽기를 시작한다(main-thread)
+  멈춘 컨테이너에 docker restart: 0.17초(명령의 종료 코드 0)
+    상태: running, 종료 코드 0, 주 프로세스 pid 2879
+    | 14:06:23.975 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:23.976 읽기를 시작한다(main-thread)
+    | 14:06:45.943 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:45.944 읽기를 시작한다(main-thread)
+  (나-3) 읽는 컨테이너의 프로세스가 먼저 보던 폴더(t060)를 daemon 스레드가 보는 컨테이너(stuckmnt-cifs-soft-pause-w4), 끊고 27.57초
+    상태: running, 종료 코드 0, 주 프로세스 pid 1446
+    | 14:06:24.248 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.248 읽기를 시작한다(daemon-thread)
+  docker stop(유예 10초): 24.06초(명령의 종료 코드 1)
+    명령이 낸 줄: Error response from daemon: cannot stop container: stuckmnt-cifs-soft-pause-w4: tried to kill container, but did not receive an exit event
+    상태: running, 종료 코드 0, 주 프로세스 pid 1446
+    | 14:06:24.248 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.248 읽기를 시작한다(daemon-thread)
+    | 14:06:47.845 SIGTERM 처리기가 14:06:47.845 에 돌았고 주 스레드가 끝난다
+  t060 을 먼저 보던 프로세스(읽는 컨테이너 안, 서버 기계의 pid 1259)에 SIGKILL 을 보냈다
+    상태: exited, 종료 코드 137, 주 프로세스 pid 0
+    | 14:06:24.248 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.248 읽기를 시작한다(daemon-thread)
+    | 14:06:47.845 SIGTERM 처리기가 14:06:47.845 에 돌았고 주 스레드가 끝난다
+  다시 docker stop: 0.03초(명령의 종료 코드 0)
+    상태: exited, 종료 코드 137, 주 프로세스 pid 0
+    | 14:06:24.248 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.248 읽기를 시작한다(daemon-thread)
+    | 14:06:47.845 SIGTERM 처리기가 14:06:47.845 에 돌았고 주 스레드가 끝난다
+  (나-4) (나-1)과 같은 모양을 끊고 3초에 띄워 두었다가 늦게 멈춘다(stuckmnt-cifs-soft-pause-w3, 대상 t103), 끊고 205.00초
+    상태: running, 종료 코드 0, 주 프로세스 pid 1519
+    | 14:06:24.509 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.510 읽기를 시작한다(daemon-thread)
+  docker stop(유예 10초): 24.06초(명령의 종료 코드 1)
+    명령이 낸 줄: Error response from daemon: cannot stop container: stuckmnt-cifs-soft-pause-w3: tried to kill container, but did not receive an exit event
+    상태: exited, 종료 코드 137, 주 프로세스 pid 0
+    | 14:06:24.509 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.510 읽기를 시작한다(daemon-thread)
+    | 14:09:45.265 SIGTERM 처리기가 14:09:45.265 에 돌았고 주 스레드가 끝난다
+  멈춘 컨테이너에 docker restart: 0.24초(명령의 종료 코드 0)
+    상태: running, 종료 코드 0, 주 프로세스 pid 4117
+    | 14:06:24.509 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.510 읽기를 시작한다(daemon-thread)
+    | 14:09:45.265 SIGTERM 처리기가 14:09:45.265 에 돌았고 주 스레드가 끝난다
+    | 14:10:10.045 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:10:10.045 읽기를 시작한다(daemon-thread)
+-- 커널 로그(끊은 뒤, 이 서버에 닿는 줄)
+    [끊고    0.9초] stuckmnt cifs-hard-pause T0
+    [끊고  186.0초] CIFS: VFS: \\10.213.77.11 has not responded in 180 seconds. Reconnecting...
+-- 정리
+  남은 컨테이너를 docker rm -f: 0.87초(명령의 종료 코드 0)
+  umount: 0.01초
+== 칸 cifs-hard-pause: cifs, 붙이는 옵션 hard, 서버를 끊는 법 pause, 한도 270초
+  mount 종료 코드: 0
+  실제로 걸린 옵션: cifs ro,relatime,vers=3.1.1,sec=none,cache=strict,upcall_target=app,uid=0,noforceuid,gid=0,noforcegid,addr=10.213.77.12,file_mode=0755,dir_mode=0755,hard,nounix,serverino,mapposix,reparse=nfs,nativesocket,symlink=native,rsize=4194304,wsize=4194304,bsize=1048576,echo_interval=60,actimeo=1,closetimeo=1
+  서버가 살아 있을 때: open().read()(/sources/share/warm/ok.txt): 성공(3바이트), 0.25초
+-- 호출의 시간표(reader.py suite). 서버를 끊고 270.22초에 다시 잇는 명령을 쳤다
+  [끊고    1.0초] 제품의 모양을 띄웠다(daemon 스레드가 open().read()(t007/a.txt) 를 부르고 주 스레드는 12초 뒤 그냥 끝난다)
+  [끊고    1.0초] 신호를 보낼 프로세스 셋을 띄웠다(주 스레드의 open().read(). t004, t005, t006)
+  [끊고    1.0초] 첫 묶음을 띄웠다: os.listdir(t001/sub), os.stat(t002/a.txt), open().read()(t003/a.txt)
+  [끊고    1.0초] 다른 컨테이너(w4)가 볼 폴더를 먼저 본 호출을 띄웠다: os.stat(t060/b.txt)
+  [끊고    5.0초] SIGTERM 처리기를 달지 않은 프로세스에 SIGTERM: 0.003초 뒤 끝났다(종료 코드 -15, 보내기 전 스레드 상태 D)
+  [끊고    5.0초] 같은 모양의 프로세스에 SIGKILL: 0.003초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고    5.0초] 미리 열어 둔 파일(big2.bin)을 읽는 프로세스에 SIGKILL: 0.003초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고    9.0초] 제품의 모양: 주 스레드가 끝나기 전 스레드 상태(주, daemon 순서) S,D
+  [끊고   13.0초] 같은 폴더 t040 를 처음 보는 프로세스 셋을 띄웠다(먼저 a.txt 의 os.stat, 1초 뒤 b.txt 의 os.stat 과 sub/x.txt 의 open().read())
+  [끊고   13.4초] 제품의 모양: 주 스레드가 끝난 지 0.054초 뒤 프로세스가 사라졌다(종료 코드 0). 그때 daemon 스레드는 읽기에 막혀 있었다
+  [끊고   15.2초] SIGTERM 처리기를 단 프로세스에 SIGTERM: 10초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고   15.2초] 그 프로세스에 이어서 SIGKILL: 0.003초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고   24.2초] t040 를 나중에 본 b.txt 쪽에 SIGKILL: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고   24.2초] t040 를 먼저 본 a.txt 쪽에 SIGKILL: 0.003초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고   24.2초] 앞서 SIGKILL 을 받은 t040/b.txt 쪽: a.txt 쪽이 죽은 지 0.000초 안에 끝났다(종료 코드 -9)
+  [끊고   24.2초] t040 를 나중에 본 sub/x.txt 쪽에 SIGKILL: 0.003초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고   30.0초] 30초 묶음을 띄웠다: os.stat(t010/a.txt), open().read()(t011/a.txt)
+  [끊고   51.7초] 다른 컨테이너(w4)가 볼 폴더를 먼저 본 호출 os.stat(t060/b.txt): 결과 줄 없이 끝났다(종료 코드 -9, 출력 ['start\t1795269982.449'])
+  [끊고   90.0초] 90초 묶음을 띄웠다: os.listdir(t012/sub), open().read()(t013/a.txt)
+  [끊고  120.0초] 120초 시점: 미리 열어 둔 파일 read()(big1.bin): 아직 돌아오지 않았다(부른 지 119.0초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 첫 묶음 os.listdir(t001/sub): 아직 돌아오지 않았다(부른 지 118.7초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 첫 묶음 os.stat(t002/a.txt): 아직 돌아오지 않았다(부른 지 118.7초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 첫 묶음 open().read()(t003/a.txt): 아직 돌아오지 않았다(부른 지 118.7초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 30초 묶음 os.stat(t010/a.txt): 아직 돌아오지 않았다(부른 지 89.8초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 30초 묶음 open().read()(t011/a.txt): 아직 돌아오지 않았다(부른 지 89.7초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 90초 묶음 os.listdir(t012/sub): 아직 돌아오지 않았다(부른 지 29.8초째, 스레드 상태 D)
+  [끊고  120.0초] 120초 시점: 90초 묶음 open().read()(t013/a.txt): 아직 돌아오지 않았다(부른 지 29.8초째, 스레드 상태 D)
+  [끊고  195.0초] 늦은 신호 시험: 끊고 1초에 띄워 둔 프로세스 둘(t050, t051)에 더해 새 프로세스(t052)를 띄웠다
+  [끊고  208.2초] 늦은 신호 시험: 처음부터 막힌 t051 쪽에 SIGTERM: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고  216.4초] 늦은 신호 시험: 처음부터 막힌 t050 쪽에 SIGKILL: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고  224.6초] 늦은 신호 시험: 5초 전에 띄운 t052 쪽에 SIGKILL: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고  225.6초] 같은 폴더 t041 를 처음 보는 프로세스 셋을 띄웠다(먼저 a.txt 의 os.stat, 1초 뒤 b.txt 의 os.stat 과 sub/x.txt 의 open().read())
+  [끊고  236.8초] t041 를 나중에 본 b.txt 쪽에 SIGKILL: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고  245.0초] t041 를 먼저 본 a.txt 쪽에 SIGKILL: 8초 안에 끝나지 않았다(보내기 전 스레드 상태 D, 지금 D, 파이썬 처리기는 돌지 않았다)
+  [끊고  265.0초] 앞서 SIGKILL 을 받은 t041/b.txt 쪽: a.txt 쪽이 죽어도 남아 있다
+  [끊고  270.0초] 270초 시점: 미리 열어 둔 파일 read()(big1.bin): 아직 돌아오지 않았다(부른 지 269.0초째, 스레드 상태 D)
+  [끊고  270.0초] 270초 시점: 첫 묶음 os.listdir(t001/sub): 아직 돌아오지 않았다(부른 지 268.7초째, 스레드 상태 D)
+  [끊고  270.0초] 270초 시점: 첫 묶음 os.stat(t002/a.txt): 아직 돌아오지 않았다(부른 지 268.7초째, 스레드 상태 D)
+  [끊고  270.0초] 270초 시점: 첫 묶음 open().read()(t003/a.txt): 아직 돌아오지 않았다(부른 지 268.7초째, 스레드 상태 D)
+  [끊고  270.0초] 270초 시점: 30초 묶음 os.stat(t010/a.txt): 아직 돌아오지 않았다(부른 지 239.8초째, 스레드 상태 D)
+  [끊고  270.0초] 270초 시점: 30초 묶음 open().read()(t011/a.txt): 아직 돌아오지 않았다(부른 지 239.8초째, 스레드 상태 D)
+  [끊고  270.0초] 270초 시점: 90초 묶음 os.listdir(t012/sub): 아직 돌아오지 않았다(부른 지 179.8초째, 스레드 상태 D)
+  [끊고  270.0초] 270초 시점: 90초 묶음 open().read()(t013/a.txt): 아직 돌아오지 않았다(부른 지 179.8초째, 스레드 상태 D)
+  [끊고  270.2초] 서버를 다시 잇는 명령을 친다(inner.sh)
+  [끊고  270.3초] 첫 묶음 os.stat(t002/a.txt): 성공(크기 65536바이트), 부른 지 268.9초 뒤(서버를 다시 잇는 명령을 친 지 0.0초 뒤)
+  [끊고  270.3초] 30초 묶음 os.stat(t010/a.txt): 성공(크기 65536바이트), 부른 지 240.0초 뒤(서버를 다시 잇는 명령을 친 지 0.0초 뒤)
+  [끊고  270.3초] 30초 묶음 open().read()(t011/a.txt): 성공(65536바이트), 부른 지 240.0초 뒤(서버를 다시 잇는 명령을 친 지 0.0초 뒤)
+  [끊고  270.3초] 90초 묶음 open().read()(t013/a.txt): 성공(65536바이트), 부른 지 180.0초 뒤(서버를 다시 잇는 명령을 친 지 0.0초 뒤)
+  [끊고  270.3초] t041 를 나중에 본 sub/x.txt 쪽에 SIGKILL: 5.284초 뒤 끝났다(종료 코드 -9, 보내기 전 스레드 상태 D)
+  [끊고  270.3초] 첫 묶음 os.listdir(t001/sub): 성공(항목 3개), 부른 지 269.0초 뒤(서버를 다시 잇는 명령을 친 지 0.1초 뒤)
+  [끊고  270.3초] 첫 묶음 open().read()(t003/a.txt): 성공(65536바이트), 부른 지 269.0초 뒤(서버를 다시 잇는 명령을 친 지 0.1초 뒤)
+  [끊고  270.3초] 90초 묶음 os.listdir(t012/sub): 성공(항목 3개), 부른 지 180.0초 뒤(서버를 다시 잇는 명령을 친 지 0.1초 뒤)
+  [끊고  270.6초] 미리 열어 둔 파일 read()(big1.bin): 성공(8388608바이트), 부른 지 269.6초 뒤(서버를 다시 잇는 명령을 친 지 0.4초 뒤)
+  [끊고  272.2초] 서버를 다시 이은 뒤 묶음을 띄웠다: os.listdir(t030/sub), os.stat(t031/a.txt), open().read()(t032/a.txt)
+  [끊고  272.4초] 서버를 다시 이은 뒤 묶음 os.listdir(t030/sub): 성공(항목 3개), 부른 지 0.0초 뒤(서버를 다시 잇는 명령을 친 지 2.2초 뒤)
+  [끊고  272.5초] 서버를 다시 이은 뒤 묶음 os.stat(t031/a.txt): 성공(크기 65536바이트), 부른 지 0.0초 뒤(서버를 다시 잇는 명령을 친 지 2.2초 뒤)
+  [끊고  272.5초] 서버를 다시 이은 뒤 묶음 open().read()(t032/a.txt): 성공(65536바이트), 부른 지 0.0초 뒤(서버를 다시 잇는 명령을 친 지 2.2초 뒤)
+  [끊고  300.2초] 서버를 다시 잇고 30초 뒤 묶음을 띄웠다: os.stat(t033/a.txt), open().read()(t034/a.txt)
+  [끊고  300.4초] 서버를 다시 잇고 30초 뒤 묶음 os.stat(t033/a.txt): 성공(크기 65536바이트), 부른 지 0.0초 뒤(서버를 다시 잇는 명령을 친 지 30.2초 뒤)
+  [끊고  300.4초] 서버를 다시 잇고 30초 뒤 묶음 open().read()(t034/a.txt): 성공(65536바이트), 부른 지 0.0초 뒤(서버를 다시 잇는 명령을 친 지 30.2초 뒤)
+  [끊고  301.2초] 끝에 남은 자식 0개에 SIGKILL 을 보냈다. 그래도 끝나지 않은 수 0
+-- 서버 기계에서 본 ps(셋째 칸이 상태 글자다. 스레드도 한 줄씩 나와 같은 명령이 두 줄일 수 있다)
+  끊고 9.00초에 서버 기계에서 본 ps -T -o pid,ppid,stat,args(이 칸의 것만):
+    1210 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause preopened /sources/share/big1.bin /ctl pre1
+      커널 안에서 기다리는 자리(위에서 여덟): folio_wait_bit_common filemap_get_pages filemap_read netfs_buffered_read_iter cifs_strict_readv vfs_read ksys_read __x64_sys_read 
+    1262 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t051/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1264 1203 S /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause shape /sources/share/t007/a.txt 12.0
+    1282 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause shape /sources/share/t007/a.txt 12.0
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1267 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t050/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1272 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t006/a.txt handler
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1274 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call listdir /sources/share/t001/sub plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1276 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t002/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1278 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t003/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1280 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t060/b.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1570 1535 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t101/a.txt daemon-thread
+    1586 1570 S python -u /probe/reader.py cifs-hard-pause worker /sources/share/t101/a.txt daemon-thread
+    1649 1570 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t101/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1639 1608 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t102/a.txt main-thread
+    1656 1639 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t102/a.txt main-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1701 1677 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t060/a.txt daemon-thread
+    1715 1701 S python -u /probe/reader.py cifs-hard-pause worker /sources/share/t060/a.txt daemon-thread
+    1768 1701 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t060/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): d_alloc_parallel __lookup_slow walk_component link_path_walk path_openat do_filp_open do_sys_openat2 __x64_sys_openat 
+    1759 1736 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t103/a.txt daemon-thread
+    1775 1759 S python -u /probe/reader.py cifs-hard-pause worker /sources/share/t103/a.txt daemon-thread
+    1780 1759 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t103/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+  끊고 22.00초에 서버 기계에서 본 ps -T -o pid,ppid,stat,args(이 칸의 것만):
+    1210 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause preopened /sources/share/big1.bin /ctl pre1
+      커널 안에서 기다리는 자리(위에서 여덟): folio_wait_bit_common filemap_get_pages filemap_read netfs_buffered_read_iter cifs_strict_readv vfs_read ksys_read __x64_sys_read 
+    1262 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t051/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1267 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t050/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1274 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call listdir /sources/share/t001/sub plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1276 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t002/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1278 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t003/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1280 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t060/b.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1639 1608 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t102/a.txt main-thread
+    1656 1639 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t102/a.txt main-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    1701 1677 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t060/a.txt daemon-thread
+    1715 1701 S python -u /probe/reader.py cifs-hard-pause worker /sources/share/t060/a.txt daemon-thread
+    1768 1701 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t060/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): d_alloc_parallel __lookup_slow walk_component link_path_walk path_openat do_filp_open do_sys_openat2 __x64_sys_openat 
+    1759 1736 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t103/a.txt daemon-thread
+    1775 1759 S python -u /probe/reader.py cifs-hard-pause worker /sources/share/t103/a.txt daemon-thread
+    1780 1759 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t103/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    2356 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t040/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    2471 2448 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t101/a.txt daemon-thread
+    2486 2471 S python -u /probe/reader.py cifs-hard-pause worker /sources/share/t101/a.txt daemon-thread
+    2496 2471 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t101/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): wait_for_response compound_send_recv SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup __lookup_slow 
+    2492 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t040/b.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): d_alloc_parallel __lookup_slow walk_component link_path_walk path_lookupat filename_lookup vfs_statx vfs_fstatat 
+    2494 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t040/sub/x.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): d_alloc_parallel __lookup_slow walk_component link_path_walk path_openat do_filp_open do_sys_openat2 __x64_sys_openat 
+  끊고 198.00초에 서버 기계에서 본 ps -T -o pid,ppid,stat,args(이 칸의 것만):
+    1210 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause preopened /sources/share/big1.bin /ctl pre1
+      커널 안에서 기다리는 자리(위에서 여덟): folio_wait_bit_common filemap_get_pages filemap_read netfs_buffered_read_iter cifs_strict_readv vfs_read ksys_read __x64_sys_read 
+    1262 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t051/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    1267 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t050/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    1274 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call listdir /sources/share/t001/sub plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    1276 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t002/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    1278 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t003/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    1759 1736 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t103/a.txt daemon-thread
+    1775 1759 S python -u /probe/reader.py cifs-hard-pause worker /sources/share/t103/a.txt daemon-thread
+    1780 1759 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t103/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    2471 2448 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t101/a.txt daemon-thread
+    2486 2471 S python -u /probe/reader.py cifs-hard-pause worker /sources/share/t101/a.txt daemon-thread
+    2496 2471 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t101/a.txt daemon-thread
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3018 2994 S /usr/bin/tini -- python -u /probe/reader.py cifs-hard-pause worker /sources/share/t102/a.txt main-thread
+    3033 3018 D python -u /probe/reader.py cifs-hard-pause worker /sources/share/t102/a.txt main-thread
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3191 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call stat /sources/share/t010/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3193 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t011/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3568 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call listdir /sources/share/t012/sub plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3570 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t013/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+    3727 1203 D /app/.venv/bin/python -u /probe/reader.py cifs-hard-pause call read /sources/share/t052/a.txt plain
+      커널 안에서 기다리는 자리(위에서 여덟): smb311_update_preauth_hash smb3_encryption_required SMB2_open_init SMB2_lease_break smb2_query_path_info is_size_safe_to_change cifs_get_inode_info cifs_lookup 
+-- 컨테이너의 주 프로세스일 때(tini 가 1번, 그 아래 파이썬)
+  (나-1) daemon 스레드 하나가 읽기에 막힌 컨테이너(stuckmnt-cifs-hard-pause-w1, 대상 t101), 끊고 10.00초
+    상태: running, 종료 코드 0, 주 프로세스 pid 1570
+    | 14:06:24.671 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.671 읽기를 시작한다(daemon-thread)
+  docker stop(유예 10초): 0.27초(명령의 종료 코드 0)
+    상태: exited, 종료 코드 0, 주 프로세스 pid 0
+    | 14:06:24.671 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.671 읽기를 시작한다(daemon-thread)
+    | 14:06:31.195 SIGTERM 처리기가 14:06:31.195 에 돌았고 주 스레드가 끝난다
+  멈춘 컨테이너에 docker restart: 0.18초(명령의 종료 코드 0)
+    상태: running, 종료 코드 0, 주 프로세스 pid 2226
+    | 14:06:24.671 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.671 읽기를 시작한다(daemon-thread)
+    | 14:06:31.195 SIGTERM 처리기가 14:06:31.195 에 돌았고 주 스레드가 끝난다
+    | 14:06:31.865 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:31.865 읽기를 시작한다(daemon-thread)
+  돌고 있는 컨테이너에 docker restart(유예 10초): 0.37초(명령의 종료 코드 0)
+    상태: running, 종료 코드 0, 주 프로세스 pid 2471
+    | 14:06:24.671 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.671 읽기를 시작한다(daemon-thread)
+    | 14:06:31.195 SIGTERM 처리기가 14:06:31.195 에 돌았고 주 스레드가 끝난다
+    | 14:06:31.865 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:31.865 읽기를 시작한다(daemon-thread)
+    | 14:06:33.743 SIGTERM 처리기가 14:06:33.743 에 돌았고 주 스레드가 끝난다
+    | 14:06:34.289 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:34.289 읽기를 시작한다(daemon-thread)
+  (나-2) 주 스레드가 읽기에 막힌 컨테이너(stuckmnt-cifs-hard-pause-w2, 대상 t102), 끊고 15.02초
+    상태: running, 종료 코드 0, 주 프로세스 pid 1639
+    | 14:06:24.958 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.959 읽기를 시작한다(main-thread)
+  docker stop(유예 10초): 10.26초(명령의 종료 코드 0)
+    상태: exited, 종료 코드 137, 주 프로세스 pid 0
+    | 14:06:24.958 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.959 읽기를 시작한다(main-thread)
+  멈춘 컨테이너에 docker restart: 0.16초(명령의 종료 코드 0)
+    상태: running, 종료 코드 0, 주 프로세스 pid 3018
+    | 14:06:24.958 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:24.959 읽기를 시작한다(main-thread)
+    | 14:06:46.863 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:46.863 읽기를 시작한다(main-thread)
+  (나-3) 읽는 컨테이너의 프로세스가 먼저 보던 폴더(t060)를 daemon 스레드가 보는 컨테이너(stuckmnt-cifs-hard-pause-w4), 끊고 27.60초
+    상태: running, 종료 코드 0, 주 프로세스 pid 1701
+    | 14:06:25.220 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:25.220 읽기를 시작한다(daemon-thread)
+  docker stop(유예 10초): 24.05초(명령의 종료 코드 1)
+    명령이 낸 줄: Error response from daemon: cannot stop container: stuckmnt-cifs-hard-pause-w4: tried to kill container, but did not receive an exit event
+    상태: running, 종료 코드 0, 주 프로세스 pid 1701
+    | 14:06:25.220 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:25.220 읽기를 시작한다(daemon-thread)
+    | 14:06:48.782 SIGTERM 처리기가 14:06:48.782 에 돌았고 주 스레드가 끝난다
+  t060 을 먼저 보던 프로세스(읽는 컨테이너 안, 서버 기계의 pid 1280)에 SIGKILL 을 보냈다
+    상태: exited, 종료 코드 137, 주 프로세스 pid 0
+    | 14:06:25.220 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:25.220 읽기를 시작한다(daemon-thread)
+    | 14:06:48.782 SIGTERM 처리기가 14:06:48.782 에 돌았고 주 스레드가 끝난다
+  다시 docker stop: 0.02초(명령의 종료 코드 0)
+    상태: exited, 종료 코드 137, 주 프로세스 pid 0
+    | 14:06:25.220 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:25.220 읽기를 시작한다(daemon-thread)
+    | 14:06:48.782 SIGTERM 처리기가 14:06:48.782 에 돌았고 주 스레드가 끝난다
+  (나-4) (나-1)과 같은 모양을 끊고 3초에 띄워 두었다가 늦게 멈춘다(stuckmnt-cifs-hard-pause-w3, 대상 t103), 끊고 205.00초
+    상태: running, 종료 코드 0, 주 프로세스 pid 1759
+    | 14:06:25.454 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:25.454 읽기를 시작한다(daemon-thread)
+  docker stop(유예 10초): 24.05초(명령의 종료 코드 1)
+    명령이 낸 줄: Error response from daemon: cannot stop container: stuckmnt-cifs-hard-pause-w3: tried to kill container, but did not receive an exit event
+    상태: running, 종료 코드 0, 주 프로세스 pid 1759
+    | 14:06:25.454 떴다(pid 7, 부모 pid 1, uid 10001)
+    | 14:06:25.454 읽기를 시작한다(daemon-thread)
+    | 14:09:46.171 SIGTERM 처리기가 14:09:46.171 에 돌았고 주 스레드가 끝난다
+  docker stop 이 멈추지 못해 docker restart 는 치지 않는다
+-- 커널 로그(끊은 뒤, 이 서버에 닿는 줄)
+    [끊고  186.1초] CIFS: VFS: \\10.213.77.12 has not responded in 180 seconds. Reconnecting...
+-- 정리
+  남은 컨테이너를 docker rm -f: 0.49초(명령의 종료 코드 0)
+  umount: 0.01초
+== cifs 칸들이 도는 동안의 커널 로그
+  커널 로그의 시각 712275.671159 초(물결을 시작한 때) 뒤에 soft lockup 줄은 없었다
+== cifs 칸들이 끝난 뒤 올라와 있는 커널 모듈(이름과 쓰는 수)
+  nfsd(0) nfs_acl(1) rpcsec_gss_krb5(0) krb5(1) auth_rpcgss(2) nfsv4(0) nfs(1) lockd(2) grace(2) cifs(0) nls_ucs2_utils(1) libarc4(1) cifs_md4(1) dns_resolver(2) sunrpc(8) 
+== 정리
+  서버 기계 안에 남은 컨테이너 0개, 남은 CIFS·NFS 마운트 0개
+  남은 컨테이너(docker ps -a 의 stuckmnt-): 0
+  남은 네트워크(docker network ls 의 stuckmnt-): 0
+  남은 볼륨(docker volume ls 의 stuckmnt-): 0
