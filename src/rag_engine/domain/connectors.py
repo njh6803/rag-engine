@@ -62,10 +62,11 @@ class ConnectorError(Exception):
 class ConnectorUnavailableError(Exception):
     """그 이름의 커넥터를 만들 수 없다. 설치되지 않았거나, 인터페이스 버전의 major가 다르거나,
     불러오다 깨졌다. `ConnectorRegistry`가 올리고 `ConnectorError`와 다른 종류다. 뒤의 티켓이 원천을
-    만드는 요청의 422와 동기화의 `connector_unavailable`로 옮긴다. 이름은 글에 싣지 않는다."""
+    만드는 요청의 422와 동기화의 `connector_unavailable`로 옮긴다. 이름은 글에 싣지 않는다. 인자를
+    받지 않아 `args`가 비므로 `copy`와 pickle이 같은 예외를 다시 만든다."""
 
-    def __init__(self) -> None:
-        super().__init__("커넥터를 쓸 수 없다")
+    def __str__(self) -> str:
+        return "커넥터를 쓸 수 없다"
 
 
 @dataclass(frozen=True, slots=True)

@@ -42,7 +42,7 @@ source-sync 티켓을 나눈 세션이 낸 지시문으로 연 세션의 기록�
 
 ## 검증
 
-브랜치는 `feature/01-connector-contract-and-schema`였고 `tools/sibling_overlap.py`는 겹침 없음이었다. 손으로 친 검사는 모두 초록이다. `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`(0 errors), `uv run lint-imports`(계약 둘 KEPT), `tools/check_type_escapes.py`, `uv run pytest -n auto`(5051개 통과, 457초)다. 셀프 리뷰를 반영한 뒤에는 `ruff check`, `ruff format`, `pyright`(0 errors), `lint-imports`, `check_type_escapes`를 다시 돌려 모두 초록이었고, 고친 시험 다섯 파일(`test_migrations.py`, `test_connector_registry.py`, `test_connectors.py`, `test_version_command.py`, `test_release.py`)은 234개가 통과했다. 전체 `pytest`는 pre-commit의 검사 러너가 돌고 그 결과를 아래 "커밋"에 적는다. 변이 도구(`tools/mutate.py`)는 돌리지 않았다. 이 티켓의 시험은 모두 구현 전에 빨갛게 써서 초록이 된 것이라 구현 전부터 초록이던 가드 시험이 없다.
+브랜치는 `feature/01-connector-contract-and-schema`였고 `tools/sibling_overlap.py`는 겹침 없음이었다. 손으로 친 검사는 모두 초록이다. `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`(0 errors), `uv run lint-imports`(계약 둘 KEPT), `tools/check_type_escapes.py`, `uv run pytest -n auto`(5051개 통과, 457초)다. 셀프 리뷰를 반영한 뒤에는 `ruff check`, `ruff format`, `pyright`(0 errors), `lint-imports`, `check_type_escapes`를 다시 돌려 모두 초록이었고, 고친 시험 다섯 파일(`test_migrations.py`, `test_connector_registry.py`, `test_connectors.py`, `test_version_command.py`, `test_release.py`)은 234개가 통과했다. PR 직전 리뷰를 반영한 뒤에도 `ruff check`, `ruff format --check`, `pyright`(0 errors), `lint-imports`, `check_type_escapes`를 다시 돌려 모두 0으로 끝났고, 시험 네 파일(`test_connectors.py`, `test_connector_registry.py`, `test_migrations.py`, `test_version_command.py`)은 120개가 통과했다. 전체 `pytest`는 pre-commit의 검사 러너가 돌고 그 결과는 커밋 뒤에 이 절에 적는다. 변이 도구(`tools/mutate.py`)는 돌리지 않았다. 이 티켓의 시험은 모두 구현 전에 빨갛게 써서 초록이 된 것이라 구현 전부터 초록이던 가드 시험이 없다.
 
 ## 셀프 리뷰
 
@@ -57,7 +57,7 @@ source-sync 티켓을 나눈 세션이 낸 지시문으로 연 세션의 기록�
 
 **고친 것.** 근거를 열고 판정한 뒤 모두 고쳤다.
 
-- 마이그레이션 내리기의 서술(표준 축 Major): 머리 설명을 "이 판이 더한 칸과 표를 그 안의 값과 함께 지운다. 지움 표시, 동기화 기록은 되돌릴 수 없고, 다시 올리면 기본값이다. 옛 제약이 받지 않는 행이 있으면 멈추고 아무것도 바꾸지 않는다"로 고쳤고, 업그레이드 원고와 이 일지의 같은 문장도 맞췄다. 같은 머리 설명의 "종류를 다섯으로 늘리고" 뒤에 이름이 넷만 있던 것도 `index_document`를 더해 맞췄다.
+- 마이그레이션 내리기의 서술(표준 축 Major): 머리 설명을 고쳐 이 판이 더한 칸과 표를 그 안의 값과 함께 지운다고 적었다. 지움 표시와 동기화 기록은 되돌릴 수 없고, 다시 올리면 기본값이 된다. 옛 제약이 받지 않는 행이 있으면 멈추고 아무것도 바꾸지 않는다고도 적었다. 업그레이드 원고와 이 일지의 같은 문장도 맞췄다. 같은 머리 설명의 "종류를 다섯으로 늘리고" 뒤에 이름이 넷만 있던 것도 `index_document`를 더해 맞췄다.
 - `sync_records.listed`(명세 축 Major): 널을 허용하고 기본값을 없앴다. 표 정의도 맞췄고 시험을 고쳤다(기본 행은 `listed`가 비고, 0을 준 행은 0이다).
 - `sync_records.job_id`(명세 축 Major): `ON DELETE SET NULL`로 정했다. 작업 행을 지우면 기록은 남고 작업 칸만 빈다. 명세 269행이 기록을 `failed`와 `source_deleted`로 닫는다고 했고 기록의 "작업" 칸은 없으면 비운다고 했다. 표 정의와 시험을 맞췄다.
 - 레지스트리의 버전 판정(두 축 모두): `_major`를 `try` 안으로 옮겼다. 정수나 `None`인 버전이 `ConnectorUnavailableError`로 거부된다. 시험을 더했다. `except` 위 주석도 새로 썼다.
@@ -74,7 +74,28 @@ source-sync 티켓을 나눈 세션이 낸 지시문으로 연 세션의 기록�
 - 지운 원천의 `deleted_with_source`가 참이면 `deleted_at`이 있어야 한다는 CHECK(선택적 보강): 되살릴 때 두 칸을 한 문장에서 지우도록 07과 12가 맡는다. 지금 걸면 두 칸을 따로 쓰는 장면을 막아 시험을 못 쓴다.
 - `JobQueue.claim`이 종류를 거르지 않고 `_job(row)`가 `document_id`를 UUID로 가정한다(명세 축 (d)). 아직 색인 작업이 아닌 작업을 넣는 코드가 없어 지금은 맞다. 첫 비색인 작업을 넣는 티켓(07)이 이것부터 고친다. "다음"에 적었다.
 
+- 문서가 `skipped` 상태이면 `skip_reason`이 있어야 한다는 CHECK(선택적 보강): 건너뜀을 쓰는 02가 어떤 사유를 넣을지 정한 뒤에 건다. 지금 걸면 02의 시험이 사유 없는 `skipped` 행을 만들 수 없다.
+- 레지스트리의 `entry_points` 캐시는 레지스트리 독스트링이 적은 대로, 커넥터를 문서마다 만들게 되는 티켓이 더한다.
+
 **다시 돌린 명령.** 고친 뒤에 아래 "검증"의 명령을 모두 다시 돌렸고 결과는 거기에 적는다.
+
+## PR 직전 리뷰
+
+CodeRabbit CLI(`coderabbit-review` 서브에이전트가 부른다)는 권한 분류기가 명령을 막아 돌지 못했다. 우회하지 않았다. 같은 자리의 `bug-perf-review` 서브에이전트가 커밋 `4401df4`를 읽고 임시 데이터베이스로 내려 보는 것까지 했고, 그 보고를 받은 턴에 아래로 옮긴다. 보안 축은 이 세션의 내장 `/security-review`가 보는 몫이라 고친 뒤에 돌리고 결과를 이 절 끝에 적는다.
+
+**보고.** Critical과 Major는 없었고 유효한 Minor 셋이었다.
+
+1. `ConnectorUnavailableError`가 `ConnectorError`와 달리 `copy`와 pickle에서 깨진다. 생성자가 인자를 받지 않는데 부모에게 글을 넘겨 `args`가 비지 않았다.
+2. 레지스트리가 만드는 함수가 올린 `ConnectorError`를 그대로 다시 올려, 설치처의 예외가 원인(`__cause__`)으로 묶여 있으면 그 글이 서버 쪽으로 따라온다. 로그와 응답에는 쓰지 않지만 원칙 V가 말하는 글이 예외 사슬에 남는다.
+3. 내리기가 멈추는 두 경우(가져오는 원천이 남은 경우, 색인이 아닌 작업이 남은 경우)를 재는 시험이 없다. 서술은 있고 시험이 없었다.
+4. `SyncRecord.listed`가 `int`인데 표에서는 비울 수 있다. 엔티티와 표가 어긋났다.
+
+**판정과 반영.** 넷 모두 근거를 열어 맞다고 보고 이 PR에서 고쳤다.
+
+- `ConnectorUnavailableError`에서 생성자를 걷고 `__str__`만 둔다. `args`가 비므로 복사와 pickle이 같은 예외를 다시 만든다. 시험을 더했다.
+- 레지스트리가 `ConnectorError`를 받으면 사유만 들어 새로 올리고 원인은 끊는다(`from None`). 원인이 묶인 `ConnectorError`를 내는 가짜 함수(`create_chained`)와 시험을 더했다.
+- 내리기가 멈추는 두 경우를 재는 시험 둘을 더했다. 모두 `IntegrityError`로 멈추고, 멈춘 뒤에도 판은 0004이고 `sync_records`가 남는다.
+- `SyncRecord.listed`를 `int | None`으로 고쳤다.
 
 ## 회고
 
@@ -95,4 +116,6 @@ source-sync 티켓을 나눈 세션이 낸 지시문으로 연 세션의 기록�
 - **02, 03, 04, 05를 나란히 돌릴 수 있다.** 01이 병합되면 스키마와 인터페이스가 dev에 있다. 마이그레이션은 02(데이터만)가 더하고, 다른 티켓이 더해야 한다고 판단하면 형제 브랜치와 번호가 겹치는지 먼저 본다. 이 PR의 번호는 0004다.
 - **엔티티는 쓰는 티켓이 더한다.** `Source`, `Job`, `Document` 엔티티는 새 칸을 아직 모른다. 그 칸을 읽고 쓰는 티켓(02 이후)이 엔티티와 어댑터를 함께 고친다. `SyncRecord`는 01이 더했다.
 - **작업 단위 안에서 얻는 포트가 넷이라는 문장**은 07이 고친다.
+- **작업이 지워질 때 동기화 기록을 닫는 일은 11이 맡는다.** `sync_records.job_id`는 `ON DELETE SET NULL`이라 원천 삭제가 대기 중인 동기화 작업을 지워도 기록은 남고 작업 칸만 빈다. 그 기록을 `failed`와 `source_deleted`로 닫는 코드는 아직 없고 명세 269행이 11의 일로 둔다.
+- **`skipped` 문서의 `skip_reason`** 보강 CHECK는 02가 건너뜀 사유를 정할 때 같이 본다.
 - **첫 비색인 작업을 넣는 티켓(07)이 먼저 고칠 것.** `JobQueue.claim`이 작업 종류를 거르지 않고, 작업 행을 엔티티로 바꾸는 함수가 `document_id`를 UUID로 가정한다. 문서를 가리키지 않는 작업이 처음 들어가면 작업자가 그 행을 색인 작업으로 꺼내 거기서 깨진다.

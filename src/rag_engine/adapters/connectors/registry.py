@@ -58,8 +58,9 @@ class EntryPointConnectorRegistry:
             connector = factory(config)
             interface_version = connector.interface_version
             major = _major(interface_version)
-        except ConnectorError:
-            raise
+        except ConnectorError as error:
+            # 사유 값만 전한다. 설치처의 예외가 원인으로 묶여 있으면 그 글이 따라가지 않게 끊는다.
+            raise ConnectorError(error.reason) from None
         except Exception as error:  # 설치처의 커넥터가 어떻게 깨져도 같은 거부로 알린다
             log_event(
                 logger,

@@ -106,6 +106,18 @@ def test_만드는_함수가_invalid_config를_올리면_그_사유를_그대로
     assert caught.value.reason is ConnectorFailureReason.INVALID_CONFIG
 
 
+def test_사유_예외에_원인이_묶여_있으면_끊고_사유만_전한다() -> None:
+    registry = _registry(_entry("chained", "create_chained"))
+
+    with pytest.raises(ConnectorError) as caught:
+        registry.create("chained", {})
+
+    assert caught.value.reason is ConnectorFailureReason.INVALID_CONFIG
+    assert caught.value.__cause__ is None
+    assert caught.value.__suppress_context__
+    assert LEAKED_TEXT not in str(caught.value)
+
+
 def test_설정이_맞으면_같은_커넥터가_만들어진다() -> None:
     registry = _registry(_entry("strict", "create_requiring_folder"))
 

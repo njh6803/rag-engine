@@ -384,7 +384,7 @@ class SyncRecord:
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
-    listed: int
+    listed: int | None
     added: int
     updated: int
     deleted: int

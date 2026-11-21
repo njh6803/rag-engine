@@ -20,6 +20,7 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from psycopg import errors, sql
 from psycopg.types.json import Jsonb
+from sqlalchemy.exc import IntegrityError
 
 from rag_engine.adapters.postgres.migrate import (
     MIGRATIONS_DIRECTORY,
@@ -1011,6 +1012,47 @@ def test_마지막_판을_내리면_이_기능의_표와_칸과_제약이_모두
         assert connection.execute("SELECT version_num FROM alembic_version").fetchall() == [
             (HEAD_REVISION,)
         ]
+
+
+def _assert_downgrade_halted_and_head_kept(url: str) -> None:
+    """내리기가 멈췄고 한 트랜잭션이 되돌려져 판과 이 기능의 표가 그대로인지 본다."""
+    with _connect(url) as connection:
+        version = connection.execute("SELECT version_num FROM alembic_version").fetchall()
+        tables = {
+            name
+            for (name,) in connection.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+            ).fetchall()
+        }
+
+    assert version == [(HEAD_REVISION,)]
+    assert "sync_records" in tables
+
+
+def test_가져오는_원천이_남아_있으면_판을_내리다_멈추고_판은_그대로다(
+    empty_database_url: str,
+) -> None:
+    _alembic(empty_database_url, "upgrade", "head")
+    with _connect(empty_database_url) as connection:
+        _pull_source(connection)
+
+    with pytest.raises(IntegrityError):
+        _alembic(empty_database_url, "downgrade", "0003")
+
+    _assert_downgrade_halted_and_head_kept(empty_database_url)
+
+
+def test_색인이_아닌_작업이_남아_있으면_판을_내리다_멈추고_판은_그대로다(
+    empty_database_url: str,
+) -> None:
+    _alembic(empty_database_url, "upgrade", "head")
+    with _connect(empty_database_url) as connection:
+        _job_row(connection, "cleanup")
+
+    with pytest.raises(IntegrityError):
+        _alembic(empty_database_url, "downgrade", "0003")
+
+    _assert_downgrade_halted_and_head_kept(empty_database_url)
 
 
 def test_표_정의가_마이그레이션이_만든_표와_어긋나지_않는다(migrated_url: str) -> None:

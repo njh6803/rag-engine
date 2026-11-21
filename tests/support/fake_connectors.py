@@ -71,6 +71,11 @@ def create_numeric_version(config: Mapping[str, JsonValue]) -> object:
     return _NumericVersionConnector()
 
 
+def create_chained(config: Mapping[str, JsonValue]) -> FakeConnector:
+    """설치처의 예외 글이 원인으로 묶인 채 `invalid_config`를 낸다."""
+    raise ConnectorError(ConnectorFailureReason.INVALID_CONFIG) from ValueError(LEAKED_TEXT)
+
+
 def create_broken(config: Mapping[str, JsonValue]) -> FakeConnector:
     """인터페이스에 없는 예외를 비밀번호처럼 보이는 글과 함께 낸다."""
     raise RuntimeError(LEAKED_TEXT)

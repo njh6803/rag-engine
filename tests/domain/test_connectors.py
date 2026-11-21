@@ -59,6 +59,18 @@ def test_예외는_복사와_pickle을_거쳐도_같은_사유를_든다(reason:
     assert restored.reason is reason
 
 
+def test_쓸_수_없는_커넥터_예외는_복사와_pickle을_거쳐도_같은_글을_든다() -> None:
+    error = ConnectorUnavailableError()
+
+    copied = copy.copy(error)
+    # 이 시험이 방금 직접 만든 값만 되돌려 읽는다. 믿지 않는 데이터를 읽는 자리가 아니다.
+    restored = pickle.loads(pickle.dumps(error))
+    assert isinstance(restored, ConnectorUnavailableError)
+    assert type(copied) is ConnectorUnavailableError
+    assert str(copied) == str(error) == str(restored)
+    assert error.args == ()
+
+
 def test_예외의_사유_값은_닫힌_다섯이다() -> None:
     assert {reason.value for reason in ConnectorFailureReason} == {
         "invalid_config",
