@@ -142,6 +142,19 @@ exit 러너의 명령이 pytest 여도 그 출력의 판정 낱말을 거르지 
 `Error` 만 있는 줄과 `- ` 로 시작하는 목록 줄도 머리로 받아 상한을 소음이 채울 수 있다. 반대로
 pytest 의 `E ` 접두 줄(`E       TypeError: x`)은 받지 않는다.
 
+출력 전체 파일. 화면은 끝 10줄과 머리 줄 스무 줄뿐이라 표지로 고를 줄이 가려졌다. 그래서 두 가지
+변이는 마지막에 도는 명령의 출력 전체(색 코드를 벗기고 줄 끝은 그대로)를 그 체크아웃의 git
+디렉터리 아래 `mutate-output/<표 파일 이름 stem>-<번호>.txt` 에 쓰고, 그 경로를 `전체 출력:` 줄로
+낸다. 하나는 기대와 어긋난 변이다. 반복이 여럿이면 어긋난 마지막 반복의 출력이다. 다른 하나는 빨강
+이나 처리하지 않은 에러를 기대하는데 `expect_output` 이 빈 변이다. 기대대로 지나가므로 출력을 보려고
+자리표 표지를 넣고 한 바퀴를 더 돌거나 변이를 소스에 손으로 넣던 일(대기열
+mutate-marker-discovery)을 없앤다. 이 변이는 어긋난 반복이 없어 마지막 반복의 출력이다. git
+디렉터리는 추적하지 않는 자리라 `git status` 에 잡히지 않고, 같은 번호는 다시 돌 때 덮어쓰며
+지우지는 않는다. 못 보는 것: 기준선의 출력은 남기지 않는다. 표지가 있는데 기대대로인 변이와 초록을
+기대하고 초록이 난 변이도 남기지 않는다. 지난 실행의 파일이 남아 있어도 이번에 쓰지 않았으면 그 줄이
+나오지 않는다. git 디렉터리를 못 찾거나 쓰지 못하면 파일 없이 지금처럼 돌고 줄도 내지 않는다. 어느
+줄이 좋은 표지인지는 가르지 않아, 단언 풀이 줄을 고르면 표지의 품질 검사가 거른다.
+
 표지의 메아리. 빨강이나 처리하지 않은 에러를 기대한 변이의 표지가 그 시험 파일(`tests` 인자 가운데
 옵션이 아닌 것을 러너의 자리 기준으로 이은 경로, `::` 뒤는 뗀다)의 원문에 글자 그대로 있으면
 알린다. 시험 함수 이름은 실패 머리에, 기대 값의 글자는 실패 줄 둘레의 코드 조각에 늘 실려, 그
@@ -331,6 +344,9 @@ RESTORE_WAITS = (0.2, 0.5, 1.0, 2.0)
 # 도는 동안 그 체크아웃의 git 디렉터리에 두는 표지 `mutate-running-<pid>.json` 의 머리. 편집 훅
 # `tools/hook_edit_during_mutate.py` 의 같은 이름과 같아야 한다(대기열 358)
 MARKER_PREFIX = "mutate-running-"
+# 어긋난 변이의 실패 출력 전체를 남기는 그 체크아웃의 git 디렉터리 아래 폴더. 표지를 고르려면 화면의
+# 끝 열 줄과 머리 줄 스무 줄로 모자라 전체가 필요했다(대기열 mutate-marker-discovery)
+OUTPUT_DIR = "mutate-output"
 
 type Outcome = Literal["green", "red", "unhandled", "error"]
 type JudgeName = Literal["pytest", "vitest", "playwright", "tsc", "exit"]
@@ -1175,6 +1191,25 @@ def _matched(mutation: Mutation, runs: Sequence[_Run]) -> bool:
     return all(run.verdict.outcome == mutation.expect and not run.missing for run in runs)
 
 
+def _needs_marker(mutation: Mutation) -> bool:
+    """빨강이나 처리하지 않은 에러를 기대하는데 표지가 비어 있다. 기대대로 지나가므로 출력을 보려고
+    자리표 표지로 한 바퀴를 더 돌았다(대기열 mutate-marker-discovery)."""
+    return mutation.expect in ("red", "unhandled") and not mutation.expect_output
+
+
+def _keep_output(path: Path, mutation: Mutation, runs: Sequence[_Run]) -> None:
+    """출력 전체(색 코드를 벗긴 것)를 `path` 에 쓴다. 어긋난 마지막 반복의 출력이고, 어긋난 반복이
+    없으면 마지막 반복이다(기대대로인데 표지를 고르려는 변이). 화면은 끝 열 줄과 머리 줄 스무 줄만
+    보여 표지로 고를 줄이 가려졌다(대기열 mutate-marker-discovery). 쓰지 못하면 `OSError` 를 올리고,
+    부르는 쪽(`measure`)이 삼켜 판정에는 영향이 없다."""
+    chosen = next(
+        (run for run in reversed(runs) if run.verdict.outcome != mutation.expect or run.missing),
+        runs[-1],
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(chosen.result.plain.encode("utf-8"))  # 줄 끝을 바꾸지 않으려 바이트로 쓴다
+
+
 def _report_mutation(
     number: int,
     mutation: Mutation,
@@ -1182,6 +1217,7 @@ def _report_mutation(
     *,
     matched: bool,
     out: Callable[[str], None],
+    kept: Path | None = None,
 ) -> None:
     outcomes = ", ".join(_LABELS[run.verdict.outcome] for run in runs)
     head = "==" if matched else "!! 어긋남 —"
@@ -1190,6 +1226,8 @@ def _report_mutation(
         f" 결과 {outcomes} — {runs[-1].verdict.summary}"
     )
     _details(runs, out)
+    if kept is not None:
+        out(f"   전체 출력: {kept}")
 
 
 def check(spec: Spec, *, root: Path, out: Callable[[str], None], read: Reader = _read_disk) -> int:
@@ -1221,11 +1259,13 @@ def measure(
     runner: Runner,
     out: Callable[[str], None],
     numbers: Mapping[str, int] | None = None,
+    output_file: Callable[[int], Path] | None = None,
 ) -> int:
     """기준선을 재고 변이를 하나씩 넣어 돌린다. 모두 기대대로면 0, 아니면 1. `numbers` 는 줄 머리와
     `다시 돌릴 번호` 에 다는 표의 번호이고, 없으면 `spec` 안의 차례다. 그래서 `select` 로 좁힌
     `spec` 을 넘기는 쪽은 원본 표의 번호(`_numbers(원본)`)를 함께 넘긴다. 넘기지 않으면 번호가
-    원본과 어긋나 다시 돌릴 번호가 다른 변이를 가리킨다(`main` 이 그렇게 넘긴다)."""
+    원본과 어긋나 다시 돌릴 번호가 다른 변이를 가리킨다(`main` 이 그렇게 넘긴다). `output_file` 은
+    표의 번호를 받아 어긋난 변이의 전체 출력을 쓸 파일을 내고, 없으면 파일을 남기지 않는다."""
     _validate(root, spec)
     if numbers is None:
         numbers = _numbers(spec)
@@ -1242,7 +1282,14 @@ def measure(
     for mutation in spec.mutation:
         runs = _mutation_runs(root, mutation, runners[mutation.runner], runner, out)
         matched = _matched(mutation, runs)
-        _report_mutation(numbers[mutation.name], mutation, runs, matched=matched, out=out)
+        number = numbers[mutation.name]
+        kept = None
+        if output_file is not None and (not matched or _needs_marker(mutation)):
+            path = output_file(number)
+            with contextlib.suppress(OSError):  # 보조 출력이 판정을 바꾸면 안 된다
+                _keep_output(path, mutation, runs)
+                kept = path
+        _report_mutation(number, mutation, runs, matched=matched, out=out, kept=kept)
         if not matched:
             mismatched.append(mutation.name)
 
@@ -1783,6 +1830,16 @@ def _running_marker(root: Path, table: Path) -> Generator[None]:
                 marker.unlink(missing_ok=True)
 
 
+def _output_namer(git_dir: Path, table: Path) -> Callable[[int], Path]:
+    """표의 번호를 받아 어긋난 변이의 전체 출력을 쓸 파일을 내는 함수. git 디렉터리는 추적하지 않는
+    자리라 `git status` 와 편집 훅에 잡히지 않고 `.gitignore` 도 필요 없다."""
+
+    def named(number: int) -> Path:
+        return git_dir / OUTPUT_DIR / f"{table.stem}-{number}.txt"
+
+    return named
+
+
 def _run_table(args: _Args, *, root: Path, runner: Runner, out: Callable[[str], None]) -> int:
     """표 하나에서 고른 변이를 잰다. `--check` 면 원문만 본다. 고르지 않은 전체 실행이면 시작
     줄에서 커밋하지 않은 변경을 알린다."""
@@ -1798,8 +1855,17 @@ def _run_table(args: _Args, *, root: Path, runner: Runner, out: Callable[[str], 
         return check_picked(selected, root=root, out=out)
     if not args.picks and args.since is None:
         _note_uncommitted(root, selected, table, out)
+    git_dir = git_dir_of(root)
+    output_file = None if git_dir is None else _output_namer(git_dir, table)
     with _running_marker(root, table):
-        return measure(selected, root=root, runner=runner, out=out, numbers=_numbers(spec))
+        return measure(
+            selected,
+            root=root,
+            runner=runner,
+            out=out,
+            numbers=_numbers(spec),
+            output_file=output_file,
+        )
 
 
 def main(

@@ -3573,3 +3573,225 @@ def test_색인_확인은_부모_버전과_같은_변이의_표지_품질은_소
 
     assert code == 0, 출력
     assert "문제 0" in 출력
+
+
+# --- 어긋난 변이의 전체 출력 파일(대기열 mutate-marker-discovery) ---------------------------------
+
+
+def _긴_빨강(이름: str = "") -> CommandResult:
+    """끝 열 줄과 머리 줄 스무 줄 밖에 단언 풀이 줄이 쌓인 pytest 빨강. 색 코드도 한 줄 든다."""
+    풀이 = "".join(f"E       원인 문구 {이름}{번호}\n" for 번호 in range(40))
+    return CommandResult(
+        1,
+        f"\x1b[31mE       색 있는 줄 {이름}\x1b[0m\n{풀이}"
+        "FAILED tests/test_x.py::test_x - AssertionError\n1 failed in 0.01s\n",
+    )
+
+
+def _출력_파일(root: Path) -> list[Path]:
+    return sorted((root / ".git" / "mutate-output").glob("*.txt"))
+
+
+def _전체_출력_줄(줄: Sequence[str]) -> list[str]:
+    return [한줄 for 한줄 in 줄 if "전체 출력:" in 한줄]
+
+
+def test_어긋난_변이는_실패_출력_전체를_git_디렉터리의_파일로_남기고_경로를_알린다(
+    tmp_path: Path,
+) -> None:
+    """표지는 실제 실패 출력을 본 뒤에야 고를 수 있는데 화면은 끝 열 줄과 머리 줄 스무 줄만 보여
+    풀이 줄이 가려졌다(대기열 mutate-marker-discovery 11회차). 전체가 있어야 한 번에 고른다."""
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+    줄: list[str] = []
+    러너 = _변이면(root / "src/m.py", b"x = 2", _긴_빨강())
+
+    code = main([표], root=root, runner=러너, out=줄.append)
+
+    assert code == 1, 줄
+    파일 = root / ".git" / "mutate-output" / "mutations-1.txt"
+    assert _출력_파일(root) == [파일]
+    내용 = 파일.read_text(encoding="utf-8")
+    assert "원인 문구 0\n" in 내용 and "원인 문구 39\n" in 내용  # 화면의 상한 밖의 줄까지 든다
+    assert "색 있는 줄" in 내용 and "\x1b" not in 내용  # 색 코드는 벗긴다
+    assert 내용.endswith("1 failed in 0.01s\n")
+    assert _전체_출력_줄(줄) == [f"   전체 출력: {파일}"]
+    어긋남 = next(at for at, 한줄 in enumerate(줄) if 한줄.startswith("!!"))
+    assert 줄.index(_전체_출력_줄(줄)[0]) > 어긋남
+
+
+def test_표지가_있는_기대대로의_변이는_출력_파일도_그_줄도_남기지_않는다(tmp_path: Path) -> None:
+    root, 표 = _시험이_든_저장소(tmp_path)
+    글 = Path(표).read_text(encoding="utf-8")
+    Path(표).write_text(
+        글.replace('expect = "red"', 'expect = "red"\nexpect_output = ["원인 문구 39"]'), "utf-8"
+    )
+    줄: list[str] = []
+    러너 = _변이면(root / "src/m.py", b"x = 2", _긴_빨강())
+
+    code = main([표], root=root, runner=러너, out=줄.append)
+
+    assert code == 0, 줄
+    assert _출력_파일(root) == []
+    assert _전체_출력_줄(줄) == []
+
+
+def test_초록을_기대한_기대대로의_변이는_출력_파일을_남기지_않는다(tmp_path: Path) -> None:
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+    줄: list[str] = []
+
+    code = main([표], root=root, runner=lambda argv, cwd, timeout: _초록, out=줄.append)
+
+    assert code == 0, 줄
+    assert _출력_파일(root) == []
+    assert _전체_출력_줄(줄) == []
+
+
+def test_표지가_없는_빨강_기대는_기대대로여도_출력_파일을_남긴다(tmp_path: Path) -> None:
+    """어긋난 것만 남기면 새 변이의 표지를 고르려고 자리표 표지를 넣고 한 바퀴를 더 돌아야 했다
+    (대기열 mutate-marker-discovery). 표지가 없는 빨강은 기대대로 지나가므로 그 출력도 남긴다."""
+    root, 표 = _시험이_든_저장소(tmp_path)
+    줄: list[str] = []
+    러너 = _변이면(root / "src/m.py", b"x = 2", _긴_빨강())
+
+    code = main([표], root=root, runner=러너, out=줄.append)
+
+    assert code == 0, 줄
+    파일 = root / ".git" / "mutate-output" / "mutations-1.txt"
+    assert _출력_파일(root) == [파일]
+    assert "원인 문구 39\n" in 파일.read_text(encoding="utf-8")
+    assert _전체_출력_줄(줄) == [f"   전체 출력: {파일}"]
+
+
+def _반복을_돈다(tmp_path: Path, *, 기대: str, 출력들: list[CommandResult]) -> tuple[Path, int]:
+    """변이를 `출력들` 의 수만큼 반복해 돌리고 반복마다 차례로 그 출력을 내는 러너로 `main` 을
+    부른다. 기준선은 초록이다. 저장소 루트와 종료 코드를 돌려준다."""
+    root, 표 = _시험이_든_저장소(tmp_path, expect=기대)
+    글 = Path(표).read_text(encoding="utf-8")
+    반복 = f'expect = "{기대}"\nrepeat = {len(출력들)}'
+    Path(표).write_text(글.replace(f'expect = "{기대}"', 반복), "utf-8")
+    원본 = root / "src/m.py"
+    남은 = list(출력들)
+
+    def 러너(argv: Sequence[str], cwd: Path, timeout: int) -> CommandResult:
+        return _초록 if b"x = 2" not in 원본.read_bytes() else 남은.pop(0)
+
+    return root, main([표], root=root, runner=러너, out=lambda _: None)
+
+
+@pytest.mark.parametrize(
+    ("기대", "출력들", "남는_반복", "빠지는_반복"),
+    [
+        ("green", [_긴_빨강("첫째 "), _초록], "첫째 ", "1 passed"),
+        ("green", [_긴_빨강("첫째 "), _긴_빨강("둘째 "), _초록], "둘째 ", "첫째 "),
+        ("red", [_긴_빨강("첫째 "), _긴_빨강("둘째 ")], "둘째 ", "첫째 "),
+    ],
+    ids=["어긋난_첫_반복", "어긋난_반복이_둘이면_마지막", "어긋난_반복이_없으면_마지막"],
+)
+def test_반복마다_출력이_다르면_어긋난_마지막_반복을_남기고_없으면_마지막_반복을_남긴다(
+    tmp_path: Path, 기대: str, 출력들: list[CommandResult], 남는_반복: str, 빠지는_반복: str
+) -> None:
+    """어긋난 반복이 하나가 아니어도 첫 반복이나 마지막 반복으로 대신하지 않는다. 표지가 빈 빨강은
+    반복이 모두 기대대로라 어긋난 반복이 없고, 그때는 마지막 반복이다."""
+    root, code = _반복을_돈다(tmp_path, 기대=기대, 출력들=출력들)
+
+    assert code == (0 if 기대 == "red" else 1)
+    내용 = _출력_파일(root)[0].read_text(encoding="utf-8")
+    assert f"원인 문구 {남는_반복}0\n" in 내용
+    assert 빠지는_반복 not in 내용
+
+
+def test_기준선이_빨가면_변이를_넣지_않아_출력_파일도_그_줄도_없다(tmp_path: Path) -> None:
+    root, 표 = _시험이_든_저장소(tmp_path)
+    줄: list[str] = []
+
+    code = main([표], root=root, runner=lambda argv, cwd, timeout: _긴_빨강(), out=줄.append)
+
+    assert code == 1, 줄
+    assert _출력_파일(root) == []
+    assert _전체_출력_줄(줄) == []
+
+
+def test_같은_번호를_다시_돌면_덮어쓰고_이번에_쓰지_않았으면_지난_파일을_지우지_않는다(
+    tmp_path: Path,
+) -> None:
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+    원본 = root / "src/m.py"
+    출력 = [_긴_빨강("지난번 ")]
+    줄: list[str] = []
+
+    def 러너(argv: Sequence[str], cwd: Path, timeout: int) -> CommandResult:
+        return _초록 if b"x = 2" not in 원본.read_bytes() else 출력[0]
+
+    assert main([표], root=root, runner=러너, out=lambda _: None) == 1
+    출력[0] = _긴_빨강("이번 ")
+    assert main([표], root=root, runner=러너, out=lambda _: None) == 1
+    파일 = _출력_파일(root)[0]
+    assert "이번 0" in 파일.read_text(encoding="utf-8")
+    assert "지난번" not in 파일.read_text(encoding="utf-8")
+
+    출력[0] = _초록  # 이번에는 기대대로라 쓰지 않는다
+    assert main([표], root=root, runner=러너, out=줄.append) == 0
+    assert _전체_출력_줄(줄) == []
+    assert "이번 0" in 파일.read_text(encoding="utf-8")  # 지난 파일은 그대로다
+
+
+def test_출력은_줄_끝을_바꾸지_않고_쓴다(tmp_path: Path) -> None:
+    """`write_text` 는 윈도에서 `\\n` 을 `\\r\\n` 으로 바꿔 쓴다. 도구가 받은 출력의 바이트
+    그대로다."""
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+    빨강 = CommandResult(1, "E       첫 줄\nE       둘째 줄\r\n1 failed in 0.01s\n")
+
+    assert main([표], root=root, runner=_변이면(root / "src/m.py", b"x = 2", 빨강), out=print) == 1
+    assert _출력_파일(root)[0].read_bytes() == 빨강.output.encode("utf-8")
+
+
+def test_git_디렉터리가_없으면_출력_파일_없이_지금처럼_돈다(tmp_path: Path) -> None:
+    path = _파일을_둔다(tmp_path, "src/m.py", b"x = 1\n")
+    표 = _변이_파일을_쓴다(tmp_path, _변이_파일(old="x = 1", new="x = 2", expect="green"))
+    줄: list[str] = []
+
+    code = main([표], root=tmp_path, runner=_변이면(path, b"x = 2", _긴_빨강()), out=줄.append)
+
+    assert code == 1, 줄
+    assert _전체_출력_줄(줄) == []
+    assert path.read_bytes() == b"x = 1\n"
+
+
+def test_출력_파일을_쓰지_못해도_종료_코드와_되돌림은_그대로다(tmp_path: Path) -> None:
+    """저장 자리가 파일이라 디렉터리를 만들지 못하는 경우. 보조 출력이 판정을 바꾸면 안 된다."""
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+    (root / ".git" / "mutate-output").write_text("막는 파일", encoding="utf-8")
+    줄: list[str] = []
+    러너 = _변이면(root / "src/m.py", b"x = 2", _긴_빨강())
+
+    code = main([표], root=root, runner=러너, out=줄.append)
+
+    assert code == 1, 줄
+    assert _전체_출력_줄(줄) == []
+    assert (root / "src/m.py").read_bytes() == b"x = 1\n"
+
+
+def test_워크트리에서는_그_워크트리의_git_디렉터리에_출력_파일을_둔다(tmp_path: Path) -> None:
+    root, _ = _시험이_든_저장소(tmp_path / "main")
+    옆 = tmp_path / "side"
+    _git(root, "worktree", "add", "-q", "-b", "side", str(옆))
+    표 = _변이_파일을_쓴다(tmp_path, _변이_파일(old="x = 1", new="x = 2", expect="green"))
+    줄: list[str] = []
+
+    assert (
+        main([표], root=옆, runner=_변이면(옆 / "src/m.py", b"x = 2", _긴_빨강()), out=줄.append)
+        == 1
+    )
+    파일 = root / ".git" / "worktrees" / "side" / "mutate-output" / "mutations-1.txt"
+    assert 파일.exists(), 줄
+    assert _전체_출력_줄(줄) == [f"   전체 출력: {파일}"]
+    assert _출력_파일(root) == []  # 주 체크아웃의 git 디렉터리에는 쓰지 않는다
+
+
+@pytest.mark.parametrize("고르기", [[], ["1"]], ids=["표_전체", "번호"])
+def test_원문만_보는_check_는_출력_파일을_쓰지_않는다(tmp_path: Path, 고르기: list[str]) -> None:
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+
+    main(["--check", 표, *고르기], root=root, runner=_부르면_안_되는_러너, out=lambda _: None)
+
+    assert not (root / ".git" / "mutate-output").exists()
