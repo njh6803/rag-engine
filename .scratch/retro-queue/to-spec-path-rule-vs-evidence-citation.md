@@ -5,3 +5,5 @@
 **승인:** 자체 승인 2026-11-21, 17회차(`measured-claim-beyond-probe`의 17회차. 두 지침이 어긋나는 자리를 고치는 것이라 사건 하나로 반영한다. 사건이 난 PR은 명세만 담아 그 PR에는 싣지 않았다), 일지 2026-11-21-1358-source-sync-spec.md, ADR 불필요
 
 source-sync 명세는 머리에 구현 파일의 경로를 적지 않는다고 적고 본문에서 "코드를 읽었다"를 파일과 판 없이 썼다. 셀프 리뷰 표준 축이 Major로 냈고, 근거가 된 파일만 Further Notes에 읽은 커밋과 함께 모아 적는 것으로 풀었다. 앞선 명세 둘(release-image, search-eval)도 근거로 읽은 파일의 경로를 적었다.
+
+같은 닫힌 항목(measured-claim-beyond-probe)의 18회차는 처방을 `to-spec` 밖으로 넓히는 일이라 `measured-claim-outside-to-spec`이 센다. 반영할 때 두 항목을 함께 본다.
