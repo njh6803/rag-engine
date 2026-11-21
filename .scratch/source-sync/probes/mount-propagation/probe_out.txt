@@ -1,0 +1,115 @@
+== 바깥 Docker
+  server 29.9.2 linux / kernel 6.18.58.1-microsoft-standard-WSL2
+  Docker Desktop
+  안쪽 dockerd 준비: yes(docker:29.9.2-dind)
+== 안쪽 dockerd
+  server 29.9.2 / kernel 6.18.58.1-microsoft-standard-WSL2
+  compose 5.6.1
+  루트의 전파: shared:63
+== 0. 루트가 shared 가 아닐 때 rslave 로 띄우기
+  루트의 전파: private
+  docker: Error response from daemon: path /srv/sources is mounted on / but it is not a shared or slave mount
+  
+  Run 'docker run --help' for more information
+  make-rshared 뒤 루트의 전파: shared:63
+  compose up 종료 코드: 0
+  p_default 의 /sources 전파 설정: rprivate rw=false
+  p_rslave 의 /sources 전파 설정: rslave rw=false
+  probe-c_rslave-1 의 /sources 전파 설정: rslave rw=false
+== 1. 컨테이너가 뜬 직후(공유 폴더를 붙이기 전)
+  p_default: rules 
+  p_rslave: rules 
+  probe-c_rslave-1: rules 
+== 2. 컨테이너가 뜬 뒤에 서버 기계에서 /srv/sources/share 를 붙인 뒤의 ls /sources/share
+  p_default: (끝) 
+  p_rslave: b.txt (끝) 
+  probe-c_rslave-1: b.txt (끝) 
+== 3. 쓰기가 되는지(읽기 전용으로 붙였다)
+  처음부터 있던 폴더 /sources/rules:
+  p_default: touch: /sources/rules/w: Read-only file system 
+  p_rslave: touch: /sources/rules/w: Read-only file system 
+  probe-c_rslave-1: touch: /sources/rules/w: Read-only file system 
+  나중에 전해진 /sources/share:
+  p_rslave: 쓰였다 
+  probe-c_rslave-1: 쓰였다 
+  컨테이너가 보는 마운트:
+  p_default: /sources ro,relatime - 
+  p_rslave: /sources ro,relatime master:63 /sources/share rw,relatime master:90 
+  probe-c_rslave-1: /sources ro,relatime master:63 /sources/share rw,relatime master:90 
+== 4. 붙인 뒤에 새로 띄운 컨테이너(전파 설정을 적지 않았다)
+  p_after: b.txt w (끝) 
+  p_after: touch: /sources/share/w: Read-only file system 
+  p_after: /sources ro,relatime - /sources/share ro,relatime - 
+  붙이기 전에 뜬 컨테이너(전파 설정을 적지 않았다), docker restart 앞:
+  p_restart: (끝) 
+  같은 컨테이너, docker restart 뒤:
+  p_restart: b.txt w (끝) 
+  p_restart: touch: /sources/share/w2: Read-only file system 
+== 5. 서버 기계에서 공유 폴더를 떼어 낸 뒤의 ls /sources/share
+  p_default: (끝) 
+  p_rslave: (끝) 
+  probe-c_rslave-1: (끝) 
+  p_after: b.txt w (끝) 
+== 6. 다시 붙인 뒤(내용이 달라졌다)의 ls /sources/share
+  p_default: (끝) 
+  p_rslave: c.txt (끝) 
+  probe-c_rslave-1: c.txt (끝) 
+  p_after: b.txt w (끝) 
+  p_after 를 docker restart 로 다시 띄운 뒤:
+  p_after: c.txt (끝) 
+== 7. 부모 폴더 자체가 나중에 붙은 경우
+  w_default: (끝) 
+  w_rslave: rules (끝) 
+== 8. Docker Desktop 에서 rslave
+  기본 설정으로 붙이기:
+    rules
+    종료 코드: 0
+  rslave 로 붙이기(docker run):
+    rules
+    종료 코드: 0
+  compose 의 긴 문법, 전파 설정을 변수로 두고 적지 않았을 때(rprivate):
+     Network rag-probe-dd_default Creating 
+     Network rag-probe-dd_default Creating 
+     Network rag-probe-dd_default Created 
+     Network rag-probe-dd_default Created 
+     Container rag-probe-dd-c_rslave-run-8cc3deb15f4c Creating 
+     Container rag-probe-dd-c_rslave-run-8cc3deb15f4c Created 
+    compose.yml
+    rules
+    종료 코드: 0
+  compose 의 긴 문법, 변수에 rslave 를 적었을 때:
+     Container rag-probe-dd-c_rslave-run-4b6fe94b5b80 Creating 
+     Container rag-probe-dd-c_rslave-run-4b6fe94b5b80 Created 
+    compose.yml
+    rules
+    종료 코드: 0
+== 9. 단독 compose 가 붙일 모양에서 docker compose restart server worker
+  compose up 종료 코드: 0
+  app-server-1 가 붙인 폴더: /srv/app-sources rprivate rw=false
+  app-worker-1 가 붙인 폴더: /srv/app-sources rprivate rw=false
+  app-server-1: 10001 rules 
+  app-worker-1: 10001 rules 
+  뜬 뒤에 /srv/app-sources/share 를 붙였다. docker compose restart 앞의 ls /sources/share:
+  app-server-1: (끝) 
+  app-worker-1: (끝) 
+  docker compose restart server worker 종료 코드: 0
+  docker compose restart 뒤:
+  app-server-1: b.txt (끝) 
+  app-worker-1: b.txt (끝) 
+  app-server-1: touch: /sources/share/w: Read-only file system 
+  app-worker-1: touch: /sources/share/w: Read-only file system 
+  떼었다 다시 붙였다(내용이 달라졌다). docker compose restart 앞:
+  app-server-1: b.txt (끝) 
+  app-worker-1: b.txt (끝) 
+  docker compose restart server worker 종료 코드: 0
+  docker compose restart 뒤:
+  app-server-1: c.txt (끝) 
+  app-worker-1: c.txt (끝) 
+== 10. 설치 폴더에 sources/ 가 없고 변수도 적지 않았을 때
+  띄우기 전의 sources/: ls: /tmp/old-install/sources: No such file or directory
+  짧은 문법으로 적은 compose up 종료 코드: 0
+  만들어진 폴더(이름 주인:그룹(uid:gid) 권한): /tmp/old-install/sources root:root(0:0) 755
+  old-server-1: 10001 (끝) 
+  old-worker-1: 10001 (끝) 
+  긴 문법으로 적은 compose up 종료 코드: 0
+  긴 문법 뒤의 sources/: /tmp/old-long/sources
