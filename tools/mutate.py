@@ -143,7 +143,7 @@ exit 러너의 명령이 pytest 여도 그 출력의 판정 낱말을 거르지 
 pytest 의 `E ` 접두 줄(`E       TypeError: x`)은 받지 않는다.
 
 출력 전체 파일. 화면은 끝 10줄과 머리 줄 스무 줄뿐이라 표지로 고를 줄이 가려졌다. 그래서 두 가지
-변이는 마지막에 도는 명령의 출력 전체(색 코드를 벗기고 줄 끝은 그대로)를 그 체크아웃의 git
+변이는 실패 출력 전체(색 코드를 벗기고 줄 끝은 그대로)를 그 체크아웃의 git
 디렉터리 아래 `mutate-output/<표 파일 이름 stem>-<번호>.txt` 에 쓰고, 그 경로를 `전체 출력:` 줄로
 낸다. 하나는 기대와 어긋난 변이다. 반복이 여럿이면 어긋난 마지막 반복의 출력이다. 다른 하나는 빨강
 이나 처리하지 않은 에러를 기대하는데 `expect_output` 이 빈 변이다. 기대대로 지나가므로 출력을 보려고
@@ -152,7 +152,9 @@ mutate-marker-discovery)을 없앤다. 이 변이는 어긋난 반복이 없어 
 디렉터리는 추적하지 않는 자리라 `git status` 에 잡히지 않고, 같은 번호는 다시 돌 때 덮어쓰며
 지우지는 않는다. 못 보는 것: 기준선의 출력은 남기지 않는다. 표지가 있는데 기대대로인 변이와 초록을
 기대하고 초록이 난 변이도 남기지 않는다. 지난 실행의 파일이 남아 있어도 이번에 쓰지 않았으면 그 줄이
-나오지 않는다. git 디렉터리를 못 찾거나 쓰지 못하면 파일 없이 지금처럼 돌고 줄도 내지 않는다. 어느
+나오지 않는다. git 디렉터리를 못 찾거나 쓰지 못하면 파일 없이 지금처럼 돌고 줄도 내지 않는다.
+워크트리의 `.git` 파일이 가리키는 곳이 없어졌으면 그 위쪽 폴더를 만들어 내지 않고 쓰지 못한 것으로
+본다. 되돌림이 막혀 `RestoreError` 가 오른 변이는 파일을 남기기 전에 끝나 파일이 없다. 어느
 줄이 좋은 표지인지는 가르지 않아, 단언 풀이 줄을 고르면 표지의 품질 검사가 거른다.
 
 표지의 메아리. 빨강이나 처리하지 않은 에러를 기대한 변이의 표지가 그 시험 파일(`tests` 인자 가운데
@@ -1206,7 +1208,7 @@ def _keep_output(path: Path, mutation: Mutation, runs: Sequence[_Run]) -> None:
         (run for run in reversed(runs) if run.verdict.outcome != mutation.expect or run.missing),
         runs[-1],
     )
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(exist_ok=True)  # 위쪽이 없으면 OSError 가 올라 쓰기를 포기한다
     path.write_bytes(chosen.result.plain.encode("utf-8"))  # 줄 끝을 바꾸지 않으려 바이트로 쓴다
 
 

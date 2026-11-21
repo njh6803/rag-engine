@@ -3771,6 +3771,45 @@ def test_출력_파일을_쓰지_못해도_종료_코드와_되돌림은_그대�
     assert (root / "src/m.py").read_bytes() == b"x = 1\n"
 
 
+def test_워크트리의_git_파일이_가리키는_곳이_없으면_그_위쪽_폴더를_만들지_않는다(
+    tmp_path: Path,
+) -> None:
+    """정리된 워크트리에 남은 `.git` 파일이 없어진 관리 폴더를 가리킬 때, 출력 파일을 쓰려고 없는
+    `.git/worktrees/<이름>` 을 통째로 만들면 git 관리 영역에 반쪽짜리 폴더가 생긴다."""
+    path = _파일을_둔다(tmp_path, "src/m.py", b"x = 1\n")
+    없는곳 = tmp_path / "gone" / ".git" / "worktrees" / "wt"
+    (tmp_path / ".git").write_text(f"gitdir: {없는곳}\n", encoding="utf-8")
+    표 = _변이_파일을_쓴다(tmp_path, _변이_파일(old="x = 1", new="x = 2", expect="green"))
+    줄: list[str] = []
+
+    code = main([표], root=tmp_path, runner=_변이면(path, b"x = 2", _긴_빨강()), out=줄.append)
+
+    assert code == 1, 줄
+    assert _전체_출력_줄(줄) == []
+    assert not (tmp_path / "gone").exists()
+    assert path.read_bytes() == b"x = 1\n"
+
+
+def test_되돌림이_막혀_RestoreError_가_오른_변이는_출력_파일을_남기지_못한다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """독스트링의 못 보는 것. 되돌림이 막히면 변이의 보고에 닿기 전에 끝난다."""
+    m, _, 변이 = _두_파일_변이(tmp_path)
+    (tmp_path / ".git").mkdir()
+    저장 = tmp_path / ".git" / "mutate-output"
+
+    with pytest.raises(RestoreError, match="src/m.py"):
+        measure(
+            load_spec(변이),
+            root=tmp_path,
+            runner=_잠그는_러너(m, b"x = 2", monkeypatch),
+            out=lambda _: None,
+            output_file=lambda 번호: 저장 / f"t-{번호}.txt",
+        )
+
+    assert not 저장.exists()
+
+
 def test_워크트리에서는_그_워크트리의_git_디렉터리에_출력_파일을_둔다(tmp_path: Path) -> None:
     root, _ = _시험이_든_저장소(tmp_path / "main")
     옆 = tmp_path / "side"
