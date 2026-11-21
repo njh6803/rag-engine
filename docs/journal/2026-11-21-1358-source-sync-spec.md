@@ -238,7 +238,7 @@ D2와 같은 가드의 빈틈이다. 되살리기 작업이 실패로 끝난 뒤
 - D1 [Critical] 고쳤다. 지적대로다. 되살리는 요청이 지움 표시를 걷은 뒤에도 원천과 함께 지워졌다는 표시가 남은 문서는 지운 시각이 그대로여서, 정리 작업의 첫째 단계가 기간이 지난 문서로 보고 완전히 지울 수 있었다. 첫째 단계가 그 표시가 없는 문서만 지우게 했고, 표시가 있는 문서는 원천을 따르게 했다(지운 원천의 것은 둘째 단계가 원천과 함께 지우고, 되살린 원천의 것은 원천 되살리기 작업이 되살린다). C7(지운 원천에 든 따로 지운 문서의 보관 기간이 두 줄에서 어긋난 것)도 이 고침으로 풀린다. 그런 문서는 표시가 없으므로 첫째 단계가 그 문서를 지운 날부터 세어 지운다.
 - C1·D3 [Major] 고쳤다. 작업 표가 문서를 가리키는 외래 키에는 지울 때의 동작이 없다(`src/rag_engine/adapters/postgres/tables.py` 215행을 읽었다. 문서를 가리키는 외래 키는 파싱 결과, 색인 상태, 조각과 보관 조각, 작업 표에 있다). 정리 작업의 둘째 단계가 문서 행을 지우기 전에 그 문서를 가리키는 작업 행을 끝난 것까지 지우게 했고, Out of Scope의 "끝난 작업 행을 지우는 일"을 그에 맞췄다.
 - C2·D5 [Major] 고쳤다. 원천 되살리기와 문서 되살리기에 core 명세 227행의 조건(대상 판의 조각이면서 만든 내용 해시가 문서의 내용 해시와 같은 것만 되돌린다)과 되돌릴 조각이 없는 경우 둘(그사이 판이 바뀌었다, 지우기 전에 바뀐 내용이 아직 색인되지 않았다)을 옮겨 적었다.
-- D2 [Major] 고쳤다. 원천 되살리기 작업이 표시가 있는 문서를 되살린 뒤, 그 원천의 지워지지 않은 문서 가운데 색인이 멈춘 문서(대상 판 가운데 색인 상태가 `indexed`도 `failed`도 아닌 판이 있는데 색인 작업이 대기 중도 실행 중도 아닌 문서)에 색인 작업을 넣게 했다. 처음에는 `pending`인 문서만 잡으려 했으나, core 명세 143행이 재색인을 시작한 뒤에 든 문서는 건설 중인 판에 색인 상태 행이 없다고 적어 상태 행이 없는 판도 조건에 넣었다. 그 단계에서 작업이 실패해도 다시 이어지게, 정리 작업의 다섯째 단계가 다시 넣는 조건에 "그 원천의 마지막 원천 되살리기 작업이 실패로 끝났다"를 더했다. 지움 표시가 선 동안 시작한 재색인이 아직 옮기지 않은 문서를 어떻게 세는지도 적었다(재색인의 시작은 문서 행으로 센다. `src/rag_engine/domain/ports.py`의 `list_live_document_ids` 독스트링을 읽었다).
+- D2 [Major] 고쳤다. 원천 되살리기 작업이 표시가 있는 문서를 되살린 뒤, 그 원천의 지워지지 않은 문서 가운데 색인이 멈춘 문서(대상 판 가운데 색인 상태가 `indexed`도 `failed`도 아닌 판이 있는데 색인 작업이 대기 중도 실행 중도 아닌 문서)에 색인 작업을 넣게 했다. 처음에는 `pending`인 문서만 잡으려 했으나, core 명세 143행이 재색인을 시작한 뒤에 든 문서는 건설 중인 판에 색인 상태 행이 없다고 적어 상태 행이 없는 판도 조건에 넣었다. 그 단계에서 작업이 실패해도 다시 이어지게, 정리 작업의 다섯째 단계가 다시 넣는 조건에 그 원천의 마지막 원천 되살리기 작업이 실패로 끝나 있는 경우를 더했다. 지움 표시가 선 동안 시작한 재색인이 아직 옮기지 않은 문서를 어떻게 세는지도 적었다(재색인의 시작은 문서 행으로 센다. `src/rag_engine/domain/ports.py`의 `list_live_document_ids` 독스트링을 읽었다).
 - D4 [Major] 고쳤다. 전제(이미 지운 문서를 지우는 요청은 아무것도 바꾸지 않는다)는 `src/rag_engine/app/delete_document.py` 36~37행을 다시 열어 확인했다. 수집 API의 삭제 요청과 동기화의 삭제 반영이 지워져 있는데 원천과 함께 지워졌다는 표시가 남은 문서를 만나면, 그 표시를 지우고 지운 시각을 그 순간으로 고치게 했다. 그 문서는 따로 지운 문서가 되어 원천 되살리기 작업이 되살리지 않는다.
 - D6 [Major] 고쳤다. 원천 삭제 작업과 원천 되살리기 작업이 묶음마다 원천 행을 잡고 지움 표시를 다시 보게 했다(삭제 작업은 표시가 서 있을 때만, 되살리기 작업은 표시가 없을 때만 일한다). 정리 작업의 다섯째 단계는 원천마다 원천 행을 잠근 작업 단위에서 조건을 보고 넣게 했다.
 - D8 [Minor] 고쳤다. D1의 고침(표시가 있는 문서의 보관 기간은 원천의 지운 시각으로 센다)으로 해가 없어진다. 지우는 요청과 되살리는 요청을 막는 까닭을 적은 문장을 그에 맞췄다.
@@ -257,7 +257,7 @@ D2와 같은 가드의 빈틈이다. 되살리기 작업이 실패로 끝난 뒤
 **표준 축**
 
 - Major 1(`@@수@@`) 고쳤다. 모든 편집 뒤에 `grep -o`로 세어 채웠다(수는 "검증").
-- Major 2("코드를 읽었다"에 파일과 버전) 고쳤다. 명세 머리의 "구현 파일의 경로는 적지 않는다"를 "결정에는 적지 않고, 코드를 읽었다고 적은 사실의 근거가 된 파일만 Further Notes에 읽은 커밋과 함께 모아 적는다"로 고치고 그 목록을 더했다. to-spec 스킬은 구현 파일의 경로를 적지 말라고 하고 `docs/agents/issue-tracker.md`는 코드를 읽은 것을 파일과 버전과 함께 적으라고 한다. 앞선 명세 둘(release-image, search-eval)도 근거로 읽은 파일의 경로를 적었다(Grep으로 `src/rag_engine`을 세어 봤다).
+- Major 2("코드를 읽었다"에 파일과 버전) 고쳤다. 명세 머리가 구현 파일의 경로를 적지 않는다고만 적던 것을, 결정에는 적지 않고 코드를 읽었다고 적은 사실의 근거가 된 파일만 Further Notes에 읽은 커밋과 함께 모아 적는다고 고치고 그 목록을 더했다. to-spec 스킬은 구현 파일의 경로를 적지 말라고 하고 `docs/agents/issue-tracker.md`는 코드를 읽은 것을 파일과 버전과 함께 적으라고 한다. 앞선 명세 둘(release-image, search-eval)도 근거로 읽은 파일의 경로를 적었다(Grep으로 `src/rag_engine`을 세어 봤다).
 - Major 3(티켓에 넘긴 측정) 고쳤다. `mount-propagation` 프로브에 9단계(단독 compose가 붙일 모양에서 `docker compose restart server worker`)와 10단계(설치 폴더에 `sources/`가 없을 때)를 더해 쟀다. 명세, ADR 0021 이력, README를 그 결과에 맞췄고 티켓에 넘겼던 손 확인 둘을 걷었다.
 - Major 4 고쳤다(명세 축 A1).
 - Major 5(인용) 고쳤다. ADR 0013의 인용을 원문대로 옮겼고, 설치 안내의 문장은 인용 부호를 걷고 풀어 적었다.
@@ -428,3 +428,81 @@ PR 직전 리뷰의 반영을 마친 뒤에 받았다(대기열 `adr-approval-be
 **커밋 전에 dev를 받았다.** `git fetch origin` 뒤 `git log --oneline HEAD..origin/dev`가 커밋 셋(`79cd78c`, `64bd055`, `5e80700`)을 냈다. 이 브랜치에는 아직 커밋이 없었고 `uv run python tools/sibling_overlap.py`가 "번호 겹침 없음"과 "함께 고친 파일 없음"을 냈으므로, 커밋하고 나서 합치는 대신 `git merge --ff-only origin/dev`로 브랜치를 `79cd78c`로 먼저 옮겼다. 커밋 전 검사를 한 번만 돌리고, dev에 새로 들어온 검사가 이 커밋에도 걸리게 하려는 것이다.
 
 **줄 끝.** 그 커밋 가운데 `79cd78c`가 줄 끝 검사(`tools/check_line_separators.py`)에 CRLF를 더했다. 스테이징할 때 git이 프로브 출력 넷(`cron-expr/probe_out.txt`, `schedule-once/probe_out.txt`, `source-delete/probe_out.txt`, `source-delete/probe_out_batch50.txt`)에 CRLF 경고를 냈고, 검사를 손으로 돌리니 그 넷이 걸렸다(91줄, 60줄, 33줄, 33줄). Windows의 셸에서 표준 출력을 파일로 받으며 줄 끝이 바뀐 것이다. `sed -i 's/\r$//'`로 줄 끝의 CR 문자만 지웠고 글자는 그대로다. 그 뒤 스테이징한 스물다섯 파일 모두에 검사를 돌려 출력 없이 끝나는 것을 봤다. `mount-propagation/probe_out.txt`는 처음부터 LF였다.
+
+**커밋과 PR.** `git commit -F <메시지 파일>`로 커밋 `c5532e3`을 만들었다(파일 스물다섯). 이번에는 pytest를 건너뛰지 않았다. pre-commit의 결과는 이렇다. ruff check와 ruff format은 `Passed`였다(프로브의 파이썬 파일이 대상이다). 검사 러너의 열하나는 모두 `Passed`였고 걸린 시간은 test-db 0.0초, check-ticket 1.1초, check-notes 1.6초, zizmor 1.8초, lint-imports 3.6초, check-instructions 7.7초, check-type-escapes 8.5초, pyright-linux 35.2초, pyright 35.2초, run-hooks 42.3초, pytest 843.6초다. markdown tables, line separators, mutation tables, commit message도 `Passed`였고, constitution version은 헌법 파일을 고치지 않아 `(no files to check)Skipped`였다. 푸시한 뒤 dev로 가는 PR 95(`https://github.com/njh6803/rag-engine/pull/95`)를 열었다.
+
+**quotes 경고.** 경고만 내는 quotes 검사가 명세에서 2건(인용 36건 가운데), 이 일지에서 22건(인용 92건 가운데)을 냈다. 하나씩 보고 이렇게 갈랐다.
+
+- 명세의 둘은 ADR의 문장을 따옴표로 옮기며 글자가 달라진 것이다. "서버 경로 커넥터와 원천 폴더" 절이 옮긴 ADR 0022의 읽기 오류 문장과, "원천 삭제와 되살리기" 절이 옮긴 ADR 0021의 작업을 거두는 방법 문장을 원문 글자대로 고쳤다.
+- 이 일지의 둘은 이 세션이 풀어 쓴 말에 따옴표를 붙인 것이다. 셀프 리뷰 "판정"의 D2 불릿과 표준 축 Major 2 불릿에서 따옴표를 뗐다.
+- 이 일지의 나머지 스물은 그대로 둔다. 서브에이전트의 보고를 받은 그대로 옮긴 글, 사용자에게 보인 질문의 미리보기, 코드 표기가 든 문장, 고치기 전의 명세 문장이다. 저장소에 원문이 없거나 원문이 그 뒤에 고쳐진 글이라 대조에 걸리는 것이 맞고, 옮긴 글을 손보면 기록이 받은 글과 달라진다.
+
+고친 넷은 첫 커밋에 들지 않았고 아래 봇 리뷰의 반영과 같은 커밋에 싣는다.
+
+## PR 봇 리뷰
+
+**첫 푸시(`c5532e3`)의 claude-review.** 지적이 없었다. 코멘트의 글은 아래와 같다.
+
+```
+## 코드 리뷰
+
+지적 없음.
+
+- 본 것: 유지보수성(CODING_STANDARDS.md의 리뷰 관점 넷)과 경계(서드파티 타입 누출, MCP 쓰기 도구, 특정 클라이언트 의존, 계약 버전·계약 시험·ADR·명세의 짝, 플러그인 자리 셋 밖의 새 자리). 이 PR은 `.scratch/`(명세, 프로브, 기능 계획)와 `docs/`(ADR 이력 다섯, 일지)만 바꾸고 `src/`와 `tests/`는 건드리지 않아 코드로 새는 경계는 없다.
+- 명세의 새 포트 넷(`Connector`, `ConnectorRegistry`, `ScheduleCalculator`, `SyncRecordStore`)은 ADR 0007 이력에 같이 올라 있고 새 플러그인 자리가 아니다. MCP 쪽은 "MCP 도구의 오류 코드는 바뀌지 않는다"와 "검색 도구의 형식은 바뀌지 않는다"로 읽기만 유지하며, 쓰기는 관리 API와 수집 API에만 더한다(원칙 IV, VII). 수집 API의 `source` 칸 추가는 v1 그대로다.
+- 제목 접두: 맞음. 문서만 바꿔 마이그레이션, 재색인, 계약 앞자리 올림이 없으므로 `docs:`에 느낌표가 없는 것이 기준에 맞다.
+```
+
+**첫 푸시의 CodeRabbit.** PR을 열자 달린 요약 코멘트(2026-11-21 07:34 UTC)는 리뷰를 건너뛰었다고 적었다. 까닭은 한도가 아니라 별 수다(`This repository does not receive automatic reviews because it has fewer than 10 stars.`). `docs/constitution/operations.md`의 리뷰 파이프라인이 이미 적어 둔 사실이고, `gh pr checks 95`의 CodeRabbit 줄은 `skipping`이었다. `next-session` `merge.md` 2의 대기대로 `@coderabbitai review` 코멘트를 남기고 `uv run python tools/wait_ci.py 95`를 배경으로 띄웠다.
+
+**요청은 한도에 걸렸다.** 07:37 UTC에 남긴 `@coderabbitai review`에 CodeRabbit이 7초 뒤 `Review rate limited.`로 답했고, 요약 코멘트는 `Review limit reached`와 `Next included review available in 22 minutes.`로 바뀌었다. 이 PR은 리뷰를 한 번도 받지 않았으므로 걸린 한도는 이 PR이 쓴 것이 아니다(대기열 `coderabbit-hourly-limit-shared-across-prs`의 2회차). 한도에 걸려 리뷰가 없던 푸시는 회차로 세지 않는다(`next-session` `merge.md` 2의 회차 세기).
+
+**첫 푸시의 검사.** 배경으로 띄운 대기가 `끝: 모두 통과. CodeRabbit: Review rate limited`로 끝났다(종료 0). `gh pr checks 95`는 `verify`, `python`(13분 51초), `image`, `ticket`, `standalone`, `eval-fast`, `eval-full`, `claude-review`를 모두 `pass`로 냈다.
+
+**둘째 푸시.** 위 "quotes 경고"의 고침 넷, 이 절과 회고와 "다음", 회고가 고치고 새로 쓴 대기열 항목 열을 한 커밋에 싣는다. 명세의 결정은 바뀌지 않는다. 한도가 풀린 뒤라 푸시한 다음 CodeRabbit에 다시 요청한다. 커밋하기 전에 `git fetch origin`을 다시 치니 dev에 커밋 하나(`5f290ba`, 변이 도구를 고친 PR 96)가 들어와 있었다. `uv run python tools/sibling_overlap.py`가 "함께 고친 파일 없음"을 내어 `git merge --no-edit origin/dev`로 먼저 합쳤고, 그래서 둘째 커밋의 pre-commit은 합친 나무를 본다. 합친 뒤 `uv run pytest tests/test_plan_status.py -q`는 `13 passed in 0.38s`였다(`next-session` `merge.md`의 병합 방법이 시키는 확인이다). 둘째 커밋의 pre-commit 결과와 그 뒤의 검사는 이 일지에 싣지 못하고 PR 본문 "확인 방법"에 적는다.
+
+## 회고
+
+후보 스물하나를 냈다. 승인 열(이미 있는 항목에 회차를 더한 것 다섯, 새 항목 다섯), 기각 여덟, 판정하지 못한 것 셋이고 넘긴 것은 없다. 만료할 항목도 없었다(`uv run python tools/queue_open_rows.py`와 `--ref origin/dev`를 붙인 것 모두). 심각도 순이다.
+
+**승인.**
+
+1. 명세가 ADR 0012 본문의 문장과 ADR 0007의 포트 열을 거짓으로 만드는데 두 ADR에 이력을 달지 않았고 셀프 리뷰가 잡았다. 항상 실리는 작업 규약 4를 어겨 리뷰가 잡은 사건이라 회차로 센다. 대기열 `decision-word-residue`의 9회차.
+2. 질문의 미리보기로 승인받은 ADR 0022 이력 초안에 문장 둘(남는 위험, 실패 사유를 둘로 가르는 것)을 승인 뒤에 더했다. 대화로 알렸고 답은 없다. 승인받은 글이 병합 전에 달라진 사건이다. 대기열 `adr-draft-drops-option-conditions`의 3회차(빠진 것이 선택지의 설명에 있던 조건이 아니라 답을 명세에 옮기며 찾은 것이라는 차이를 항목에 적었다).
+3. 명세가 코드를 읽었다고 적으며 파일과 판을 적지 않아 셀프 리뷰 표준 축이 Major로 냈다. to-spec 스킬은 구현 파일의 경로를 적지 말라고 하고 `docs/agents/issue-tracker.md`는 파일과 판을 적으라고 해 두 지침이 어긋난다. 닫힌 `measured-claim-beyond-probe`가 처방한 사건이라 새 항목 `to-spec-path-rule-vs-evidence-citation`이 17회차로 잇는다. 어긋난 지침을 고치는 것이라 사건 하나로 반영할 수 있으나, 이 PR은 명세만 담아 싣지 않았다.
+4. 새 결정을 낳을 수 있는 측정 둘을 티켓의 손 확인으로 넘겨 셀프 리뷰 명세 축이 Major로 냈다. to-spec 3단계(쓸 때 실리는 지침)를 어긴 사건이다. 같은 일을 다룬 항목을 찾지 못해(`--search`에 낱말 셋) 새 항목 `spec-defers-measurement-to-ticket` 1회차.
+5. CodeRabbit의 시간당 한도가 PR마다가 아니었다. PR 89에서는 앞 리뷰에서 77분쯤 지나 낸 요청이, 이 PR에서는 첫 요청이 한도에 걸렸다. 새 항목 `coderabbit-hourly-limit-shared-across-prs` 2회차(지시문이 넘긴 PR 89의 일이 1회차다).
+6. 나란히 연 두 PR이 같은 대기열 항목의 승인 줄에 같은 회차를 적어 dev를 합칠 때 충돌이 났다(지시문이 넘긴 PR 89의 일). 새 항목 `queue-round-collision-in-parallel-prs` 1회차. 이번 회고는 회차를 더하기 전에 `--ref origin/dev`로 다섯 항목의 회차를 다시 읽었다.
+7. 회고 후보를 난 턴에 일지에 적지 않고 대화에만 두어, 컨텍스트 압축 두 번 뒤 셋의 서술을 잃었다(아래 "판정하지 못한 것"). 새 항목 `retro-candidates-lost-in-compaction` 1회차.
+8. 명세와 프로브만 담은 커밋의 pre-commit에서 pytest가 843.6초를 썼다. 대기열 `docs-only-commit-full-pytest`의 11회차.
+9. quotes 경고 24건 가운데 20건이 받은 그대로 옮긴 글이라 하나씩 대 봐야 했다. 대기열 `check-quotes-verbatim-paste`의 6회차. 나머지 넷은 실제로 어긋난 인용이었고 검사가 제 몫을 했다.
+10. `cron-expr` 프로브의 타입 검사가 처음에 0개 파일을 보고 지나갔다. 대기열 `pyright-scratch-vacuous`의 3회차(사건의 서술은 압축 요약과 프로브 README의 "exclude를 비운 임시 pyrightconfig"에서 옮겼다).
+
+**기각.**
+
+11. PR 직전 리뷰가 낸 Major 셋(확인과 열기 사이의 경쟁, 겹침 확인의 동시 요청, 읽다가 상한을 넘은 파일)을 셀프 리뷰 두 축이 내지 못했다. 리뷰 파이프라인의 다음 층이 잡아 커밋 전에 고쳤고, 셀프 리뷰 명세 축은 전이의 교차를 밟으라는 줄(닫힌 `spec-review-transition-crossing`의 처방)로 전이 결함을 따로 냈다. 브리프에 더할 꼴을 하나로 짚지 못해 처방 없이 둔다.
+12. 검사가 잡은 것 둘. 프로브 출력 넷의 CRLF 줄 끝은 닫힌 `crlf-from-script-edits`의 처방인 줄 끝 검사가 커밋 전에 잡았다(그 검사가 dev에 들어온 날이다). 고친 프로브 스크립트의 린트 위반은 검증의 `uv run ruff check .`가 잡았다.
+13. 훅과 앱의 가드가 그 자리에서 막거나 알린 것. 판정 명령 뒤의 파이프와 `$?`, 40줄을 넘는 heredoc, 하위 폴더로 옮기는 `cd`, Bash의 복합 명령(워크트리 격리 검사), Grep의 glob이 `.env`에 닿은 것(세 번)이다.
+14. 도구의 오류가 그 자리에서 알린 것. ADR 파일 이름을 짐작해 넘긴 것(두 번. Glob 한 번으로 풀었다), 프로브 폴더의 이름이 패키지 이름과 겹친 것, 프로브가 넘긴 경로를 셸이 바꾼 것이다.
+15. 배경으로 돌린 프로브의 출력 파일이 끝날 때까지 비어 있어 진행을 보지 못했다. 잃은 것이 없고 끝 알림으로 결과를 받았다.
+16. 표준 축 Major 1(표시 수의 자리 표시 `@@수@@`). 모든 편집 뒤에 세어 채우려고 일부러 둔 자리였고 그렇게 채웠다. `spec-marker-count-check`의 회차로 세지 않는다.
+17. 도구 호출 사이의 중간 문장을 영어로 쓴 적이 있다. 항상 실리는 지침이 이미 있고 검사로 옮길 길이 없으며, 리뷰가 잡은 사건이 아니라 회차 셈에도 들지 않는다.
+18. 사용자의 답으로 고친 글(빈 목록 판정의 명세 문장들과 ADR 0022 이력)은 셀프 리뷰와 PR 직전 리뷰를 거치지 않고 PR 봇만 봤다. 그 글에서 난 오류가 아직 없어 사건 없이 떠올린 것이다.
+
+**판정하지 못한 것.** 압축 요약에 낱말만 남았고 일지에서 서술을 찾지 못한 셋이다. 받는 기능 계획에 명세에 없는 결정을 적은 것, 일지의 수를 요약에서 옮겨 틀린 것, 프로브가 잰 모양과 명세가 적은 모양이 달랐던 것. 꾸며 적지 않고 회차를 세지 않았다(승인 7이 이 일을 센다).
+
+**일지에만 남기는 것.**
+
+- ADR 이력의 승인을 PR 직전 리뷰 뒤에 받았다. 대기열 `adr-approval-before-pre-pr-review`(1회차, 아직 반영 전)의 처방을 먼저 따라 본 것이고 실수가 아니라 회차를 더하지 않았다. 리뷰의 보류 1이 ADR 0022에 닿는 물음이 되어 네 건의 승인과 한 화면에서 물을 수 있었다.
+- 커밋 전에 dev를 빨리 감기로 받았다. 브랜치에 커밋이 없을 때만 되는 길이고, dev에 그날 들어온 줄 끝 검사가 첫 커밋에 걸리게 했다.
+- CodeRabbit이 PR을 열 때 자동 리뷰를 건너뛴 것은 운영 문서가 이미 적어 둔 사실이다.
+
+## 다음
+
+- **티켓.** 다음 단계는 source-sync의 티켓이다. 명세 검토(`spec-reviewer` 서브에이전트)를 먼저 하고 그 뒤 `/to-tickets .scratch/source-sync/spec.md`다. 입력은 명세, ADR 0021과 0022, 이번에 이력을 더한 ADR 다섯(0007, 0012, 0013, 0021, 0022), 프로브 넷(`.scratch/source-sync/probes/`)이다. 명세의 "티켓을 나눌 때 함께 둘 것" 절이 한 티켓에 묶을 변경 다섯을 적는다.
+- **명세 검토가 겨냥할 글.** 사용자의 답으로 고친 빈 목록 판정은 셀프 리뷰와 PR 직전 리뷰를 거치지 않았다. 명세 "동기화의 차례"의 빈 목록 항목 넷, 그에 맞춘 수집 정책과 삭제 반영의 문장, 오류 코드 `nothing_accepted`, Testing Decisions의 새 장면 둘, ADR 0022의 이력이다. claude-review는 첫 푸시에서 지적이 없었다.
+- **승인 뒤에 더한 글.** ADR 0022 이력의 문장 둘(막지 못하는 경우가 하나 남는다는 것, 실패 사유를 둘로 가른다는 것)은 승인받은 미리보기에 없었다. 대화로 알렸고 따로 답을 받지 못한 채 병합한다. 사용자가 빼기를 원하면 새 PR의 일이다.
+- **CodeRabbit.** 첫 요청은 한도에 걸렸다. 한도가 풀린 뒤 마지막 푸시에 다시 요청한다. 그 리뷰의 결과와 보류한 일은 이 일지에 싣지 못하면 PR 코멘트와 다음 지시문의 "이어받을 상태"에 적는다(`next-session` `merge.md` 2의 뒤로 넘긴 일).
+- **다른 기능이 받은 것.** `.scratch/admin/plan.md`, `.scratch/db-source/plan.md`, `.scratch/diag-bundle/plan.md`, `.scratch/backup-upgrade/plan.md`에 명세가 넘긴 것을 적었다. 그 기능들의 설계 인터뷰가 읽는다.
+- **이 PR이 고치지 않은 것.** 명세의 "규약 문서와 낡은 문장" 절이 적은 문서와 주석은 구현 티켓이 고친다. 헌법의 스택 문서와 import 금지 목록의 수, 관리 API 응답 모델의 머리 설명, 오류 코드의 수, 포트 모듈의 머리 설명, 설치 안내와 `.env.example`이다.
+- **대기열.** 이 회고가 새 항목 다섯(`to-spec-path-rule-vs-evidence-citation`, `spec-defers-measurement-to-ticket`, `coderabbit-hourly-limit-shared-across-prs`, `queue-round-collision-in-parallel-prs`, `retro-candidates-lost-in-compaction`)을 쓰고 다섯 항목에 회차를 더했다(`decision-word-residue` 9회차, `adr-draft-drops-option-conditions` 3회차, `docs-only-commit-full-pytest` 11회차, `check-quotes-verbatim-paste` 6회차, `pyright-scratch-vacuous` 3회차). dev를 합친 뒤 열린 항목은 78개이고 회차 5 이상은 열둘이다(합친 커밋이 `mutate-marker-discovery`를 닫았다. `--ref HEAD`가 낸 73개와 열하나에 이 회고의 새 항목 다섯과 `to-spec-path-rule-vs-evidence-citation`을 더한 값이다). source-sync는 티켓 단계가 남아 `next-session` 결정표의 하네스 chore 배치 줄(기능의 마지막 티켓 뒤)에는 아직 들지 않는다.
