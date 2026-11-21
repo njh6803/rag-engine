@@ -4,7 +4,7 @@ description: "Implement a piece of work based on a spec or set of tickets."
 disable-model-invocation: true
 ---
 
-<!-- 프로젝트 사본. agent-os가 덧댄 버전을 2026-11-09 킥오프에서 옮겼고, 이 주석과 본문의 괄호 속 ADR·대기열·일지·티켓 번호는 agent-os의 기록이다. 이 저장소에 없는 웹 워크스페이스(pnpm, 브라우저)와 환경 규약 상세를 가리키던 대목은 뺐다. 원본(mattpocock/skills)에 아홉을 더했다. 시작 전 브랜치 규약 포인터, 워크트리 먼저(next-session directive.md와 주 체크아웃의 자기 점검, 그보다 앞선 tidy-checkouts), 티켓 맞추기(브랜치 이름이 티켓 stem, 상태의 흐름, 티켓 없이 받은 일, 마지막 티켓이 적는 기능 계획의 끝 줄과 기능 단락, 업그레이드할 때 손댈 것이 있으면 느낌표와 `upgrade/` 원고, 전체 계획 도구, ADR 0037·0045), 루프 중의 린트, 끝 전체 실행의 러너(대기열 334), 빨강을 본 적 없는 테스트의 변이 도구 포인터(pytest 밖, 다른 워크트리, `--check`), 이 티켓의 몫만 쓰기(대기열 35), 설치한 버전과 측정한 버전의 견줌(대기열 61), 마칠 때 세션 경계(원천은 next-session 스킬). 근거는 일지 2026-09-21 첫 슬라이스 회고 뒤 대화, 인터럽트 설계 뒤 대화, 티켓 01 회고, 세션 경계 일지, 대기열 29·35·59·61·334. -->
+<!-- 프로젝트 사본. agent-os가 덧댄 버전을 2026-11-09 킥오프에서 옮겼고, 이 주석과 본문의 괄호 속 ADR·대기열·일지·티켓 번호는 agent-os의 기록이다. 이 저장소에 없는 웹 워크스페이스(pnpm, 브라우저)와 환경 규약 상세를 가리키던 대목은 뺐다. 원본(mattpocock/skills)에 열을 더했다. 시작 전 브랜치 규약 포인터, 워크트리 먼저(next-session directive.md와 주 체크아웃의 자기 점검, 그보다 앞선 tidy-checkouts), 티켓 맞추기(브랜치 이름이 티켓 stem, 상태의 흐름, 티켓 없이 받은 일, 마지막 티켓이 적는 기능 계획의 끝 줄과 기능 단락, 업그레이드할 때 손댈 것이 있으면 느낌표와 `upgrade/` 원고, 전체 계획 도구, ADR 0037·0045), 루프 중의 린트, 끝 전체 실행의 러너(대기열 334), 빨강을 본 적 없는 테스트의 변이 도구 포인터(pytest 밖, 다른 워크트리, `--check`), 이 티켓의 몫만 쓰기(대기열 35), 설치한 버전과 측정한 버전의 견줌(대기열 61), 마칠 때 세션 경계(원천은 next-session 스킬), 리뷰 전 일지 파일과 보고 옮기기의 포인터(이 저장소 대기열 review-report-journal-lag). 근거는 일지 2026-09-21 첫 슬라이스 회고 뒤 대화, 인터럽트 설계 뒤 대화, 티켓 01 회고, 세션 경계 일지, 대기열 29·35·59·61·334. -->
 
 Implement the work described by the user in the spec or tickets.
 
@@ -22,7 +22,7 @@ Run linting and typechecking regularly, single test files regularly, and the ful
 
 구현 전부터 초록인 테스트(순서나 경계를 고정하는 가드)와 구현 뒤에 쓴 테스트는 빨강을 본 적이 없다. 그 테스트가 지키는 코드에 `tools/mutate.py`로 변이를 넣어 빨강을 본다. pytest 밖의 검사도 같은 도구다. 변이마다 기대를 변이 파일(TOML)에 적는다. 수십 분 도는 변이 열은 커밋한 뒤 다른 워크트리에서 돌리고 이 체크아웃에서는 계속 일한다. 코드를 옮기거나 고쳤으면 그 코드를 겨누던 변이 파일을 `--check`로 본다. 형식과 절차는 그 도구의 독스트링이다.
 
-Once done, use /code-review to review the work.
+Once done, use /code-review to review the work. 리뷰를 부르기 전에 이 브랜치의 일지가 없으면 머리 한 줄만 든 파일로 먼저 만들고(있는지는 `git status --porcelain`과 기준 브랜치 대비 변경에서 `docs/journal/` 파일을 찾아 본다. 일지 이름에는 브랜치 이름이 없고 기능 일지는 슬러그도 다르다), 셀프 리뷰와 PR 직전 리뷰의 보고는 받은 턴에 그 일지로 옮긴다(이름 짓기는 `next-session`의 `merge.md` 3, 옮기는 때는 `code-review` 6단계 끝이 정한다. 미루면 컨텍스트 압축 뒤 요약에서 보고의 판정을 다시 모으게 된다. 대기열 `review-report-journal-lag`).
 
 Commit your work to that branch.
 
