@@ -105,6 +105,17 @@ def test_NUL_이_있는_이진_파일의_CRLF_는_보지_않는다() -> None:
     assert problems_in(b"%PDF\0" + f"a{CR}\nb{CR}\n".encode(), ".pdf") == []
 
 
+def test_NUL_이_8000_바이트_뒤에만_있는_파일의_CRLF_는_텍스트로_보고_센다() -> None:
+    """이 검사의 이진 판정은 처음 8000 바이트만 본다.
+
+    git 의 줄 끝 변환은 파일 전체의 NUL 을 봐서 이런 파일을 바꾸지 않는다(2026-11-21 git 2.32 의
+    `git ls-files --eol` 이 `-text` 로 냈다). 그래서 검사는 git 이 바꾸지 않는 CRLF 도 알린다.
+    """
+    data = f"a{CR}\nb{CR}\n".encode() + b"x" * 9000 + b"\0" + f"{CR}\n".encode()
+
+    assert problems_in(data, ".txt") == ["1:2: CRLF 줄 끝 3줄"]
+
+
 def test_보이지_않는_공백과_서식_문자를_줄과_열로_잡는다() -> None:
     text = (
         f"a{NO_BREAK_SPACE}b\n# 가{IDEOGRAPHIC_SPACE}나\n"
@@ -188,8 +199,8 @@ def test_NUL_이_있는_파일은_텍스트가_아니라_보지_않는다() -> N
     assert problems_in(binary, ".py") == []
 
 
-def test_이진_판정의_경계는_git_과_같은_8000_바이트다() -> None:
-    """git 의 buffer_is_binary 는 처음 8000 바이트를 본다. 그 뒤의 NUL 은 텍스트다."""
+def test_이진_판정의_경계는_처음_8000_바이트다() -> None:
+    """git 의 buffer_is_binary(diff 용)와 같은 경계다. 그 뒤의 NUL 은 텍스트로 본다."""
     assert not is_text(b"a" * 7999 + b"\0")
     assert is_text(b"a" * 8000 + b"\0")
 
