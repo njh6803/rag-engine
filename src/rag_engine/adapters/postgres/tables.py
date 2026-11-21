@@ -1,4 +1,4 @@
-"""표 열둘의 정의(SQLAlchemy Core). 색인 형식의 원천은 alembic 마이그레이션이고 이 파일은 그 모양을
+"""표 열셋의 정의(SQLAlchemy Core). 색인 형식의 원천은 alembic 마이그레이션이고 이 파일은 그 모양을
 코드에 둔다.
 
 칸과 제약은 명세 "데이터 모델과 스키마" 절이다. 마이그레이션과 표·칸의 이름, 널 허용, 색인·유일·
@@ -44,7 +44,30 @@ sources = sa.Table(
     _id_column(),
     sa.Column("name", sa.Text, nullable=False, unique=True),
     sa.Column("kind", sa.Text, nullable=False),
-    sa.CheckConstraint("kind IN ('push')", name="kind"),
+    # 아래 일곱 칸은 가져오는(`pull`) 원천만 쓴다(마이그레이션 0004).
+    sa.Column("connector", sa.Text),
+    sa.Column("config", JSONB),
+    sa.Column("group_id", sa.Uuid, sa.ForeignKey("groups.id")),
+    sa.Column("schedule", sa.Text),
+    sa.Column("next_run_at", _timestamp()),
+    sa.Column("paused", sa.Boolean, nullable=False, server_default=sa.false()),
+    sa.Column("exclude_patterns", ARRAY(sa.Text), nullable=False, server_default=sa.text("'{}'")),
+    sa.Column("deleted_at", _timestamp()),
+    sa.Column("created_at", _timestamp(), nullable=False, server_default=sa.text("now()")),
+    sa.CheckConstraint("kind IN ('push', 'pull')", name="kind"),
+    sa.CheckConstraint(
+        "kind <> 'push' OR (connector IS NULL AND config IS NULL AND group_id IS NULL"
+        " AND schedule IS NULL AND next_run_at IS NULL AND paused = false"
+        " AND exclude_patterns = '{}')",
+        name="push_columns_empty",
+    ),
+    sa.CheckConstraint(
+        "kind <> 'pull' OR (connector IS NOT NULL AND config IS NOT NULL AND group_id IS NOT NULL)",
+        name="pull_columns_present",
+    ),
+    sa.CheckConstraint(
+        "config IS NULL OR jsonb_typeof(config) = 'object'", name="config_is_object"
+    ),
 )
 
 groups = sa.Table(
@@ -123,7 +146,8 @@ documents = sa.Table(
     sa.Column("mime", sa.Text, nullable=False),
     sa.Column("size_bytes", sa.BigInteger, nullable=False),
     sa.Column("content_hash", sa.Text, nullable=False),
-    sa.Column("blob_path", sa.Text, nullable=False),
+    # 가져오는 원천의 문서는 원본을 따로 보관하지 않아 비어 있다(마이그레이션 0004).
+    sa.Column("blob_path", sa.Text),
     sa.Column("metadata", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
     sa.Column("updated_at", _timestamp(), nullable=False),
     sa.Column("effective_date", sa.Date),
@@ -135,8 +159,15 @@ documents = sa.Table(
     sa.Column("purged_at", _timestamp()),
     sa.Column("created_at", _timestamp(), nullable=False),
     sa.Column("modified_at", _timestamp(), nullable=False),
+    sa.Column("change_marker", sa.Text),
+    sa.Column("skip_reason", sa.Text),
+    sa.Column("deleted_with_source", sa.Boolean, nullable=False, server_default=sa.false()),
     sa.UniqueConstraint("source_id", "key"),
-    sa.CheckConstraint("status IN ('received', 'parsed', 'failed')", name="status"),
+    sa.CheckConstraint("status IN ('received', 'parsed', 'failed', 'skipped')", name="status"),
+    sa.CheckConstraint(
+        "skip_reason IS NULL OR (status = 'skipped' AND skip_reason IN ('encrypted', 'no_text'))",
+        name="skip_reason",
+    ),
     sa.CheckConstraint("jsonb_typeof(metadata) = 'object'", name="metadata_is_object"),
 )
 
@@ -212,7 +243,10 @@ jobs = sa.Table(
     metadata,
     _id_column(),
     sa.Column("kind", sa.Text, nullable=False),
-    sa.Column("document_id", sa.Uuid, sa.ForeignKey("documents.id"), nullable=False),
+    # 색인 작업만 문서를 가리키고 원천 단위 작업은 원천을 가리킨다(마이그레이션 0004).
+    sa.Column("document_id", sa.Uuid, sa.ForeignKey("documents.id")),
+    sa.Column("source_id", sa.Uuid, sa.ForeignKey("sources.id")),
+    sa.Column("options", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
     sa.Column("status", sa.Text, nullable=False),
     sa.Column("attempts", sa.Integer, nullable=False, server_default=sa.text("0")),
     sa.Column("run_after", _timestamp(), nullable=False),
@@ -224,8 +258,19 @@ jobs = sa.Table(
     sa.Column("created_at", _timestamp(), nullable=False),
     sa.Column("started_at", _timestamp()),
     sa.Column("finished_at", _timestamp()),
-    sa.CheckConstraint("kind IN ('index_document')", name="kind"),
+    sa.CheckConstraint(
+        "kind IN ('index_document', 'sync_source', 'delete_source', 'restore_source', 'cleanup')",
+        name="kind",
+    ),
     sa.CheckConstraint("status IN ('queued', 'running', 'succeeded', 'failed')", name="status"),
+    sa.CheckConstraint(
+        "(kind = 'index_document' AND document_id IS NOT NULL AND source_id IS NULL)"
+        " OR (kind IN ('sync_source', 'delete_source', 'restore_source')"
+        " AND source_id IS NOT NULL AND document_id IS NULL)"
+        " OR (kind = 'cleanup' AND source_id IS NULL AND document_id IS NULL)",
+        name="references_match_kind",
+    ),
+    sa.CheckConstraint("jsonb_typeof(options) = 'object'", name="options_is_object"),
     # 같은 문서의 대기 작업은 하나다(ADR 0009).
     sa.Index(
         "uq_jobs_document_id_queued",
@@ -240,6 +285,59 @@ jobs = sa.Table(
         "document_id",
         postgresql_where=sa.text("status IN ('queued', 'running')"),
     ),
+    # 같은 원천의 같은 종류 작업은 대기 중이거나 실행 중일 때 하나뿐이다. 원천이 빈 정리 작업도
+    # 하나로 보려고 빈 값끼리 같은 값으로 친다.
+    sa.Index(
+        "uq_jobs_source_id_kind_active",
+        "source_id",
+        "kind",
+        unique=True,
+        postgresql_nulls_not_distinct=True,
+        postgresql_where=sa.text("document_id IS NULL AND status IN ('queued', 'running')"),
+    ),
+    # 색인 작업이 아닌 작업을 꺼내는 질의를 받는다.
+    sa.Index(
+        "ix_jobs_not_index_document_run_after",
+        "run_after",
+        "id",
+        postgresql_where=sa.text("kind <> 'index_document' AND status IN ('queued', 'running')"),
+    ),
+)
+
+# 동기화 한 번의 기록(마이그레이션 0004).
+sync_records = sa.Table(
+    "sync_records",
+    metadata,
+    _id_column(),
+    sa.Column("source_id", sa.Uuid, sa.ForeignKey("sources.id"), nullable=False),
+    # 작업 행을 지워도(원천 삭제가 대기 중인 동기화 작업을 지운다) 기록은 남는다.
+    sa.Column("job_id", sa.Uuid, sa.ForeignKey("jobs.id", ondelete="SET NULL")),
+    sa.Column("trigger", sa.Text, nullable=False),
+    sa.Column("options", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
+    sa.Column("created_at", _timestamp(), nullable=False),
+    sa.Column("started_at", _timestamp()),
+    sa.Column("finished_at", _timestamp()),
+    sa.Column("status", sa.Text, nullable=False),
+    sa.Column("failure_code", sa.Text),
+    # 목록을 받지 못한 실패에서는 비어 있고 받았는데 0건이면 0이다(명세 "동기화 기록").
+    sa.Column("listed", sa.Integer),
+    sa.Column("added", sa.Integer, nullable=False, server_default=sa.text("0")),
+    sa.Column("updated", sa.Integer, nullable=False, server_default=sa.text("0")),
+    sa.Column("deleted", sa.Integer, nullable=False, server_default=sa.text("0")),
+    sa.Column("unchanged", sa.Integer, nullable=False, server_default=sa.text("0")),
+    sa.Column("skipped", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
+    sa.Column("not_accepted", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
+    sa.Column("failed", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
+    sa.CheckConstraint(
+        "status IN ('queued', 'running', 'succeeded', 'failed', 'not_started')", name="status"
+    ),
+    sa.CheckConstraint("trigger IN ('schedule', 'manual')", name="trigger"),
+    sa.CheckConstraint("jsonb_typeof(options) = 'object'", name="options_is_object"),
+    sa.CheckConstraint("jsonb_typeof(skipped) = 'object'", name="skipped_is_object"),
+    sa.CheckConstraint("jsonb_typeof(not_accepted) = 'object'", name="not_accepted_is_object"),
+    sa.CheckConstraint("jsonb_typeof(failed) = 'object'", name="failed_is_object"),
+    # 원천마다 가장 최근 기록을 찾는다.
+    sa.Index("ix_sync_records_source_id_created_at", "source_id", "created_at"),
 )
 
 tokens = sa.Table(
