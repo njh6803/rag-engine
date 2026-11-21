@@ -5,11 +5,12 @@
 연결의 한 트랜잭션을 공유한다. 나머지는 트랜잭션 밖에서 부른다. 서드파티 예외는 어댑터가 `domain`의
 영구·일시 실패 예외(`rag_engine.domain.errors`)로 바꿔 올리고 메시지는 옮기지 않는다.
 
-`Parser`는 플러그인 자리라 인터페이스 버전과 함께 `rag_engine.domain.parsing`에 있다. `Connector`와
-`Transform`의 Protocol은 처음 쓰는 source-sync가 만든다(명세 Further Notes).
+`Parser`는 플러그인 자리라 인터페이스 버전과 함께 `rag_engine.domain.parsing`에 있고, `Connector`도
+같은 까닭으로 `rag_engine.domain.connectors`에 있다. `Transform`의 Protocol은 db-source가
+만든다(변환 인터페이스는 db-source로 넘어갔다. ADR 0021 "이번에 짓지 않는 것").
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
@@ -17,6 +18,7 @@ from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
 
+from rag_engine.domain.connectors import Connector
 from rag_engine.domain.entities import (
     Block,
     CandidateScan,
@@ -33,12 +35,14 @@ from rag_engine.domain.entities import (
     IndexVersion,
     Job,
     JobStatus,
+    JsonValue,
     KnowledgeBase,
     SearchCandidates,
     SearchDiagnosis,
     SearchQuery,
     Source,
     StoredChunk,
+    SyncRecord,
     Token,
 )
 from rag_engine.domain.errors import ErrorCode
@@ -455,6 +459,46 @@ class TokenStore(Protocol):
 
     async def has_live_admin(self, now: datetime) -> bool:
         """회수·만료되지 않은 `admin` 토큰이 있는지 본다."""
+        ...
+
+
+class ConnectorRegistry(Protocol):
+    """커넥터의 이름과 원천의 설정을 받아 커넥터를 만들고 인터페이스 버전을 판정한다(source-sync
+    명세 "층과 포트"). 트랜잭션 밖에서 부른다. 메서드의 모양은 처음 쓰는 티켓이 바꿀 수 있다."""
+
+    def create(self, name: str, config: Mapping[str, JsonValue]) -> Connector:
+        """그 이름의 커넥터를 원천의 설정으로 만든다. 원천에 닿지 않는다. 설치되지 않은 이름이거나
+        인터페이스 버전의 major가 1이 아닌 커넥터는 `ConnectorUnavailableError`로 거부한다. 만드는
+        함수가 설정이 틀렸다고 알리면 그 `ConnectorError`(사유 `invalid_config`)를 그대로 올린다."""
+        ...
+
+
+class ScheduleCalculator(Protocol):
+    """일정 표현식(cron 다섯 칸)을 확인하고 다음 실행 시각을 낸다(source-sync 명세 "일정과 일정
+    확인"). 처음 쓰는 티켓(일정을 여는 10)이 메서드의 이름과 모양을 바꿀 수 있다."""
+
+    def validate(self, expression: str) -> None:
+        """표현식을 받으면 그대로 돌아오고, 칸 수가 다섯이 아니거나 값이 틀리거나 오지 않는
+        날짜이면 `InvalidScheduleError`를 올린다."""
+        ...
+
+    def next_run(self, expression: str, after: datetime) -> datetime:
+        """`after` 다음의 실행 시각을 UTC로 낸다. 표현식의 시각은 설치 전체에 하나인 시간대 설정으로
+        읽는다."""
+        ...
+
+
+class SyncRecordStore(Protocol):
+    """동기화 기록의 저장소. 동기화 기록을 동기화 작업을 넣는 같은 작업 단위에서 만들기 때문에 작업
+    단위 안에서 얻는 포트다(`Transaction`에 넣는 일은 이 포트를 처음 쓰는 티켓 07이 한다). 07이
+    메서드의 이름과 모양을 바꿀 수 있다."""
+
+    async def add(self, record: SyncRecord) -> None: ...
+
+    async def get(self, record_id: UUID) -> SyncRecord | None: ...
+
+    async def update(self, record: SyncRecord) -> None:
+        """같은 식별자의 기록을 이 값으로 바꾼다. 개수와 상태와 끝 시각을 쓰는 데 쓴다."""
         ...
 
 

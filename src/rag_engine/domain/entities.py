@@ -76,6 +76,23 @@ class JobStatus(StrEnum):
     FAILED = "failed"
 
 
+class SyncTrigger(StrEnum):
+    """동기화를 시작시킨 것. 일정 확인이거나 운영자의 "지금 동기화"다."""
+
+    SCHEDULE = "schedule"
+    MANUAL = "manual"
+
+
+class SyncRecordStatus(StrEnum):
+    """동기화 기록의 상태. `not_started`는 앞 동기화가 돌고 있어 시작하지 않은 일정 회차다."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    NOT_STARTED = "not_started"
+
+
 class TokenRole(StrEnum):
     ADMIN = "admin"
     READER = "reader"
@@ -349,6 +366,32 @@ class Job:
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class SyncRecord:
+    """동기화 한 번의 기록(source-sync 명세 "동기화 기록"). 개수는 그 동기화가 파일과 문서를 본
+    순간의 분류다. `skipped`, `not_accepted`, `failed`는 사유를 키로 하는 개수이고, 실패 사유는 닫힌
+    코드만 싣는다(커넥터 예외의 글, 폴더 이름, 문서의 키와 제목은 싣지 않는다. 원칙 V)."""
+
+    id: UUID
+    source_id: UUID
+    job_id: UUID | None
+    trigger: SyncTrigger
+    options: Mapping[str, JsonValue]
+    status: SyncRecordStatus
+    failure_code: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    listed: int | None
+    added: int
+    updated: int
+    deleted: int
+    unchanged: int
+    skipped: Mapping[str, int]
+    not_accepted: Mapping[str, int]
+    failed: Mapping[str, int]
 
 
 @dataclass(frozen=True, slots=True)
