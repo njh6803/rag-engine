@@ -6,12 +6,12 @@
 
 **대기열:** review-report-journal-lag
 
-**Status:** in-progress
+**Status:** done
 
-- [ ] `.claude/skills/implement/SKILL.md`의 "Once done, use /code-review" 줄에 한 문장이 있다. 일지가 없으면 머리 한 줄 파일로 먼저 만들 것과 두 리뷰(셀프 리뷰, PR 직전 리뷰)의 보고를 받은 턴에 옮길 것을 말하고, `code-review` 6단계 끝과 `merge.md` 3을 가리킨다
-- [ ] 새 문장이 이름 규칙과 옮기는 때의 본문을 되풀이하지 않는다(가리키기만 한다)
-- [ ] 스킬 머리 주석(센티널)의 "더했다" 목록이 이 문장을 담는다
-- [ ] 대기열 항목 `review-report-journal-lag`의 승인 줄에 이번에 반영한 몫이 적혀 있고 상태는 `열림`이다
-- [ ] 지침 검사(`tools/check_instructions.py`)와 손으로 치는 검사 다섯(테스트, 린트, 포맷 검사, 타입체크, import 경계)이 초록이다(테스트는 커밋의 pre-commit이 갈음한다)
+- [x] `.claude/skills/implement/SKILL.md`의 "Once done, use /code-review" 줄에 한 문장이 있다. 일지가 없으면 머리 한 줄 파일로 먼저 만들 것과 두 리뷰(셀프 리뷰, PR 직전 리뷰)의 보고를 받은 턴에 옮길 것을 말하고, `code-review` 6단계 끝과 `merge.md` 3을 가리킨다
+- [x] 새 문장이 이름 규칙과 옮기는 때의 본문을 되풀이하지 않는다(가리키기만 한다)
+- [x] 스킬 머리 주석(센티널)의 "더했다" 목록이 이 문장을 담는다
+- [x] 대기열 항목 `review-report-journal-lag`의 승인 줄에 이번에 반영한 몫이 적혀 있고 상태는 `열림`이다
+- [x] 지침 검사(`tools/check_instructions.py`)와 손으로 치는 검사 다섯(테스트, 린트, 포맷 검사, 타입체크, import 경계)이 초록이다(테스트는 커밋의 pre-commit이 갈음한다)
 
 ## Comments

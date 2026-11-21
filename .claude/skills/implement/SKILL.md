@@ -22,7 +22,7 @@ Run linting and typechecking regularly, single test files regularly, and the ful
 
 구현 전부터 초록인 테스트(순서나 경계를 고정하는 가드)와 구현 뒤에 쓴 테스트는 빨강을 본 적이 없다. 그 테스트가 지키는 코드에 `tools/mutate.py`로 변이를 넣어 빨강을 본다. pytest 밖의 검사도 같은 도구다. 변이마다 기대를 변이 파일(TOML)에 적는다. 수십 분 도는 변이 열은 커밋한 뒤 다른 워크트리에서 돌리고 이 체크아웃에서는 계속 일한다. 코드를 옮기거나 고쳤으면 그 코드를 겨누던 변이 파일을 `--check`로 본다. 형식과 절차는 그 도구의 독스트링이다.
 
-Once done, use /code-review to review the work. 리뷰를 부르기 전에 이 브랜치의 일지가 없으면 머리 한 줄만 든 파일로 먼저 만들고(있는지는 `git status --porcelain`과 기준 브랜치 대비 변경에서 `docs/journal/` 파일을 찾아 본다. 일지 이름에는 브랜치 이름이 없고 기능 일지는 슬러그도 다르다), 셀프 리뷰와 PR 직전 리뷰의 보고는 받은 턴에 그 일지로 옮긴다(이름 짓기는 `next-session`의 `merge.md` 3, 옮기는 때는 `code-review` 6단계 끝이 정한다. 미루면 컨텍스트 압축 뒤 요약에서 보고의 판정을 다시 모으게 된다. 대기열 `review-report-journal-lag`).
+Once done, use /code-review to review the work. 리뷰를 부르기 전에 이 브랜치의 일지가 없으면 머리 한 줄만 든 파일로 먼저 만들고(있는지는 `git status --porcelain`과 `git diff --name-only $(git merge-base origin/<기준 브랜치> HEAD)`에서 `docs/journal/` 파일을 찾아 본다. 기준 브랜치와 바로 비교하면 그 사이에 병합된 남의 일지가 보이므로 병합 기준점으로 비교한다. 일지 이름에는 브랜치 이름이 없고 기능 일지는 슬러그도 다르다), 셀프 리뷰와 PR 직전 리뷰의 보고는 받은 턴에 그 일지로 옮긴다(이름 짓기는 `next-session`의 `merge.md` 3, 옮기는 때는 `code-review` 6단계 끝이 정한다. 미루면 컨텍스트 압축 뒤 요약에서 보고의 판정을 다시 모으게 된다. 대기열 `review-report-journal-lag`).
 
 Commit your work to that branch.
 

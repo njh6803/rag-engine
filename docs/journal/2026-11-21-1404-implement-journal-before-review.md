@@ -33,5 +33,16 @@ Critical·Major 없음, Minor 넷. 누락은 없다고 했다. 새 문장이 `co
 
 - `.claude/skills/implement/SKILL.md`: "Once done, use /code-review" 줄에 한 문장을 더했다. 일지가 없으면 머리 한 줄 파일로 먼저 만들 것(있는지 알아보는 길 포함), 두 리뷰의 보고를 받은 턴에 옮길 것을 말하고 `merge.md` 3과 `code-review` 6단계 끝을 가리킨다. 머리 주석의 "아홉"을 "열"로 바꾸고 이 포인터를 목록에 더했다.
 - `.scratch/retro-queue/review-report-journal-lag.md`: 승인 줄에 일부 반영한 몫과 남은 몫을 적었다. 상태는 `열림`이다.
-- 티켓 `.scratch/harness/issues/implement-journal-before-review.md`를 `done`으로 두고 `tools/plan_table.py`를 돌렸다(전체 계획 변동 없음: 하네스 티켓은 표에 들지 않는다).
-- 확인: `tools/check_instructions.py` 종료 0, `tools/plan_table.py --check` 종료 0, `ruff check .`와 `ruff format --check .` 초록. 테스트 전체는 커밋의 pre-commit이 갈음한다. 이 변경은 지침 문서뿐이라 `tdd`의 빨강 단계와 변이 도구는 해당이 없다(지침 문장을 지키는 시험이 저장소에 없다).
+- 티켓 `.scratch/harness/issues/implement-journal-before-review.md`는 첫 커밋에 `in-progress`로 실렸다가 PR 직전 리뷰의 Major로 잡혀 두 번째 커밋에서 `done`과 체크 완료로 고쳤다(아래 절). 하네스 티켓은 전체 계획 표에 들지 않아 `tools/plan_table.py`가 `.scratch/plan.md`를 바꾸지 않는다.
+- 확인: `tools/check_instructions.py` 종료 0, `tools/plan_table.py --check` 종료 0, `ruff check .`와 `ruff format --check .` 초록, `pyright` 오류 0, `lint-imports` 2 kept. 테스트 전체는 커밋의 pre-commit이 갈음한다. 이 변경은 지침 문서뿐이라 `tdd`의 빨강 단계와 변이 도구는 해당이 없다(지침 문장을 지키는 시험이 저장소에 없다).
+- 첫 커밋 시도는 제목이 96자라 commit-msg 훅에서 막혔고(72자 제한), 제목을 줄여 다시 커밋했다. 그 사이 pre-commit의 pytest가 두 번 돌아 시간(약 15분씩)이 들었다.
+
+## 커밋과 PR 직전 리뷰
+
+커밋 `0248af9`는 pre-commit을 통과했다. 이어 PR 직전 리뷰를 `bug-perf-review`로 돌렸다(CodeRabbit CLI는 앞 핫픽스에서 권한 분류기가 거절해 쓰지 않았다. 보안 축은 변경이 지침 문서뿐이라 돌리지 않았다). 유효 2건, 오탐 0.
+
+- Major(고침): 티켓이 첫 커밋에서 `Status: in-progress`에 체크박스가 모두 비어 있는데 일지는 `done`으로 두었다고 적었다. 원인은 앞서 `sed`로 상태를 바꾸는 명령을 `plan_table.py`와 한 명령에 묶었더니 도구가 복합 git 형태라며 통째로 거부해 `sed`도 실행되지 않았는데, 거부된 줄을 확인하지 않고 일지에 `done`이라고 쓴 것이다. 분리한 명령으로 `done`과 체크 완료를 하고 `pyright`, `lint-imports`도 이때 돌려 다섯째 체크박스(검사 다섯)를 실제 결과로 채웠다. 일지의 해당 줄도 바로잡았다.
+- Minor(고침): 새 문장의 확인 길 "기준 브랜치 대비 변경"에 명령이 없었다. 기준 브랜치와 바로 비교하면 그 사이 병합된 남의 일지가 보일 수 있어 `git diff --name-only $(git merge-base origin/<기준 브랜치> HEAD)`로 병합 기준점과 비교하라고 문장에 적었다.
+- 밀 주장 대조: 가리킨 두 자리의 내용, 머리 주석의 열 항목, `queue_open_rows.py`가 읽는 승인 줄(10회차, 열림)은 맞다고 확인했다. 일지가 이미 있는 브랜치와 리뷰 실패 뒤 재시도는 틀린 동작이 없다.
+- 남김: 압축이 리뷰 보고를 받은 뒤에 끼는 갈래는 문장이 리뷰를 부르기 전으로 묶여 있어 이미 보고를 받은 뒤 들어온 세션에는 일지를 만들라는 말이 없다. 항목의 남은 몫(10회차 메모)이라 새 지적으로 세지 않는다.
+- 다시 돌린 것: 위 `확인` 줄의 검사. 이 고침 커밋의 테스트는 pre-commit이 갈음한다.
