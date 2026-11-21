@@ -461,6 +461,30 @@ PR 직전 리뷰의 반영을 마친 뒤에 받았다(대기열 `adr-approval-be
 
 **둘째 푸시.** 위 "quotes 경고"의 고침 넷, 이 절과 회고와 "다음", 회고가 고치고 새로 쓴 대기열 항목 열을 한 커밋에 싣는다. 명세의 결정은 바뀌지 않는다. 한도가 풀린 뒤라 푸시한 다음 CodeRabbit에 다시 요청한다. 커밋하기 전에 `git fetch origin`을 다시 치니 dev에 커밋 하나(`5f290ba`, 변이 도구를 고친 PR 96)가 들어와 있었다. `uv run python tools/sibling_overlap.py`가 "함께 고친 파일 없음"을 내어 `git merge --no-edit origin/dev`로 먼저 합쳤고, 그래서 둘째 커밋의 pre-commit은 합친 나무를 본다. 합친 뒤 `uv run pytest tests/test_plan_status.py -q`는 `13 passed in 0.38s`였다(`next-session` `merge.md`의 병합 방법이 시키는 확인이다). 둘째 커밋의 pre-commit 결과와 그 뒤의 검사는 이 일지에 싣지 못하고 PR 본문 "확인 방법"에 적는다.
 
+**둘째 푸시의 커밋과 검사.** 셋째 커밋이 생겨 여기에도 적는다. 커밋 `80f001d`의 pre-commit은 검사 러너 열하나가 `Passed`였고(pytest 804.5초), markdown tables, line separators, mutation tables, commit message도 `Passed`였다. ruff 둘과 constitution version은 `(no files to check)Skipped`여서 손으로 `uv run ruff check .`(`All checks passed!`)과 `uv run ruff format --check .`(`828 files already formatted`)을 돌렸다. quotes 경고는 1건이었다. `decision-word-residue.md` 5행의 앞 세션 인용이 줄 전체가 더한 줄로 잡힌 것이라 그대로 두었다. 푸시 뒤의 대기는 `끝: 모두 통과. CodeRabbit: Finished`로 끝났고(종료 0), `verify`, `python`, `image`, `ticket`, `standalone`, `eval-fast`, `eval-full`, `title`, `claude-review`가 모두 통과했다. claude-review는 둘째 푸시에서도 지적이 없었다.
+
+**CodeRabbit 첫 회차.** 08:07 UTC에 남긴 `@coderabbitai review`에 `Review triggered.`로 답했고, 08:17 UTC에 헤드 `80f001d`에 리뷰가 달렸다(`Actionable comments posted: 5`). 다섯 모두 Minor다. 인라인 코멘트는 넷이고, 다섯째는 리뷰 본문의 요약 블록에만 있다. 그 블록은 `backup-upgrade/plan.md` 9행의 지적을 둘로 적는데 대화 줄기는 하나만 달렸다(`gh api graphql`의 `reviewThreads`가 넷을 냈다). 이 봇의 첫 회차라 Minor도 지적마다 판정했다(`next-session` `merge.md` 2의 회차 세기). 제목은 아래와 같다.
+
+```
+1. .scratch/backup-upgrade/plan.md:9
+   복원 후 동기화 절차에 빈 원천의 `apply_empty` 경로를 추가하세요.
+2. .scratch/source-sync/probes/schedule-once/probe.py:192
+   연결 실패 후 장벽 대기가 무기한 이어집니다. 장벽에 제한 시간을 설정하세요.
+3. .scratch/source-sync/spec.md:185
+   원천이 지워졌다가 되살아난 뒤에는 오래된 동기화가 문서를 지우지 않게 하세요.
+4. .scratch/source-sync/spec.md:188
+   끊긴 공유 폴더의 읽기 스레드를 회수하는 규칙을 명세에 적으세요.
+5. .scratch/backup-upgrade/plan.md:9 (리뷰 본문의 요약에만 있다)
+   복원 후 동기화 설명을 마운트 지점에 문서 형식의 파일이 없는 경우로 한정하고, 이때에만 `source_unreadable` 실패로 문서가 지워지지 않는다고 명시하세요.
+```
+
+- **1과 5는 고쳤다.** `backup-upgrade/plan.md`의 넘김 문장은 동기화가 실패하는 경우를 폴더가 붙지 않은 경우 하나로 적었다. 명세 "단독 compose와 설치 안내"의 빈 목록 항목은 이미 셋으로 가른다. 폴더가 없거나 비었으면 `source_unreadable`이고, 문서가 아닌 파일만 있으면 `nothing_accepted`이며, 문서 형식의 파일이 놓여 있으면 실패하지 않고 그 목록대로 돈다. 넘김 문장을 그 셋에 맞추고, 운영자가 폴더를 정말로 비운 경우에 "빈 목록도 반영"으로 가는 길을 더했다. 복원 절차에 어떤 단계를 둘지는 그 기능이 정한다고 적었다.
+- **2는 고치지 않았다.** 지적은 맞다. 연결이 실패한 스레드는 장벽에 닿지 않고 끝나므로 나머지가 끝없이 기다린다. 그래도 고치지 않은 까닭은 셋이다. 프로브는 한 번 재고 출력을 커밋한 스크립트라, 고치면 커밋된 출력(`schedule-once/probe_out.txt`)을 낸 스크립트와 달라진다. 다시 돌리면 그 출력을 든 명세의 문장 셋을 다시 대 봐야 한다. 멈춤은 사람이 손으로 돌리는 중에 데이터베이스 연결이 끊길 때만 나고, 제품과 CI는 프로브를 돌리지 않는다. 뒤로 넘기는 일도 아니다.
+- **3은 세대를 두는 안을 고르지 않고, 그 경우를 명세에 적었다.** 지적이 든 피해(목록을 받은 뒤 다시 생긴 파일의 문서가 다음 동기화까지 검색에서 빠진다)는 지우지 않은 원천의 오래 도는 동기화에서도 똑같이 난다. 지웠다 되살린 사이를 지나 이어서 도는 동기화가 하는 일은 되살린 뒤에 시작한 동기화와 같다. 넣기는 표시가 남은 문서를 만나면 되살리고, 삭제 반영은 표시가 남은 문서까지 후보와 대 본다. 다만 명세 "원천 삭제와 되살리기"의 지우는 순간 돌고 있던 동기화 항목이 그 동기화가 `source_deleted`로 끝난다고만 적어 이 경우에는 참이 아니었다. 그 항목에 이 경우와 막지 않는 까닭, 고르지 않은 안을 더했다.
+- **4는 고쳤고, 코드를 대 보니 지적보다 넓었다.** 지적은 동기화의 읽기 스레드가 일정마다 하나씩 쌓인다는 것이다. 확인한 사실은 넷이다. 파싱과 원본 파일 읽기와 검색의 키워드 토큰화가 모두 `asyncio.to_thread`로 이벤트 루프의 기본 스레드 풀을 쓴다(`src/rag_engine/adapters/parsers/runner.py`, `src/rag_engine/adapters/blob_store.py`, `src/rag_engine/app/search.py`를 읽었다). 그 풀의 스레드 수는 CPU 수에 4를 더한 값이고 32를 넘지 않으며, 이미 돌고 있는 일은 취소되지 않는다(Python 3.12.10의 `asyncio/threads.py`, `asyncio/base_events.py`, `concurrent/futures/thread.py`, `concurrent/futures/_base.py`를 읽었다. 돌려서 재지는 않았다). 색인 작업은 도는 동안 진행과 상관없이 작업 담당 기록의 기한을 늘린다(`src/rag_engine/worker/processing.py`를 읽었다). 그래서 끊긴 공유 폴더의 파일을 읽으려던 색인 작업은 작업자의 자리 하나를 끝없이 잡고, 연결 확인은 10초 뒤에 답해도 서버의 스레드 하나를 남긴다. 명세에 고친 곳은 여섯이다. "동기화의 차례"에서 작업자가 진행 없는 시도를 스스로 거둔다는 것, 서버 경로 커넥터의 스레드를 기본 풀과 따로 둔다는 것, 돌아오지 않는 호출이 남은 원천의 커넥터를 새로 부르지 않는다는 새 항목을 적었다. "가져오는 원천의 문서 색인"에는 색인 작업이 `fetch`를 기다리는 한도를, "관리 API"에는 연결 확인의 같은 규칙을, Testing Decisions에는 호출이 끝나지 않는 가짜 커넥터의 시험 항목을 적었다. 근거가 된 파일과 재지 않은 것은 Further Notes에 적었다. 호출마다 짧은 시간 제한을 두는 안은 고르지 않았다. 큰 파일을 느린 공유 폴더에서 읽는 시간과 가를 수 없고, 제한을 두어도 스레드는 풀리지 않기 때문이다.
+
+**셋째 푸시.** 위 반영과 이 절, 회고 17번의 고침, "다음"의 고침을 한 커밋에 싣는다. 명세의 표시는 240에서 242가 됐다(`[정함]`이 188에서 190이다. 돌아오지 않는 호출 항목과 그 시험 항목을 더했다). 지적 4의 반영은 명세에 새 결정을 더한 것이고 셀프 리뷰와 PR 직전 리뷰를 거치지 않았다. PR 봇의 둘째 회차와 다음 세션의 명세 검토가 본다("다음"의 명세 검토가 겨냥할 글).
+
 ## 회고
 
 후보 스물하나를 냈다. 승인 열(이미 있는 항목에 회차를 더한 것 다섯, 새 항목 다섯), 기각 여덟, 판정하지 못한 것 셋이고 넘긴 것은 없다. 만료할 항목도 없었다(`uv run python tools/queue_open_rows.py`와 `--ref origin/dev`를 붙인 것 모두). 심각도 순이다.
@@ -486,7 +510,7 @@ PR 직전 리뷰의 반영을 마친 뒤에 받았다(대기열 `adr-approval-be
 14. 도구의 오류가 그 자리에서 알린 것. ADR 파일 이름을 짐작해 넘긴 것(두 번. Glob 한 번으로 풀었다), 프로브 폴더의 이름이 패키지 이름과 겹친 것, 프로브가 넘긴 경로를 셸이 바꾼 것이다.
 15. 배경으로 돌린 프로브의 출력 파일이 끝날 때까지 비어 있어 진행을 보지 못했다. 잃은 것이 없고 끝 알림으로 결과를 받았다.
 16. 표준 축 Major 1(표시 수의 자리 표시 `@@수@@`). 모든 편집 뒤에 세어 채우려고 일부러 둔 자리였고 그렇게 채웠다. `spec-marker-count-check`의 회차로 세지 않는다.
-17. 도구 호출 사이의 중간 문장을 영어로 쓴 적이 있다. 항상 실리는 지침이 이미 있고 검사로 옮길 길이 없으며, 리뷰가 잡은 사건이 아니라 회차 셈에도 들지 않는다.
+17. 도구 호출 사이의 중간 문장을 영어로 쓴 적이 있다. 항상 실리는 지침이 있고 훅이 그 자리에서 알린다(이 회고를 적은 뒤에도 한 번 알렸다). 이미 있는 훅이 알린 것이라 기각이고, 리뷰가 잡은 사건이 아니라 회차 셈에도 들지 않는다. 처음에는 검사로 옮길 길이 없다고 적었는데 그 훅을 잊고 쓴 틀린 문장이어서 셋째 커밋에서 고쳤다.
 18. 사용자의 답으로 고친 글(빈 목록 판정의 명세 문장들과 ADR 0022 이력)은 셀프 리뷰와 PR 직전 리뷰를 거치지 않고 PR 봇만 봤다. 그 글에서 난 오류가 아직 없어 사건 없이 떠올린 것이다.
 
 **판정하지 못한 것.** 압축 요약에 낱말만 남았고 일지에서 서술을 찾지 못한 셋이다. 받는 기능 계획에 명세에 없는 결정을 적은 것, 일지의 수를 요약에서 옮겨 틀린 것, 프로브가 잰 모양과 명세가 적은 모양이 달랐던 것. 꾸며 적지 않고 회차를 세지 않았다(승인 7이 이 일을 센다).
@@ -500,9 +524,10 @@ PR 직전 리뷰의 반영을 마친 뒤에 받았다(대기열 `adr-approval-be
 ## 다음
 
 - **티켓.** 다음 단계는 source-sync의 티켓이다. 명세 검토(`spec-reviewer` 서브에이전트)를 먼저 하고 그 뒤 `/to-tickets .scratch/source-sync/spec.md`다. 입력은 명세, ADR 0021과 0022, 이번에 이력을 더한 ADR 다섯(0007, 0012, 0013, 0021, 0022), 프로브 넷(`.scratch/source-sync/probes/`)이다. 명세의 "티켓을 나눌 때 함께 둘 것" 절이 한 티켓에 묶을 변경 다섯을 적는다.
-- **명세 검토가 겨냥할 글.** 사용자의 답으로 고친 빈 목록 판정은 셀프 리뷰와 PR 직전 리뷰를 거치지 않았다. 명세 "동기화의 차례"의 빈 목록 항목 넷, 그에 맞춘 수집 정책과 삭제 반영의 문장, 오류 코드 `nothing_accepted`, Testing Decisions의 새 장면 둘, ADR 0022의 이력이다. claude-review는 첫 푸시에서 지적이 없었다.
+- **명세 검토가 겨냥할 글.** 사용자의 답으로 고친 빈 목록 판정은 셀프 리뷰와 PR 직전 리뷰를 거치지 않았다. 명세 "동기화의 차례"의 빈 목록 항목 넷, 그에 맞춘 수집 정책과 삭제 반영의 문장, 오류 코드 `nothing_accepted`, Testing Decisions의 새 장면 둘, ADR 0022의 이력이다. claude-review는 첫 푸시와 둘째 푸시에서 지적이 없었다. PR 봇 리뷰를 반영하며 더한 글도 두 리뷰를 거치지 않았다. 명세 "동기화의 차례"의 세 항목(작업자가 진행 없는 시도를 스스로 거둔다, 서버 경로 커넥터의 스레드를 기본 풀과 따로 둔다, 돌아오지 않는 호출이 남은 원천의 커넥터를 새로 부르지 않는다), "가져오는 원천의 문서 색인"의 `fetch`를 기다리는 한도, "관리 API"의 연결 확인 문장, "원천 삭제와 되살리기"의 지웠다 되살린 원천의 동기화 문장, Testing Decisions의 돌아오지 않는 호출 항목, Further Notes의 표준 라이브러리 메모다. 이 가운데 돌아오지 않는 호출을 원천마다 기억하는 규칙은 새 결정이고, 근거는 코드를 읽은 것뿐이라 재지 않았다.
 - **승인 뒤에 더한 글.** ADR 0022 이력의 문장 둘(막지 못하는 경우가 하나 남는다는 것, 실패 사유를 둘로 가른다는 것)은 승인받은 미리보기에 없었다. 대화로 알렸고 따로 답을 받지 못한 채 병합한다. 사용자가 빼기를 원하면 새 PR의 일이다.
-- **CodeRabbit.** 첫 요청은 한도에 걸렸다. 한도가 풀린 뒤 마지막 푸시에 다시 요청한다. 그 리뷰의 결과와 보류한 일은 이 일지에 싣지 못하면 PR 코멘트와 다음 지시문의 "이어받을 상태"에 적는다(`next-session` `merge.md` 2의 뒤로 넘긴 일).
+- **CodeRabbit.** 첫 요청은 한도에 걸렸고, 둘째 푸시에서 첫 회차를 받아 지적 다섯을 판정했다(위 "PR 봇 리뷰"). 고치지 않은 것은 프로브의 장벽 대기 하나이고 뒤로 넘기는 일이 아니다. 셋째 푸시의 리뷰 결과와 보류한 일은 이 일지에 싣지 못하면 PR 코멘트와 다음 지시문의 "이어받을 상태"에 적는다(`next-session` `merge.md` 2의 뒤로 넘긴 일).
+- **회고 뒤에 난 일.** 회고를 적은 뒤에 PR 봇이 명세의 빈 곳 하나(끊긴 공유 폴더에서 돌아오지 않는 커넥터 호출)를 냈다. 셀프 리뷰의 두 축과 PR 직전 리뷰는 이 경우를 내지 않았다. 대기열에서 같은 일을 다룬 항목을 찾아 세는 것은 다음 세션의 회고가 한다.
 - **다른 기능이 받은 것.** `.scratch/admin/plan.md`, `.scratch/db-source/plan.md`, `.scratch/diag-bundle/plan.md`, `.scratch/backup-upgrade/plan.md`에 명세가 넘긴 것을 적었다. 그 기능들의 설계 인터뷰가 읽는다.
 - **이 PR이 고치지 않은 것.** 명세의 "규약 문서와 낡은 문장" 절이 적은 문서와 주석은 구현 티켓이 고친다. 헌법의 스택 문서와 import 금지 목록의 수, 관리 API 응답 모델의 머리 설명, 오류 코드의 수, 포트 모듈의 머리 설명, 설치 안내와 `.env.example`이다.
 - **대기열.** 이 회고가 새 항목 다섯(`to-spec-path-rule-vs-evidence-citation`, `spec-defers-measurement-to-ticket`, `coderabbit-hourly-limit-shared-across-prs`, `queue-round-collision-in-parallel-prs`, `retro-candidates-lost-in-compaction`)을 쓰고 다섯 항목에 회차를 더했다(`decision-word-residue` 9회차, `adr-draft-drops-option-conditions` 3회차, `docs-only-commit-full-pytest` 11회차, `check-quotes-verbatim-paste` 6회차, `pyright-scratch-vacuous` 3회차). dev를 합친 뒤 열린 항목은 78개이고 회차 5 이상은 열둘이다(합친 커밋이 `mutate-marker-discovery`를 닫았다. `--ref HEAD`가 낸 73개와 열하나에 이 회고의 새 항목 다섯과 `to-spec-path-rule-vs-evidence-citation`을 더한 값이다). source-sync는 티켓 단계가 남아 `next-session` 결정표의 하네스 chore 배치 줄(기능의 마지막 티켓 뒤)에는 아직 들지 않는다.
