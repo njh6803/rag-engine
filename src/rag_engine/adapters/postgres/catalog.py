@@ -17,6 +17,7 @@ from rag_engine.domain.entities import (
     Group,
     IndexVersion,
     IndexVersionStatus,
+    JsonValue,
     KnowledgeBase,
     Source,
     SourceKind,
@@ -25,15 +26,25 @@ from rag_engine.domain.errors import SourceAlreadyExistsError
 from rag_engine.domain.ports import LockMode
 
 _LIVE_STATUSES: Final = (IndexVersionStatus.CURRENT.value, IndexVersionStatus.BUILDING.value)
+# 폴더를 정하는 요청끼리 차례로 지나게 하는 자문 잠금의 열쇠. 이 저장소가 쓰는 임의의 고정 정수다.
+_SOURCE_FOLDERS_LOCK_KEY: Final = 0x52414701
 
 
 def _source(row: sa.RowMapping) -> Source:
+    config: Mapping[str, JsonValue] | None = row["config"]
     return Source(
         id=row["id"],
         name=row["name"],
         kind=SourceKind(row["kind"]),
         created_at=row["created_at"],
         deleted_at=row["deleted_at"],
+        connector=row["connector"],
+        config=config,
+        group_id=row["group_id"],
+        schedule=row["schedule"],
+        next_run_at=row["next_run_at"],
+        paused=row["paused"],
+        exclude_patterns=tuple(row["exclude_patterns"]),
     )
 
 
@@ -44,6 +55,14 @@ def _source_values(source: Source) -> dict[str, object]:
         "kind": source.kind.value,
         "created_at": source.created_at,
         "deleted_at": source.deleted_at,
+        "connector": source.connector,
+        # 파이썬의 `None`은 JSON의 `null`로 들어가므로 비운 칸은 SQL의 NULL로 따로 적는다.
+        "config": sa.null() if source.config is None else source.config,
+        "group_id": source.group_id,
+        "schedule": source.schedule,
+        "next_run_at": source.next_run_at,
+        "paused": source.paused,
+        "exclude_patterns": list(source.exclude_patterns),
     }
 
 
@@ -142,6 +161,34 @@ class PostgresCatalog:
             if isinstance(error.orig, psycopg.errors.UniqueViolation):
                 raise SourceAlreadyExistsError("같은 이름의 원천이 이미 있다") from None
             raise
+
+    async def lock_source_folders(self) -> None:
+        await self._connection.execute(
+            sa.select(sa.func.pg_advisory_xact_lock(_SOURCE_FOLDERS_LOCK_KEY))
+        )
+
+    async def update_pull_source(
+        self,
+        source_id: UUID,
+        *,
+        config: Mapping[str, JsonValue] | None,
+        exclude_patterns: Sequence[str] | None,
+    ) -> None:
+        values: dict[str, object] = {}
+        if config is not None:
+            values["config"] = config
+        if exclude_patterns is not None:
+            values["exclude_patterns"] = list(exclude_patterns)
+        if not values:
+            return
+        await self._connection.execute(
+            sa.update(tables.sources).where(tables.sources.c.id == source_id).values(**values)
+        )
+
+    async def set_source_paused(self, source_id: UUID, *, paused: bool) -> None:
+        await self._connection.execute(
+            sa.update(tables.sources).where(tables.sources.c.id == source_id).values(paused=paused)
+        )
 
     async def get_source(self, name: str) -> Source | None:
         result = await self._connection.execute(

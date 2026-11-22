@@ -37,7 +37,7 @@ from uuid import UUID
 from rag_engine.app.default_records import DEFAULT_NAME
 from rag_engine.app.document_outcome import index_failure_code
 from rag_engine.app.live_versions import live_index_versions
-from rag_engine.app.source_lookup import require_source
+from rag_engine.app.source_lookup import require_push_source
 from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import (
     Document,
@@ -172,7 +172,7 @@ async def _locate(unit_of_work: UnitOfWork, request: IngestRequest, key: str, mi
     """원천과 그룹을 읽고 원본을 둘 경로를 정한다. 없는 원천이나 그룹이면 원본을 쓰기 전에
     거부한다."""
     async with unit_of_work.begin() as transaction:
-        source = await require_source(transaction, request.source)
+        source = await require_push_source(transaction, request.source)
         group = await transaction.catalog.get_group(request.group or DEFAULT_NAME)
         if group is None:
             raise RequestError(ErrorCode.GROUP_NOT_FOUND, "그 이름의 그룹이 없다")

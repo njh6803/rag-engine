@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from dataclasses import replace
 from datetime import datetime
 
-from rag_engine.app.source_lookup import require_source
+from rag_engine.app.source_lookup import require_push_source
 from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import IndexVersionStatus, KnowledgeBase
 from rag_engine.domain.errors import ErrorCode, RequestError
@@ -28,7 +28,7 @@ async def delete_document(
     """`source_name`은 지울 문서가 든 원천의 이름이고 `None`이면 `default`다. 없는 원천은
     `source_not_found`다."""
     async with unit_of_work.begin() as transaction:
-        source = await require_source(transaction, source_name)
+        source = await require_push_source(transaction, source_name)
         found = await transaction.documents.get_by_key(source.id, key)
         if found is None or found.purged_at is not None:
             raise RequestError(ErrorCode.DOCUMENT_NOT_FOUND, "그 키의 문서가 없다")

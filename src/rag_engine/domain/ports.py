@@ -18,7 +18,7 @@ from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
 
-from rag_engine.domain.connectors import Connector
+from rag_engine.domain.connectors import Connector, FolderLocation, FolderTarget
 from rag_engine.domain.entities import (
     Block,
     CandidateScan,
@@ -148,6 +148,27 @@ class Catalog(Protocol):
         """같은 이름의 원천이 있으면(지운 원천 포함) `SourceAlreadyExistsError`를 올린다. 이름이
         겹친 두 요청이 동시에 오면 나중에 넣는 쪽이 먼저 넣은 쪽의 커밋을 기다린 뒤 판정하므로
         하나만 만들어진다(이름의 유일 제약이 판정한다)."""
+        ...
+
+    async def lock_source_folders(self) -> None:
+        """폴더를 정하는 요청(원천 만들기, 폴더 고치기)끼리 차례로 지나게 하는 트랜잭션 수준
+        자문 잠금을 잡는다. 겹침 확인 앞에서 맨 먼저 부르고, 작업 단위가 끝나면 풀린다."""
+        ...
+
+    async def update_pull_source(
+        self,
+        source_id: UUID,
+        *,
+        config: Mapping[str, JsonValue] | None,
+        exclude_patterns: Sequence[str] | None,
+    ) -> None:
+        """가져오는 원천의 `config`와 `exclude_patterns` 가운데 `None`이 아닌 칸만 바꾼다. 다른
+        칸은 읽어 둔 값으로 다시 쓰지 않으므로, 같은 원천을 동시에 바꾸는 다른 요청(일시 중지 등)이
+        커밋한 칸을 되돌리지 않는다. 이름, 갈래, 커넥터, 그룹은 바꾸지 않는다."""
+        ...
+
+    async def set_source_paused(self, source_id: UUID, *, paused: bool) -> None:
+        """가져오는 원천의 `paused` 칸만 바꾼다. 다른 칸은 건드리지 않는다."""
         ...
 
     async def get_source(self, name: str) -> Source | None: ...
@@ -485,6 +506,31 @@ class ConnectorRegistry(Protocol):
         """그 이름의 커넥터를 원천의 설정으로 만든다. 원천에 닿지 않는다. 설치되지 않은 이름이거나
         인터페이스 버전의 major가 1이 아닌 커넥터는 `ConnectorUnavailableError`로 거부한다. 만드는
         함수가 설정이 틀렸다고 알리면 그 `ConnectorError`(사유 `invalid_config`)를 그대로 올린다."""
+        ...
+
+    async def locate_folder(self, name: str, config: Mapping[str, JsonValue]) -> FolderLocation:
+        """서버 경로 커넥터(`SERVER_PATH_CONNECTOR`)의 폴더를 찾고 확인한다. 인터페이스 밖에서
+        서버가 부르는 확인이다. 적은 글자 그대로 찾고, 없으면 NFC로 맞춘 이름이 같은 폴더가 하나뿐일
+        때만 그 폴더로 본다. 낸 저장 경로는 글자 그대로 찾은 토막이면 적은 글자이고, NFC로 맞춰
+        찾은 토막만 디스크의 이름이다. 호출 장치를 지나고 한도를 넘기거나
+        막혀도 폴더를 읽을 수 없다는 `ConnectorError`(사유 `unreadable`)다. 없는 폴더는 `not_found`,
+        링크나 폴더가 아닌 것은 `rejected`, 모양이 틀린 설정은 `invalid_config`다."""
+        ...
+
+    async def survey_folders(self, targets: Sequence[FolderTarget]) -> list[FolderLocation | None]:
+        """이미 있는 원천의 폴더를 한꺼번에 확인한다. 대상마다 따로 내보내 같은 한도 동안 함께
+        기다린다. 폴더가 없거나 읽을 수 없거나 한도 안에 답하지 않거나 막힌 대상은 `None`이다.
+        부르는 쪽이 그 원천과는 저장 경로의 글자로 견준다."""
+        ...
+
+    async def check_connection(
+        self, name: str, config: Mapping[str, JsonValue], source: str
+    ) -> None:
+        """커넥터의 `check()`를 호출 장치를 지나 부른다. `source`는 로그에 싣는 원천의 이름이다.
+        만들 수 없으면 `ConnectorUnavailableError`나 `ConnectorError`(`invalid_config`)를, 커넥터의
+        `ConnectorError`는 그대로, 한도를 넘기면 `ConnectorCallTimedOutError`를, 같은 설정의 호출이
+        남아 있으면 `ConnectorCallBlockedError`를, 인터페이스에 없는 예외는 `ConnectorBrokenError`를
+        올린다."""
         ...
 
 

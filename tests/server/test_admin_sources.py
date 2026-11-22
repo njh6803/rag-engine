@@ -157,12 +157,22 @@ def test_같은_이름으로_두_번_만들면_둘째가_409이고_원천은_하
     assert [source["name"] for source in _get(server).json()["sources"]].count("wiki") == 1
 
 
-def test_가져오는_원천_pull은_아직_열리지_않아_kind에서_422다(server: RunningServer) -> None:
+def test_가져오는_원천은_커넥터와_설정을_빠뜨리면_그_칸에서_422다(server: RunningServer) -> None:
     response = _create(server, name="folder", kind="pull")
 
     assert response.status_code == 422
-    assert [location[-1] for location in _issue_locations(response)] == ["kind"]
+    assert [location[-1] for location in _issue_locations(response)] == ["connector", "config"]
     assert _get(server, f"{SOURCES}/folder").status_code == 404
+
+
+def test_알_수_없는_갈래는_kind에서_422이고_보낸_값을_응답에_싣지_않는다(
+    server: RunningServer,
+) -> None:
+    response = _create(server, name="folder", kind="비밀값-xyz")
+
+    assert response.status_code == 422
+    assert [location[-1] for location in _issue_locations(response)] == ["kind"]
+    assert "비밀값-xyz" not in response.text
 
 
 @pytest.mark.parametrize(

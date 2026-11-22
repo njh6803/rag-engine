@@ -20,9 +20,11 @@ MAX_EMBEDDING_DIMENSIONS: Final = 2000
 
 
 class SourceKind(StrEnum):
-    """원천의 종류. 첫 판은 밀어 넣기 하나다."""
+    """원천의 종류. 밀어 넣는 원천(`push`)은 클라이언트가 수집 API로 넣고, 가져오는 원천(`pull`)은
+    서버가 커넥터로 읽어 온다."""
 
     PUSH = "push"
+    PULL = "pull"
 
 
 class IngestAction(StrEnum):
@@ -118,13 +120,21 @@ class BlockKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Source:
-    """원천. `deleted_at`은 지움 표시이고 지우지 않은 원천에서는 `None`이다."""
+    """원천. `deleted_at`은 지움 표시이고 지우지 않은 원천에서는 `None`이다. 아래 일곱 칸은 가져오는
+    원천만 쓴다. 밀어 넣는 원천은 비운 값(`None`, `False`, 빈 튜플)이다."""
 
     id: UUID
     name: str
     kind: SourceKind
     created_at: datetime
     deleted_at: datetime | None = None
+    connector: str | None = None
+    config: Mapping[str, JsonValue] | None = None
+    group_id: UUID | None = None
+    schedule: str | None = None
+    next_run_at: datetime | None = None
+    paused: bool = False
+    exclude_patterns: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

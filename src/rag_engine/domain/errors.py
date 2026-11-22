@@ -47,6 +47,8 @@ class ErrorCode(StrEnum):
     INVALID_ARGUMENT = "invalid_argument"
     SOURCE_NOT_FOUND = "source_not_found"
     SOURCE_ALREADY_EXISTS = "source_already_exists"
+    WRONG_SOURCE_KIND = "wrong_source_kind"
+    SOURCE_FOLDER_OVERLAP = "source_folder_overlap"
     # 관련성 판정기(ADR 0019). 평가 도구만 쓰고 작업 행과 응답에는 나가지 않는다.
     JUDGE_UNAVAILABLE = "judge_unavailable"
     JUDGE_REJECTED = "judge_rejected"
@@ -101,7 +103,7 @@ TOOL_ERROR_CODES = frozenset(
     }
 )
 
-# Problem Details 의 `code`로 낼 수 있는 값 열여섯.
+# Problem Details 의 `code`로 낼 수 있는 값 열여덟.
 PROBLEM_ERROR_CODES = frozenset(
     {
         ErrorCode.UNAUTHENTICATED,
@@ -120,6 +122,8 @@ PROBLEM_ERROR_CODES = frozenset(
         ErrorCode.INTERNAL_ERROR,
         ErrorCode.SOURCE_NOT_FOUND,
         ErrorCode.SOURCE_ALREADY_EXISTS,
+        ErrorCode.WRONG_SOURCE_KIND,
+        ErrorCode.SOURCE_FOLDER_OVERLAP,
     }
 )
 

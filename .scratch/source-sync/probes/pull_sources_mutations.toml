@@ -1,0 +1,307 @@
+# source-sync 06(가져오는 원천 만들기)의 시험 가운데 구현 뒤에 쓴 것의 변이. 폴더를 정하는 요청의
+# 잠금, 겹침 판정, 폴더 이름 저장, 읽기 확인, 갈래 확인, 오류 위치 보정마다 그 규칙을 깨는 변이를 넣어
+# 시험이 빨개지는지 본다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/source-sync/probes/pull_sources_mutations.toml
+
+[[mutation]]
+name = "폴더를 정하는 요청의 프로세스 안 차례를 세우지 않는다"
+tests = ["tests/server/test_admin_pull_source_locking.py"]
+expect = "red"
+expect_output = ["httpx.ReadTimeout: timed out"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''            return nullcontext()
+        return self._folder_turn
+'''
+new = '''            return nullcontext()
+        return nullcontext()
+'''
+
+[[mutation]]
+name = "만들 때 자문 잠금을 잡지 않는다"
+tests = ["tests/app/test_pull_sources_two_servers.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE RequestError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''            if location is not None:
+                await catalog.lock_source_folders()
+            found = await catalog.get_group(DEFAULT_NAME if group is None else group)
+'''
+new = '''            found = await catalog.get_group(DEFAULT_NAME if group is None else group)
+'''
+
+[[mutation]]
+name = "새 폴더가 다른 폴더 안에 있어도 겹치지 않는다고 본다"
+tests = ["tests/server/test_admin_pull_sources.py"]
+expect = "red"
+expect_output = ["[201 Created]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''                overlaps = (
+                    location.final in other_location.chain or other_location.final in location.chain
+                )
+'''
+new = '''                overlaps = other_location.final in location.chain
+'''
+
+[[mutation]]
+name = "새 폴더가 다른 폴더를 품어도 겹치지 않는다고 본다"
+tests = ["tests/server/test_admin_pull_sources.py"]
+expect = "red"
+expect_output = ["[201 Created]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''                overlaps = (
+                    location.final in other_location.chain or other_location.final in location.chain
+                )
+'''
+new = '''                overlaps = location.final in other_location.chain
+'''
+
+[[mutation]]
+name = "폴더가 지금 없는 원천과 글자로도 견주지 않는다"
+tests = [
+    "tests/server/test_admin_pull_sources.py",
+    "tests/server/test_admin_pull_source_stuck_calls.py",
+]
+expect = "red"
+expect_output = ["KeyError: 'code'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''    a, b = _nfc_segments(first), _nfc_segments(second)
+    shorter = min(len(a), len(b))
+    return a[:shorter] == b[:shorter]
+'''
+new = '''    return False
+'''
+
+[[mutation]]
+name = "고치는 원천 자신의 폴더와도 겹친다고 본다"
+tests = ["tests/server/test_admin_pull_sources.py"]
+expect = "red"
+expect_output = ["[409 Conflict]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''            and source.config is not None
+            and source.id != own
+        ]
+'''
+new = '''            and source.config is not None
+        ]
+'''
+
+[[mutation]]
+name = "폴더를 디스크의 이름이 아니라 적은 글자로 저장한다"
+tests = [
+    "tests/server/test_admin_pull_sources.py",
+    "tests/adapters/test_server_path_locate.py",
+]
+expect = "red"
+expect_output = ["{'folder': '규정집/인사/'} != {'folder': '규정집/인사'}"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''    return {**config, "folder": location.folder}
+'''
+new = '''    return config
+'''
+
+[[mutation]]
+name = "합쳐 적은 글자와 풀어 적은 폴더를 같은 폴더로 보지 않는다"
+tests = ["tests/adapters/test_server_path_locate.py"]
+expect = "red"
+expect_output = ["rag_engine.domain.connectors.ConnectorError: not_found"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/server_path.py"
+old = '''    if len(matches) == 1:
+'''
+new = '''    if False:
+'''
+
+[[mutation]]
+name = "NFC로 같은 폴더가 둘이어도 첫 폴더로 정한다"
+tests = ["tests/adapters/test_server_path_locate.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE ConnectorError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/server_path.py"
+old = '''    if len(matches) == 1:
+'''
+new = '''    if len(matches) >= 1:
+'''
+
+[[mutation]]
+name = "연결 확인이 폴더를 열기만 하고 첫 항목을 읽지 않는다"
+tests = ["tests/adapters/test_server_path_locate.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE ConnectorError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/server_path.py"
+old = '''        directory = self._open_source_folder()
+        try:
+            directory.peek()
+        finally:
+'''
+new = '''        directory = self._open_source_folder()
+        try:
+            pass
+        finally:
+'''
+
+[[mutation]]
+name = "폴더 확인이 첫 항목을 읽지 않는다"
+tests = ["tests/adapters/test_server_path_locate.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE ConnectorError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/server_path.py"
+old = '''            chain.append(child.identity())
+        directory.peek()
+'''
+new = '''            chain.append(child.identity())
+'''
+
+[[mutation]]
+name = "수집 API가 가져오는 원천도 받는다"
+tests = ["tests/server/test_ingest_sources.py"]
+expect = "red"
+expect_output = ["[202 Accepted]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/source_lookup.py"
+old = '''    if source.kind is not SourceKind.PUSH:
+'''
+new = '''    if False:
+'''
+
+[[mutation]]
+name = "관리 API의 고치기가 밀어 넣는 원천도 받는다"
+tests = ["tests/server/test_admin_pull_sources.py"]
+expect = "red"
+expect_output = ["[500 Internal Server Error]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/source_lookup.py"
+old = '''    if source.kind is not SourceKind.PULL:
+'''
+new = '''    if False:
+'''
+
+[[mutation]]
+name = "갈래 칸이 없는 오류의 위치에 칸 이름을 더하지 않는다"
+tests = ["tests/server/test_admin_sources.py"]
+expect = "red"
+expect_output = ["At index 0 diff: 'body' != 'kind'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/problems.py"
+old = '''    if issue["type"] in _UNION_TAG_ISSUES and context is not None:
+'''
+new = '''    if False and context is not None:
+'''
+
+[[mutation]]
+name = "틀린 갈래 값의 오류 글이 클라이언트가 보낸 값을 되울린다"
+tests = ["tests/server/test_admin_sources.py"]
+expect = "red"
+expect_output = ["'비밀값-xyz' is contained here:"]
+
+[[mutation.edit]]
+file = "src/rag_engine/server/problems.py"
+old = '''        if issue["type"] == "union_tag_invalid":
+'''
+new = '''        if False:
+'''
+
+[[mutation]]
+name = "경로 판 첫 항목 읽기가 항목의 정보를 읽지 않는다"
+tests = ["tests/adapters/test_server_path_locate.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE ConnectorError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/server_path.py"
+old = '''                first.stat(follow_symlinks=False)
+'''
+new = '''                first.name
+'''
+
+[[mutation]]
+name = "일시 중지를 바꿀 때 제외 패턴 칸도 덮어쓴다"
+tests = ["tests/adapters/test_catalog_pull_sources.py"]
+expect = "red"
+expect_output = ["exclude_patterns: () != ('새패턴',)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/catalog.py"
+old = '''.values(paused=paused)
+'''
+new = '''.values(paused=paused, exclude_patterns=[])
+'''
+
+[[mutation]]
+name = "실제 폴더를 확인한 원천도 글자로만 견준다"
+tests = ["tests/app/test_pull_sources_overlap.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE RequestError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''            if other_location is not None:
+'''
+new = '''            if False:
+'''
+
+[[mutation]]
+name = "글자로 견줄 때 NFC로 맞추지 않는다"
+tests = ["tests/app/test_pull_sources_overlap.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE RequestError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''    return tuple(unicodedata.normalize("NFC", part) for part in folder.split("/"))
+'''
+new = '''    return tuple(folder.split("/"))
+'''
+
+[[mutation]]
+name = "폴더를 고칠 때 자문 잠금을 잡지 않는다"
+tests = ["tests/app/test_pull_sources_two_servers.py"]
+expect = "red"
+expect_output = ["DID NOT RAISE RequestError"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''                if location is not None:
+                    await catalog.lock_source_folders()
+                latest = await require_pull_source(transaction, name)
+'''
+new = '''                latest = await require_pull_source(transaction, name)
+'''
+
+[[mutation]]
+name = "폴더를 고치는 요청의 프로세스 안 차례를 세우지 않는다"
+tests = ["tests/server/test_admin_pull_source_locking.py"]
+expect = "red"
+expect_output = ["httpx.ReadTimeout: timed out"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''        async with self._turn(location):
+            async with self._unit_of_work.begin() as transaction:
+'''
+new = '''        async with nullcontext():
+            async with self._unit_of_work.begin() as transaction:
+'''

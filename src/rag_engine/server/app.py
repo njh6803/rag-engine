@@ -18,6 +18,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
 from rag_engine.adapters.blob_store import LocalBlobStore
+from rag_engine.adapters.connectors.registry import EntryPointConnectorRegistry
 from rag_engine.adapters.index_elements import compute_index_elements
 from rag_engine.adapters.kiwi import tokenize_keywords
 from rag_engine.adapters.log_format import configure_logging, log_event
@@ -28,15 +29,17 @@ from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.release_number import release_number
 from rag_engine.adapters.settings import Settings
 from rag_engine.adapters.tei import TeiEmbedderPool, TeiRerankerPool
+from rag_engine.app.pull_sources import PullSources
 from rag_engine.app.search import SearchDeps
 from rag_engine.domain.errors import ErrorCode, InvalidInput, RequestError
+from rag_engine.domain.ports import ConnectorRegistry
 from rag_engine.server.admin_api import build_admin_query_router
 from rag_engine.server.admin_knowledge_base_api import build_admin_knowledge_base_router
 from rag_engine.server.admin_source_api import build_admin_source_router
 from rag_engine.server.auth import AuthMiddleware
 from rag_engine.server.ingest_api import build_ingest_router
 from rag_engine.server.problem_response import problem_response, validation_response
-from rag_engine.server.problems import ValidationIssue
+from rag_engine.server.problems import ValidationIssue, validation_issue_of
 from rag_engine.server.read_tools import register_read_tools
 from rag_engine.server.request_context import RequestContextMiddleware, request_id_of
 from rag_engine.server.search_tool import register_search_tool
@@ -66,10 +69,7 @@ def _install_error_handlers(app: FastAPI) -> None:
     async def on_validation_error(request: Request, error: Exception) -> JSONResponse:
         assert isinstance(error, RequestValidationError)
         # 입력 값(`input`)과 `ctx`는 싣지 않는다(ADR 0015).
-        issues = [
-            ValidationIssue(loc=list(issue["loc"]), type=issue["type"], msg=issue["msg"])
-            for issue in error.errors()
-        ]
+        issues = [validation_issue_of(issue) for issue in error.errors()]
         return validation_response(request_id_of(request.scope), issues)
 
     async def on_invalid_input(request: Request, error: Exception) -> JSONResponse:
@@ -101,7 +101,11 @@ async def _warm_up_kiwi() -> None:
         log_event(logger, "kiwi_warmup_failed", level=logging.ERROR, exception=error)
 
 
-def create_app(settings: Settings) -> ASGIApp:
+def create_app(
+    settings: Settings, *, connector_registry: ConnectorRegistry | None = None
+) -> ASGIApp:
+    """`connector_registry`는 시험이 가짜 커넥터와 짧은 한도를 넣는 자리다. 주지 않으면
+    entry point로 커넥터를 찾는 레지스트리를 만든다."""
     # MCPServer를 만들기 전에 부른다. 로거를 되찾는 일이라 나중에 만든 핸들러가 앞서지 못하게 한다.
     configure_logging(settings.log_format)
     engine = create_engine(settings.database_url)
@@ -170,7 +174,11 @@ def create_app(settings: Settings) -> ASGIApp:
         unit_of_work, PostgresIndexMaintenance(engine), compute_index_elements
     )
     app.include_router(token_router)
-    admin_source_router = build_admin_source_router(unit_of_work)
+    pull_sources = PullSources(
+        unit_of_work,
+        connector_registry if connector_registry is not None else EntryPointConnectorRegistry(),
+    )
+    admin_source_router = build_admin_source_router(unit_of_work, pull_sources)
     app.include_router(admin_query_router)
     app.include_router(admin_source_router)
     app.include_router(knowledge_base_router)

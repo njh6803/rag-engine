@@ -5,6 +5,7 @@
 인터페이스를 쓰는 것, 예고 없이 깨지는 것이다.
 """
 
+import asyncio
 from collections.abc import AsyncIterator, Mapping
 
 from rag_engine.domain.connectors import (
@@ -84,3 +85,36 @@ def create_unreadable(config: Mapping[str, JsonValue]) -> FakeConnector:
 def create_broken(config: Mapping[str, JsonValue]) -> FakeConnector:
     """인터페이스에 없는 예외를 비밀번호처럼 보이는 글과 함께 낸다."""
     raise RuntimeError(LEAKED_TEXT)
+
+
+class _BrokenCheckConnector(FakeConnector):
+    """연결 확인이 인터페이스에 없는 예외를 비밀번호처럼 보이는 글과 함께 내는 커넥터."""
+
+    async def check(self) -> None:
+        raise RuntimeError(LEAKED_TEXT)
+
+
+def create_broken_check(config: Mapping[str, JsonValue]) -> FakeConnector:
+    return _BrokenCheckConnector(config)
+
+
+class _HangingCheckConnector(FakeConnector):
+    """연결 확인이 돌아오지 않는 커넥터."""
+
+    async def check(self) -> None:
+        await asyncio.Event().wait()
+
+
+def create_hanging_check(config: Mapping[str, JsonValue]) -> FakeConnector:
+    return _HangingCheckConnector(config)
+
+
+class _RejectingCheckConnector(FakeConnector):
+    """연결 확인이 경로 확인에 걸렸다고 알리는 커넥터."""
+
+    async def check(self) -> None:
+        raise ConnectorError(ConnectorFailureReason.REJECTED)
+
+
+def create_rejecting_check(config: Mapping[str, JsonValue]) -> FakeConnector:
+    return _RejectingCheckConnector(config)
