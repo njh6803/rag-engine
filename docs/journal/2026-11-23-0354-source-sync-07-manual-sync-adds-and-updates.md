@@ -127,6 +127,13 @@ PR 105번의 첫 회차다. claude-review는 지적 없음(경계, 계약, 제�
   - `index_document.py`의 주석: 동기화 뒤에 운영자가 상한을 낮췄을 수 있고, 커넥터가 제 상한을 지킨다는 보장은 없다.
   - `tests/support/plain_list_connectors.py`의 머리: `Connector.list`의 선언이 이 꼴을 허용하고, 이 꼴은 반복자를 돌려주기 전에 원천을 부를 수 있다.
 
+둘째 회차(커밋 7a6b0b8). claude-review가 Critical·Major 없이 Minor 둘과 Nit 하나를 냈고 CodeRabbit은 한도에 걸려 리뷰가 없었다. 둘째 회차 규칙대로 고치지 않고 이유를 PR 코멘트에 남겼다.
+
+- Minor: `/jobs` 응답의 `document_id`와 `document`가 널을 받게 된 것은 사실이라 PR 본문의 계약 영향 절을 고쳤다(코드 변경 없음).
+- Minor: 동기화의 `NOT_FOUND`(`source_unreadable`로 센다)와 색인의 `NOT_FOUND`(`source_changed`)가 다르다는 지적은 보류했다. 명세가 동기화 때의 `NOT_FOUND`를 정하지 않아 이 티켓이 정할 수 없다. 아래 "다음"에 to-spec의 물음으로 적었다.
+- Nit: `job_failure`가 `sync_source`의 `fail_record`를 import하는 방향은 같은 층이고 순환이 없어 미뤘다. 기록을 닫는 함수가 늘면 따로 뺀다.
+- CI의 `python` 잡이 15분 제한에 걸려 한 번 취소됐고(pytest 단계가 앞 성공 실행은 13분 7초, 이번은 14분 20초쯤에 끊겼다) 실패한 잡만 다시 돌려 초록이 됐다. 마진이 약 2분이라 같은 취소가 다시 날 수 있다. 아래 "다음"에 후속으로 적었다.
+
 ## 검증
 
 - 변이 표 19개를 한 번에 돌려 모두 기대한 빨강이었다(`PYTHONUTF8=1 uv run python tools/mutate.py .scratch/source-sync/probes/sync_mutations.toml`). 반영 도중 더한 변이 둘 가운데 하나(제외 패턴을 맞출 때 키를 NFC로 맞추지 않는다)는 빨강으로 잡혔고, 다른 하나(재시도 소진 끝에서 `hold_attempt`를 지운다)는 위 "판정과 반영"에 적은 동등 변이라 표에서 뺐다. `reread` 동작과 함께 변이 하나도 걷었다. PR 직전 리뷰 뒤에 변이 하나(목록을 여는 호출을 예외 번역 밖에서 부른다)를 19번으로 끼워 넣어 표는 20개가 됐고, 그 하나만 따로 돌려 빨강을 확인했다. 봇 회차에서 변이 둘을 더해 표는 22개가 됐고(19번의 원문은 새 코드에 맞춰 고쳤다), 19~21번을 따로 돌려 모두 빨강을 확인했다. 22개를 한 번에 다시 돌리지는 않았다.
@@ -145,4 +152,5 @@ PR 105번의 첫 회차다. claude-review는 지적 없음(경계, 계약, 제�
 - 09가 알아야 할 것: `reread` 옵션은 이 티켓이 기록에만 남긴다. 위 "남긴 것"의 두 상태(재시도를 다 쓴 문서, `source_changed` 뒤 같은 값이 다시 적힌 문서)를 09가 닫아야 한다.
 - 10이 알아야 할 것: 일정이 넣는 작업은 `enqueue_source_job`(같은 원천의 같은 종류가 대기 중이면 `None`)을 쓰고 새 요청 ID를 붙인다. 동기화 기록의 `trigger`는 `manual`과 `schedule`이다.
 - 11이 알아야 할 것: 지운 원천에도 `POST /sources/{name}/sync`가 202로 답하고 작업자가 그 작업을 만나면 `RuntimeError`가 난다(`sync_source`의 `_open` 앞). 지움 표시를 보는 자리를 `request_sync`와 `sync_source` 둘에 더해야 한다. 끝없는 목록의 상한도 11과 db-source가 본다.
-- to-spec으로 넘길 것: 동기화 기록의 `failure_code`가 가질 수 있는 값의 목록(명세 "동기화 기록")이 `worker_lost`, `internal_error`, `database_unavailable`을 포함하는지 정한다.
+- to-spec으로 넘길 것: 동기화 기록의 `failure_code`가 가질 수 있는 값의 목록(명세 "동기화 기록")이 `worker_lost`, `internal_error`, `database_unavailable`을 포함하는지 정한다. 동기화가 파일을 읽을 때 `NOT_FOUND`를 어떻게 셀지도 정한다. 지금은 `source_unreadable` 실패로 세고 문서는 그대로 두며, 색인 때의 `NOT_FOUND`는 `source_changed`다. 08의 삭제 반영이 다음 동기화에서 그 문서를 지우므로 결과는 같지만, 기록의 `failed` 개수가 그 사건을 어떻게 보이게 할지는 명세가 침묵한다.
+- 하네스로 따로 할 일(이 PR 범위 밖): `.github/workflows/ci.yml`의 `python` 잡 시간 제한 15분이 pytest 약 13분 대비 마진이 약 2분뿐이라, 시험이 늘면 제한에 걸려 취소되고 필수 검사 `verify`가 빨개진다. 제한을 올리거나 시험 시간을 줄이는 일이다. 이 PR에서는 한 번 걸려 다시 돌렸다.
