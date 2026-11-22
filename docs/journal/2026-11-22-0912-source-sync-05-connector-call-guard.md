@@ -31,7 +31,7 @@ source-sync 티켓을 나눈 세션이 낸 지시문으로 연 세션의 기록�
 **표준 축.** Critical·Major 없음, 문서화된 표준 위반 Minor 둘, 냄새와 Nit 몇.
 
 - (Minor, 고쳤다) 시험의 로거 이름 비교(`record.name == "rag_engine.adapters"`)가 늘 거짓이라 "한도 안에 돌아오면 기억하지 않는다" 시험의 로그 단언이 비어 있었다. 코드로 로거 이름이 `rag_engine.adapters.connectors.guard`임을 확인했다. 한도를 넘길 때의 로그 줄만 모으는 도우미로 바꿨다. 이 시험이 "바로 기억하는" 변이를 직접 잡는다.
-- (Minor, 고쳤다) 변이 표지 둘(`ConnectorCallGuard object at`, `<built-in function monotonic>`)이 단언을 풀어 쓴 repr 조각이라 다른 빨강에도 나올 수 있었다. 단언 메시지의 값으로 바꿨다. 세 변이가 함께 쓰는 `ConnectorCallTimedOutError: 커넥터 호출이 한도까지`는 남겼다. 그 변이들이 기대하는 실패가 정확히 "막혀야 할 호출이 막히지 않고 한도를 기다렸다"이므로 원인 문구다.
+- (Minor, 고쳤다) 변이 표지 둘(`ConnectorCallGuard object at`, `<built-in function monotonic>`)이 단언을 풀어 쓴 repr 조각이라 다른 빨강에도 나올 수 있었다. 단언 메시지의 값으로 바꿨다. 세 변이가 함께 쓰는 `ConnectorCallTimedOutError: 커넥터 호출이 한도까지`는 남겼다. 그 변이들이 기대하는 실패가 정확히 막혀야 할 호출이 막히지 않고 한도를 기다린 것이므로 원인 문구다.
 - (고쳤다) 로그 줄 걸러내기가 시험 파일에 다섯 번 되풀이되어 `_timed_out_records`로 모았다. `_stuck` 정리가 질의처럼 보이는 이름이라 독스트링에 적었다. `test_남은_수는_프로세스_전체에서_센다`는 실제로 장치 하나를 센다고 이름을 고쳤고, 머리 설명에 장치를 요청이나 작업마다 새로 만들면 기억이 갈린다고 적었다.
 - (남겼다, Nit) 키 정리의 `(key, kind, source)` 묶음과 열쇠를 문자열로 짠 것은 작아서 둔다.
 
@@ -50,10 +50,22 @@ source-sync 티켓을 나눈 세션이 낸 지시문으로 연 세션의 기록�
 3. `guard.py` `_identity` 독스트링: `1`과 `1.0`과 `true`가 다른 값이다.
 4. `guard.py` 클래스 독스트링: 요청이나 작업마다 새로 만들면 기억이 갈린다.
 
+## PR 직전 리뷰
+
+`coderabbit-review`가 `coderabbit review --agent --committed --base origin/dev`로 돌렸다(범위는 `reviewType: committed`, `baseBranch: origin/dev`, 본 파일 9개가 모두 들어 있었다). 첫 실행은 연결 단계의 `WebSocket closed`로 지적 없이 끝났고 한 번 더 돌려 `review_completed`(지적 2건)로 끝났다. `Seat: not assigned`(Plan: Free, CLI 0.7.5)에서도 리뷰는 끝까지 돌았다. 에이전트가 40번 호출 한도에 걸려 보고 없이 멈춰서 보고를 내라고 한 번 더 요청했다. Critical과 Major는 없다.
+
+- (Minor, 고쳤다) `tests/support/holding_connectors.py`의 `list()`가 붙잡지 않는 항목은 `calls`에만 더하고 `finished`는 올리지 않아 둘이 어긋났다. 코드로 확인했고 `finished`를 단언하는 시험이 모두 `fetch`와 `check`를 쓰므로 깨지는 시험은 없었다. 붙잡지 않는 갈래도 `finished`를 올리게 했다.
+- (Minor, 고쳤다, 에이전트가 직접 잰 것) `_release` 주석이 크기 상한 "100MB"를 고정값처럼 적었다. 명세는 `RAG_MAX_UPLOAD_MB`의 기본값이 100이고 호출 하나가 그만큼까지 쥘 수 있다는 것을 "위 규칙으로 따진 어림이고 재지 않았다"고 적었다(`.scratch/source-sync/spec.md` 197줄을 열어 확인했다). 주석을 "크기 상한, 기본 100MB"로 고치고 어림이라고 적었다.
+- (오탐, 남겼다) CLI가 Major로 낸 `_identity`의 `1`과 `1.0`을 다른 열쇠로 보는 것은 설계다. 독스트링과 이 일지의 셀프 리뷰 절이 적었다. 같은 값이 다른 꼴로 오면 막지 못하고 커넥터를 한 번 더 부를 뿐이고, 합치면 `1`과 `true`까지 섞일 수 있다.
+
+**밀어 보낸 주장 대 보기(에이전트가 스크래치 스크립트로 돌렸다).** `_release`의 결과 해제는 약한 참조로 재서 맞았다. `iterate`는 `break` 뒤 `aclose()` 없이 참조를 놓으면 이벤트 루프가 제너레이터를 닫았고 놓기 전에는 닫히지 않았다(한도를 넘긴 `anext` 일이 `items`를 쥐는 동안에는 풀어 준 뒤에 닫혔다). `_identity`는 `{"a":1}`, `{"a":1.0}`, `{"a":true}`가 서로 다른 열쇠이고 키 순서는 같은 열쇠였다. 클래스 독스트링은 같은 장치가 두 번째를 막고 새 장치는 다시 부르는 것으로 맞았다. 경합 세 갈래(취소와 한도와 풀어 줌의 겹침, 끝난 호출과 `_release` 사이의 틈, 목록 도중의 한도)에서는 두 번 기억하거나 잘못 막는 길이 나오지 않았다.
+
 ## 검사
 
 - 반영 전 끝 전체: `uv run ruff check .`, `uv run ruff format --check .`, `uv run python tools/run_checks.py`가 모두 통과했다(러너 종료 코드 0, pytest 557초).
-- 반영 뒤: `ruff format`, `ruff check`, `pyright`(0 errors), 시험 파일 23개 통과, 변이 17개 기대대로. 전체 러너는 커밋이 부르는 pre-commit이 갈음한다.
+- 반영 뒤: `ruff format`, `ruff check`, `pyright`(0 errors), 시험 파일 23개 통과, 변이 17개 기대대로. 전체 러너는 커밋이 부르는 pre-commit이 갈음했다. 첫 커밋(4a35271)의 pre-commit은 ruff, 포맷, 검사 러너(pytest 452.7초, pyright, lint-imports, check-type-escapes 포함), 변이 표, 커밋 메시지가 모두 통과했다. 인용 대조 경고 하나(위 셀프 리뷰 절의 따옴표)는 따옴표를 떼어 고쳤다.
+- 반영 커밋의 첫 pre-commit은 pytest에서 세 시험이 빨개져 막혔다(`test_serve가_뜨면_JSON_Lines만_…`이 30초 안에 뜨지 않았고, `tests/contract/test_search_complete.py`의 둘이 읽기 제한 시간 초과로 끝났다). 같은 실행에서 xdist 작업자 하나가 `node down: Not properly terminated`로 죽었고, pytest가 452초가 아니라 958초 걸렸다(5086개 통과, 3개 실패). 이 변경이 닿은 것은 주석과 시험 도우미와 일지뿐이고 세 시험은 장치를 부르지 않는다. 그 두 파일만 홀로 돌리자 21개가 모두 통과했다(135초). 부하에서만 빨간 시간 시험의 새 사례라 일지에만 적고 대기열에는 올리지 않는다(사용자가 2026-11-15에 그 종류를 다시 열지 않기로 했다). 같은 커밋을 다시 시도했다.
+- PR 직전 리뷰의 두 고침 뒤: `uv run pyright` 0 errors, 시험 파일 23개 통과, `ruff format --check` 통과. 이 반영 커밋의 전체 검사도 pre-commit이 갈음한다.
 
 ## 회고
 

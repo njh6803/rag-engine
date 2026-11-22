@@ -62,6 +62,7 @@ class HoldingConnector:
                 await self._hold("list")
             else:
                 self.calls.append("list")
+                self.finished += 1
             yield item
 
     async def fetch(self, key: str) -> FetchedItem:
