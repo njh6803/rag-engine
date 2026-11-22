@@ -119,5 +119,5 @@ PR #101을 연 뒤 받은 봇 리뷰다. 받은 턴에 옮겼다.
 - **06이 가져오는 원천을 열 때.** `CreateSourceRequest.kind`를 `pull`까지 열고 `SourceResponse`의 가져오는 원천 칸(`connector`, `config`, `group`, `schedule`, `next_run_at`, `paused`, `exclude_patterns`)을 엔티티에서 읽게 바꾼다. 지금은 모두 null로 박혀 있다. `require_source`는 가져오는 원천의 이름을 받아도 걸러 내지 않으므로 수집 API가 `wrong_source_kind`(409)를 내는 것도 06이 맡는다.
 - **11이 원천을 지울 때.** `require_source`는 `deleted_at`을 보지 않는다. 지운 원천의 이름이면 `source_deleted`(409)를 내는 것과 관리 API의 `include_deleted`는 11이 연다. `GET /sources`와 `list_sources`는 지금도 지운 원천을 모두 낸다(지운 원천이 아직 생기지 않아 보이지 않을 뿐이다).
 - **07이 동기화 기록을 채울 때.** `SourceResponse.last_sync`가 타입 `None`으로 굳어 있다. 기록 칸을 읽으며 타입을 바꾼다.
-- **02가 건너뜀을 쓸 때.** 원천의 `documents.skipped`는 문서 상태 `skipped`를 세지만 이 PR의 시험은 0만 본다(건너뜀 문서를 세는 시험은 07이 동기화로 본다는 티켓의 말대로다). `skipped`가 문서 상태 열거에 들어가면 `count_documents_of_source`의 글을 열거로 바꾼다.
-- **글자 충돌.** 02와 `glossary-release-number-names` 워크트리가 같은 파일을 고친다. 나중에 병합하는 쪽이 충돌을 풀 때 `Source`와 `DocumentQuery`, `IngestRequest`에 이 PR이 더한 칸을 지우지 않는다.
+- **건너뜀 문서를 세는 시험.** 원천의 `documents.skipped`는 문서 상태 `skipped`를 세지만 이 PR의 시험은 0만 본다(건너뜀 문서를 세는 시험은 07이 동기화로 본다는 티켓의 말대로다). 02(#102)가 먼저 병합되어 `DocumentState.SKIPPED`가 생겼고, 이 PR이 `origin/dev`를 합칠 때 `count_documents_of_source`의 글 `"skipped"`를 열거로 바꿨다.
+- **글자 충돌.** 02와는 `origin/dev`를 합칠 때 충돌 없이 합쳐졌다(`errors.py`, `entities.py`, `ingest.py`, `document_store.py`). `glossary-release-number-names` 워크트리는 아직 같은 파일을 고친다. 나중에 병합하는 쪽이 충돌을 풀 때 `Source`와 `DocumentQuery`, `IngestRequest`에 이 PR이 더한 칸을 지우지 않는다.

@@ -247,8 +247,9 @@ class PostgresDocumentStore:
                         sa.func.count()
                         .filter(documents.c.status == DocumentState.FAILED.value)
                         .label("failed"),
-                        # 문서 상태 열거에 `skipped`가 아직 없어 글로 적는다.
-                        sa.func.count().filter(documents.c.status == "skipped").label("skipped"),
+                        sa.func.count()
+                        .filter(documents.c.status == DocumentState.SKIPPED.value)
+                        .label("skipped"),
                     ).where(documents.c.source_id == source_id, documents.c.deleted_at.is_(None))
                 )
             )
