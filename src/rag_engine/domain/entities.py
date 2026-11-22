@@ -220,9 +220,10 @@ class Document:
     purged_at: datetime | None
     created_at: datetime
     modified_at: datetime
-    # 상태가 `skipped`일 때만 있다. 사유가 있는데 상태가 `skipped`가 아닌 행은 데이터베이스의 CHECK
-    # 제약이 막는다. 반대(`skipped`인데 사유가 없는 행)는 쓰는 자리가 `_record_skipped` 하나라
-    # 생기지 않는다.
+    # 행의 상태가 `skipped`일 때만 있다. 사유가 있는데 행의 상태가 `skipped`가 아닌 행은
+    # 데이터베이스의 CHECK 제약이 막는다. 반대(`skipped`인데 사유가 없는 행)는 쓰는 자리가
+    # `_record_skipped`와 0005 둘뿐이라 생기지 않는다. 지운 문서는 행의 상태가 그대로라 사유가 남고,
+    # `state`는 `deleted`다.
     skip_reason: SkipReason | None = None
 
     @property

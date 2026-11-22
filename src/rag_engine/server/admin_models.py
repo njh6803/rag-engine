@@ -71,7 +71,8 @@ class DocumentResponse(BaseModel):
     status: DocumentState = Field(description="지운 문서는 `deleted`다")
     error_code: ErrorCode | None = Field(description="파싱이 영구 실패한 문서의 오류 코드")
     skip_reason: SkipReason | None = Field(
-        description="문서를 건너뛴 까닭(`encrypted`, `no_text`). 상태가 `skipped`일 때만 있다"
+        description="문서를 건너뛴 까닭(`encrypted`, `no_text`). 건너뛴 문서에만 있다."
+        " 건너뛴 문서를 지우면 상태가 `deleted`로 보여도 까닭은 남는다"
     )
     metadata: dict[str, JsonValue]
     updated_at: UtcTime
