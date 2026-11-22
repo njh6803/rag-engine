@@ -13,7 +13,7 @@ source-sync 티켓 07을 닫은 세션이 낸 지시문으로 연 세션의 기�
 - **의존성과 규약 문서.** `cronsim` 2.8을 운영 의존성으로 더하고 import 금지 목록(`pyproject.toml`)에 넣어 열일곱이 열여덟이 됐다. 계약 이름(`eighteen`), 그 위의 주석, `CLAUDE.md` 레이어 절의 수를 같이 고쳤다. `docs/constitution/tech.md`의 작업 대기열 칸에 일정과 그 라이브러리를 적었고 헌법 버전은 1.5.9(문구 수정, patch)로 올렸다. 형제 워크트리가 1.5.8을 쓰고 있어 `tools/sibling_overlap.py`로 비켜 갔다.
 - **계산기.** `adapters/schedule.py`의 `CronsimScheduleCalculator`. 공백으로 가른 칸이 다섯이 아니면 라이브러리를 부르기 전에 거부한다(라이브러리는 여섯 칸을 초가 앞선 표현식으로 읽는다). 값이 틀린 표현식과 오지 않는 날짜(2월 31일)는 만들 때 라이브러리가 올리는 예외로 거부하고, 50년을 찾아도 오는 날이 없어 멈추는 `StopIteration`도 같은 거부로 바꾼다. 라이브러리의 예외는 원인이나 맥락으로 달지 않아 글이 응답이나 로그로 나가지 않는다.
 - **설정.** `RAG_SCHEDULE_TIMEZONE`(기본 `Asia/Seoul`). 모르는 이름이면 설정을 읽는 자리에서 거부하고, 오류는 칸 이름만 싣는다(원칙 V). 서버와 작업자가 같은 설정을 읽으므로 둘 다 기동을 거부한다.
-- **카탈로그 포트 넷.** `set_source_schedule`, `set_next_run_at`, `lock_source`(행을 `FOR UPDATE`로 잠그고 읽는다), `lock_due_sources`(`FOR UPDATE SKIP LOCKED`, 지난 시각 순).
+- **카탈로그 포트 넷.** `set_source_schedule`, `set_next_run_at`, `lock_source`(행을 `FOR NO KEY UPDATE`로 잠그고 읽는다), `lock_due_sources`(`FOR NO KEY UPDATE SKIP LOCKED`, 지난 시각 순. 처음에는 `FOR UPDATE`였고 아래 셀프 리뷰에서 바꿨다).
 - **일정 확인 유스케이스.** `app/schedule_check.py`의 `check_schedules(unit_of_work, calculator, *, now)`가 작업 단위 하나에서 시각이 지난 원천을 잠그고, 원천마다 `enqueue_source_job`(07이 둔 것)으로 동기화 작업을 넣고, 동기화 기록(`trigger`가 `schedule`, 옵션 없음)을 더하고, 다음 시각을 `now` 다음으로 옮긴다. 놓친 회차가 여럿이어도 한 번만 넣는다. 같은 원천의 동기화가 대기 중이거나 실행 중이면 작업은 넣지 않고 기록을 `not_started`(실패 사유 `sync_in_progress`, 시작 시각 비움, 끝 시각은 만든 시각)로 남긴다. 일정 없이 시각만 남은 원천은 시각을 비운다.
 - **작업자.** `worker/schedule_loop.py`의 `run_schedule_loop`가 `RAG_WORKER_POLL_SECONDS`마다 일정 확인을 한 번 부르고, `serve`가 슬롯과 따로 띄운다(`schedules` 인자는 필수다). 일정 확인은 자기 작업 단위를 받는다. 슬롯의 작업 단위를 세어 보는 시험(`WatchedUnitOfWork`, `FlakyUnitOfWork`)이 있고, 슬롯이 모두 긴 작업에 잡혀도 일정이 시작되어야 해서다. 실제 조립(`run_worker`)은 같은 작업 단위 묶음을 쓰고, 연결 풀의 하한에 일정 확인의 연결 하나를 더했다. 확인이 실패하면(`TransientFailure`는 경고, 그 밖의 예외는 오류) 로그만 남기고 다음 주기에 다시 한다. 로그는 `schedule_sync_enqueued`와 `schedule_sync_skipped`만 한 줄씩 남기고 아무 일도 없는 주기는 조용하다. 실은 원천 이름, 기록 ID, 작업 ID, 요청 ID뿐이다.
 - **관리 API.** `POST /sources`와 `PATCH /sources/{name}`이 `schedule`을 받는다. 받지 않는 글은 422 `validation_error`(`loc`의 끝이 `schedule`, 종류 `invalid_schedule`)이고 응답에 라이브러리 글이 없다. PATCH는 칸이 없으면 그대로 두고 null이면 일정을 없앤다(`model_fields_set`으로 가른다). 다음 실행 시각은 일정을 적거나 고칠 때, 일시 중지에서 다시 시작할 때 `now` 다음으로 채우고, 일정을 없애거나 일시 중지하면 비운다. 이미 돌고 있는 원천을 다시 시작해도 시각을 건드리지 않는다(이미 지난 시각이 밀리지 않게 한다). 일시 중지한 원천의 일정을 고치면 시각은 빈 채로 둔다. 일정을 고치는 요청과 일시 중지는 원천 행을 잠그고 읽는다.
@@ -40,7 +40,7 @@ source-sync 티켓 07을 닫은 세션이 낸 지시문으로 연 세션의 기�
 **고친 것**
 - 표준 축: 2월 31일은 어떤 경우에도 거부한다는 닫힌 주장이 틀렸다. 일 칸과 요일 칸을 둘 다 적으면 하나만 맞아도 돌아서 `0 0 31 2 1`은 받는다. 어댑터 독스트링과 관리 API 독스트링을 고치고 받는 시험을 더했다.
 - 표준 축: 관리 API 독스트링의 422 `invalid_schedule` 표현이 틀렸다(응답은 `validation_error`이고 `invalid_schedule`은 오류 종류다). 스토리 22를 일정 확인 독스트링에 더했다. 손으로 해 본 달력 조합을 "쟀다"고 적은 문장은 손으로 해 본 것이라고 고쳤다. 다음 실행 시각 계산이 세 곳에 되풀이되어 `_next_due` 하나로 모았다.
-- 명세 축(교착): 일정 확인이 원천 행을 `FOR UPDATE`로 잡으면, 지금 동기화가 작업 행을 넣을 때 외래 키 확인이 거는 `KEY SHARE`를 기다리게 한다. 이때 일정 확인이 같은 원천에 작업을 넣으려 하면 서로를 기다린다. 코드를 읽고 따진 것이라 실제 교착을 재현하지는 못했다. 문서 저장소가 이미 쓰는 `FOR NO KEY UPDATE`(`with_for_update(key_share=True)`)로 `lock_source`와 `lock_due_sources`를 바꾸었다. 일정 확인끼리와 일정을 고치는 요청과는 계속 서로 기다린다. 티켓 본문은 `FOR UPDATE SKIP LOCKED`라고 적었으나 건너뛰는 성질은 같고 키 잠금만 약해졌다. 시험 둘(`test_schedule_check_locking.py`)과 변이 둘을 더했다.
+- 명세 축(교착): 일정 확인이 원천 행을 `FOR UPDATE`로 잡으면, 지금 동기화가 작업 행을 넣을 때 외래 키 확인이 거는 `KEY SHARE`를 기다리게 한다. 이때 일정 확인이 같은 원천에 작업을 넣으려 하면 서로를 기다린다. 코드를 읽고 따진 것이라 실제 교착을 재현하지는 못했다. 문서 저장소가 이미 쓰는 `FOR NO KEY UPDATE`(`with_for_update(key_share=True)`)로 `lock_source`와 `lock_due_sources`를 바꾸었다. 일정 확인은 다른 연결이 잡은 행을 건너뛰고, 일정을 고치는 요청과 일시 중지는 일정 확인이 잡은 행을 기다린다. 티켓 본문은 `FOR UPDATE SKIP LOCKED`라고 적었으나 건너뛰는 성질은 같고 키 잠금만 약해졌다. 시험 둘(`test_schedule_check_locking.py`)과 변이 둘을 더했다.
 - 명세 축: 일정 확인의 로그 줄이 `try` 밖에 있어 로그가 예외를 내면 반복이 죽을 수 있었다. 로그를 `try` 안으로 옮겼다.
 - 명세 축: `PATCH`에 틀린 일정을 주면 없는 원천이 404가 아니라 422로, 밀어 넣는 원천이 409가 아니라 422로 나왔다. 원천 확인을 일정 확인 앞으로 옮겼다. `POST`는 커넥터 설정 확인과 일정 확인의 순서를 가르는 명세가 없어 그대로 두었다.
 
@@ -75,3 +75,17 @@ source-sync 티켓 07을 닫은 세션이 낸 지시문으로 연 세션의 기�
 
 - 이 티켓의 PR을 열고 병합한다(요청 범위). 병합 뒤 봇 회차가 있으면 이 일지 끝에 "봇 회차"로 적는다.
 - 다음 티켓 후보: 11(원천 지우기. 지울 때 `next_run_at`을 비우고 지운 원천에는 시각을 다시 쓰지 않게 한다), 08(지움 반영과 빈 목록 보호, 나란히 돈다), 14(색인 버전 전환). 넘기는 것의 자세한 내용은 위 "다음 티켓에 넘기는 것"이다.
+
+## PR 직전 리뷰 (CodeRabbit CLI, 내장 보안 리뷰)
+
+CodeRabbit CLI는 정상으로 돌았다(`review_completed`, 지적 6건, 좌석은 `Seat: not assigned`). 리뷰 에이전트가 지적과 우리 주장 일곱을 코드와 시험으로 밀어 보았다. 내장 `/security-review`는 신뢰도 8 이상의 취약점이 없다고 보고했다(SQL은 바인딩 값만, 새 라우트와 `/mcp` 노출 없음, 응답과 로그에 표현식과 라이브러리 글 없음). 로그가 이 저장소 예외의 메시지를 싣는 길(`log_format._exception_payload`)은 직접 열어 보았고, 새 코드에서 거기 닿는 `InvalidScheduleError`의 글은 고정 문구다.
+
+**고친 것**
+- `domain/ports.py`의 `lock_source`와 `lock_due_sources` 독스트링이 `FOR UPDATE`라고 적혀 있었다. `FOR NO KEY UPDATE`로 고치고 외래 키 확인과 부딪치지 않는다는 까닭을 덧붙였다.
+- 주장 하나가 틀렸다. 일정 확인끼리는 `SKIP LOCKED`라 기다리지 않고 건너뛰고, 기다리는 쪽은 일정을 고치는 요청과 일시 중지다. 일지의 셀프 리뷰 절과 `test_schedule_check_locking.py` 머리말을 고쳤다.
+- 시험 공백: 일정 확인이 잡은 행을 일정을 고치는 쪽이 기다리는 시험이 없었다. `test_schedule_check_locking.py`에 시험을 더하고 변이 21번(행을 잠그지 않고 읽는다)이 빨강임을 보았다. 변이 표는 21개이고 모두 기대대로다.
+
+**남긴 것**
+- Major로 올린 지적: 저장된 일정 하나가 계산기에서 예외를 내면 그 주기의 일정 확인 전체가 되돌아가 모든 원천의 일정이 선다. 티켓의 수용 기준이 "일정 확인이 실패하면 로그에 남기고 다음 주기에 다시 한다"로 정한 동작이고(`.scratch/source-sync/issues/10-schedules-and-schedule-check.md`), 원천 하나만 건너뛰면 그 원천의 일정이 시각이 빈 채 조용히 서는 쪽으로 바뀐다. 어느 쪽이 나은지는 동작의 선택이라 이 티켓에서 정하지 않고, 지금은 주기마다 `schedule_check_failed`(오류)가 남아 드러난다. 저장할 때 같은 계산기로 확인하므로 일어나려면 라이브러리를 올린 뒤 옛 표현식을 거부하는 경우다. 후속 후보로 남긴다.
+- `RAG_SCHEDULE_TIMEZONE`의 시간대 데이터(`tzdata`)가 직접 의존이 아니라는 지적: 이 PC(윈도)에서는 `psycopg`가 `tzdata`를 끌어오고(`uv.lock`), 리눅스 이미지에 시간대 데이터가 있는지는 확인하지 못했다. 이름이 틀리면 `Settings` 검증이 기동을 거부하므로 조용히 깨지지는 않는다.
+- CodeRabbit 오탐 넷: `next_run`이 `after` 이하를 낸다는 지적(뉴욕의 가을 겹침과 봄 건너뜀을 재 보니 모두 뒤였다), 종료 때 `gather`가 끝없이 기다린다는 지적(취소는 데이터베이스 호출에 바로 전달된다, 근거 없음), 교체 함수에 키워드가 넘어간다는 지적(시험이 통과한다), 고정 `sleep`에 기댄다는 지적(시험 모양의 문제).

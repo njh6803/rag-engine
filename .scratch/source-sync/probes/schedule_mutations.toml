@@ -249,3 +249,17 @@ old = '''            sa.select(tables.sources)
         )'''
 new = '''            sa.select(tables.sources).where(tables.sources.c.id == source_id)
         )'''
+
+[[mutation]]
+name = "일정 확인이 잡은 행을 일정을 고치는 쪽이 기다리지 않는다"
+tests = ["tests/app/test_schedule_check_locking.py"]
+expect = "red"
+expect_output = ["<locals>.lock_like_an_edit() done"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/catalog.py"
+old = '''            .order_by(sources.c.next_run_at, sources.c.id)
+            .with_for_update(key_share=True, skip_locked=True)
+'''
+new = '''            .order_by(sources.c.next_run_at, sources.c.id)
+'''

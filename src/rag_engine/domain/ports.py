@@ -183,16 +183,17 @@ class Catalog(Protocol):
         ...
 
     async def lock_source(self, source_id: UUID) -> Source | None:
-        """그 원천의 행을 `FOR UPDATE`로 잠그고 잠근 뒤의 값을 낸다. 일정, 일시 중지, 다음 실행
-        시각을 읽고 고치는 요청이 서로의 칸을 되돌리지 않게 차례로 지나게 한다. 다른 연결이 잡고
-        있으면 풀릴 때까지 기다린다."""
+        """그 원천의 행을 `FOR NO KEY UPDATE`로 잠그고 잠근 뒤의 값을 낸다. 일정, 일시 중지, 다음
+        실행 시각을 읽고 고치는 요청이 서로의 칸을 되돌리지 않게 차례로 지나게 한다. 다른 연결이
+        잡고 있으면 풀릴 때까지 기다린다. 외래 키 확인이 거는 `FOR KEY SHARE`와는 부딪치지
+        않으므로, 그 원천에 작업이나 기록을 넣는 요청은 막지 않는다."""
         ...
 
     async def lock_due_sources(self, now: datetime) -> list[Source]:
         """다음 실행 시각이 `now` 이전이거나 같고 일시 중지도 지움 표시도 없는 가져오는 원천의 행을
-        `FOR UPDATE SKIP LOCKED`로 잠가 낸다. 다른 연결이 잡은 행은 기다리지 않고 건너뛰므로,
-        작업자를 여럿 띄워도 같은 원천을 두 연결이 함께 잡지 않는다. 다음 실행 시각과 식별자
-        순이다."""
+        `FOR NO KEY UPDATE SKIP LOCKED`로 잠가 낸다. 다른 연결이 잡은 행은 기다리지 않고
+        건너뛰므로, 작업자를 여럿 띄워도 같은 원천을 두 연결이 함께 잡지 않고, 일정을 고치는
+        요청이 잡은 원천은 이번 확인에서 건너뛴다. 다음 실행 시각과 식별자 순이다."""
         ...
 
     async def get_source(self, name: str) -> Source | None: ...

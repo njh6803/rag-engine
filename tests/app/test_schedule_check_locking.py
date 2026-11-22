@@ -1,7 +1,8 @@
 """원천 행 잠금이 일정 확인과 다른 요청 사이에서 하는 일(source-sync 티켓 10, 명세 "일정과 일정
 확인").
 
-일정 확인과 일정을 고치는 요청은 원천 행을 `FOR NO KEY UPDATE`로 잡아 서로 기다린다. 그러나 지금
+일정 확인과 일정을 고치는 요청은 원천 행을 `FOR NO KEY UPDATE`로 잡는다. 일정을 고치는 요청은
+일정 확인이 잡은 행을 기다리고, 일정 확인은 다른 연결이 잡은 행을 건너뛴다. 그러나 지금
 동기화가 작업 행과 기록 행을 넣을 때 외래 키 확인이 거는 `FOR KEY SHARE`와는 부딪치지 않는다.
 `FOR UPDATE`였다면 그 요청이 일정 확인의 커밋까지 기다리고, 같은 원천에 일정 확인이 작업을 넣으려
 할 때 서로를 기다리는 교착이 난다.
@@ -61,6 +62,28 @@ async def test_원천_행을_잠그고_읽는_쪽은_다른_연결이_잡은_잠
                 await waiter.catalog.lock_source(source.id)
 
         waiting = asyncio.create_task(lock_in_another_connection())
+        done, _ = await asyncio.wait({waiting}, timeout=STILL_WAITING)
+        assert not done
+
+    await asyncio.wait_for(waiting, GENEROUS)
+
+
+async def test_일정_확인이_잡은_원천_행을_일정을_고치는_쪽은_확인이_끝날_때까지_기다린다(
+    engine: AsyncEngine,
+) -> None:
+    unit_of_work = PostgresUnitOfWork(engine)
+    source = await add_scheduled_source(unit_of_work, "docs", next_run_at=CHECK_TIME)
+
+    async with unit_of_work.begin() as checking:
+        assert [item.id for item in await checking.catalog.lock_due_sources(CHECK_TIME)] == [
+            source.id
+        ]
+
+        async def lock_like_an_edit() -> None:
+            async with unit_of_work.begin() as editing:
+                await editing.catalog.lock_source(source.id)
+
+        waiting = asyncio.create_task(lock_like_an_edit())
         done, _ = await asyncio.wait({waiting}, timeout=STILL_WAITING)
         assert not done
 
