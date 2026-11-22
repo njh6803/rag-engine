@@ -74,7 +74,7 @@ expect_output = ["AssertionError: assert {} == {'too_large': 1}"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/sync_source.py"
-old = '''            counts.reject(RejectReason.TOO_LARGE)
+old = '''            counts.reject_on_read(item.key)
         elif error.reason is ConnectorFailureReason.REJECTED:'''
 new = '''            counts.fail(ErrorCode.SOURCE_UNREADABLE)
         elif error.reason is ConnectorFailureReason.REJECTED:'''
@@ -101,10 +101,10 @@ expect_output = ["assert <SyncRecordStatus.FAILED: 'failed'> is <SyncRecordStatu
 [[mutation.edit]]
 file = "src/rag_engine/app/sync_source.py"
 old = '''        if reason is None:
-            candidates.append(item)
+            candidates[item.key] = item
         else:
             counts.reject(reason)'''
-new = '''        candidates.append(item)'''
+new = '''        candidates[item.key] = item'''
 
 [[mutation]]
 name = "건너뜀 문서를 건너뜀이 아니라 그대로로 센다"
@@ -314,3 +314,140 @@ expect_output = ["AssertionError: 받은 값: False"]
 file = "src/rag_engine/app/ingest_policy.py"
 old = '''    folded_key = unicodedata.normalize("NFC", key)'''
 new = '''    folded_key = key'''
+
+# source-sync 08(지운 파일 반영과 빈 목록 판정)의 변이. 삭제 대상 고르기, 빈 목록 판정의 사유 가르기와
+# "빈 목록도 반영", 지운 개수, 로그 수준의 닫힌 열거와 그 옮김을 깨 본다.
+
+[[mutation]]
+name = "읽다가 too_large가 난 파일의 문서를 지우지 않는다"
+tests = ["tests/app/test_sync_deletes.py"]
+expect = "red"
+expect_output = ["{'deleted': 0} != {'deleted': 1}"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''    kept = candidates.keys() - counts.withdrawn
+'''
+new = '''    kept = candidates.keys()
+'''
+
+[[mutation]]
+name = "항목은 있는데 모두 걸린 목록을 source_unreadable로 닫는다"
+tests = ["tests/app/test_sync_deletes.py"]
+expect = "red"
+expect_output = ["+ source_unreadable"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        ErrorCode.SOURCE_UNREADABLE if counts.listed == 0 else ErrorCode.NOTHING_ACCEPTED'''
+new = '''        ErrorCode.SOURCE_UNREADABLE'''
+
+[[mutation]]
+name = "빈 목록도 반영을 켜도 빈 목록 판정이 막는다"
+tests = ["tests/app/test_sync_deletes.py"]
+expect = "red"
+expect_output = ["= SyncRecordStatus.SUCCEEDED"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''    return job.options.get("apply_empty") is True'''
+new = '''    return False'''
+
+[[mutation]]
+name = "빈 목록도 반영을 끄고도 빈 목록 판정이 지나간다"
+tests = ["tests/app/test_sync_deletes.py"]
+expect = "red"
+expect_output = ["assert <SyncRecordStatus.SUCCEEDED: 'succeeded'> is <SyncRecordStatus.FAILED: 'failed'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''    return job.options.get("apply_empty") is True'''
+new = '''    return True'''
+
+[[mutation]]
+name = "문서가 없는 원천도 모두 걸리면 실패로 닫는다"
+tests = ["tests/app/test_sync_deletes.py"]
+expect = "red"
+expect_output = ["= SyncRecordStatus.SUCCEEDED"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        if not await transaction.documents.has_documents_held_by_source(source.id):
+            return
+'''
+new = '''        pass
+'''
+
+[[mutation]]
+name = "지운 문서를 지운 개수에 세지 않는다"
+tests = ["tests/app/test_sync_deletes.py"]
+expect = "red"
+expect_output = ["{'deleted': 0} != {'deleted': 1}"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''            counts.deleted += 1
+        await hold_attempt(transaction, job)'''
+new = '''            pass
+        await hold_attempt(transaction, job)'''
+
+[[mutation]]
+name = "후보에 있는 키의 문서도 지운다"
+tests = ["tests/app/test_sync_deletes.py"]
+expect = "red"
+expect_output = ["{'added': 1} != {'added': 0}"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        if key not in kept:
+            await _delete_one'''
+new = '''        if key is not None:
+            await _delete_one'''
+
+[[mutation]]
+name = "잠그고 보니 이미 지워진 문서를 다시 지우고 센다"
+tests = ["tests/app/test_sync_deletes.py"]
+expect = "red"
+expect_output = ["AssertionError: assert 1 == 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        if document is not None and _is_live(document):
+            await delete_locked_document'''
+new = '''        if document is not None:
+            await delete_locked_document'''
+
+[[mutation]]
+name = "실패로 끝난 동기화의 끝 줄을 경고가 아닌 정보로 낸다"
+tests = ["tests/app/test_sync_log_lines.py"]
+expect = "red"
+expect_output = ["('sync_finished', <SyncLogLevel.INFO: 'info'>) != ('sync_finished', <SyncLogLevel.WARNING: 'warning'>)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''            level=SyncLogLevel.INFO if code is None else SyncLogLevel.WARNING,'''
+new = '''            level=SyncLogLevel.INFO,'''
+
+[[mutation]]
+name = "작업자가 경고 수준을 정보 수준으로 옮긴다"
+tests = ["tests/app/test_sync_log_lines.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_log_lines.py::test_작업자는_동기화의_수준을_로그_수준으로_옮긴다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''SyncLogLevel.WARNING: logging.WARNING'''
+new = '''SyncLogLevel.WARNING: logging.INFO'''
+
+[[mutation]]
+name = "빈 목록 판정이 원천과 함께 지워졌다는 표시가 남은 문서를 세지 않는다"
+tests = ["tests/app/test_sync_deletes.py", "tests/adapters/test_catalog_sources.py"]
+expect = "red"
+expect_output = ["At index 0 diff: <SyncRecordStatus.SUCCEEDED: 'succeeded'> != <SyncRecordStatus.FAILED: 'failed'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/document_store.py"
+old = '''            sa.or_(documents.c.deleted_at.is_(None), documents.c.deleted_with_source.is_(True)),
+'''
+new = '''            documents.c.deleted_at.is_(None),
+'''

@@ -10,9 +10,9 @@ expect_output = ['At index 1 diff: 3 != 4']
 
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
-old = '''            replace(document, deleted_at=now, generation=document.generation + 1, modified_at=now)
+old = '''        replace(document, deleted_at=now, generation=document.generation + 1, modified_at=now)
 '''
-new = '''            replace(document, deleted_at=now, modified_at=now)
+new = '''        replace(document, deleted_at=now, modified_at=now)
 '''
 
 [[mutation]]
@@ -23,7 +23,7 @@ expect_output = ["'queued' not in ['running', 'queued']"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
-old = '''        await transaction.jobs.delete_queued(document.id)
+old = '''    await transaction.jobs.delete_queued(document.id)
 '''
 new = ''
 
@@ -35,7 +35,7 @@ expect_output = ['error_code=None, updated_at=datetime.datetime(2026, 11, 11, 9'
 
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
-old = '''        await transaction.index.delete_states(document.id)
+old = '''    await transaction.index.delete_states(document.id)
 '''
 new = ''
 
@@ -47,7 +47,7 @@ expect_output = ['Right contains one more item: UUID(']
 
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
-old = '''        await _check_building_versions(transaction, knowledge_bases)
+old = '''    await _check_building_versions(transaction, knowledge_bases)
 '''
 new = ''
 

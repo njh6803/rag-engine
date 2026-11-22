@@ -278,6 +278,17 @@ class DocumentStore(Protocol):
         """그 원천의, 지워지지 않은 문서를 문서 상태로 센다."""
         ...
 
+    async def list_live_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
+        """그 원천의, 지워지지 않은 문서의 키마다 문서 ID를 낸다. 동기화가 삭제 반영 대상을 고르는
+        데 쓴다."""
+        ...
+
+    async def has_documents_held_by_source(self, source_id: UUID) -> bool:
+        """그 원천에 빈 목록 판정이 있는 문서로 셀 문서가 하나라도 있는가. 지워지지 않은 문서와,
+        원천과 함께 지워졌다는 표시가 남은 문서(원천 되살리기 작업이 아직 되살리지 않은 문서)를
+        센다. 완전히 지워져 삭제 기록 행만 남은 문서는 세지 않는다."""
+        ...
+
 
 class VectorIndex(Protocol):
     """조각, 보관 조각, 색인 상태. 색인 판마다의 HNSW 부분 색인을 맡는다. 작업 단위 안에서

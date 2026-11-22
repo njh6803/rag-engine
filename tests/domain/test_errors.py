@@ -18,8 +18,9 @@ from rag_engine.domain.errors import (
     TransientFailure,
 )
 
-# 명세가 적은 작업 코드 열넷에 가져오는 원천의 다섯(source-sync 명세 "오류 코드")을 더한 열아홉.
-# 명세의 문장에서 옮긴 것이라 코드와 따로 늘어나지 않는다.
+# 명세가 적은 작업 코드 열넷에 가져오는 원천의 여섯(source-sync 명세 "오류 코드")을 더한 스물.
+# 명세의 문장에서 옮긴 것이라 코드와 따로 늘어나지 않는다. 명세는 `source_deleted`까지 일곱을
+# 말하지만 그 하나는 티켓 11이 더한다.
 SPEC_JOB_CODES = {
     "parse_timeout",
     "parse_memory_exceeded",
@@ -37,6 +38,7 @@ SPEC_JOB_CODES = {
     "worker_lost",
     "source_unreadable",
     "source_changed",
+    "nothing_accepted",
     "source_path_rejected",
     "connector_unavailable",
     "connector_error",
@@ -79,7 +81,7 @@ SPEC_TOOL_CODES = {
 }
 
 
-def test_작업_코드_열아홉이_모두_정의되어_있다() -> None:
+def test_작업_코드_스물이_모두_정의되어_있다() -> None:
     assert {code.value for code in JOB_ERROR_CODES} == SPEC_JOB_CODES
 
 

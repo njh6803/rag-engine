@@ -166,6 +166,70 @@ async def test_문서_수는_지워지지_않은_문서를_문서_상태로_센�
     assert other_counts == DocumentCounts(total=1, failed=0, skipped=0)
 
 
+async def test_지워지지_않은_문서의_키는_원천마다_따로_문서_ID와_함께_나온다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    unit_of_work = PostgresUnitOfWork(engine)
+    source, group = await seed_source_and_group(unit_of_work)
+    other = _source("other")
+    live = make_document(source, group, "살아 있음")
+    async with unit_of_work.begin() as transaction:
+        await transaction.catalog.create_source(other)
+        await transaction.documents.add(live)
+        await transaction.documents.add(make_document(source, group, "지움"))
+        await transaction.documents.add(make_document(other, group, "다른 원천"))
+    with psycopg.connect(empty_database_url, autocommit=True) as connection:
+        connection.execute("UPDATE documents SET deleted_at = now() WHERE key = '지움'")
+
+    async with unit_of_work.begin() as transaction:
+        mine = await transaction.documents.list_live_keys_of_source(source.id)
+        theirs = await transaction.documents.list_live_keys_of_source(other.id)
+        nothing = await transaction.documents.list_live_keys_of_source(new_id())
+
+    assert mine == {"살아 있음": live.id}
+    assert list(theirs) == ["다른 원천"]
+    assert nothing == {}
+
+
+async def test_빈_목록_판정이_셀_문서는_살아_있는_문서와_원천과_함께_지워졌다는_표시가_남은_문서다(
+    engine: AsyncEngine, empty_database_url: str
+) -> None:
+    """원천마다 문서를 하나씩 두고 그 문서의 상태만 달리해 본다."""
+    unit_of_work = PostgresUnitOfWork(engine)
+    _, group = await seed_source_and_group(unit_of_work)
+    names = ("살아 있음", "따로 지움", "원천과 함께 지움", "삭제 기록", "문서 없음")
+    sources = {name: _source(name) for name in names}
+    async with unit_of_work.begin() as transaction:
+        for name, source in sources.items():
+            await transaction.catalog.create_source(source)
+            if name != "문서 없음":
+                await transaction.documents.add(make_document(source, group, name))
+    with psycopg.connect(empty_database_url, autocommit=True) as connection:
+        connection.execute("UPDATE documents SET deleted_at = now() WHERE key = '따로 지움'")
+        connection.execute(
+            "UPDATE documents SET deleted_at = now(), deleted_with_source = true"
+            " WHERE key = '원천과 함께 지움'"
+        )
+        connection.execute(
+            "UPDATE documents SET deleted_at = now(), deleted_with_source = true,"
+            " purged_at = now() WHERE key = '삭제 기록'"
+        )
+
+    async with unit_of_work.begin() as transaction:
+        held = {
+            name: await transaction.documents.has_documents_held_by_source(source.id)
+            for name, source in sources.items()
+        }
+
+    assert held == {
+        "살아 있음": True,
+        "따로 지움": False,
+        "원천과 함께 지움": True,
+        "삭제 기록": False,
+        "문서 없음": False,
+    }
+
+
 async def test_문서가_없는_원천의_문서_수는_모두_0이다(engine: AsyncEngine) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
     empty = _source("empty")
