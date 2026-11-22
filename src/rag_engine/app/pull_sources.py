@@ -49,11 +49,18 @@ from rag_engine.domain.entities import (
 from rag_engine.domain.errors import (
     ErrorCode,
     InvalidInput,
+    InvalidScheduleError,
     RequestError,
     SourceAlreadyExistsError,
 )
 from rag_engine.domain.identifiers import new_id
-from rag_engine.domain.ports import Catalog, ConnectorRegistry, Transaction, UnitOfWork
+from rag_engine.domain.ports import (
+    Catalog,
+    ConnectorRegistry,
+    ScheduleCalculator,
+    Transaction,
+    UnitOfWork,
+)
 
 _FOLDER_FAILURE_KINDS = {
     ConnectorFailureReason.INVALID_CONFIG: "invalid_config",
@@ -68,6 +75,14 @@ class ConnectionCheck:
 
     ok: bool
     code: ConnectionCheckCode | None
+
+
+@dataclass(frozen=True, slots=True)
+class ScheduleChange:
+    """일정을 고치라는 요청. `expression`이 `None`이면 일정을 없앤다. 요청에 일정 칸이 없으면 이
+    값 자체를 만들지 않고 `None`을 넘긴다(고치지 않는다)."""
+
+    expression: str | None
 
 
 def _nfc_segments(folder: str) -> tuple[str, ...]:
@@ -100,9 +115,15 @@ class PullSources:
     """가져오는 원천의 유스케이스. 폴더를 정하는 요청의 차례를 세우는 잠금을 쥐므로 서버
     프로세스마다 하나만 만들어 쓴다."""
 
-    def __init__(self, unit_of_work: UnitOfWork, registry: ConnectorRegistry) -> None:
+    def __init__(
+        self,
+        unit_of_work: UnitOfWork,
+        registry: ConnectorRegistry,
+        calculator: ScheduleCalculator,
+    ) -> None:
         self._unit_of_work = unit_of_work
         self._registry = registry
+        self._calculator = calculator
         self._folder_turn = asyncio.Lock()
 
     async def create(
@@ -113,14 +134,17 @@ class PullSources:
         config: Mapping[str, JsonValue],
         group: str | None,
         exclude_patterns: Sequence[str],
+        schedule: str | None,
         now: datetime,
     ) -> SourceReport:
+        """원천을 만든다. 일정을 적었으면 다음 실행 시각을 `now` 다음의 시각으로 채운다."""
+        self._check_schedule(schedule)
         self._validate(connector, config)
         location = await self._locate(connector, config)
         stored = _stored_config(config, location)
         try:
             return await self._create_in_turn(
-                name, connector, stored, location, group, exclude_patterns, now
+                name, connector, stored, location, group, exclude_patterns, schedule, now
             )
         except SourceAlreadyExistsError:
             raise RequestError(
@@ -135,6 +159,7 @@ class PullSources:
         location: FolderLocation | None,
         group: str | None,
         exclude_patterns: Sequence[str],
+        schedule: str | None,
         now: datetime,
     ) -> SourceReport:
         async with self._turn(location), self._unit_of_work.begin() as transaction:
@@ -157,6 +182,8 @@ class PullSources:
                 config=stored,
                 group_id=found.id,
                 exclude_patterns=tuple(exclude_patterns),
+                schedule=schedule,
+                next_run_at=self._next_due(schedule, now),
             )
             await catalog.create_source(source)
             return SourceReport(source, DocumentCounts(total=0, failed=0, skipped=0), found.name)
@@ -167,10 +194,16 @@ class PullSources:
         *,
         config: Mapping[str, JsonValue] | None,
         exclude_patterns: Sequence[str] | None,
+        schedule: ScheduleChange | None,
+        now: datetime,
     ) -> SourceReport:
-        """적은 칸만 고친다. 설정을 고치면 만들 때와 같은 확인을 다시 한다."""
+        """적은 칸만 고친다. 설정을 고치면 만들 때와 같은 확인을 다시 한다. `schedule`을 주면 일정을
+        바꾸고(`expression`이 없으면 없애고), 다음 실행 시각을 `now` 다음의 시각으로 다시 계산한다.
+        일시 중지한 원천은 시각이 빈 채로 둔다."""
         async with self._unit_of_work.begin() as transaction:
             current = await require_pull_source(transaction, name)
+        if schedule is not None:
+            self._check_schedule(schedule.expression)
         connector = current.connector
         if connector is None:
             raise RuntimeError("가져오는 원천에 커넥터가 없다")
@@ -191,15 +224,56 @@ class PullSources:
                 await catalog.update_pull_source(
                     latest.id, config=stored, exclude_patterns=exclude_patterns
                 )
+                if schedule is not None:
+                    await self._change_schedule(catalog, latest, schedule, now)
                 return await _report_after_write(transaction, name)
 
-    async def set_paused(self, name: str, *, paused: bool) -> SourceReport:
-        """일시 중지 칸만 바꾼다. 이미 그 상태여도 그대로 답한다. 다음 실행 시각은 일정을 여는
-        티켓이 다룬다."""
+    async def set_paused(self, name: str, *, paused: bool, now: datetime) -> SourceReport:
+        """일시 중지 칸을 바꾼다. 이미 그 상태여도 그대로 답한다. 일시 중지하면 다음 실행 시각을
+        비우고, 일시 중지에서 다시 시작하면 `now` 다음의 시각으로 채운다. 이미 돌고 있던 원천을 다시
+        시작하는 요청은 시각을 건드리지 않는다. 시각이 이미 지나 있는 원천의 시작이 미뤄지기
+        때문이다."""
         async with self._unit_of_work.begin() as transaction:
+            catalog = transaction.catalog
             current = await require_pull_source(transaction, name)
-            await transaction.catalog.set_source_paused(current.id, paused=paused)
+            locked = await catalog.lock_source(current.id) or current
+            await catalog.set_source_paused(current.id, paused=paused)
+            if paused:
+                await catalog.set_next_run_at(current.id, None)
+            elif locked.paused:
+                await catalog.set_next_run_at(current.id, self._next_due(locked.schedule, now))
             return await _report_after_write(transaction, name)
+
+    async def _change_schedule(
+        self, catalog: Catalog, source: Source, change: ScheduleChange, now: datetime
+    ) -> None:
+        """일정과 다음 실행 시각을 한 번에 쓴다. 원천 행을 잠가, 같은 원천의 일정 확인이나 다른
+        요청이 커밋한 일시 중지 칸을 읽은 값으로 되돌리지 않게 한다."""
+        locked = await catalog.lock_source(source.id) or source
+        await catalog.set_source_schedule(source.id, change.expression)
+        due = self._next_due(change.expression, now, paused=locked.paused)
+        await catalog.set_next_run_at(source.id, due)
+
+    def _next_due(
+        self, expression: str | None, now: datetime, *, paused: bool = False
+    ) -> datetime | None:
+        """다음 실행 시각. 일정이 없거나 일시 중지한 원천은 비고, 아니면 `now` 다음의 시각이다."""
+        if expression is None or paused:
+            return None
+        return self._calculator.next_run(expression, now)
+
+    def _check_schedule(self, expression: str | None) -> None:
+        """일정 표현식을 저장하기 전에 확인한다. 받지 않으면 422 `validation_error`(종류는
+        `invalid_schedule`)다. 글은 이 저장소가 쓴 것이고 라이브러리의 예외 글은 싣지 않는다."""
+        if expression is None:
+            return
+        failure: InvalidInput | None = None
+        try:
+            self._calculator.validate(expression)
+        except InvalidScheduleError as error:
+            failure = InvalidInput(("schedule",), "invalid_schedule", str(error))
+        if failure is not None:
+            raise failure
 
     async def check(self, name: str) -> ConnectionCheck:
         """저장해 둔 설정으로 커넥터의 `check()`를 요청 안에서 부른다. 원천을 읽지 못해도 오류가

@@ -20,6 +20,7 @@ from rag_engine.adapters.log_format import log_event
 from rag_engine.app.index_document import IndexDocumentDeps
 from rag_engine.domain.errors import TransientFailure
 from rag_engine.worker.processing import process_job
+from rag_engine.worker.schedule_loop import ScheduleDeps, run_schedule_loop
 
 logger = logging.getLogger(__name__)
 
@@ -70,17 +71,26 @@ class _Wakeups:
 
 
 async def serve(
-    deps: IndexDocumentDeps, config: WorkerConfig, *, stop: asyncio.Event, listener: JobListener
+    deps: IndexDocumentDeps,
+    config: WorkerConfig,
+    *,
+    stop: asyncio.Event,
+    listener: JobListener,
+    schedules: ScheduleDeps,
 ) -> None:
     """`stop`이 서고 진행 중인 작업이 모두 끝날 때까지 작업을 꺼내 처리한다. 먼저 작업 알림 듣기를
     시작한 뒤 꺼내기를 시작해 그 사이에 온 알림을 놓치지 않는다. 데이터베이스가 내려가 듣기가 서지
     않으면 `poll_seconds`만 기다리고 폴링으로 시작하며, 그 사이에 종료 신호가 오면 기다리지 않고
-    나간다."""
+    나간다. 일정 확인은 슬롯과 따로 `poll_seconds`마다 돌아서, 슬롯이 모두 긴 작업에 잡혀 있어도
+    일정이 시작된다."""
     wakeups = _Wakeups()
     ready = asyncio.Event()
     listening = asyncio.create_task(listener.run(wakeups.poke, ready))
     listening.add_done_callback(_log_listener_failure)
     stopping = asyncio.create_task(_poke_on_stop(stop, wakeups))
+    scheduling = asyncio.create_task(
+        run_schedule_loop(schedules, stop, poll_seconds=config.poll_seconds)
+    )
     try:
         try:
             async with asyncio.timeout(config.poll_seconds):
@@ -103,7 +113,8 @@ async def serve(
     finally:
         listening.cancel()
         stopping.cancel()
-        await asyncio.gather(listening, stopping, return_exceptions=True)
+        scheduling.cancel()
+        await asyncio.gather(listening, stopping, scheduling, return_exceptions=True)
 
 
 async def _until_any(first: asyncio.Event, second: asyncio.Event) -> None:

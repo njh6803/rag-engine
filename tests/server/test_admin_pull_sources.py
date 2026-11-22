@@ -164,15 +164,6 @@ def test_밀어_넣는_원천은_이름만_받고_가져오는_원천의_칸을_
     assert errors(response) == [(next(iter(extra)), "extra_forbidden")]
 
 
-def test_일정은_아직_받지_않아_적으면_422다(server: RunningServer, parent: Path) -> None:
-    (parent / FOLDER).mkdir()
-
-    response = _create(server, schedule="0 2 * * *")
-
-    assert response.status_code == 422
-    assert errors(response) == [("schedule", "extra_forbidden")]
-
-
 def test_제외_패턴은_원천_하나에_50개까지_받는다(server: RunningServer, parent: Path) -> None:
     (parent / FOLDER).mkdir()
 
@@ -356,10 +347,8 @@ def test_자기_자신의_폴더로_고쳐도_겹침이_아니다(server: Runnin
     assert response.status_code == 200
 
 
-@pytest.mark.parametrize(
-    "field", ["name", "kind", "connector", "group", "schedule", "paused", "next_run_at"]
-)
-def test_고치는_요청은_이름_갈래_커넥터_그룹_일정을_받지_않는다(
+@pytest.mark.parametrize("field", ["name", "kind", "connector", "group", "paused", "next_run_at"])
+def test_고치는_요청은_이름_갈래_커넥터_그룹과_일시_중지_다음_실행_시각을_받지_않는다(
     server: RunningServer, parent: Path, field: str
 ) -> None:
     (parent / FOLDER).mkdir()

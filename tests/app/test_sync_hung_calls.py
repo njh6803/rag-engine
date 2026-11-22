@@ -209,7 +209,9 @@ def _serve(
         poll_seconds=POLL_SECONDS,
     )
     deps = pipeline.deps(connectors=registry, source_read_timeout_seconds=limit)
-    task = asyncio.create_task(serve(deps, config, stop=stop, listener=_PollOnly()))
+    task = asyncio.create_task(
+        serve(deps, config, stop=stop, listener=_PollOnly(), schedules=pipeline.schedules())
+    )
     return _Serving(task, stop)
 
 

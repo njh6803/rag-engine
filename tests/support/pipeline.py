@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import httpx
 import sqlalchemy as sa
@@ -28,6 +29,7 @@ from rag_engine.adapters.parsers.registry import ParserRegistry, discover_parser
 from rag_engine.adapters.parsers.runner import SubprocessParseRunner
 from rag_engine.adapters.postgres.index_maintenance import PostgresIndexMaintenance
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
+from rag_engine.adapters.schedule import CronsimScheduleCalculator
 from rag_engine.adapters.tei import TeiEmbedderPool
 from rag_engine.app.delete_document import delete_document
 from rag_engine.app.index_document import IndexDocumentDeps
@@ -46,6 +48,7 @@ from rag_engine.domain.entities import (
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.parsing import ParseRunner
 from rag_engine.domain.ports import ConnectorRegistry, EmbedderFor, UnitOfWork
+from rag_engine.worker.schedule_loop import ScheduleDeps
 
 DIMENSIONS = 16
 LEASE_SECONDS = 600.0
@@ -104,6 +107,14 @@ class Pipeline:
             tokenize_keywords=tokenize_keywords,
             now=lambda: self.clock[0],
             maintenance=PostgresIndexMaintenance(self.engine),
+        )
+
+    def schedules(self, unit_of_work: UnitOfWork | None = None) -> ScheduleDeps:
+        """`serve`가 받는 일정 확인 묶음. 시계는 이 파이프라인의 시계이고 계산기는 서울 시각이다."""
+        return ScheduleDeps(
+            unit_of_work or self.unit_of_work,
+            CronsimScheduleCalculator(ZoneInfo("Asia/Seoul")),
+            lambda: self.clock[0],
         )
 
     async def ingest(

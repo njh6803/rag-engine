@@ -11,6 +11,12 @@
 원천에만 통한다. 밀어 넣는 원천에는 409 `wrong_source_kind`다. 연결 확인은 원천을 읽지 못해도
 200이다.
 
+만들기와 고치기는 `schedule`(다섯 칸 cron 표현식)을 받는다. 받지 않는 글(칸 수가 다섯이 아니거나
+값이 틀리거나 오지 않는 날짜. 일과 요일을 둘 다 적으면 하나만 맞아도 도는 표현식이라 받는다)은 422
+`validation_error`이고 `loc`의 끝이 `schedule`이다. 고칠 때 `null`은 일정을 없애고 칸을 적지 않으면
+그대로 둔다. 응답의 `next_run_at`은 일정을 적거나 고칠 때, 일시 중지에서 다시 시작할 때 지금 다음의
+시각으로 채우고, 일정을 없애거나 일시 중지하면 비운다.
+
 `POST /sources/{name}/sync`는 동기화 작업과 동기화 기록(`queued`)을 한 작업 단위에서 만들어 202와 두
 식별자로 답한다. 같은 원천의 동기화가 대기 중이거나 실행 중이면 409 `sync_in_progress`다.
 `GET /sources/{name}/sync-records`는 기록을 최근 것부터 `limit`와 `after`로 내고,
@@ -27,7 +33,7 @@ from rag_engine.app.admin_sources import (
     get_source_report,
     list_source_reports,
 )
-from rag_engine.app.pull_sources import PullSources
+from rag_engine.app.pull_sources import PullSources, ScheduleChange
 from rag_engine.app.sync_requests import get_sync_record, list_sync_records, request_sync
 from rag_engine.domain.ports import UnitOfWork
 from rag_engine.server.admin_api import DEFAULT_LIMIT, After, Limit
@@ -106,6 +112,7 @@ def build_admin_source_router(unit_of_work: UnitOfWork, pull_sources: PullSource
                 config=body.config,
                 group=body.group,
                 exclude_patterns=body.exclude_patterns,
+                schedule=body.schedule,
                 now=now,
             )
         else:
@@ -124,7 +131,11 @@ def build_admin_source_router(unit_of_work: UnitOfWork, pull_sources: PullSource
     @router.patch("/sources/{name}", responses=_PULL_ONLY_PROBLEMS)
     async def update(name: str, body: UpdateSourceRequest) -> SourceResponse:
         report = await pull_sources.update(
-            name, config=body.config, exclude_patterns=body.exclude_patterns
+            name,
+            config=body.config,
+            exclude_patterns=body.exclude_patterns,
+            schedule=ScheduleChange(body.schedule) if body.schedule_given else None,
+            now=datetime.now(UTC),
         )
         return SourceResponse.of(report)
 
@@ -163,10 +174,12 @@ def build_admin_source_router(unit_of_work: UnitOfWork, pull_sources: PullSource
 
     @router.post("/sources/{name}/pause", responses=_PULL_ONLY_PROBLEMS)
     async def pause(name: str) -> SourceResponse:
-        return SourceResponse.of(await pull_sources.set_paused(name, paused=True))
+        report = await pull_sources.set_paused(name, paused=True, now=datetime.now(UTC))
+        return SourceResponse.of(report)
 
     @router.post("/sources/{name}/resume", responses=_PULL_ONLY_PROBLEMS)
     async def resume(name: str) -> SourceResponse:
-        return SourceResponse.of(await pull_sources.set_paused(name, paused=False))
+        report = await pull_sources.set_paused(name, paused=False, now=datetime.now(UTC))
+        return SourceResponse.of(report)
 
     return router
