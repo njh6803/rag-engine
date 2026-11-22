@@ -291,3 +291,17 @@ async def test_가져오는_원천의_이름을_적은_지우기는_409_wrong_so
 
     assert response.status_code == 409
     assert response.json()["code"] == "wrong_source_kind"
+
+
+async def test_수집_API의_넣기와_지우기는_OpenAPI의_응답_목록에_409를_적는다(
+    round_trip: RoundTrip,
+) -> None:
+    response = httpx.get(
+        round_trip.server.base_url + "/openapi.json",
+        headers={"Authorization": f"Bearer {round_trip.server.admin_token}"},
+    )
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]["/api/v1/ingest/documents"]
+    assert "409" in paths["post"]["responses"]
+    assert "409" in paths["delete"]["responses"]
