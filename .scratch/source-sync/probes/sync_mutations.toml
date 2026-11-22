@@ -255,12 +255,54 @@ expect_output = ["AssertionError: assert 'internal_error' == 'connector_error'"]
 [[mutation.edit]]
 file = "src/rag_engine/adapters/connectors/registry.py"
 old = '''        try:
-            # `list`는 일반 함수로 선언돼 있어, 반복자를 돌려주기 전에 예외를 올릴 수도 있다.
-            items = aiter(self._connector.list())
+            # `list`는 일반 함수로 선언돼 있어, 반복자를 돌려주기 전에 원천을 부르거나 예외를 올릴
+            # 수도 있다. 그래서 반복자를 만드는 일도 `fetch`처럼 장치의 첫 호출로 태운다.
+            items = await self._guard.call(
+                connector=self._name,
+                config=self._config,
+                kind=ConnectorCallKind.LIST,
+                start=self._open_iterator,
+                timeout_seconds=self._timeout_seconds,
+                source=self._source,
+            )
 '''
 new = '''        items = aiter(self._connector.list())
         try:
 '''
+
+[[mutation]]
+name = "목록을 여는 호출을 호출 장치의 막힘 판정 없이 부른다"
+tests = ["tests/adapters/test_guarded_reader.py"]
+expect = "red"
+expect_output = ["AssertionError: 받은 호출: ['list']"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/registry.py"
+old = '''            items = await self._guard.call(
+                connector=self._name,
+                config=self._config,
+                kind=ConnectorCallKind.LIST,
+                start=self._open_iterator,
+                timeout_seconds=self._timeout_seconds,
+                source=self._source,
+            )
+'''
+new = '''            items = aiter(self._connector.list())
+'''
+
+[[mutation]]
+name = "색인 작업이 읽은 파일의 크기를 지금 상한에 대 보지 않는다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["AssertionError: 받은 상태: parsed"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''    if len(fetched.data) > deps.max_upload_bytes:
+        # 동기화 뒤에 운영자가 상한을 낮췄을 수 있고, 커넥터가 제 상한을 지킨다는 보장은 없다.
+        raise PermanentFailure(ErrorCode.SOURCE_CHANGED, "원천이 바뀌었다")
+'''
+new = ''
 
 [[mutation]]
 name = "제외 패턴을 맞출 때 키를 NFC로 맞추지 않는다"

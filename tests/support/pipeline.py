@@ -89,11 +89,12 @@ class Pipeline:
         retry: RetryPolicy = DEFAULT_RETRY,
         connectors: ConnectorRegistry | None = None,
         source_read_timeout_seconds: float = 600.0,
+        max_upload_bytes: int = 100 * 1024 * 1024,
     ) -> IndexDocumentDeps:
         return IndexDocumentDeps(
             connectors=connectors or EntryPointConnectorRegistry(lambda: []),
             source_read_timeout_seconds=source_read_timeout_seconds,
-            max_upload_bytes=100 * 1024 * 1024,
+            max_upload_bytes=max_upload_bytes,
             retry=retry,
             unit_of_work=unit_of_work or self.unit_of_work,
             blob_store=self.blob_store,

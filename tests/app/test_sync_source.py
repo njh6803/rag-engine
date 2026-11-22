@@ -6,11 +6,12 @@
 """
 
 from collections.abc import Callable, Mapping
+from datetime import timedelta
 
 import pytest
 import sqlalchemy as sa
 from tests.support.docx_files import docx_bytes
-from tests.support.pipeline import Pipeline
+from tests.support.pipeline import LEASE_SECONDS, Pipeline
 from tests.support.scripted_connectors import ScriptedFolder, ScriptedRegistry
 from tests.support.sync_world import make_pull_source, run_sync
 
@@ -27,6 +28,7 @@ from rag_engine.domain.entities import (
 )
 from rag_engine.domain.errors import AttemptLostError, ErrorCode
 from rag_engine.domain.identifiers import new_id
+from rag_engine.worker.processing import run_once
 
 
 async def _document(pipeline: Pipeline, source: Source, key: str) -> Document:
@@ -291,6 +293,42 @@ async def test_색인_작업이_읽을_때_커넥터가_너무_크다고_답하�
     document = await _sync_then_change_before_index(pipeline, too_large)
 
     assert document.status is DocumentStatus.FAILED
+    assert document.error_code is ErrorCode.SOURCE_CHANGED
+    assert document.change_marker is None
+
+
+async def test_색인_작업이_읽을_때_상한이_동기화_때보다_낮아졌으면_source_changed로_실패한다(
+    pipeline: Pipeline,
+) -> None:
+    """운영자가 상한을 낮춰 다시 띄운 사이에 색인 작업이 도는 장면이다. 커넥터가 상한을 따로 지키지
+    않아도 서버가 크기를 본다."""
+    source = await make_pull_source(pipeline)
+    folder = ScriptedFolder()
+    folder.put("규정.docx", _docx("규정"), "m1")
+    reads: list[str] = []
+
+    def fail_the_index_read(key: str) -> None:
+        if reads:
+            folder.fetch_errors[key] = ConnectorError(ConnectorFailureReason.UNREADABLE)
+        reads.append(key)
+
+    folder.on_fetch = fail_the_index_read
+    registry = ScriptedRegistry(folder)
+    await run_sync(pipeline, source, registry)
+    waiting = await _document(pipeline, source, "규정.docx")
+    assert waiting.status is DocumentStatus.RECEIVED, f"받은 상태: {waiting.status.value}"
+
+    folder.fetch_errors.clear()
+    folder.on_fetch = None
+    pipeline.clock[0] += timedelta(hours=2)
+    await run_once(
+        pipeline.deps(connectors=registry, max_upload_bytes=10),
+        worker_id="worker-lower-limit",
+        lease_seconds=LEASE_SECONDS,
+    )
+
+    document = await _document(pipeline, source, "규정.docx")
+    assert document.status is DocumentStatus.FAILED, f"받은 상태: {document.status.value}"
     assert document.error_code is ErrorCode.SOURCE_CHANGED
     assert document.change_marker is None
 

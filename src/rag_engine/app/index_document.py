@@ -270,6 +270,9 @@ async def _read_original(deps: IndexDocumentDeps, claim: _Claim) -> bytes:
         ConnectorBrokenError,
     ):
         raise TransientFailure(ErrorCode.SOURCE_UNREADABLE, "원천을 읽을 수 없다") from None
+    if len(fetched.data) > deps.max_upload_bytes:
+        # 동기화 뒤에 운영자가 상한을 낮췄을 수 있고, 커넥터가 제 상한을 지킨다는 보장은 없다.
+        raise PermanentFailure(ErrorCode.SOURCE_CHANGED, "원천이 바뀌었다")
     digest = await asyncio.to_thread(lambda: hashlib.sha256(fetched.data).hexdigest())
     if digest != claim.content_hash:
         raise PermanentFailure(ErrorCode.SOURCE_CHANGED, "원천이 바뀌었다")

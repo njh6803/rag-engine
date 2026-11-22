@@ -88,8 +88,16 @@ class _GuardedReader:
 
     async def list(self) -> AsyncIterator[ListedItem]:
         try:
-            # `list`는 일반 함수로 선언돼 있어, 반복자를 돌려주기 전에 예외를 올릴 수도 있다.
-            items = aiter(self._connector.list())
+            # `list`는 일반 함수로 선언돼 있어, 반복자를 돌려주기 전에 원천을 부르거나 예외를 올릴
+            # 수도 있다. 그래서 반복자를 만드는 일도 `fetch`처럼 장치의 첫 호출로 태운다.
+            items = await self._guard.call(
+                connector=self._name,
+                config=self._config,
+                kind=ConnectorCallKind.LIST,
+                start=self._open_iterator,
+                timeout_seconds=self._timeout_seconds,
+                source=self._source,
+            )
             async for item in self._guard.iterate(
                 connector=self._name,
                 config=self._config,
@@ -103,6 +111,9 @@ class _GuardedReader:
         except Exception as error:  # 설치처의 커넥터가 어떻게 깨져도 같은 오류로 알린다
             self._log_broken(ConnectorCallKind.LIST, error)
             raise ConnectorBrokenError from None
+
+    async def _open_iterator(self) -> AsyncIterator[ListedItem]:
+        return aiter(self._connector.list())
 
     async def fetch(self, key: str) -> FetchedItem:
         try:
