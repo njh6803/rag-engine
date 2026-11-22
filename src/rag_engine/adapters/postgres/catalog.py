@@ -5,8 +5,10 @@ from collections.abc import Mapping, Sequence
 from typing import Final
 from uuid import UUID
 
+import psycopg.errors
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from rag_engine.adapters.postgres import tables
@@ -19,9 +21,30 @@ from rag_engine.domain.entities import (
     Source,
     SourceKind,
 )
+from rag_engine.domain.errors import SourceAlreadyExistsError
 from rag_engine.domain.ports import LockMode
 
 _LIVE_STATUSES: Final = (IndexVersionStatus.CURRENT.value, IndexVersionStatus.BUILDING.value)
+
+
+def _source(row: sa.RowMapping) -> Source:
+    return Source(
+        id=row["id"],
+        name=row["name"],
+        kind=SourceKind(row["kind"]),
+        created_at=row["created_at"],
+        deleted_at=row["deleted_at"],
+    )
+
+
+def _source_values(source: Source) -> dict[str, object]:
+    return {
+        "id": source.id,
+        "name": source.name,
+        "kind": source.kind.value,
+        "created_at": source.created_at,
+        "deleted_at": source.deleted_at,
+    }
 
 
 def _knowledge_base(row: sa.RowMapping) -> KnowledgeBase:
@@ -106,18 +129,33 @@ class PostgresCatalog:
     async def add_source(self, source: Source) -> None:
         await self._connection.execute(
             insert(tables.sources)
-            .values(id=source.id, name=source.name, kind=source.kind.value)
+            .values(**_source_values(source))
             .on_conflict_do_nothing(index_elements=["name"])
         )
+
+    async def create_source(self, source: Source) -> None:
+        try:
+            await self._connection.execute(
+                sa.insert(tables.sources).values(**_source_values(source))
+            )
+        except IntegrityError as error:
+            if isinstance(error.orig, psycopg.errors.UniqueViolation):
+                raise SourceAlreadyExistsError("같은 이름의 원천이 이미 있다") from None
+            raise
 
     async def get_source(self, name: str) -> Source | None:
         result = await self._connection.execute(
             sa.select(tables.sources).where(tables.sources.c.name == name)
         )
         row = result.mappings().one_or_none()
-        if row is None:
-            return None
-        return Source(id=row["id"], name=row["name"], kind=SourceKind(row["kind"]))
+        return None if row is None else _source(row)
+
+    async def list_sources(self) -> list[Source]:
+        sources = tables.sources
+        result = await self._connection.execute(
+            sa.select(sources).order_by(sources.c.created_at, sources.c.id)
+        )
+        return [_source(row) for row in result.mappings().all()]
 
     async def add_group(self, group: Group) -> None:
         await self._connection.execute(
@@ -134,9 +172,7 @@ class PostgresCatalog:
             sa.select(tables.sources).where(tables.sources.c.id == source_id)
         )
         row = result.mappings().one_or_none()
-        if row is None:
-            return None
-        return Source(id=row["id"], name=row["name"], kind=SourceKind(row["kind"]))
+        return None if row is None else _source(row)
 
     async def get_group_by_id(self, group_id: UUID) -> Group | None:
         return await self._group_where(tables.groups.c.id == group_id)

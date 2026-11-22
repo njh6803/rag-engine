@@ -118,9 +118,13 @@ class BlockKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Source:
+    """원천. `deleted_at`은 지움 표시이고 지우지 않은 원천에서는 `None`이다."""
+
     id: UUID
     name: str
     kind: SourceKind
+    created_at: datetime
+    deleted_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -243,6 +247,17 @@ class DocumentQuery:
     key: str | None
     limit: int
     after: UUID | None
+    source_id: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentCounts:
+    """원천 하나의, 지워지지 않은 문서 수. `total`은 모두, `failed`와 `skipped`는 그 문서 상태의
+    문서다."""
+
+    total: int
+    failed: int
+    skipped: int
 
 
 @dataclass(frozen=True, slots=True)

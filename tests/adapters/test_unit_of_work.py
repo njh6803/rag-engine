@@ -215,7 +215,7 @@ async def test_카탈로그는_원천과_그룹과_지식베이스를_이름으�
 
     async with unit_of_work.begin() as transaction:
         catalog = transaction.catalog
-        await catalog.add_source(Source(new_id(), "default", SourceKind.PUSH))
+        await catalog.add_source(Source(new_id(), "default", SourceKind.PUSH, NOW))
         await catalog.add_group(group)
         await catalog.add_knowledge_base(knowledge_base)
         await catalog.add_group_to_knowledge_base(knowledge_base.id, group.id)

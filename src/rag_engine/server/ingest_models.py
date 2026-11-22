@@ -21,6 +21,7 @@ from pydantic import (
 )
 
 from rag_engine.domain.entities import IngestAction
+from rag_engine.server.source_name import SourceName
 
 _METADATA: Final = TypeAdapter(dict[str, JsonValue])
 _NUL: Final = "\x00"
@@ -68,6 +69,10 @@ class IngestFields(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     key: str | None = Field(default=None, description="원천 안의 문서 키. 없으면 파일 이름이다")
+    source: SourceName | None = Field(
+        default=None,
+        description="문서를 넣을 밀어 넣는 원천의 이름. 없으면 `default`다",
+    )
     group: str | None = Field(default=None, description="그룹 이름. 없으면 기본 그룹이다")
     metadata: dict[str, JsonValue] = Field(
         default_factory=dict, description="문서의 메타데이터(JSON 객체 문자열로 받는다)"

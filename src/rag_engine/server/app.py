@@ -32,6 +32,7 @@ from rag_engine.app.search import SearchDeps
 from rag_engine.domain.errors import ErrorCode, InvalidInput, RequestError
 from rag_engine.server.admin_api import build_admin_query_router
 from rag_engine.server.admin_knowledge_base_api import build_admin_knowledge_base_router
+from rag_engine.server.admin_source_api import build_admin_source_router
 from rag_engine.server.auth import AuthMiddleware
 from rag_engine.server.ingest_api import build_ingest_router
 from rag_engine.server.problem_response import problem_response, validation_response
@@ -169,7 +170,9 @@ def create_app(settings: Settings) -> ASGIApp:
         unit_of_work, PostgresIndexMaintenance(engine), compute_index_elements
     )
     app.include_router(token_router)
+    admin_source_router = build_admin_source_router(unit_of_work)
     app.include_router(admin_query_router)
+    app.include_router(admin_source_router)
     app.include_router(knowledge_base_router)
     app.include_router(ingest_router)
     # 하위 앱은 자기 안에 `/mcp` 경로를 둔다. "/" 마운트는 모든 경로를 받으므로 REST 경로 뒤에 둔다.
@@ -182,6 +185,7 @@ def create_app(settings: Settings) -> ASGIApp:
             *app.routes,
             *token_router.routes,
             *admin_query_router.routes,
+            *admin_source_router.routes,
             *knowledge_base_router.routes,
             *ingest_router.routes,
         ],

@@ -45,6 +45,8 @@ class ErrorCode(StrEnum):
     REINDEX_IN_PROGRESS = "reindex_in_progress"
     SEARCH_UNAVAILABLE = "search_unavailable"
     INVALID_ARGUMENT = "invalid_argument"
+    SOURCE_NOT_FOUND = "source_not_found"
+    SOURCE_ALREADY_EXISTS = "source_already_exists"
     # 관련성 판정기(ADR 0019). 평가 도구만 쓰고 작업 행과 응답에는 나가지 않는다.
     JUDGE_UNAVAILABLE = "judge_unavailable"
     JUDGE_REJECTED = "judge_rejected"
@@ -99,7 +101,7 @@ TOOL_ERROR_CODES = frozenset(
     }
 )
 
-# Problem Details 의 `code`로 낼 수 있는 값 열넷.
+# Problem Details 의 `code`로 낼 수 있는 값 열여섯.
 PROBLEM_ERROR_CODES = frozenset(
     {
         ErrorCode.UNAUTHENTICATED,
@@ -116,6 +118,8 @@ PROBLEM_ERROR_CODES = frozenset(
         ErrorCode.REINDEX_IN_PROGRESS,
         ErrorCode.SEARCH_UNAVAILABLE,
         ErrorCode.INTERNAL_ERROR,
+        ErrorCode.SOURCE_NOT_FOUND,
+        ErrorCode.SOURCE_ALREADY_EXISTS,
     }
 )
 
@@ -137,6 +141,12 @@ class DocumentAlreadyExistsError(Exception):
     """같은 (원천, 키)의 문서가 이미 있다. `DocumentStore.add`가 유일 제약의 위반을 이 예외로
     바꿔 올린다. 같은 키를 동시에 넣은 수집이 진 쪽에서 받고, 이긴 문서로 갱신을 다시 한다. 응답으로
     나가는 오류가 아니라서 오류 코드를 드는 `RagEngineError` 밖에 둔다."""
+
+
+class SourceAlreadyExistsError(Exception):
+    """같은 이름의 원천이 이미 있다(지운 원천 포함). `Catalog.create_source`가 유일 제약의 위반을
+    이 예외로 바꿔 올린다. 응답으로 바꾸는 일은 원천을 만드는 유스케이스가 한다. 오류 코드를 드는
+    `RagEngineError` 밖에 둔다."""
 
 
 class AttemptLostError(Exception):

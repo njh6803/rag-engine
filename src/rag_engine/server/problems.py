@@ -27,9 +27,11 @@ ERROR_STATUS: Final[Mapping[ErrorCode, int]] = {
     ErrorCode.GROUP_NOT_FOUND: 404,
     ErrorCode.JOB_NOT_FOUND: 404,
     ErrorCode.TOKEN_NOT_FOUND: 404,
+    ErrorCode.SOURCE_NOT_FOUND: 404,
     ErrorCode.UPLOAD_TOO_LARGE: 413,
     ErrorCode.UNSUPPORTED_MEDIA_TYPE: 415,
     ErrorCode.REINDEX_IN_PROGRESS: 409,
+    ErrorCode.SOURCE_ALREADY_EXISTS: 409,
     ErrorCode.SEARCH_UNAVAILABLE: 503,
     ErrorCode.INTERNAL_ERROR: 500,
 }
@@ -47,9 +49,11 @@ ERROR_TITLE: Final[Mapping[ErrorCode, str]] = {
     ErrorCode.GROUP_NOT_FOUND: "그룹을 찾을 수 없다",
     ErrorCode.JOB_NOT_FOUND: "작업을 찾을 수 없다",
     ErrorCode.TOKEN_NOT_FOUND: "토큰을 찾을 수 없다",
+    ErrorCode.SOURCE_NOT_FOUND: "원천을 찾을 수 없다",
     ErrorCode.UPLOAD_TOO_LARGE: "업로드가 너무 크다",
     ErrorCode.UNSUPPORTED_MEDIA_TYPE: "지원하지 않는 형식이다",
     ErrorCode.REINDEX_IN_PROGRESS: "재색인이 이미 진행 중이다",
+    ErrorCode.SOURCE_ALREADY_EXISTS: "같은 이름의 원천이 이미 있다",
     ErrorCode.SEARCH_UNAVAILABLE: "검색을 쓸 수 없다",
     ErrorCode.INTERNAL_ERROR: "서버 내부 오류",
 }

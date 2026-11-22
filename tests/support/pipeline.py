@@ -119,7 +119,7 @@ class Pipeline:
         )
 
     async def delete(self, key: str = "규정.docx") -> None:
-        await delete_document(self.unit_of_work, key, now=self.clock[0])
+        await delete_document(self.unit_of_work, key, source_name=None, now=self.clock[0])
 
     async def archived_texts(self, document_id: UUID) -> list[str]:
         """삭제 보관함에 있는 그 문서의 조각 글(순번 순)."""

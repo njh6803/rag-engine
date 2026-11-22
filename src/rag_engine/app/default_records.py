@@ -1,5 +1,6 @@
-"""기본 레코드 보장(명세 "관리 명령"의 `migrate`). 마이그레이션 뒤 기본 원천·그룹·지식베이스와 첫
-현재 색인 판이 설정값으로 있게 한다. 멱등이다.
+"""기본 레코드 보장(명세 "관리 명령"의 `migrate`). 마이그레이션 뒤 기본 원천 둘(`default`,
+`upload`)과 기본 그룹·지식베이스, 첫 현재 색인 판이 설정값으로 있게 한다. 멱등이다. 원천 둘은 모두
+밀어 넣는 원천이다.
 
 지식베이스 행을 `FOR UPDATE`로 잠근 뒤(없으면 만든 뒤 잠근다) 쓴다. 겹쳐 돌아도 같은 결과로 모인다.
 """
@@ -22,6 +23,9 @@ from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.ports import Catalog, ComputeIndexElements, LockMode, UnitOfWork
 
 DEFAULT_NAME = "default"
+# 관리자 페이지가 파일을 올릴 때 수집 API의 `source`에 적는 밀어 넣는 원천이다(source-sync 명세
+# "따르는 것과 범위"). 업로드에 끝점을 따로 두지 않는다.
+UPLOAD_NAME = "upload"
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +59,8 @@ async def ensure_default_records(
     )
     async with unit_of_work.begin() as transaction:
         catalog = transaction.catalog
-        await catalog.add_source(Source(new_id(), DEFAULT_NAME, SourceKind.PUSH))
+        await catalog.add_source(Source(new_id(), DEFAULT_NAME, SourceKind.PUSH, now))
+        await catalog.add_source(Source(new_id(), UPLOAD_NAME, SourceKind.PUSH, now))
         await catalog.add_group(Group(new_id(), DEFAULT_NAME, ""))
         await catalog.add_knowledge_base(_new_knowledge_base(settings))
         knowledge_base = await _lock_default_knowledge_base(catalog)

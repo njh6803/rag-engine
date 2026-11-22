@@ -37,6 +37,7 @@ from uuid import UUID
 from rag_engine.app.default_records import DEFAULT_NAME
 from rag_engine.app.document_outcome import index_failure_code
 from rag_engine.app.live_versions import live_index_versions
+from rag_engine.app.source_lookup import require_source
 from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import (
     Document,
@@ -68,7 +69,8 @@ _MAX_ATTEMPTS: Final = 2
 
 @dataclass(frozen=True, slots=True)
 class IngestRequest:
-    """수집 요청의 입력. `key`와 `group`을 주지 않으면 파일 이름과 기본 그룹이다."""
+    """수집 요청의 입력. `key`, `group`, `source`를 주지 않으면 파일 이름, 기본 그룹, 기본 원천
+    `default`다."""
 
     filename: str | None
     data: bytes
@@ -76,6 +78,7 @@ class IngestRequest:
     group: str | None
     metadata: Mapping[str, JsonValue]
     updated_at: datetime | None
+    source: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,11 +169,10 @@ def _title(metadata: Mapping[str, JsonValue], name: str) -> str:
 
 
 async def _locate(unit_of_work: UnitOfWork, request: IngestRequest, key: str, mime: str) -> _Upload:
-    """원천과 그룹을 읽고 원본을 둘 경로를 정한다. 없는 그룹이면 원본을 쓰기 전에 거부한다."""
+    """원천과 그룹을 읽고 원본을 둘 경로를 정한다. 없는 원천이나 그룹이면 원본을 쓰기 전에
+    거부한다."""
     async with unit_of_work.begin() as transaction:
-        source = await transaction.catalog.get_source(DEFAULT_NAME)
-        if source is None:
-            raise RuntimeError("기본 원천이 없다. migrate를 돌려야 한다")
+        source = await require_source(transaction, request.source)
         group = await transaction.catalog.get_group(request.group or DEFAULT_NAME)
         if group is None:
             raise RequestError(ErrorCode.GROUP_NOT_FOUND, "그 이름의 그룹이 없다")
