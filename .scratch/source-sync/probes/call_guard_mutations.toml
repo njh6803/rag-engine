@@ -1,0 +1,254 @@
+# source-sync 05(커넥터 호출 장치)의 시험 가운데 구현 뒤에 쓴 것의 변이. 호출 장치의 규칙(ADR 0023)마다
+# 그 규칙을 깨는 변이를 넣어 시험이 빨개지는지 본다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/source-sync/probes/call_guard_mutations.toml
+
+[[mutation]]
+name = "한도를 넘긴 호출을 취소한다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["취소된 호출 1개"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''            self._remember(future, key, kind, source)
+            raise ConnectorCallTimedOutError
+'''
+new = '''            self._remember(future, key, kind, source)
+            future.cancel()
+            raise ConnectorCallTimedOutError
+'''
+
+[[mutation]]
+name = "한도를 넘긴 호출을 기억하지 않는다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["ConnectorCallTimedOutError: 커넥터 호출이 한도까지"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''        if future.done():
+            return
+        self._stuck.setdefault(key, []).append(future.done)
+'''
+new = '''        if future.done() or True:
+            return
+        self._stuck.setdefault(key, []).append(future.done)
+'''
+
+[[mutation]]
+name = "남은 호출이 있어도 막지 않는다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["ConnectorCallTimedOutError: 커넥터 호출이 한도까지"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''        if self._live(key):
+            raise ConnectorCallBlockedError
+'''
+new = '''        if self._live(key) and False:
+            raise ConnectorCallBlockedError
+'''
+
+[[mutation]]
+name = "설정을 보지 않고 이름만으로 막는다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["ConnectorCallBlockedError: 같은 설정으로 부른"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''    return f"{connector}\n{canonical}"
+'''
+new = '''    return f"{connector}\n{len(canonical) * 0}"
+'''
+
+[[mutation]]
+name = "호출의 종류까지 열쇠에 넣는다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["ConnectorCallTimedOutError: 커넥터 호출이 한도까지"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''        key = _identity(connector, config)
+        if self._live(key):
+'''
+new = '''        key = _identity(connector, config) + kind.value
+        if self._live(key):
+'''
+
+[[mutation]]
+name = "설정의 키 순서가 다르면 다른 설정으로 본다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["ConnectorCallTimedOutError: 커넥터 호출이 한도까지"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''        _canonical(config), sort_keys=True, ensure_ascii=False, separators=(",", ":")
+'''
+new = '''        _canonical(config), sort_keys=False, ensure_ascii=False, separators=(",", ":")
+'''
+
+[[mutation]]
+name = "같은 설정으로 남은 호출을 마지막 하나만 기억한다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["기억한 호출 1개"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''        self._stuck.setdefault(key, []).append(future.done)
+'''
+new = '''        self._stuck[key] = [future.done]
+'''
+
+[[mutation]]
+name = "하던 일을 버린 호출을 바로 기억한다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["바로 기억해 남긴 로그 1줄"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''                self._remember_later(future, key, kind, source, max(0.0, deadline - loop.time()))
+'''
+new = '''                self._remember(future, key, kind, source)
+'''
+
+[[mutation]]
+name = "하던 일을 버린 호출을 한도가 지나도 기억하지 않는다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["한도 뒤에 기억한 호출 0개"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''                self._remember_later(future, key, kind, source, max(0.0, deadline - loop.time()))
+'''
+new = '''                pass
+'''
+
+[[mutation]]
+name = "목록의 항목마다 asyncio.wait_for로 받아 이벤트 루프로 돌아가지 않는다"
+tests = ["tests/adapters/test_connector_call_guard.py", "-k", "끝없는"]
+expect = "red"
+expect_output = ["받는 쪽이 항목 사이에 이벤트 루프로 돌아가지 않았다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''                item = await self.call(
+                    connector=connector,
+                    config=config,
+                    kind=ConnectorCallKind.LIST,
+                    start=lambda: _advance(items),
+                    timeout_seconds=timeout_seconds,
+                    source=source,
+                )
+'''
+new = '''                item = await asyncio.wait_for(anext(items), timeout_seconds)
+'''
+
+[[mutation]]
+name = "한도를 넘길 때의 로그에 설정을 싣는다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["{'detail': 'server-path"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''            kind=kind.value,
+            outstanding=self.outstanding_calls,
+'''
+new = '''            kind=kind.value,
+            outstanding=self.outstanding_calls,
+            detail=key,
+'''
+
+[[mutation]]
+name = "막혀서 커넥터를 부르지 않은 호출도 로그를 남긴다"
+tests = ["tests/adapters/test_connector_call_guard.py", "-k", "막혀서"]
+expect = "red"
+expect_output = ["막힌 호출이 남긴 로그 3줄"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''        if self._live(key):
+            raise ConnectorCallBlockedError
+'''
+new = '''        if self._live(key):
+            log_event(logger, _TIMED_OUT_EVENT, level=logging.WARNING, source=source)
+            raise ConnectorCallBlockedError
+'''
+
+[[mutation]]
+name = "남은 수를 그 설정의 것만 센다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["로그에 실린 남은 수의 차례 [1, 1]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''            outstanding=self.outstanding_calls,
+'''
+new = '''            outstanding=len(self._stuck[key]),
+'''
+
+[[mutation]]
+name = "남은 호출이 백을 넘으면 더 막는다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["막힌 호출 150개"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''        if self._live(key):
+            raise ConnectorCallBlockedError
+'''
+new = '''        if self._live(key) or self.outstanding_calls >= 100:
+            raise ConnectorCallBlockedError
+'''
+
+[[mutation]]
+name = "기억된 호출이 끝나도 완료 콜백으로 비우지 않는다"
+tests = ["tests/adapters/test_connector_call_guard.py", "-k", "결과를"]
+expect = "red"
+expect_output = ["끝난 호출이 쥔 결과 _Payload"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''        future.add_done_callback(lambda _: self._release(key))
+'''
+new = '''        pass
+'''
+
+[[mutation]]
+name = "목록의 항목을 기다리다 버려도 한도가 지나면 기억하지 않는다"
+tests = ["tests/adapters/test_connector_call_guard.py", "-k", "목록의_항목을_기다리다"]
+expect = "red"
+expect_output = ["한도 뒤에 기억한 목록 호출 0개"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''                self._remember_later(future, key, kind, source, max(0.0, deadline - loop.time()))
+'''
+new = '''                pass
+'''
+
+[[mutation]]
+name = "커넥터가 낸 예외를 다른 예외로 바꾼다"
+tests = ["tests/adapters/test_connector_call_guard.py"]
+expect = "red"
+expect_output = ["ConnectorCallBlockedError: 같은 설정으로 부른"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/guard.py"
+old = '''        return future.result()
+
+    async def iterate'''
+new = '''        if future.exception() is not None:
+            raise ConnectorCallBlockedError
+        return future.result()
+
+    async def iterate'''
