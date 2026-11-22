@@ -24,6 +24,7 @@ from rag_engine.domain.entities import (
     BlockKind,
     Document,
     DocumentContent,
+    DocumentCounts,
     DocumentQuery,
     DocumentState,
     DocumentStatus,
@@ -223,12 +224,34 @@ class PostgresDocumentStore:
             )
         if query.group_id is not None:
             statement = statement.where(documents.c.group_id == query.group_id)
+        if query.source_id is not None:
+            statement = statement.where(documents.c.source_id == query.source_id)
         if query.key is not None:
             statement = statement.where(documents.c.key == query.key)
         if query.after is not None:
             statement = statement.where(documents.c.id < query.after)
         rows = (await self._connection.execute(statement)).mappings().all()
         return [_document(row) for row in rows]
+
+    async def count_documents_of_source(self, source_id: UUID) -> DocumentCounts:
+        documents = tables.documents
+        row = (
+            (
+                await self._connection.execute(
+                    sa.select(
+                        sa.func.count().label("total"),
+                        sa.func.count()
+                        .filter(documents.c.status == DocumentState.FAILED.value)
+                        .label("failed"),
+                        # 문서 상태 열거에 `skipped`가 아직 없어 글로 적는다.
+                        sa.func.count().filter(documents.c.status == "skipped").label("skipped"),
+                    ).where(documents.c.source_id == source_id, documents.c.deleted_at.is_(None))
+                )
+            )
+            .mappings()
+            .one()
+        )
+        return DocumentCounts(total=row["total"], failed=row["failed"], skipped=row["skipped"])
 
     async def _select_one(
         self, *conditions: sa.ColumnElement[bool], lock: bool = False

@@ -92,11 +92,13 @@ async def list_document_reports(
     *,
     state: DocumentState | None,
     group: str | None,
+    source: str | None,
     key: str | None,
     limit: int,
     after: UUID | None,
 ) -> list[DocumentReport]:
-    """없는 그룹 이름은 오류가 아니라 맞는 문서가 없는 것이다(검색의 그룹 필터와 같다)."""
+    """없는 그룹 이름과 없는 원천 이름은 오류가 아니라 맞는 문서가 없는 것이다(검색의 그룹 필터와
+    같다). `source`를 적지 않고 `key`만 적으면 모든 원천에서 그 키의 문서를 찾는다."""
     async with unit_of_work.begin() as transaction:
         group_id: UUID | None = None
         if group is not None:
@@ -104,8 +106,21 @@ async def list_document_reports(
             if found is None:
                 return []
             group_id = found.id
+        source_id: UUID | None = None
+        if source is not None:
+            found_source = await transaction.catalog.get_source(source)
+            if found_source is None:
+                return []
+            source_id = found_source.id
         documents = await transaction.documents.list_documents(
-            DocumentQuery(state=state, group_id=group_id, key=key, limit=limit, after=after)
+            DocumentQuery(
+                state=state,
+                group_id=group_id,
+                key=key,
+                limit=limit,
+                after=after,
+                source_id=source_id,
+            )
         )
         return [await _report(transaction, document) for document in documents]
 

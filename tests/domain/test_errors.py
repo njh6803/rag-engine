@@ -55,6 +55,8 @@ SPEC_PROBLEM_CODES = {
     "reindex_in_progress",
     "search_unavailable",
     "internal_error",
+    "source_not_found",
+    "source_already_exists",
 }
 
 # 도구 오류의 코드(명세 "MCP 도구").
@@ -71,7 +73,7 @@ def test_작업_코드_열넷이_모두_정의되어_있다() -> None:
     assert {code.value for code in JOB_ERROR_CODES} == SPEC_JOB_CODES
 
 
-def test_HTTP_코드_열넷이_모두_정의되어_있다() -> None:
+def test_HTTP_코드_열여섯이_모두_정의되어_있다() -> None:
     assert {code.value for code in PROBLEM_ERROR_CODES} == SPEC_PROBLEM_CODES
 
 

@@ -196,7 +196,7 @@ async def test_문서_목록은_상태_그룹_키_필터를_따르고_없는_그
         *, state: DocumentState | None = None, group: str | None = None, key: str | None = None
     ) -> list[str]:
         reports = await list_document_reports(
-            unit_of_work, state=state, group=group, key=key, limit=50, after=None
+            unit_of_work, state=state, group=group, source=None, key=key, limit=50, after=None
         )
         return [report.document.key for report in reports]
 

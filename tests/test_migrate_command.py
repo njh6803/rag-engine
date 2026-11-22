@@ -71,8 +71,9 @@ async def test_빈_데이터베이스에_기본_원천과_그룹과_지식베이
         "BAAI/bge-m3", 1024, knowledge_base.chunking
     )
     with psycopg.connect(empty_database_url, autocommit=True) as connection:
-        assert connection.execute("SELECT name, kind FROM sources").fetchall() == [
-            ("default", "push")
+        assert connection.execute("SELECT name, kind FROM sources ORDER BY name").fetchall() == [
+            ("default", "push"),
+            ("upload", "push"),
         ]
         assert connection.execute(
             "SELECT g.name FROM knowledge_base_groups l JOIN groups g ON g.id = l.group_id"
@@ -96,7 +97,7 @@ async def test_다시_돌려도_같은_상태이고_판은_하나뿐이다(
     assert [
         _count(empty_database_url, table) for table in ("sources", "groups", "index_versions")
     ] == [
-        1,
+        2,
         1,
         1,
     ]

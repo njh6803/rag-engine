@@ -25,16 +25,24 @@ from rag_engine.server.api_version import API_VERSION
 from rag_engine.server.ingest_models import DocumentKey, IngestFields, IngestResponse
 from rag_engine.server.problems import ProblemDetails
 from rag_engine.server.request_context import request_id_of
+from rag_engine.server.source_name import SourceName
 
 _PROBLEMS: dict[int | str, dict[str, object]] = {
-    404: {"model": ProblemDetails, "description": "그룹이 없다(`group_not_found`)"},
+    404: {
+        "model": ProblemDetails,
+        "description": "그룹이나 원천이 없다(`group_not_found`, `source_not_found`)",
+    },
     413: {"model": ProblemDetails, "description": "업로드가 크기 상한을 넘었다"},
     415: {"model": ProblemDetails, "description": "PDF, DOCX, HWPX가 아니다"},
 }
 
 
 _DELETE_PROBLEMS: dict[int | str, dict[str, object]] = {
-    404: {"model": ProblemDetails, "description": "그 키의 문서가 없다(`document_not_found`)"},
+    404: {
+        "model": ProblemDetails,
+        "description": "그 키의 문서나 그 이름의 원천이 없다"
+        "(`document_not_found`, `source_not_found`)",
+    },
 }
 
 
@@ -62,6 +70,7 @@ def build_ingest_router(
                 group=fields.group,
                 metadata=fields.metadata,
                 updated_at=fields.updated_at,
+                source=fields.source,
             ),
             request_id=request_id_of(request.scope),
             now=datetime.now(UTC),
@@ -74,8 +83,14 @@ def build_ingest_router(
         )
 
     @router.delete("/documents", status_code=204, responses=_DELETE_PROBLEMS)
-    async def delete(key: Annotated[DocumentKey, Query()]) -> Response:
-        await delete_document(unit_of_work, key, now=datetime.now(UTC))
+    async def delete(
+        key: Annotated[DocumentKey, Query()],
+        source: Annotated[
+            SourceName | None,
+            Query(description="문서가 든 밀어 넣는 원천의 이름. 없으면 `default`다"),
+        ] = None,
+    ) -> Response:
+        await delete_document(unit_of_work, key, source_name=source, now=datetime.now(UTC))
         return Response(status_code=204)
 
     return router

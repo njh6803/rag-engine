@@ -27,6 +27,7 @@ from rag_engine.domain.entities import (
     ChunkingConfig,
     Document,
     DocumentContent,
+    DocumentCounts,
     DocumentQuery,
     Group,
     IndexElements,
@@ -143,7 +144,17 @@ class Catalog(Protocol):
         """같은 이름의 원천이 이미 있으면 아무것도 하지 않는다(`migrate`가 겹쳐 돌아도 멱등이다)."""
         ...
 
+    async def create_source(self, source: Source) -> None:
+        """같은 이름의 원천이 있으면(지운 원천 포함) `SourceAlreadyExistsError`를 올린다. 이름이
+        겹친 두 요청이 동시에 오면 나중에 넣는 쪽이 먼저 넣은 쪽의 커밋을 기다린 뒤 판정하므로
+        하나만 만들어진다(이름의 유일 제약이 판정한다)."""
+        ...
+
     async def get_source(self, name: str) -> Source | None: ...
+
+    async def list_sources(self) -> list[Source]:
+        """지운 원천까지 모두 만든 시각 순으로 낸다. 같은 시각이면 ID 순이다."""
+        ...
 
     async def add_group(self, group: Group) -> None:
         """같은 이름의 그룹이 이미 있으면 아무것도 하지 않는다."""
@@ -238,6 +249,10 @@ class DocumentStore(Protocol):
 
     async def list_documents(self, query: DocumentQuery) -> list[Document]:
         """조건에 맞는 문서를 최근 순(ID의 내림차순)으로 낸다. 지운 문서와 삭제 기록 행도 든다."""
+        ...
+
+    async def count_documents_of_source(self, source_id: UUID) -> DocumentCounts:
+        """그 원천의, 지워지지 않은 문서를 문서 상태로 센다."""
         ...
 
 

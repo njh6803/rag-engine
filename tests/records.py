@@ -111,7 +111,7 @@ async def seed_source_and_group(
     unit_of_work: UnitOfWork, group_name: str = "default"
 ) -> tuple[Source, Group]:
     """원천 `default`와 그룹 하나를 만들어 낸다."""
-    source = Source(new_id(), "default", SourceKind.PUSH)
+    source = Source(new_id(), "default", SourceKind.PUSH, NOW)
     group = Group(new_id(), group_name, "")
     async with unit_of_work.begin() as transaction:
         await transaction.catalog.add_source(source)
