@@ -20,8 +20,17 @@
 실패와 (셋째 단계에서 이미 알아낸) 임베딩의 영구 실패는 세대가 달라 문서와 색인에 쓰지 않을 때도 그
 실패를 작업의 결과로 올리므로 작업은 `failed`로 끝난다(아래).
 
-파싱이 영구 실패하면 둘째 단계가 문서와 색인에 그 실패를 적고(`_record_permanent_failure`) 실패를
-그대로 올려 작업자가 작업을 재시도 없이 `failed`로 끝낸다. 임베딩이 영구 실패한 판은 그 판만
+암호가 걸린 파일(파서가 `encrypted_document`로 알린다)과 색인할 글이 하나도 나오지 않는 파일(공백만
+있는 것도 같다)은 실패가 아니라 건너뜀이다. 문서 상태를 `skipped`와 그 사유(`encrypted`,
+`no_text`)로 쓰고, 대상 판마다 그 문서의 옛 조각을 지운 뒤 색인 상태를 `indexed`(조각 0개)로 쓰며,
+건설 중인 판이면 전환 검사를 부르고, 작업은 `succeeded`로 끝난다(`_record_skipped`). 색인 상태를
+`indexed`로 쓰는 것은 건너뜀 문서가 판 전환을 막지 않게 하려는 것이다(전환 조건은 모든 색인 상태가
+`indexed`나 `failed`다). 오류 코드 `encrypted_document`는 문서, 색인 상태, 작업 행에 더는 쓰이지
+않는다.
+
+파싱이 그 밖의 이유로 영구 실패하면 둘째 단계가 문서와 색인에 그 실패를 적고
+(`_record_permanent_failure`) 실패를 그대로 올려 작업자가 작업을 재시도 없이 `failed`로 끝낸다.
+임베딩이 영구 실패한 판은 그 판만
 `failed`로 쓰고(`mark_version_failed`) 남은 판을 끝까지 처리한 뒤 작업을 그 오류 코드로 끝낸다.
 일시 실패는 그대로 올리고, 작업자가 `job_failure`로 다시 예약하거나 재시도를 다 썼으면 그쪽에서
 끝낸다. 작업 담당 기록 연장은 작업자(`worker/processing.py`)가 이 유스케이스를 돌리는 동안 따로
@@ -53,6 +62,7 @@ from rag_engine.domain.entities import (
     IndexVersionStatus,
     Job,
     JobStatus,
+    SkipReason,
     StoredChunk,
 )
 from rag_engine.domain.errors import ErrorCode, PermanentFailure
@@ -159,8 +169,16 @@ async def index_document(
     content = await _ensure_parsed(deps, job, claim, timer)
     if content is None:
         return timer.result()
+    if not _has_text(content):
+        await _record_skipped(deps, job, claim, SkipReason.NO_TEXT)
+        return timer.result()
     failure = await _replace_chunks(deps, job, claim, content, timer)
     return timer.result(failure)
+
+
+def _has_text(content: DocumentContent) -> bool:
+    """색인할 글이 있는가. 공백만 있는 블록은 글로 세지 않는다."""
+    return any(block.text.strip() for block in content.blocks)
 
 
 async def _raise_generation(deps: IndexDocumentDeps, job: Job) -> _Claim | None:
@@ -187,7 +205,7 @@ async def _raise_generation(deps: IndexDocumentDeps, job: Job) -> _Claim | None:
 async def _ensure_parsed(
     deps: IndexDocumentDeps, job: Job, claim: _Claim, timer: IndexTimer
 ) -> DocumentContent | None:
-    """둘째 단계. 세대 대조에 걸리면 `None`이다."""
+    """둘째 단계. 세대 대조에 걸리거나 암호가 걸린 파일이라 건너뛰었으면 `None`이다."""
     async with deps.unit_of_work.begin() as transaction:
         saved = await transaction.documents.get_content(job.document_id)
     if saved is not None and _is_reusable(
@@ -210,6 +228,9 @@ async def _parse_and_save(
     try:
         parsed = await deps.parse_runner.parse(data, claim.mime)
     except PermanentFailure as failure:
+        if failure.code is ErrorCode.ENCRYPTED_DOCUMENT:
+            await _record_skipped(deps, job, claim, SkipReason.ENCRYPTED)
+            return None
         await _record_permanent_failure(deps, job, claim, failure)
         raise
     content = DocumentContent(
@@ -233,10 +254,55 @@ async def _parse_and_save(
                 document,
                 status=DocumentStatus.PARSED,
                 error_code=None,
+                skip_reason=None,
                 modified_at=deps.now(),
             )
         )
     return content
+
+
+async def _record_skipped(
+    deps: IndexDocumentDeps, job: Job, claim: _Claim, reason: SkipReason
+) -> None:
+    """문서를 건너뜀으로 적는다. 세대가 같을 때만 문서 상태를 `skipped`와 사유로 쓰고, 살아 있는
+    판마다 그 문서의 옛 조각을 지우고 색인 상태 `indexed`(조각 0개)를 쓴다. 옛 조각을 두면 지금
+    내용과 다른 글이 검색에 남는다. 건설 중인 판이면 전환 검사를 부른다. 세대가 다르면 새 내용을
+    맡은 쪽이 문서를 맞추므로 아무것도 건드리지 않는다. 잠금 순서는 `_record_permanent_failure`와
+    같다."""
+    async with deps.unit_of_work.begin() as transaction:
+        document = await transaction.documents.lock(job.document_id)
+        versions = await live_index_versions(transaction, claim.group_id)
+        building = sorted(
+            {v.knowledge_base_id for v in versions if v.status is IndexVersionStatus.BUILDING}
+        )
+        await transaction.catalog.lock_knowledge_bases(building, LockMode.UPDATE)
+        await hold_attempt(transaction, job)
+        if document is None or document.generation != claim.generation:
+            return
+        await transaction.documents.update(
+            replace(
+                document,
+                status=DocumentStatus.SKIPPED,
+                error_code=None,
+                skip_reason=reason,
+                modified_at=deps.now(),
+            )
+        )
+        for version in versions:
+            await transaction.index.delete_chunks(document.id, version.id)
+            await transaction.index.save_state(
+                IndexState(
+                    document_id=document.id,
+                    index_version_id=version.id,
+                    status=IndexStateStatus.INDEXED,
+                    chunk_count=0,
+                    built_content_hash=document.content_hash,
+                    error_code=None,
+                    updated_at=deps.now(),
+                )
+            )
+            if version.status is IndexVersionStatus.BUILDING:
+                await check_version_switch(transaction, version)
 
 
 async def _record_permanent_failure(
@@ -266,6 +332,7 @@ async def _record_permanent_failure(
                 document,
                 status=DocumentStatus.FAILED,
                 error_code=failure.code,
+                skip_reason=None,
                 modified_at=deps.now(),
             )
         )
@@ -334,6 +401,7 @@ async def _replace_chunks(
                         document,
                         status=DocumentStatus.PARSED,
                         error_code=None,
+                        skip_reason=None,
                         modified_at=deps.now(),
                     )
                 )

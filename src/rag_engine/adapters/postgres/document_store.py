@@ -28,6 +28,7 @@ from rag_engine.domain.entities import (
     DocumentQuery,
     DocumentState,
     DocumentStatus,
+    SkipReason,
 )
 from rag_engine.domain.errors import DocumentAlreadyExistsError, ErrorCode
 
@@ -60,6 +61,7 @@ _BLOCK_LIST: Final = TypeAdapter(list[_BlockJson])
 
 def _document(row: sa.RowMapping) -> Document:
     error_code: str | None = row["error_code"]
+    skip_reason: str | None = row["skip_reason"]
     return Document(
         id=row["id"],
         source_id=row["source_id"],
@@ -81,6 +83,7 @@ def _document(row: sa.RowMapping) -> Document:
         purged_at=row["purged_at"],
         created_at=row["created_at"],
         modified_at=row["modified_at"],
+        skip_reason=None if skip_reason is None else SkipReason(skip_reason),
     )
 
 
@@ -99,6 +102,7 @@ def _mutable_values(document: Document) -> dict[str, object]:
         "access_groups": list(document.access_groups),
         "status": document.status.value,
         "error_code": None if document.error_code is None else document.error_code.value,
+        "skip_reason": None if document.skip_reason is None else document.skip_reason.value,
         "generation": document.generation,
         "deleted_at": document.deleted_at,
         "purged_at": document.purged_at,

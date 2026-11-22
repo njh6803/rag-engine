@@ -44,18 +44,29 @@ class IndexVersionStatus(StrEnum):
 
 
 class DocumentStatus(StrEnum):
+    """문서 행의 상태. `skipped`는 색인할 것이 없어 건너뛴 문서이고 실패가 아니다(`SkipReason`)."""
+
     RECEIVED = "received"
     PARSED = "parsed"
     FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class SkipReason(StrEnum):
+    """문서를 건너뛴 까닭. 문서 상태가 `skipped`일 때만 있다(명세 "건너뜀")."""
+
+    ENCRYPTED = "encrypted"
+    NO_TEXT = "no_text"
 
 
 class DocumentState(StrEnum):
-    """관리 조회가 문서에 붙이는 상태 넷(스토리 8: 받음, 파싱됨, 실패, 삭제됨). 지운 문서는 행의
+    """관리 조회가 문서에 붙이는 상태 다섯(받음, 파싱됨, 실패, 건너뜀, 삭제됨). 지운 문서는 행의
     `status`와 상관없이 `deleted`다."""
 
     RECEIVED = "received"
     PARSED = "parsed"
     FAILED = "failed"
+    SKIPPED = "skipped"
     DELETED = "deleted"
 
 
@@ -213,6 +224,11 @@ class Document:
     purged_at: datetime | None
     created_at: datetime
     modified_at: datetime
+    # 행의 상태가 `skipped`일 때만 있다. 사유가 있는데 행의 상태가 `skipped`가 아닌 행은
+    # 데이터베이스의 CHECK 제약이 막는다. 반대(`skipped`인데 사유가 없는 행)는 쓰는 자리가
+    # `_record_skipped`와 0005 둘뿐이라 생기지 않는다. 지운 문서는 행의 상태가 그대로라 사유가 남고,
+    # `state`는 `deleted`다.
+    skip_reason: SkipReason | None = None
 
     @property
     def state(self) -> DocumentState:
