@@ -69,6 +69,32 @@ class ConnectorUnavailableError(Exception):
         return "커넥터를 쓸 수 없다"
 
 
+class ConnectorCallKind(StrEnum):
+    """커넥터 호출의 종류. 호출 장치가 한도를 넘긴 호출을 로그 한 줄로 남길 때 싣는 값이다."""
+
+    LIST = "list"
+    FETCH = "fetch"
+    CHECK = "check"
+    FOLDER_CHECK = "folder_check"  # 서버 경로 원천의 폴더 확인. 인터페이스 밖의 호출이다
+
+
+class ConnectorCallTimedOutError(Exception):
+    """커넥터 호출이 한도까지 돌아오지 않아 기다리기를 그만뒀다. 호출은 끝나지 않은 채 남는다(ADR
+    0023). 부르는 쪽이 원천을 읽을 수 없음(`source_unreadable`)으로 옮긴다. 인자를 받지 않아
+    `copy`와 pickle이 같은 예외를 다시 만든다."""
+
+    def __str__(self) -> str:
+        return "커넥터 호출이 한도까지 돌아오지 않았다"
+
+
+class ConnectorCallBlockedError(Exception):
+    """같은 커넥터를 같은 설정으로 부른 호출이 끝나지 않은 채 남아 있어 커넥터를 부르지 않고
+    막혔다(ADR 0023). 부르는 쪽이 원천을 읽을 수 없음(`source_unreadable`)으로 옮긴다."""
+
+    def __str__(self) -> str:
+        return "같은 설정으로 부른 커넥터 호출이 끝나지 않고 남아 있다"
+
+
 @dataclass(frozen=True, slots=True)
 class ListedItem:
     """`list()`가 내는 항목. 변경 확인값은 커넥터가 준 문자열 그대로이고 서버가 해석하지 않는다.
