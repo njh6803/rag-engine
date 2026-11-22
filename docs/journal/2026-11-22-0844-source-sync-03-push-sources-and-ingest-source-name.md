@@ -99,8 +99,11 @@ PR #101을 연 뒤 받은 봇 리뷰다. 받은 턴에 옮겼다.
 
 - **CodeRabbit.** 리뷰를 하지 못했다. 무료 오픈소스 리뷰 한도를 이미 써서 "Review limit reached"로 끝났고, `@coderabbitai review`를 달아도 같은 이유로 "Review rate limited"가 돌아왔다. 그래서 이 PR의 CodeRabbit 리뷰는 PR 직전에 로컬에서 돌린 CLI 리뷰(위 "PR 직전 리뷰") 하나뿐이다. PR 위에서 다시 보는 층이 하나 빠진 셈이라 본다.
 - **claude-review.** 지적 없음. 경계(서드파티 타입 누출, MCP 쓰기 도구, 클라이언트 종속, 계약 버전, 플러그인 자리)를 `src/`의 변경 전부에 대 봤고, 수집 API에 선택 칸 `source`를 더한 것은 칸을 더하는 변경이라 계약 버전을 올리지 않은 판단이 맞다고 했다. 제목의 `feat:`에 느낌표가 없는 것도 맞다고 했다(마이그레이션 파일, 색인 판, 계약 버전 앞자리가 바뀌지 않았다).
-- **고친 것.** 없다. 이 턴에 코드 변경은 없고 이 절만 더했다.
-- **검사.** 필수 검사 여덟이 모두 통과했고 하나는 건너뛰었다. PR은 병합 가능, 상태는 `CLEAN`이었다.
+- **첫 라운드에서 고친 것.** 없다. 이 턴에는 이 절만 더했다. 필수 검사 여덟이 모두 통과했고 하나는 건너뛰었다. PR은 병합 가능, 상태는 `CLEAN`이었다.
+- **`origin/dev`를 합친 뒤 claude-review가 다시 돌았다.** [Critical]·[Major]는 없고 [Minor] 둘이었다. 둘 다 사실이라 고쳤다.
+  - **[Minor] `is_valid_source_name`의 쓰임.** 제품 코드가 부르지 않고 시험만 부르는 함수였다(`SOURCE_NAME_PATTERN`을 입구가 pydantic `pattern`으로 직접 쓴다). 맞다. 고쳤다: 함수를 `src/rag_engine/domain/source_names.py`에서 지우고 `re` 가져오기도 걷었다. 시험(`tests/domain/test_source_names.py`)은 같은 판정을 시험 안의 작은 함수로 둔다(`re.fullmatch(SOURCE_NAME_PATTERN, ...)`). 규칙 모듈의 주석에서 "`re.fullmatch`(아래 함수)"라는 서술은 함수가 없어졌으므로 "`re.fullmatch`"로 고쳤다.
+  - **[Minor] 수집 API 계약 시험에 `source`의 장면이 없다.** 맞다. 수집 API는 원칙 VII가 든 계약이고 `source`는 칸을 더하는 변경이라 버전은 올리지 않았지만, 이후 변경에서 이 칸이 조용히 사라지는 것을 계약 시험이 막아야 한다. 고쳤다: `tests/contract/test_ingest_source.py`를 새로 만들어 장면 둘을 두었다. 같은 키가 원천 `a`와 `b`에 따로 남아 MCP 검색에 원천 이름이 실리고 `a`만 지우면 `b`의 문서만 검색에 남는 것, 없는 원천의 이름이 404 `source_not_found`인 것이다. 서버 쪽 시험(`tests/server/test_ingest_sources.py`)은 그대로 두고 세부는 거기서 본다.
+  - **다시 돌린 명령.** `ruff format`, `ruff check`, `pyright`(0 errors), 새 계약 시험과 원천 이름 시험 24개 통과. 전체 검사는 이 반영을 담는 커밋의 pre-commit이 돈다.
 
 ## 회고
 

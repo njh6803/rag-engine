@@ -6,16 +6,11 @@ API, 수집 API)가 이 규칙 하나를 쓴다. 기본 원천 `default`와 `upl
 본다.
 """
 
-import re
 from typing import Final
 
 SOURCE_NAME_MAX_LENGTH: Final = 63
 
 # 전체 일치로 쓰는 값이다. `re.match`와 `re.search`는 `$`가 끝의 개행도 받으므로 `"abc\n"`을
-# 통과시킨다. `re.fullmatch`(아래 함수)와 pydantic의 `pattern`은 그 이름을 거절한다. 첫 글자 뒤에
-# 올 수 있는 길이는 최대 길이에서 파생한다.
+# 통과시킨다. `re.fullmatch`와 pydantic의 `pattern`은 그 이름을 거절한다. 첫 글자 뒤에 올 수 있는
+# 길이는 최대 길이에서 파생한다.
 SOURCE_NAME_PATTERN: Final = rf"^[a-z0-9][a-z0-9_-]{{0,{SOURCE_NAME_MAX_LENGTH - 1}}}$"
-
-
-def is_valid_source_name(name: str) -> bool:
-    return re.fullmatch(SOURCE_NAME_PATTERN, name) is not None
