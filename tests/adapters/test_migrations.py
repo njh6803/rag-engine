@@ -49,7 +49,7 @@ CORE_TABLES = {
 EXPECTED_TABLES = CORE_TABLES | {"sync_records"}
 
 # 마이그레이션 판을 더하면 이 값이 마지막 판을 따라간다.
-HEAD_REVISION = "0004"
+HEAD_REVISION = "0005"
 
 NOW = datetime(2026, 11, 10, 9, 30, tzinfo=UTC)
 
@@ -1076,6 +1076,149 @@ def test_색인이_아닌_작업이_남아_있으면_판을_내리다_멈추고_
         _alembic(empty_database_url, "downgrade", "0003")
 
     _assert_downgrade_halted_and_head_kept(empty_database_url)
+
+
+def _content(
+    connection: psycopg.Connection, document_id: UUID, texts: list[str], *, content_hash: str = "h"
+) -> None:
+    """문서의 파싱 결과 행. 블록은 `texts`의 글마다 문단 하나다."""
+    blocks = [
+        {"kind": "paragraph", "text": text, "level": None, "page": None, "ordinal": ordinal}
+        for ordinal, text in enumerate(texts)
+    ]
+    connection.execute(
+        "INSERT INTO document_contents (document_id, parser_name, parser_interface_version,"
+        " parser_library_version, blocks, parsed_content_hash, text_hash, parsed_at)"
+        " VALUES (%s, 'pdf', '1.0.0', '1', %s, %s, 'x', %s)",
+        [document_id, Jsonb(blocks), content_hash, NOW],
+    )
+
+
+def _index_state(
+    connection: psycopg.Connection,
+    document_id: UUID,
+    index_version_id: UUID,
+    status: str,
+    *,
+    chunk_count: int = 0,
+    error_code: str | None = None,
+    built_content_hash: str | None = None,
+) -> None:
+    connection.execute(
+        "INSERT INTO document_index_states (document_id, index_version_id, status, chunk_count,"
+        " built_content_hash, error_code, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        [document_id, index_version_id, status, chunk_count, built_content_hash, error_code, NOW],
+    )
+
+
+def _skip_columns(connection: psycopg.Connection, document_id: UUID) -> tuple[object, ...]:
+    row = connection.execute(
+        "SELECT d.status, d.skip_reason, d.error_code, s.status, s.chunk_count,"
+        " s.built_content_hash, s.error_code FROM documents d"
+        " LEFT JOIN document_index_states s ON s.document_id = d.id WHERE d.id = %s",
+        [document_id],
+    ).fetchone()
+    assert row is not None
+    return row
+
+
+def _seed_before_skipping(url: str) -> dict[str, UUID]:
+    """건너뜀을 쓰기 전(0004)의 설치처에 있던 문서들. 옮길 둘(암호 실패, 글이 없는 파싱)과 옮기지
+    않을 셋(글이 있는 문서, 암호가 아닌 실패, 아직 파싱하지 않은 문서)이다."""
+    _alembic(url, "upgrade", "0004")
+    with _connect(url) as connection:
+        source_id = _source(connection)
+        group_id = _group(connection)
+        version_id = _index_version(connection, _knowledge_base(connection, "kb", is_default=True))
+        documents: dict[str, UUID] = {}
+
+        def add(name: str, **overrides: object) -> UUID:
+            documents[name] = _document(
+                connection, source_id, group_id, key=f"{name}.pdf", content_hash=name, **overrides
+            )
+            return documents[name]
+
+        encrypted = add("encrypted", status="failed", error_code="encrypted_document")
+        _index_state(connection, encrypted, version_id, "failed", error_code="encrypted_document")
+        scan = add("scan", status="parsed")
+        _content(connection, scan, [], content_hash="scan")
+        _index_state(connection, scan, version_id, "indexed", built_content_hash="scan")
+        blank = add("blank", status="parsed")
+        # 파이썬이 공백으로 보는 유니코드 공백(NBSP, 전각 공백)만 든 블록도 글이 없는 것이다.
+        unicode_spaces = chr(0x00A0) + chr(0x3000)
+        _content(connection, blank, ["  ", "\n\t", unicode_spaces], content_hash="blank")
+        _index_state(connection, blank, version_id, "indexed", built_content_hash="blank")
+        texty = add("texty", status="parsed")
+        _content(connection, texty, ["연차휴가", "  "], content_hash="texty")
+        _index_state(
+            connection, texty, version_id, "indexed", chunk_count=1, built_content_hash="texty"
+        )
+        broken = add("broken", status="failed", error_code="parse_failed")
+        _index_state(connection, broken, version_id, "failed", error_code="parse_failed")
+        add("received", status="received")
+    return documents
+
+
+def test_암호_실패와_글이_없는_파싱은_건너뜀으로_옮기고_색인_상태를_indexed로_맞춘다(
+    empty_database_url: str,
+) -> None:
+    documents = _seed_before_skipping(empty_database_url)
+
+    _alembic(empty_database_url, "upgrade", "head")
+
+    with _connect(empty_database_url) as connection:
+        rows = {name: _skip_columns(connection, id_) for name, id_ in documents.items()}
+    assert rows == {
+        "encrypted": ("skipped", "encrypted", None, "indexed", 0, "encrypted", None),
+        "scan": ("skipped", "no_text", None, "indexed", 0, "scan", None),
+        "blank": ("skipped", "no_text", None, "indexed", 0, "blank", None),
+        "texty": ("parsed", None, None, "indexed", 1, "texty", None),
+        "broken": ("failed", None, "parse_failed", "failed", 0, None, "parse_failed"),
+        "received": ("received", None, None, None, None, None, None),
+    }
+
+
+def test_건너뜀으로_옮긴_판을_내리면_암호_실패와_글이_없는_파싱으로_되돌아간다(
+    empty_database_url: str,
+) -> None:
+    documents = _seed_before_skipping(empty_database_url)
+    _alembic(empty_database_url, "upgrade", "head")
+
+    _alembic(empty_database_url, "downgrade", "0004")
+
+    with _connect(empty_database_url) as connection:
+        rows = {name: _skip_columns(connection, id_) for name, id_ in documents.items()}
+        version = connection.execute("SELECT version_num FROM alembic_version").fetchall()
+    assert version == [("0004",)]
+    assert rows["encrypted"] == (
+        "failed",
+        None,
+        "encrypted_document",
+        "failed",
+        0,
+        None,
+        "encrypted_document",
+    )
+    assert rows["scan"] == ("parsed", None, None, "indexed", 0, "scan", None)
+    assert rows["blank"] == ("parsed", None, None, "indexed", 0, "blank", None)
+    assert rows["texty"] == ("parsed", None, None, "indexed", 1, "texty", None)
+
+
+def test_올렸다_내렸다_다시_올려도_건너뜀_문서는_처음과_같다(empty_database_url: str) -> None:
+    documents = _seed_before_skipping(empty_database_url)
+    _alembic(empty_database_url, "upgrade", "head")
+    _alembic(empty_database_url, "downgrade", "0004")
+
+    _alembic(empty_database_url, "upgrade", "head")
+
+    with _connect(empty_database_url) as connection:
+        rows = {name: _skip_columns(connection, id_) for name, id_ in documents.items()}
+    assert [rows["encrypted"][:2], rows["scan"][:2], rows["blank"][:2], rows["texty"][:2]] == [
+        ("skipped", "encrypted"),
+        ("skipped", "no_text"),
+        ("skipped", "no_text"),
+        ("parsed", None),
+    ]
 
 
 def test_표_정의가_마이그레이션이_만든_표와_어긋나지_않는다(migrated_url: str) -> None:

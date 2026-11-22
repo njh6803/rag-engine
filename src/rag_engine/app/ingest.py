@@ -12,8 +12,12 @@
 아래 새 원본 경로로 옮긴 뒤 갱신으로 다시 처리한다.
 
 지우지 않은 문서에 내용이 같은 수집은 셋으로 갈린다. 그룹이 바뀌었으면 `updated`이고, 앞선 색인이
-실패했으면 `requeued`이며, 아니면 `unchanged`다. 그룹이 바뀌면 같은 작업 단위에서 조각의 복사 칸을
-새 그룹으로 고치고 문서가 빠지는 지식베이스의 살아 있는 판에서 문서의 조각과 색인 상태를 지운다.
+실패했으면 `requeued`이며, 아니면 `unchanged`다. 건너뜀(`skipped`)은 실패가 아니므로 건너뜀 문서에
+내용이 같은 파일을 다시 넣으면 `unchanged`이고 작업이 들어가지 않는다(재시도를 다 써서 색인 상태가
+`failed`인 판이 있으면 앞 문단대로 `requeued`다). 내용이 다르면 보통의 갱신이라
+문서 상태가 `received`로 돌아가고 건너뜀 사유가 사라진다. 그룹이 바뀌면 같은 작업 단위에서 조각의
+복사 칸을 새 그룹으로 고치고 문서가 빠지는 지식베이스의 살아 있는 판에서 문서의 조각과 색인 상태를
+지운다.
 
 지운 문서(`deleted_at`은 있고 `purged_at`은 없다)가 같은 키로 돌아오면 되살림(`restored`)이다. 문서
 UUID를 그대로 두고, 내용이 같으면 보관 조각을 검색 표로 되돌리며(되돌릴 조각이 없는 대상 판이 있을
@@ -407,7 +411,7 @@ async def _restore_chunks(
         document, [version.id for version in versions]
     )
     if restored:
-        document = replace(document, status=DocumentStatus.PARSED)
+        document = replace(document, status=DocumentStatus.PARSED, skip_reason=None)
     await transaction.documents.update(document)
     await transaction.index.delete_archived_chunks(document.id)
     for version in versions:
@@ -475,6 +479,7 @@ async def _update_content(
         updated_at=upload.updated_at or now,
         status=DocumentStatus.RECEIVED,
         error_code=None,
+        skip_reason=None,
         generation=existing.generation + 1,
         modified_at=now,
     )

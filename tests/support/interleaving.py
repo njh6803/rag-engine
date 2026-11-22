@@ -160,7 +160,7 @@ class FailingRunner:
 
     def __init__(
         self,
-        code: ErrorCode = ErrorCode.ENCRYPTED_DOCUMENT,
+        code: ErrorCode = ErrorCode.PARSE_FAILED,
         before_failing: Interloper | None = None,
     ) -> None:
         self._code = code

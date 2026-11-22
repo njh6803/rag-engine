@@ -188,6 +188,7 @@ async def test_문서_조회는_원천_그룹_메타데이터와_색인_상태�
         "size_bytes",
         "status",
         "error_code",
+        "skip_reason",
         "metadata",
         "updated_at",
         "created_at",

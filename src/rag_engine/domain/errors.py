@@ -13,7 +13,9 @@ from enum import StrEnum
 
 
 class ErrorCode(StrEnum):
-    # 작업 코드. 문서 상태·색인 상태·작업 행의 오류 코드 칸에 쓴다.
+    # 작업 코드. 문서 상태·색인 상태·작업 행의 오류 코드 칸에 쓴다. 다만 `encrypted_document`는
+    # 파서가 알리는 신호일 뿐이라 새로 쓰지 않는다(색인 작업이 건너뜀으로 남긴다). 업그레이드 전의
+    # 작업 행에 남아 있어 값은 지우지 않는다.
     PARSE_TIMEOUT = "parse_timeout"
     PARSE_MEMORY_EXCEEDED = "parse_memory_exceeded"
     PARSE_FAILED = "parse_failed"
@@ -48,7 +50,8 @@ class ErrorCode(StrEnum):
     JUDGE_REJECTED = "judge_rejected"
 
 
-# 영구 실패의 코드. 다시 시도하지 않고 작업이 `failed`로 끝난다.
+# 영구 실패의 코드. 다시 시도하지 않는다. `encrypted_document`를 뺀 코드는 작업이 `failed`로
+# 끝나고, `encrypted_document`는 색인 작업이 건너뜀으로 쓰고 작업이 `succeeded`로 끝난다.
 PERMANENT_FAILURE_CODES = frozenset(
     {
         ErrorCode.PARSE_TIMEOUT,
@@ -77,7 +80,8 @@ TRANSIENT_FAILURE_CODES = frozenset(
 JUDGE_PERMANENT_FAILURE_CODES = frozenset({ErrorCode.JUDGE_REJECTED})
 JUDGE_TRANSIENT_FAILURE_CODES = frozenset({ErrorCode.JUDGE_UNAVAILABLE})
 
-# 작업 행과 문서·색인 상태의 오류 코드 칸에 들어갈 수 있는 값 열넷.
+# 작업 행과 문서·색인 상태의 오류 코드 칸에 들어갈 수 있는 값 열넷. 이 가운데 `encrypted_document`는
+# 업그레이드 전에 쓰인 행에만 남는다.
 JOB_ERROR_CODES = (
     PERMANENT_FAILURE_CODES
     | TRANSIENT_FAILURE_CODES
