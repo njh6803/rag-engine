@@ -41,6 +41,7 @@ async def test_수집_직후의_작업_조회는_대기_작업과_받음_상태�
         "id",
         "kind",
         "document_id",
+        "source",
         "status",
         "attempts",
         "run_after",

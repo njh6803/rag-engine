@@ -22,6 +22,7 @@ import httpx
 
 from rag_engine.adapters.blob_store import LocalBlobStore
 from rag_engine.adapters.chunking import chunker_for
+from rag_engine.adapters.connectors.registry import EntryPointConnectorRegistry
 from rag_engine.adapters.kiwi import tokenize_keywords
 from rag_engine.adapters.log_format import configure_logging
 from rag_engine.adapters.parsers.registry import ParserRegistry, discover_parser_specs
@@ -41,6 +42,7 @@ from rag_engine.worker.signals import stop_on_signals
 
 # 슬롯 하나가 동시에 쥐는 연결의 수. 처리하는 작업 단위 하나와 작업 담당 기록 연장 하나다.
 _CONNECTIONS_PER_SLOT: Final = 2
+_BYTES_PER_MB: Final = 1024 * 1024
 
 
 def worker_id() -> str:
@@ -116,6 +118,9 @@ async def _assembled(
             max_attempts=settings.job_max_attempts,
             backoff_base_seconds=settings.job_backoff_base_seconds,
         ),
+        connectors=EntryPointConnectorRegistry(),
+        source_read_timeout_seconds=float(settings.source_read_timeout_seconds),
+        max_upload_bytes=settings.max_upload_mb * _BYTES_PER_MB,
     )
     try:
         yield deps

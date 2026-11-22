@@ -5,7 +5,7 @@
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Final
@@ -79,7 +79,21 @@ class IndexStateStatus(StrEnum):
 
 
 class JobKind(StrEnum):
+    """작업의 종류 다섯. 색인 작업(`index_document`)만 문서를 가리키고 원천 단위 작업(`sync_source`,
+    `delete_source`, `restore_source`)은 원천을, 정리 작업(`cleanup`)은 둘 다 가리키지 않는다.
+    색인 작업이 아닌 넷은 `NON_INDEX_JOB_KINDS`다."""
+
     INDEX_DOCUMENT = "index_document"
+    SYNC_SOURCE = "sync_source"
+    DELETE_SOURCE = "delete_source"
+    RESTORE_SOURCE = "restore_source"
+    CLEANUP = "cleanup"
+
+
+# 작업자가 색인 작업보다 먼저 꺼내는 작업(명세 "작업 대기열").
+NON_INDEX_JOB_KINDS: Final = frozenset(
+    {JobKind.SYNC_SOURCE, JobKind.DELETE_SOURCE, JobKind.RESTORE_SOURCE, JobKind.CLEANUP}
+)
 
 
 class JobStatus(StrEnum):
@@ -222,7 +236,8 @@ class Document:
     mime: str
     size_bytes: int
     content_hash: str
-    blob_path: str
+    # 가져오는 원천의 문서는 원본을 파일 저장소에 복사하지 않고 이 칸을 비운다(ADR 0013).
+    blob_path: str | None
     metadata: Mapping[str, JsonValue]
     updated_at: datetime
     effective_date: date | None
@@ -239,6 +254,9 @@ class Document:
     # `_record_skipped`와 0005 둘뿐이라 생기지 않는다. 지운 문서는 행의 상태가 그대로라 사유가 남고,
     # `state`는 `deleted`다.
     skip_reason: SkipReason | None = None
+    # 커넥터가 준 변경 확인값. 밀어 넣는 원천의 문서에서는 비어 있다. 색인 작업이 원천이 목록 뒤에
+    # 바뀐 것을 알아내면 비워서 다음 동기화가 그 파일을 다시 읽게 한다.
+    change_marker: str | None = None
 
     @property
     def state(self) -> DocumentState:
@@ -395,7 +413,7 @@ class Job:
 
     id: UUID
     kind: JobKind
-    document_id: UUID
+    document_id: UUID | None
     status: JobStatus
     attempts: int
     run_after: datetime
@@ -407,6 +425,24 @@ class Job:
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
+    # 원천 단위 작업이 가리키는 원천. 색인 작업과 정리 작업에서는 비어 있다.
+    source_id: UUID | None = None
+    # 원천 단위 작업의 옵션(지금 동기화의 `apply_empty`, `reread`). 다른 종류에서는 빈 객체다.
+    options: Mapping[str, JsonValue] = field(default_factory=lambda: dict[str, JsonValue]())
+
+    @property
+    def index_document_id(self) -> UUID:
+        """색인 작업이 가리키는 문서. 색인 작업이 아닌 작업에서 부르면 코드의 잘못이다."""
+        if self.document_id is None:
+            raise ValueError("문서를 가리키지 않는 작업이다")
+        return self.document_id
+
+    @property
+    def target_source_id(self) -> UUID:
+        """원천 단위 작업이 가리키는 원천. 원천을 가리키지 않는 작업에서 부르면 코드의 잘못이다."""
+        if self.source_id is None:
+            raise ValueError("원천을 가리키지 않는 작업이다")
+        return self.source_id
 
 
 @dataclass(frozen=True, slots=True)

@@ -29,13 +29,14 @@
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum, auto
 from typing import Final
+from uuid import UUID
 
-from rag_engine.adapters.log_format import log_event
+from rag_engine.adapters.log_format import log_event, log_event_fields
 from rag_engine.app.index_document import (
     IndexDocumentDeps,
     IndexResult,
@@ -45,7 +46,8 @@ from rag_engine.app.index_document import (
 )
 from rag_engine.app.job_failure import exhaust, settle_transient_failure
 from rag_engine.app.retire_cleanup import clean_retired_versions
-from rag_engine.domain.entities import Job, JobStatus
+from rag_engine.app.sync_source import SyncDeps, SyncLogLine, sync_source
+from rag_engine.domain.entities import Job, JobKind, JobStatus
 from rag_engine.domain.errors import AttemptLostError, ErrorCode, RagEngineError, TransientFailure
 from rag_engine.domain.ports import JobOutcome
 
@@ -100,7 +102,8 @@ async def process_job(
         request_id=job.request_id,
         job_id=str(job.id),
         kind=job.kind.value,
-        document_id=str(job.document_id),
+        document_id=_text(job.document_id),
+        source_id=_text(job.source_id),
         attempts=job.attempts,
     )
     settled = await _run(deps, job, lease_seconds)
@@ -115,7 +118,8 @@ async def process_job(
         duration_ms=(time.perf_counter() - started) * _MS_PER_SECOND,
         job_id=str(job.id),
         kind=job.kind.value,
-        document_id=str(job.document_id),
+        document_id=_text(job.document_id),
+        source_id=_text(job.source_id),
         attempts=job.attempts,
         result="lost" if outcome is None else outcome.status.value,
         error_code=None
@@ -126,6 +130,10 @@ async def process_job(
         write_ms=timings.write_ms,
     )
     await _clean_retired_versions(deps, job)
+
+
+def _text(identifier: UUID | None) -> str | None:
+    return None if identifier is None else str(identifier)
 
 
 async def _clean_retired_versions(deps: IndexDocumentDeps, job: Job) -> None:
@@ -176,7 +184,7 @@ async def _run(deps: IndexDocumentDeps, job: Job, lease_seconds: float | None) -
     if deps.retry.is_overrun(job.attempts):
         return await _settle(deps, job, timer, ErrorCode.WORKER_LOST, exhaust)
     try:
-        result: IndexResult = await _index(deps, job, timer, lease_seconds)
+        result: IndexResult = await _dispatch(deps, job, timer, lease_seconds)
     except AttemptLostError:
         return _Settled(None, timer.timings())
     except TransientFailure as failure:
@@ -195,15 +203,54 @@ async def _run(deps: IndexDocumentDeps, job: Job, lease_seconds: float | None) -
     return _Settled(result.outcome, result.timings)
 
 
-async def _index(
+async def _dispatch(
     deps: IndexDocumentDeps, job: Job, timer: IndexTimer, lease_seconds: float | None
 ) -> IndexResult:
+    """작업의 종류로 유스케이스를 고른다. 색인 작업은 `index_document`, 동기화 작업은
+    `sync_source`다. 나머지 종류(원천 삭제, 원천 되살리기, 정리)는 뒤의 티켓이 더한다."""
+    if job.kind is JobKind.INDEX_DOCUMENT:
+        return await _leased(deps, job, lease_seconds, lambda: index_document(deps, job, timer))
+    if job.kind is JobKind.SYNC_SOURCE:
+        sync_deps = _sync_deps(deps)
+        outcome = await _leased(deps, job, lease_seconds, lambda: sync_source(sync_deps, job))
+        return IndexResult(outcome=outcome, timings=timer.timings())
+    raise RuntimeError("이 작업자가 처리하지 못하는 종류의 작업이다")
+
+
+def _sync_deps(deps: IndexDocumentDeps) -> SyncDeps:
+    return SyncDeps(
+        unit_of_work=deps.unit_of_work,
+        connectors=deps.connectors,
+        source_read_timeout_seconds=deps.source_read_timeout_seconds,
+        max_upload_bytes=deps.max_upload_bytes,
+        now=deps.now,
+        log=_log_sync_line,
+    )
+
+
+def _log_sync_line(line: SyncLogLine) -> None:
+    log_event_fields(
+        logger,
+        line.event,
+        line.fields,
+        level=logging.WARNING if line.warning else logging.INFO,
+        request_id=line.request_id,
+        duration_ms=line.duration_ms,
+    )
+
+
+async def _leased[Result](
+    deps: IndexDocumentDeps,
+    job: Job,
+    lease_seconds: float | None,
+    make_work: Callable[[], Coroutine[object, object, Result]],
+) -> Result:
     """유스케이스를 돌리면서 작업 담당 기록의 기한을 늘린다. 연장이 작업 담당 기록을 잃었다고 알리면
     유스케이스를 취소하고 `AttemptLostError`를 올린다. 유스케이스가 끝나거나 실패하면 연장을
     멈춘다."""
     if lease_seconds is None:
-        return await index_document(deps, job, timer)
-    work = asyncio.create_task(index_document(deps, job, timer))
+        return await make_work()
+    work = asyncio.create_task(make_work())
     keeper = asyncio.create_task(_keep_lease(deps, job, lease_seconds))
     try:
         await asyncio.wait({work, keeper}, return_when=asyncio.FIRST_COMPLETED)

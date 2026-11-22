@@ -114,7 +114,8 @@ class JobResponse(BaseModel):
 
     id: UUID
     kind: JobKind
-    document_id: UUID
+    document_id: UUID | None = Field(description="색인 작업만 문서를 가리킨다")
+    source: str | None = Field(description="원천 단위 작업이 가리키는 원천의 이름. 그 밖에는 null")
     status: JobStatus = Field(description="그 작업이 끝난 모양이다. 문서의 결과가 아니다")
     attempts: int
     run_after: UtcTime
@@ -127,11 +128,12 @@ class JobResponse(BaseModel):
     finished_at: UtcTime | None
 
     @staticmethod
-    def of(job: Job) -> "JobResponse":
+    def of(job: Job, source: str | None) -> "JobResponse":
         return JobResponse(
             id=job.id,
             kind=job.kind,
             document_id=job.document_id,
+            source=source,
             status=job.status,
             attempts=job.attempts,
             run_after=job.run_after,
@@ -156,7 +158,7 @@ class JobDetailResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     job: JobResponse
-    document: DocumentResponse
+    document: DocumentResponse | None
     active_jobs_remain: bool = Field(
         description="같은 문서에 대기·실행 중인 작업이 남았는지(이 작업 자신이 그렇다면 참)"
     )
@@ -164,7 +166,7 @@ class JobDetailResponse(BaseModel):
     @staticmethod
     def of(report: JobReport) -> "JobDetailResponse":
         return JobDetailResponse(
-            job=JobResponse.of(report.job),
-            document=DocumentResponse.of(report.document),
+            job=JobResponse.of(report.job, report.source),
+            document=None if report.document is None else DocumentResponse.of(report.document),
             active_jobs_remain=report.active_jobs_remain,
         )

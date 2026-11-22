@@ -22,6 +22,7 @@ from rag_engine.domain.connectors import (
     FolderId,
     FolderLocation,
     FolderTarget,
+    SourceReader,
 )
 from rag_engine.domain.entities import Group, JsonValue, Source, SourceKind
 from rag_engine.domain.errors import ErrorCode, RequestError
@@ -40,6 +41,16 @@ class _FolderRegistry:
 
     def create(self, name: str, config: Mapping[str, JsonValue]) -> Connector:
         return create_fake(config)
+
+    def open_reader(
+        self,
+        name: str,
+        config: Mapping[str, JsonValue],
+        *,
+        source: str,
+        timeout_seconds: float,
+    ) -> SourceReader:
+        raise ConnectorUnavailableError
 
     async def locate_folder(self, name: str, config: Mapping[str, JsonValue]) -> FolderLocation:
         folder = config.get("folder")

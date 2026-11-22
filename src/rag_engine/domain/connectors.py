@@ -63,8 +63,8 @@ class ConnectorUnavailableError(Exception):
     """그 이름의 커넥터를 만들 수 없다. 설치되지 않았거나, 인터페이스 버전의 major가 다르거나,
     불러오다 깨졌다. `ConnectorRegistry`가 올리고 `ConnectorError`와 다른 종류다. 원천을 만들고
     고치고 확인하는 관리 API가 422(`connector_unavailable`)나 연결 확인의 `connector_unavailable`로
-    옮기고, 동기화의 `connector_unavailable`은 동기화를 짓는 뒤의 티켓이 옮긴다. 이름은 글에 싣지
-    않는다. 인자를 받지 않아 `args`가 비므로 `copy`와 pickle이 같은 예외를 다시 만든다."""
+    옮기고, 동기화의 `connector_unavailable`은 동기화 작업(`app/sync_source`)이 옮긴다. 이름은 글에
+    싣지 않는다. 인자를 받지 않아 `args`가 비므로 `copy`와 pickle이 같은 예외를 다시 만든다."""
 
     def __str__(self) -> str:
         return "커넥터를 쓸 수 없다"
@@ -187,6 +187,23 @@ class Connector(Protocol):
     async def check(self) -> None:
         """원천을 읽을 수 있는지 보고, 안 되면 `ConnectorError`를 올린다."""
         ...
+
+
+class SourceReader(Protocol):
+    """작업자가 원천 하나를 읽는 길. 커넥터의 `list()`와 `fetch`를 커넥터 호출 장치(ADR 0023)에
+    태운 것이다. 호출 하나(`list()`의 다음 항목 하나, `fetch` 한 번)를 한도까지만 기다린다.
+
+    올리는 예외는 넷이다. 커넥터가 낸 `ConnectorError`(사유 값만 든다), 한도를 넘긴
+    `ConnectorCallTimedOutError`, 같은 설정으로 부른 호출이 남아 있어 막힌
+    `ConnectorCallBlockedError`, 인터페이스에 없는 예외를 바꾼 `ConnectorBrokenError`다. 부르는 쪽이
+    `source_unreadable`, `source_path_rejected`, `connector_error`로 옮긴다.
+    """
+
+    def list(self) -> AsyncIterator[ListedItem]:
+        """원천의 항목을 하나씩 낸다. 받는 쪽이 끝까지 받지 않고 멈추면 `aclose()`로 닫는다."""
+        ...
+
+    async def fetch(self, key: str) -> FetchedItem: ...
 
 
 # entry point가 가리키는 것. 원천의 설정을 받아 커넥터를 돌려주는 보통 함수다.

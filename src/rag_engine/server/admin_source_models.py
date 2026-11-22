@@ -2,7 +2,7 @@
 
 원천 응답의 칸은 목록과 하나 보기가 같다. 밀어 넣는 원천에서는 가져오는 원천만 쓰는 칸(`connector`,
 `config`, `group`, `schedule`, `next_run_at`, `paused`, `exclude_patterns`)이 null이다.
-`last_sync`는 동기화 기록이 생기기 전이라 늘 null이다. 시각은 UTC `Z`로 낸다(ADR 0015).
+`last_sync`는 가장 최근 동기화 기록이고 기록이 없으면 null이다. 시각은 UTC `Z`로 낸다(ADR 0015).
 """
 
 from typing import Annotated, Final, Literal
@@ -14,6 +14,7 @@ from rag_engine.app.pull_sources import ConnectionCheck
 from rag_engine.domain.connectors import ConnectionCheckCode
 from rag_engine.domain.entities import SourceKind
 from rag_engine.server.admin_models import UtcTime
+from rag_engine.server.admin_sync_models import SyncRecordResponse
 from rag_engine.server.source_name import SourceName
 
 # 제외 패턴의 규칙(명세 "수집 정책"). 원천 하나에 50개, 패턴 하나는 200자까지다.
@@ -120,7 +121,9 @@ class SourceResponse(BaseModel):
     created_at: UtcTime
     deleted_at: UtcTime | None = Field(description="지운 원천이 아니면 null")
     documents: DocumentCountsResponse
-    last_sync: None = Field(description="가장 최근 동기화 기록. 동기화 기록이 없으면 null")
+    last_sync: SyncRecordResponse | None = Field(
+        description="가장 최근 동기화 기록. 동기화 기록이 없으면 null"
+    )
 
     @staticmethod
     def of(report: SourceReport) -> "SourceResponse":
@@ -143,7 +146,11 @@ class SourceResponse(BaseModel):
                 failed=report.documents.failed,
                 skipped=report.documents.skipped,
             ),
-            last_sync=None,
+            last_sync=(
+                None
+                if report.last_sync is None
+                else SyncRecordResponse.of(report.last_sync, source.name)
+            ),
         )
 
 

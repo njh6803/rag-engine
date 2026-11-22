@@ -23,11 +23,13 @@ from uuid import UUID
 from rag_engine.app.index_document import IndexDocumentDeps
 from rag_engine.app.index_failure import mark_version_failed
 from rag_engine.app.job_attempt import hold_attempt
+from rag_engine.app.sync_source import fail_record
 from rag_engine.domain.entities import (
     Document,
     IndexStateStatus,
     IndexVersion,
     Job,
+    JobKind,
     JobStatus,
 )
 from rag_engine.domain.errors import ErrorCode
@@ -45,9 +47,10 @@ async def settle_transient_failure(
 
 async def reschedule(deps: IndexDocumentDeps, job: Job, code: ErrorCode) -> JobOutcome:
     async with deps.unit_of_work.begin() as transaction:
-        document = await transaction.documents.lock(job.document_id)
-        if document is not None:
-            await _lock_knowledge_bases(transaction, document.group_id, LockMode.SHARE)
+        if job.document_id is not None:
+            document = await transaction.documents.lock(job.document_id)
+            if document is not None:
+                await _lock_knowledge_bases(transaction, document.group_id, LockMode.SHARE)
         await hold_attempt(transaction, job)
         run_after = deps.now() + deps.retry.backoff(job.attempts)
         if await transaction.jobs.reschedule(job, run_after, code):
@@ -59,6 +62,8 @@ async def reschedule(deps: IndexDocumentDeps, job: Job, code: ErrorCode) -> JobO
 
 async def exhaust(deps: IndexDocumentDeps, job: Job, code: ErrorCode) -> JobOutcome:
     outcome = JobOutcome(JobStatus.FAILED, code)
+    if job.document_id is None:
+        return await _exhaust_source_job(deps, job, outcome)
     async with deps.unit_of_work.begin() as transaction:
         document = await transaction.documents.lock(job.document_id)
         versions: list[IndexVersion] = []
@@ -69,6 +74,20 @@ async def exhaust(deps: IndexDocumentDeps, job: Job, code: ErrorCode) -> JobOutc
             for version in versions:
                 if await _is_stale(transaction, document, version):
                     await mark_version_failed(transaction, document.id, version, code, deps.now())
+        await transaction.jobs.finish(job, outcome, deps.now())
+    return outcome
+
+
+async def _exhaust_source_job(deps: IndexDocumentDeps, job: Job, outcome: JobOutcome) -> JobOutcome:
+    """문서를 가리키지 않는 작업(동기화)을 끝낸다. 잠글 문서나 지식베이스가 없고, 동기화 기록이 아직
+    끝나지 않았으면 그 작업의 오류 코드로 실패로 닫는다. 잠금 순서는 동기화 본문(`sync_source`)과
+    같이 동기화 기록 행이 먼저이고 작업 행(`hold_attempt`)이 마지막이다. 순서가 다르면 작업 담당
+    기록을 잃은 앞 시도와 인수한 시도가 서로 상대의 행을 기다린다. 기록을 먼저 고쳐도 잃은 시도는
+    `hold_attempt`가 올리는 예외로 작업 단위째 되돌려져 기록에 남지 않는다."""
+    async with deps.unit_of_work.begin() as transaction:
+        if job.kind is JobKind.SYNC_SOURCE and outcome.error_code is not None:
+            await fail_record(transaction, job, outcome.error_code, deps.now())
+        await hold_attempt(transaction, job)
         await transaction.jobs.finish(job, outcome, deps.now())
     return outcome
 

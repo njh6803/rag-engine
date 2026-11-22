@@ -50,6 +50,7 @@ async def test_수집_직후의_작업_조회는_받음_상태와_색인_전과_
 
     report = await get_job_report(pipeline.unit_of_work, ingested.job_id)
 
+    assert report.document is not None
     assert report.job.status is JobStatus.QUEUED
     assert report.active_jobs_remain
     assert report.document.document.state is DocumentState.RECEIVED
@@ -71,6 +72,7 @@ async def test_색인이_끝난_작업_조회는_파싱됨_상태와_판마다�
 
     report = await get_job_report(pipeline.unit_of_work, ingested.job_id)
 
+    assert report.document is not None
     assert report.job.status is JobStatus.SUCCEEDED
     assert not report.active_jobs_remain
     assert report.document.document.state is DocumentState.PARSED
@@ -90,6 +92,7 @@ async def test_파싱이_영구_실패한_작업_조회는_실패_상태와_오�
 
     report = await get_job_report(pipeline.unit_of_work, ingested.job_id)
 
+    assert report.document is not None
     assert (report.job.status, report.job.last_error_code) == (
         JobStatus.FAILED,
         ErrorCode.PARSE_FAILED,
@@ -111,6 +114,7 @@ async def test_내용을_바꿔_다시_넣으면_앞선_작업이_succeeded여�
 
     report = await get_job_report(pipeline.unit_of_work, first.job_id)
 
+    assert report.document is not None
     assert report.job.status is JobStatus.SUCCEEDED
     assert report.active_jobs_remain
     assert report.document.document.state is DocumentState.RECEIVED
@@ -133,9 +137,10 @@ async def test_작업_목록은_최근_순이고_상태와_커서와_한도를_�
     queued = await list_jobs(pipeline.unit_of_work, status=JobStatus.QUEUED, limit=10, after=None)
     older = await list_jobs(pipeline.unit_of_work, status=None, limit=10, after=second.job_id)
 
-    assert [job.id for job in everything] == [second.job_id, first.job_id]
-    assert [job.id for job in queued] == [second.job_id]
-    assert [job.id for job in older] == [first.job_id]
+    assert [item.job.id for item in everything] == [second.job_id, first.job_id]
+    assert [item.job.id for item in queued] == [second.job_id]
+    assert [item.job.id for item in older] == [first.job_id]
+    assert [item.source for item in everything] == [None, None]
 
 
 async def test_문서_조회는_원천과_그룹과_메타데이터와_색인_상태를_낸다(pipeline: Pipeline) -> None:
