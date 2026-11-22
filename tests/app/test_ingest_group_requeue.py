@@ -289,7 +289,7 @@ async def test_내용과_그룹이_같아도_문서가_failed이면_requeued로_
             replace(
                 document,
                 status=DocumentStatus.FAILED,
-                error_code=ErrorCode.ENCRYPTED_DOCUMENT,
+                error_code=ErrorCode.PARSE_FAILED,
                 generation=4,
             )
         )
@@ -304,7 +304,7 @@ async def test_내용과_그룹이_같아도_문서가_failed이면_requeued로_
     assert (document.generation, document.status, document.error_code) == (
         5,
         DocumentStatus.FAILED,
-        ErrorCode.ENCRYPTED_DOCUMENT,
+        ErrorCode.PARSE_FAILED,
     )
 
 

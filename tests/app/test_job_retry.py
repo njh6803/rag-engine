@@ -574,7 +574,7 @@ async def test_파싱이_영구_실패한_작업도_실제_파싱_지연을_싣�
         if payload["event"] == "job_finished"
     ]
     assert [(item["result"], item["error_code"]) for item in finished] == [
-        ("failed", "encrypted_document")
+        ("failed", "parse_failed")
     ]
     assert finished[0]["parse_ms"] > 0
 

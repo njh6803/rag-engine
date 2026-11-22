@@ -54,14 +54,16 @@ new = ''
 name = "파싱 영구 실패가 문서에 오류 코드를 쓰지 않는다"
 tests = ["tests/app/test_index_document.py"]
 expect = "red"
-expect_output = ["At index 1 diff: None != <ErrorCode.ENCRYPTED_DOCUMENT: 'encrypted_document'>"]
+expect_output = ["At index 1 diff: None != <ErrorCode.PARSE_FAILED: 'parse_failed'>"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/index_document.py"
 old = '''                error_code=failure.code,
+                skip_reason=None,
                 modified_at=deps.now(),
 '''
 new = '''                error_code=None,
+                skip_reason=None,
                 modified_at=deps.now(),
 '''
 

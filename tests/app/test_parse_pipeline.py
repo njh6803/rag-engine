@@ -14,7 +14,7 @@ from tests.support.zip_files import zip_bytes
 
 from rag_engine.adapters.parsers.registry import ParserRegistry, discover_parser_specs
 from rag_engine.adapters.parsers.runner import SubprocessParseRunner
-from rag_engine.domain.entities import DocumentStatus, IndexStateStatus
+from rag_engine.domain.entities import DocumentStatus, IndexStateStatus, SkipReason
 from rag_engine.domain.errors import ErrorCode
 from rag_engine.worker.processing import process_job, run_once
 
@@ -77,18 +77,26 @@ async def test_HWPX를_수집하면_제목_경로가_붙은_조각으로_색인�
     assert await _page_and_section(pipeline, ingested.document_id) == (None, '["제1조 휴가"]')
 
 
-async def test_글이_없는_HWPX는_조각_없이_parsed로_끝난다(pipeline: Pipeline) -> None:
+async def _skip_reason(pipeline: Pipeline, document_id: UUID) -> SkipReason | None:
+    async with pipeline.unit_of_work.begin() as transaction:
+        document = await transaction.documents.get(document_id)
+    assert document is not None
+    return document.skip_reason
+
+
+async def test_글이_없는_HWPX는_조각_없이_건너뜀_no_text로_끝난다(pipeline: Pipeline) -> None:
     ingested = await pipeline.ingest(hwpx_bytes(), "빈.hwpx")
 
     await process_job(pipeline.deps(), await pipeline.claim())
 
     assert [
         await _job_and_document(pipeline, ingested.document_id),
+        await _skip_reason(pipeline, ingested.document_id),
         await pipeline.chunk_texts(ingested.document_id),
-    ] == [(("succeeded", None), (DocumentStatus.PARSED, None)), []]
+    ] == [(("succeeded", None), (DocumentStatus.SKIPPED, None)), SkipReason.NO_TEXT, []]
 
 
-async def test_암호가_걸린_PDF는_작업과_문서에_encrypted_document를_남긴다(
+async def test_암호가_걸린_PDF는_실패가_아니라_건너뜀_encrypted로_남고_작업은_succeeded다(
     pipeline: Pipeline,
 ) -> None:
     data = pdf_bytes([PdfPage(text_block("제1조 휴가"))], user_password="secret")
@@ -97,13 +105,14 @@ async def test_암호가_걸린_PDF는_작업과_문서에_encrypted_document를
     await process_job(pipeline.deps(), await pipeline.claim())
 
     assert await _job_and_document(pipeline, ingested.document_id) == (
-        ("failed", "encrypted_document"),
-        (DocumentStatus.FAILED, ErrorCode.ENCRYPTED_DOCUMENT),
+        ("succeeded", None),
+        (DocumentStatus.SKIPPED, None),
     )
+    assert await _skip_reason(pipeline, ingested.document_id) is SkipReason.ENCRYPTED
     async with pipeline.unit_of_work.begin() as transaction:
         state = await transaction.index.get_state(ingested.document_id, pipeline.version.id)
-    assert state is not None and state.status is IndexStateStatus.FAILED
-    assert state.error_code is ErrorCode.ENCRYPTED_DOCUMENT
+    assert state is not None and state.status is IndexStateStatus.INDEXED
+    assert (state.chunk_count, state.error_code) == (0, None)
 
 
 async def test_압축_폭탄과_쪽이_많은_PDF가_있어도_작업자는_다음_문서를_계속_처리한다(
