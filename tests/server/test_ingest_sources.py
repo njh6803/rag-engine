@@ -5,6 +5,9 @@
 쓰고 임베딩 서버만 스텁이다.
 """
 
+from collections.abc import Iterator
+from pathlib import Path
+
 import httpx
 import psycopg
 import pytest
@@ -240,3 +243,65 @@ async def test_원천_보기의_문서_수는_지워지지_않은_문서를_상�
     )
 
     assert response.json()["documents"] == {"total": 2, "failed": 1, "skipped": 0}
+
+
+def _create_pull_source(server: RunningServer, name: str) -> None:
+    response = httpx.post(
+        server.base_url + SOURCES,
+        headers={"Authorization": f"Bearer {server.admin_token}"},
+        json={
+            "name": name,
+            "kind": "pull",
+            "connector": "server_path",
+            "config": {"folder": "규정집"},
+        },
+    )
+    assert response.status_code == 201
+
+
+@pytest.fixture
+def pull_source(
+    round_trip: RoundTrip, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[str]:
+    """부모 폴더를 임시 폴더로 바꾸고 가져오는 원천 `wiki`를 만든다."""
+    parent = tmp_path / "sources"
+    (parent / "규정집").mkdir(parents=True)
+    monkeypatch.setenv("RAG_SOURCES_DIR", str(parent))
+    _create_pull_source(round_trip.server, "wiki")
+    yield "wiki"
+
+
+async def test_가져오는_원천의_이름을_적은_넣기는_409_wrong_source_kind이고_문서도_작업도_없다(
+    round_trip: RoundTrip, pull_source: str
+) -> None:
+    response = await round_trip.ingest(*휴가, fields={"source": pull_source})
+
+    assert response.status_code == 409
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["code"] == "wrong_source_kind"
+    assert _documents(round_trip.server) == []
+    with psycopg.connect(round_trip.server.settings.database_url) as connection:
+        assert connection.execute("SELECT count(*) FROM jobs").fetchone() == (0,)
+
+
+async def test_가져오는_원천의_이름을_적은_지우기는_409_wrong_source_kind다(
+    round_trip: RoundTrip, pull_source: str
+) -> None:
+    response = await round_trip.delete("k", source=pull_source)
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "wrong_source_kind"
+
+
+async def test_수집_API의_넣기와_지우기는_OpenAPI의_응답_목록에_409를_적는다(
+    round_trip: RoundTrip,
+) -> None:
+    response = httpx.get(
+        round_trip.server.base_url + "/openapi.json",
+        headers={"Authorization": f"Bearer {round_trip.server.admin_token}"},
+    )
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]["/api/v1/ingest/documents"]
+    assert "409" in paths["post"]["responses"]
+    assert "409" in paths["delete"]["responses"]

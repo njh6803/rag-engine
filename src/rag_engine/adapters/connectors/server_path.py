@@ -31,6 +31,7 @@ import logging
 import os
 import stat
 import threading
+import unicodedata
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -43,6 +44,8 @@ from rag_engine.domain.connectors import (
     ConnectorError,
     ConnectorFailureReason,
     FetchedItem,
+    FolderId,
+    FolderLocation,
     ListedItem,
 )
 from rag_engine.domain.entities import JsonValue
@@ -132,6 +135,23 @@ class _Directory(Protocol):
     def read_file(self, name: str, limit: int) -> _FileContent:
         """보통 파일을 `limit` 바이트까지 읽는다. 링크이거나 보통 파일이 아니면 `rejected`,
         없으면 `not_found`, 넘으면 끝까지 읽지 않고 `too_large`다."""
+        ...
+
+    def identity(self) -> FolderId:
+        """이 폴더를 실제 폴더로 가르는 열쇠(장치 번호, 파일 번호)."""
+        ...
+
+    def child_names(self) -> Sequence[str]:
+        """이 폴더의 항목 이름. 종류는 보지 않는다."""
+        ...
+
+    def peek(self) -> None:
+        """폴더를 열거해 첫 항목 하나의 이름과 정보를 읽어 본다. `scan()`이 하는 일을 한 항목만
+        해 보는 것이라, 이름은 열거되지만 항목의 정보는 읽을 수 없는 폴더(읽기 권한은 있고 탐색
+        권한이 없는 폴더)를 가려낸다. 빈 폴더는 통과한다. 보는 것은 원천 폴더 바로 아래의 첫
+        항목 하나뿐이라 더 깊은 하위 폴더의 권한은 가리지 못하고(그것은 `list()`가 실패한다),
+        파일 서술자로 읽는 판(리눅스)에서만 권한 오류를 낸다. 경로로 읽는 판(Windows)의
+        `DirEntry.stat()`은 열거할 때 얻은 정보를 돌려줄 수 있어 이 확인이 약하다."""
         ...
 
     def close(self) -> None: ...
@@ -239,6 +259,26 @@ class _FdDirectory:
             return _read_regular(descriptor, limit)
         raise ConnectorError(failure)
 
+    def identity(self) -> FolderId:
+        info = os.fstat(self._descriptor)
+        return (info.st_dev, info.st_ino)
+
+    def child_names(self) -> Sequence[str]:
+        with os.scandir(self._descriptor) as iterator:
+            return tuple(entry.name for entry in iterator)
+
+    def peek(self) -> None:
+        with os.scandir(self._descriptor) as iterator:
+            first = next(iterator, None)
+        if first is None:
+            return
+        try:
+            # `scan()`이 항목마다 하는 정보 읽기다. 탐색 권한이 없는 폴더는 이름은 열거되고 여기서
+            # 실패한다.
+            os.stat(first.name, dir_fd=self._descriptor, follow_symlinks=False)
+        except FileNotFoundError:
+            return
+
     def close(self) -> None:
         os.close(self._descriptor)
 
@@ -302,6 +342,25 @@ class _PathDirectory:
             else:
                 return _read_regular(os.open(path, _O_RDONLY | _O_BINARY), limit)
         raise ConnectorError(failure)
+
+    def identity(self) -> FolderId:
+        info = os.stat(self._path)
+        return (info.st_dev, info.st_ino)
+
+    def child_names(self) -> Sequence[str]:
+        with os.scandir(self._path) as iterator:
+            return tuple(entry.name for entry in iterator)
+
+    def peek(self) -> None:
+        with os.scandir(self._path) as iterator:
+            first = next(iterator, None)
+            if first is None:
+                return
+            try:
+                # `scan()`이 항목마다 하는 정보 읽기다.
+                first.stat(follow_symlinks=False)
+            except FileNotFoundError:
+                return
 
     def close(self) -> None:
         return None
@@ -589,7 +648,13 @@ class ServerPathConnector:
         return _descend(_open_parent(self._parent), self._folder, ConnectorFailureReason.UNREADABLE)
 
     def _check_blocking(self) -> None:
-        self._open_source_folder().close()
+        # 열고 닫기만 하면 읽기 권한은 있고 탐색 권한이 없는 폴더도 통과하는데 `list()`는 그
+        # 폴더에서 `unreadable`로 실패한다. 첫 항목 하나를 읽어 열거할 수 있는지 본다.
+        directory = self._open_source_folder()
+        try:
+            directory.peek()
+        finally:
+            directory.close()
 
     def _fetch_blocking(self, segments: Sequence[str]) -> _FileContent:
         directory = _descend(
@@ -601,9 +666,58 @@ class ServerPathConnector:
             directory.close()
 
 
+def _parent_folder() -> str:
+    return os.environ.get("RAG_SOURCES_DIR") or _DEFAULT_SOURCES_DIR
+
+
+def _nfc(name: str) -> str:
+    return unicodedata.normalize("NFC", name)
+
+
+def _enter_folder(directory: _Directory, segment: str) -> tuple[_Directory, str]:
+    """`directory` 아래 하위 폴더 하나를 연다. 적은 글자 그대로 찾고, 없으면 NFC로 맞춘 이름이 같은
+    폴더가 하나뿐일 때만 그 폴더로 본다. 연 폴더와 그 토막의 이름을 낸다. 글자 그대로 찾았으면
+    적은 글자이고, NFC로 맞춰 찾았으면 디스크의 이름이다."""
+    try:
+        return directory.child_dir(segment, ConnectorFailureReason.NOT_FOUND), segment
+    except ConnectorError as error:
+        if error.reason is not ConnectorFailureReason.NOT_FOUND:
+            raise
+    wanted = _nfc(segment)
+    matches = [name for name in directory.child_names() if _is_utf8(name) and _nfc(name) == wanted]
+    if len(matches) == 1:
+        return directory.child_dir(matches[0], ConnectorFailureReason.NOT_FOUND), matches[0]
+    raise ConnectorError(ConnectorFailureReason.NOT_FOUND)
+
+
+def _locate_blocking(config: Mapping[str, JsonValue]) -> FolderLocation:
+    segments = _folder_segments(config)
+    directory = _open_parent(_parent_folder())
+    names: list[str] = []
+    chain: list[FolderId] = []
+    try:
+        for segment in segments:
+            child, disk_name = _enter_folder(directory, segment)
+            directory.close()
+            directory = child
+            names.append(disk_name)
+            chain.append(child.identity())
+        directory.peek()
+    finally:
+        directory.close()
+    return FolderLocation(folder="/".join(names), chain=tuple(chain))
+
+
+async def locate_folder(config: Mapping[str, JsonValue]) -> FolderLocation:
+    """원천의 `folder` 설정이 가리키는 폴더를 찾고 확인한다(인터페이스 밖에서 서버가 부른다).
+    파일 시스템은 호출마다 새로 띄운 daemon 스레드 하나에서 부른다. 설정의 모양이 틀리면
+    `invalid_config`, 없는 폴더는 `not_found`, 링크나 폴더가 아닌 것은 `rejected`, 읽을 수 없는
+    폴더는 `unreadable`을 올린다."""
+    return await _call_in_thread(lambda: _locate_blocking(config))
+
+
 def create_server_path_connector(config: Mapping[str, JsonValue]) -> ServerPathConnector:
     """entry point `rag_engine.connectors`의 `server_path`가 가리키는 만드는 함수. 설정의 모양만
     보고 파일 시스템을 부르지 않는다."""
     folder = _folder_segments(config)
-    parent = os.environ.get("RAG_SOURCES_DIR") or _DEFAULT_SOURCES_DIR
-    return ServerPathConnector(parent, folder, _upload_limit_bytes())
+    return ServerPathConnector(_parent_folder(), folder, _upload_limit_bytes())

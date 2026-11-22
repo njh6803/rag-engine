@@ -17,8 +17,11 @@ from rag_engine.domain.ports import Transaction, UnitOfWork
 
 @dataclass(frozen=True, slots=True)
 class SourceReport:
+    """원천 보기. `group`은 가져오는 원천의 그룹 이름이고 밀어 넣는 원천에서는 `None`이다."""
+
     source: Source
     documents: DocumentCounts
+    group: str | None = None
 
 
 async def create_push_source(unit_of_work: UnitOfWork, name: str, *, now: datetime) -> SourceReport:
@@ -36,15 +39,24 @@ async def create_push_source(unit_of_work: UnitOfWork, name: str, *, now: dateti
 async def list_source_reports(unit_of_work: UnitOfWork) -> list[SourceReport]:
     async with unit_of_work.begin() as transaction:
         return [
-            await _report(transaction, source)
+            await source_report(transaction, source)
             for source in await transaction.catalog.list_sources()
         ]
 
 
 async def get_source_report(unit_of_work: UnitOfWork, name: str) -> SourceReport:
     async with unit_of_work.begin() as transaction:
-        return await _report(transaction, await require_source(transaction, name))
+        return await source_report(transaction, await require_source(transaction, name))
 
 
-async def _report(transaction: Transaction, source: Source) -> SourceReport:
-    return SourceReport(source, await transaction.documents.count_documents_of_source(source.id))
+async def source_report(transaction: Transaction, source: Source) -> SourceReport:
+    group = (
+        None
+        if source.group_id is None
+        else await transaction.catalog.get_group_by_id(source.group_id)
+    )
+    return SourceReport(
+        source,
+        await transaction.documents.count_documents_of_source(source.id),
+        None if group is None else group.name,
+    )

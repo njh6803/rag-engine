@@ -61,9 +61,10 @@ class ConnectorError(Exception):
 
 class ConnectorUnavailableError(Exception):
     """그 이름의 커넥터를 만들 수 없다. 설치되지 않았거나, 인터페이스 버전의 major가 다르거나,
-    불러오다 깨졌다. `ConnectorRegistry`가 올리고 `ConnectorError`와 다른 종류다. 뒤의 티켓이 원천을
-    만드는 요청의 422와 동기화의 `connector_unavailable`로 옮긴다. 이름은 글에 싣지 않는다. 인자를
-    받지 않아 `args`가 비므로 `copy`와 pickle이 같은 예외를 다시 만든다."""
+    불러오다 깨졌다. `ConnectorRegistry`가 올리고 `ConnectorError`와 다른 종류다. 원천을 만들고
+    고치고 확인하는 관리 API가 422(`connector_unavailable`)나 연결 확인의 `connector_unavailable`로
+    옮기고, 동기화의 `connector_unavailable`은 동기화를 짓는 뒤의 티켓이 옮긴다. 이름은 글에 싣지
+    않는다. 인자를 받지 않아 `args`가 비므로 `copy`와 pickle이 같은 예외를 다시 만든다."""
 
     def __str__(self) -> str:
         return "커넥터를 쓸 수 없다"
@@ -76,6 +77,54 @@ class ConnectorCallKind(StrEnum):
     FETCH = "fetch"
     CHECK = "check"
     FOLDER_CHECK = "folder_check"  # 서버 경로 원천의 폴더 확인. 인터페이스 밖의 호출이다
+
+
+class ConnectorBrokenError(Exception):
+    """커넥터가 인터페이스에 없는 예외로 깨졌다. 레지스트리가 커넥터의 예외를 이 예외로 바꿔 올린다.
+    예외의 글에는 토큰이나 연결 문자열이 섞일 수 있어 담지 않는다(원칙 V). 부르는 쪽이
+    `connector_error`로 옮긴다. 인자를 받지 않아 `copy`와 pickle이 같은 예외를 다시 만든다."""
+
+    def __str__(self) -> str:
+        return "커넥터가 인터페이스에 없는 예외로 깨졌다"
+
+
+class ConnectionCheckCode(StrEnum):
+    """연결 확인이 실패했을 때 응답이 싣는 코드 넷(source-sync 명세 "관리 API")."""
+
+    SOURCE_UNREADABLE = "source_unreadable"
+    SOURCE_PATH_REJECTED = "source_path_rejected"
+    CONNECTOR_UNAVAILABLE = "connector_unavailable"
+    CONNECTOR_ERROR = "connector_error"
+
+
+# 서버 경로 커넥터의 이름. 이 커넥터만 폴더 확인과 겹침 확인이 있다(인터페이스 밖의 확인).
+SERVER_PATH_CONNECTOR: Final = "server_path"
+
+# 폴더 하나를 가리키는 값. 실제 폴더를 가르는 열쇠이고 (장치 번호, 파일 번호)다.
+type FolderId = tuple[int, int]
+
+
+@dataclass(frozen=True, slots=True)
+class FolderLocation:
+    """폴더 확인의 결과. `folder`는 저장 경로(`/`로 잇는다)다. 글자 그대로 찾은 토막은 적은 글자이고
+    NFC로 맞춰 찾은 토막은 디스크의 이름이다. `chain`은 부모 폴더 아래 첫 폴더부터 마지막 폴더까지
+    지나온 폴더의 열쇠이고, 마지막이 그 폴더 자신이다."""
+
+    folder: str
+    chain: tuple[FolderId, ...]
+
+    @property
+    def final(self) -> FolderId:
+        return self.chain[-1]
+
+
+@dataclass(frozen=True, slots=True)
+class FolderTarget:
+    """겹침 확인에서 이미 있는 원천의 폴더를 확인할 대상. `source`는 로그에 싣는 원천의 이름이다."""
+
+    source: str
+    connector: str
+    config: Mapping[str, JsonValue]
 
 
 class ConnectorCallTimedOutError(Exception):

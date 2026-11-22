@@ -32,6 +32,10 @@ _PROBLEMS: dict[int | str, dict[str, object]] = {
         "model": ProblemDetails,
         "description": "그룹이나 원천이 없다(`group_not_found`, `source_not_found`)",
     },
+    409: {
+        "model": ProblemDetails,
+        "description": "가져오는 원천의 이름이다(`wrong_source_kind`). 밀어 넣는 원천에만 넣는다",
+    },
     413: {"model": ProblemDetails, "description": "업로드가 크기 상한을 넘었다"},
     415: {"model": ProblemDetails, "description": "PDF, DOCX, HWPX가 아니다"},
 }
@@ -42,6 +46,10 @@ _DELETE_PROBLEMS: dict[int | str, dict[str, object]] = {
         "model": ProblemDetails,
         "description": "그 키의 문서나 그 이름의 원천이 없다"
         "(`document_not_found`, `source_not_found`)",
+    },
+    409: {
+        "model": ProblemDetails,
+        "description": "가져오는 원천의 이름이다(`wrong_source_kind`). 밀어 넣는 원천에서만 지운다",
     },
 }
 

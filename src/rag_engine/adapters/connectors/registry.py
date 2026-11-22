@@ -9,29 +9,49 @@ entry point가 가리키는 것은 설정을 받아 커넥터를 돌려주는 �
 `invalid_config`이면 그 사유만 들어 새로 올린다. 만들 때 낼 수 있는 사유는 이 하나뿐이라 다른 사유는
 계약을 어긴 것이고 불러오다 깨진 것과 같이 `ConnectorUnavailableError`로 알린다.
 
+서버가 요청 안에서 부르는 확인 셋도 이 레지스트리가 맡는다. 서버 경로 원천의 폴더 확인
+(`locate_folder`), 이미 있는 원천의 폴더 살펴보기(`survey_folders`), 연결 확인
+(`check_connection`)이다. 셋 모두 커넥터 호출 장치를 지나고 한도는 `REQUEST_CALL_TIMEOUT_SECONDS`
+다. 한도를 넘긴 호출은 취소하지 않고 둔 채 그 호출을 기억해 같은 설정의 다음 호출을 막는다.
+커넥터를 만드는 호출(`create`)은 이 한도 밖이고 이벤트 루프 위에서 돈다. 설치처가 만든 커넥터의
+만드는 함수가 원천에 닿는 것은 인터페이스가 금지하고, 내장 서버 경로 커넥터는 닿지 않는다.
+
 로그에는 커넥터의 이름과 인터페이스 버전, 예외의 종류 이름만 남긴다. 설치처가 만든 커넥터의 예외
 글에는 토큰이나 연결 문자열이 섞일 수 있고 원천의 설정에는 폴더 이름이 든다(원칙 V).
 """
 
+import asyncio
 import logging
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from importlib.metadata import EntryPoint, entry_points
 from typing import Final
 
+from rag_engine.adapters.connectors import server_path
+from rag_engine.adapters.connectors.guard import ConnectorCallGuard
 from rag_engine.adapters.log_format import log_event
 from rag_engine.domain.connectors import (
     CONNECTOR_INTERFACE_VERSION,
+    SERVER_PATH_CONNECTOR,
     Connector,
+    ConnectorBrokenError,
+    ConnectorCallBlockedError,
+    ConnectorCallKind,
+    ConnectorCallTimedOutError,
     ConnectorError,
     ConnectorFactory,
     ConnectorFailureReason,
     ConnectorUnavailableError,
+    FolderLocation,
+    FolderTarget,
 )
 from rag_engine.domain.entities import JsonValue
 
 logger = logging.getLogger(__name__)
 
 CONNECTOR_ENTRY_POINT_GROUP: Final = "rag_engine.connectors"
+# 서버가 요청 안에서 하는 폴더 확인과 연결 확인의 한도(사용자 선택. source-sync 명세 "서버 경로
+# 커넥터와 원천 폴더"의 폴더 확인 한도 항목). 시험은 생성자 인자로 짧은 값을 준다.
+REQUEST_CALL_TIMEOUT_SECONDS: Final = 10.0
 
 
 def _discover_entry_points() -> Iterable[EntryPoint]:
@@ -48,8 +68,78 @@ class EntryPointConnectorRegistry:
     작업") 그 호출이 잦아지므로, 그때 부르는 티켓이 캐시를 더한다. 시험은 읽는 함수를 바꿔
     끼운다."""
 
-    def __init__(self, discover: Callable[[], Iterable[EntryPoint]] | None = None) -> None:
+    def __init__(
+        self,
+        discover: Callable[[], Iterable[EntryPoint]] | None = None,
+        *,
+        guard: ConnectorCallGuard | None = None,
+        timeout_seconds: float = REQUEST_CALL_TIMEOUT_SECONDS,
+    ) -> None:
         self._discover = discover if discover is not None else _discover_entry_points
+        self._guard = guard if guard is not None else ConnectorCallGuard()
+        self._timeout_seconds = timeout_seconds
+
+    async def locate_folder(self, name: str, config: Mapping[str, JsonValue]) -> FolderLocation:
+        if name != SERVER_PATH_CONNECTOR:
+            raise ConnectorUnavailableError
+        return await self._guarded_folder(name, config, source=None)
+
+    async def survey_folders(self, targets: Sequence[FolderTarget]) -> list[FolderLocation | None]:
+        return list(await asyncio.gather(*(self._survey(target) for target in targets)))
+
+    async def check_connection(
+        self, name: str, config: Mapping[str, JsonValue], source: str
+    ) -> None:
+        connector = self.create(name, config)
+        unexpected: Exception | None = None
+        try:
+            await self._guard.call(
+                connector=name,
+                config=config,
+                kind=ConnectorCallKind.CHECK,
+                start=connector.check,
+                timeout_seconds=self._timeout_seconds,
+                source=source,
+            )
+        except (ConnectorError, ConnectorCallTimedOutError, ConnectorCallBlockedError):
+            raise
+        except Exception as error:  # 설치처의 커넥터가 어떻게 깨져도 같은 오류로 알린다
+            unexpected = error
+        if unexpected is not None:
+            log_event(
+                logger,
+                "connector_call_failed",
+                level=logging.WARNING,
+                connector=name,
+                kind=ConnectorCallKind.CHECK.value,
+                exception_type=type(unexpected).__name__,
+            )
+            raise ConnectorBrokenError
+
+    async def _guarded_folder(
+        self, name: str, config: Mapping[str, JsonValue], source: str | None
+    ) -> FolderLocation:
+        try:
+            return await self._guard.call(
+                connector=name,
+                config=config,
+                kind=ConnectorCallKind.FOLDER_CHECK,
+                start=lambda: server_path.locate_folder(config),
+                timeout_seconds=self._timeout_seconds,
+                source=source,
+            )
+        except (ConnectorCallTimedOutError, ConnectorCallBlockedError):
+            pass
+        # 한도를 넘겼거나 같은 설정의 호출이 남아 있어 막혔다. 폴더를 읽을 수 없는 것과 같다.
+        raise ConnectorError(ConnectorFailureReason.UNREADABLE)
+
+    async def _survey(self, target: FolderTarget) -> FolderLocation | None:
+        if target.connector != SERVER_PATH_CONNECTOR:
+            return None
+        try:
+            return await self._guarded_folder(target.connector, target.config, target.source)
+        except ConnectorError:
+            return None
 
     def create(self, name: str, config: Mapping[str, JsonValue]) -> Connector:
         entry: EntryPoint | None = None
