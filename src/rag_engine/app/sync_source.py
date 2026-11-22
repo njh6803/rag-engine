@@ -307,7 +307,7 @@ async def _reconcile(
     counts: _Counts,
 ) -> None:
     """후보 하나를 문서와 대 보고 맞춘다. 변경 확인값이 같으면 파일을 읽지 않는다. 지금 동기화의
-    옵션 `reread`는 기록에만 남고 여기서는 보지 않는다(뜻은 티켓 09가 붙인다)."""
+    옵션 `reread`는 작업과 기록의 옵션 칸에만 남고 이 함수는 보지 않는다(뜻은 티켓 09가 붙인다)."""
     async with deps.unit_of_work.begin() as transaction:
         existing = await transaction.documents.get_by_key(source.id, item.key)
         if (

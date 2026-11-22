@@ -36,6 +36,28 @@ class _LeakyConnector:
         return None
 
 
+class _SynchronousRaiser:
+    """`list`가 비동기 제너레이터가 아니라 일반 함수라서, 반복자를 돌려주기도 전에 예외를 올린다.
+    `Connector.list`의 선언(`def list(self) -> AsyncIterator`)이 이 꼴을 허용한다."""
+
+    @property
+    def interface_version(self) -> str:
+        return CONNECTOR_INTERFACE_VERSION
+
+    def list(self) -> AsyncIterator[ListedItem]:
+        raise RuntimeError(LEAKED_TEXT)
+
+    async def fetch(self, key: str) -> FetchedItem:
+        raise RuntimeError(LEAKED_TEXT)
+
+    async def check(self) -> None:
+        return None
+
+
+def create_list_raises_synchronously(config: Mapping[str, JsonValue]) -> _SynchronousRaiser:
+    return _SynchronousRaiser()
+
+
 def create_list_breaks(config: Mapping[str, JsonValue]) -> _LeakyConnector:
     return _LeakyConnector(list_breaks=True)
 

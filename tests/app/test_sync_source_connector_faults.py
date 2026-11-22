@@ -106,6 +106,23 @@ async def test_목록을_받다_인터페이스에_없는_예외가_나면_글�
     assert SECRET_FOLDER not in written
 
 
+async def test_목록을_여는_호출이_동기로_예외를_올려도_connector_error로_닫고_글을_남기지_않는다(
+    pipeline: Pipeline, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    registry = _registry(
+        "installed", "tests.support.leaky_connectors", "create_list_raises_synchronously"
+    )
+
+    record = await _sync_with(pipeline, registry)
+
+    assert record.status is SyncRecordStatus.FAILED
+    assert record.failure_code == ErrorCode.CONNECTOR_ERROR.value
+    written = _everything_written(record, caplog)
+    assert LEAKED_TEXT not in written
+    assert SECRET_FOLDER not in written
+
+
 async def test_파일을_읽다_인터페이스에_없는_예외가_나도_글과_파일_이름을_남기지_않는다(
     pipeline: Pipeline, caplog: pytest.LogCaptureFixture
 ) -> None:

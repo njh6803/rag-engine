@@ -87,12 +87,13 @@ class _GuardedReader:
         self._timeout_seconds = timeout_seconds
 
     async def list(self) -> AsyncIterator[ListedItem]:
-        items = self._connector.list()
         try:
+            # `list`는 일반 함수로 선언돼 있어, 반복자를 돌려주기 전에 예외를 올릴 수도 있다.
+            items = aiter(self._connector.list())
             async for item in self._guard.iterate(
                 connector=self._name,
                 config=self._config,
-                items=aiter(items),
+                items=items,
                 timeout_seconds=self._timeout_seconds,
                 source=self._source,
             ):

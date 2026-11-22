@@ -93,9 +93,31 @@ source-sync 티켓 06을 닫은 세션이 낸 지시문으로 연 세션의 기�
 - 이 티켓이 건드린 시험(`tests/app`, 대기열·기록 어댑터, 관리 API 동기화, 왕복)을 한 번에 돌려 모두 통과했다.
 - 변이 표는 아래 "검증"에 적는다. 전체 시험은 커밋이 부르는 pre-commit의 검사 러너가 돌리므로 그 결과로 갈음한다. 결과는 커밋 뒤 PR 본문에 적는다.
 
+## PR 직전 리뷰
+
+보안 축은 내장 `/security-review`로, 버그·성능 축은 CodeRabbit CLI(0.7.5, `--base origin/dev`, 파일 53개)로 봤다. 코드는 지적마다 파일을 열어 호출부까지 따라가며 판정했다.
+
+- 보안: 신뢰도 8 이상의 후보가 없었다. 하위 작업이 SQL 주입, 경로 탐색, 인증과 권한(`reader` 토큰의 403, 다른 원천의 기록 막기), 로그와 기록에 남는 값을 살폈다.
+- CodeRabbit: 일곱 건이 나왔고 유효 셋(모두 Minor), 오탐 넷이다.
+- 고친 것:
+  - `registry.py`의 `_GuardedReader.list()`가 `self._connector.list()`와 `aiter(...)`를 `try` 밖에서 불렀다. `Connector.list`는 일반 함수로 선언돼 있어(`domain/connectors.py`), 반복자를 돌려주기 전에 예외를 올리는 구현도 계약이 허용한다. 그 예외는 `connector_error`가 아니라 `internal_error`로 끝났다. 시험을 먼저 써서 빨강(`'internal_error' == 'connector_error'`)을 보고, 두 호출을 `try` 안으로 옮겼다. 변이 표에 되돌리는 변이(19번)를 더해 빨강을 확인했다.
+  - 독스트링 넷을 코드에 맞췄다. `SourceReader.list()`, `job_attempt.py` 머리, `job_failure.py` 머리, `_reconcile`이다. 아래 "밀 주장"에 원문을 적는다.
+- 남긴 것과 이유:
+  - `_refresh_marker`가 `source_changed` 뒤에 같은 변경 확인값을 다시 적는 길은 이 티켓이 새로 만든 결함이 아니고 위 "남긴 것"의 두 번째 상태다. 티켓 09의 항목이 이 상태를 닫는다.
+  - 같은 키를 두 번 내서 `SyncFailure`가 날 때 반복자를 닫지 않는 것은 가드가 일부러 안쪽 반복자를 닫지 않는 설계(끊긴 폴더에서 닫기가 돌아오지 않을 수 있다) 때문이라 옳다. 코드가 아니라 독스트링이 반대로 적혀 있었고 그것을 고쳤다.
+  - 오탐: `__context__`로 연결 정보가 샌다는 지적(로그 포매터는 이 저장소 밖 예외의 메시지를 싣지 않고, 소비자는 모두 `from None`으로 닫힌 코드로 바꾼다), `fetch`에 크기 상한이 없다는 지적(해시가 같아야 쓰고, 동기화가 해시 전에 길이를 거른다), 문서 없는 `SYNC_SOURCE`의 일시 실패가 다시 실패한다는 지적(`reschedule`은 `document_id`가 있을 때만 문서를 잠그고 `exhaust`는 원천 갈래로 간다), 시험 서버 환경 변수의 설정 순서(`RAG_SOURCES_DIR`는 요청마다 읽는다).
+  - 일시 실패한 동기화 작업이 다시 예약되는 흐름을 직접 보는 시험은 여전히 없다. 위 "남긴 것"의 (a)와 같은 내용이다.
+- 다시 돌린 명령(반영 뒤): `uv run ruff format --check .`, `uv run ruff check .`, `uv run pyright`, `uv run lint-imports`, `uv run python tools/check_type_escapes.py`가 종료 코드 0이다. 영향받은 시험(`tests/app/test_sync_source_connector_faults.py`, `test_sync_source.py`, `test_job_retry.py`, `tests/adapters`)이 모두 통과했다. 변이 표 셋의 `--check`가 종료 코드 0이다.
+- 밀 주장(고치며 새로 쓴 사실 문장의 원문):
+  - `SourceReader.list()`: "원천의 항목을 하나씩 낸다. 받는 쪽이 끝까지 받지 않고 멈춰도 안쪽 반복자는 닫지 않는다. 끊긴 폴더에서는 닫는 호출도 돌아오지 않을 수 있어서, 남은 반복자는 이벤트 루프가 치울 때 닫힌다." 근거는 `guard.py`의 `iterate` 독스트링이다.
+  - `job_attempt.py` 머리: "문서를 가리키지 않는 동기화 작업이 기록을 쓰는 작업 단위는 문서 행 대신 동기화 기록 행을 먼저 잠그고 작업 행을 마지막에 잠근다. 파일 하나를 처리하는 작업 단위(변경 확인값 갱신, 가져온 문서 넣기)는 기록 행을 잠그지 않고 색인 작업과 같이 문서 행을 먼저 잠근다." 근거는 `sync_source.py`의 221→238, 429·438→454(기록이 먼저)와 414→420, `ingest.py` 339(문서가 먼저)다.
+  - `job_failure.py` 머리: "문서가 있는 작업의 두 작업 단위는 모두 잠금 순서(문서 행, 그 문서의 그룹이 든 지식베이스 행, 작업 행)를 따른다. … 문서가 없는 원천 단위 작업은 `_exhaust_source_job`이 맡고, 그 순서는 그 함수의 독스트링에 있다."
+  - `_reconcile`: "`reread`는 작업과 기록의 옵션 칸에만 남고 이 함수는 보지 않는다."
+  - `registry.py`의 주석: "`list`는 일반 함수로 선언돼 있어, 반복자를 돌려주기 전에 예외를 올릴 수도 있다."
+
 ## 검증
 
-- 변이 표 19개가 모두 기대한 빨강이었다(`PYTHONUTF8=1 uv run python tools/mutate.py .scratch/source-sync/probes/sync_mutations.toml`). 반영 도중 더한 변이 둘 가운데 하나(제외 패턴을 맞출 때 키를 NFC로 맞추지 않는다)는 빨강으로 잡혔고, 다른 하나(재시도 소진 끝에서 `hold_attempt`를 지운다)는 위 "판정과 반영"에 적은 동등 변이라 표에서 뺐다. `reread` 동작과 함께 변이 하나도 걷었다.
+- 변이 표 19개를 한 번에 돌려 모두 기대한 빨강이었다(`PYTHONUTF8=1 uv run python tools/mutate.py .scratch/source-sync/probes/sync_mutations.toml`). 반영 도중 더한 변이 둘 가운데 하나(제외 패턴을 맞출 때 키를 NFC로 맞추지 않는다)는 빨강으로 잡혔고, 다른 하나(재시도 소진 끝에서 `hold_attempt`를 지운다)는 위 "판정과 반영"에 적은 동등 변이라 표에서 뺐다. `reread` 동작과 함께 변이 하나도 걷었다. PR 직전 리뷰 뒤에 변이 하나(목록을 여는 호출을 예외 번역 밖에서 부른다)를 19번으로 끼워 넣어 표는 20개가 됐고, 그 하나만 따로 돌려 빨강을 확인했다. 20개를 한 번에 다시 돌리지는 않았다.
 - 이 PC는 Windows라 리눅스 전용 갈래(파일 서술자 판 디렉터리)는 CI가 처음 돌린다. 동기화 쪽 시험은 경로 판 위에서 돈다.
 
 ## 회고

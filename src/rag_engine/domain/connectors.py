@@ -200,7 +200,9 @@ class SourceReader(Protocol):
     """
 
     def list(self) -> AsyncIterator[ListedItem]:
-        """원천의 항목을 하나씩 낸다. 받는 쪽이 끝까지 받지 않고 멈추면 `aclose()`로 닫는다."""
+        """원천의 항목을 하나씩 낸다. 받는 쪽이 끝까지 받지 않고 멈춰도 안쪽 반복자는 닫지 않는다.
+        끊긴 폴더에서는 닫는 호출도 돌아오지 않을 수 있어서, 남은 반복자는 이벤트 루프가 치울 때
+        닫힌다."""
         ...
 
     async def fetch(self, key: str) -> FetchedItem: ...
