@@ -71,11 +71,27 @@ source-sync 티켓을 나눈 세션이 낸 지시문으로 연 세션의 기록�
 - `add_source`(멱등)와 `create_source`(겹치면 예외)의 이름 차이: `add_source`는 앞 티켓부터 있는 이름이고 `migrate`가 부른다. 독스트링이 차이를 적는다.
 - `IngestRequest.source`와 `DocumentQuery.source_id`의 `= None` 기본값: 명세가 "적지 않으면 `default`"라고 했고 `source_id`가 없으면 모든 원천이다. 의도한 기본값이다.
 
-**다시 돌린 명령.** 반영 뒤에 `ruff format .`(872개 파일 변경 없음), `ruff check .`(통과), `pyright`(0 errors), `lint-imports`(계약 둘 KEPT), `tools/check_type_escapes.py`(출력 없음), 고친 시험 세 파일(`test_source_names.py`, `test_admin_sources.py`, `test_catalog_sources.py`) 55개 통과, 지우기 쿼리 시험 5개 통과. 전체 `pytest`는 pre-commit의 검사 러너가 돌고 결과는 커밋 뒤에 이 절에 적는다.
+**다시 돌린 명령.** 반영 뒤에 `ruff format .`(872개 파일 변경 없음), `ruff check .`(통과), `pyright`(0 errors), `lint-imports`(계약 둘 KEPT), `tools/check_type_escapes.py`(출력 없음), 고친 시험 세 파일(`test_source_names.py`, `test_admin_sources.py`, `test_catalog_sources.py`) 55개 통과, 지우기 쿼리 시험 5개 통과. 전체 `pytest`는 커밋 `d82e7ce`의 pre-commit이 돌려 1105초에 통과했다(같은 실행에서 `pyright`, `pyright-linux`, `lint-imports`, `check-type-escapes`도 통과).
 
 ## 검증
 
-브랜치는 `feature/03-push-sources-and-ingest-source-name`이었고 `tools/sibling_overlap.py`는 종료 코드 0, 번호 겹침 없음이었다. 같은 파일을 고치는 형제는 `02-skipped-documents` 워크트리(`document_store.py`, `ingest.py`, `entities.py`)와 `glossary-release-number-names` 워크트리(이 PR이 고친 파일 열셋)라 나중에 병합하는 쪽에 글자 충돌이 날 수 있다. 셀프 리뷰 전에 `uv run python tools/run_checks.py`를 돌려 모든 검사가 초록이었다(전체 `pytest`가 약 845초). 리뷰를 반영한 뒤의 명령은 위 "다시 돌린 명령"에 있다. 변이 도구(`tools/mutate.py`)는 돌리지 않았다.
+브랜치는 `feature/03-push-sources-and-ingest-source-name`이었고 `tools/sibling_overlap.py`는 종료 코드 0, 번호 겹침 없음이었다. 같은 파일을 고치는 형제는 `02-skipped-documents` 워크트리(`document_store.py`, `ingest.py`, `entities.py`)와 `glossary-release-number-names` 워크트리(이 PR이 고친 파일 열셋)라 나중에 병합하는 쪽에 글자 충돌이 날 수 있다. 셀프 리뷰 전에 `uv run python tools/run_checks.py`를 돌려 모든 검사가 초록이었다(전체 `pytest`가 약 845초). 첫 커밋 시도는 pre-commit의 `pyright` 둘과 `pytest`가 메모리 부족으로 빨갛게 끝났다(코드 결함이 아니다. 아래 회고 7). 물리 메모리 여유가 4~5GB일 때였고, 훅을 건너뛰지 않고 여유가 7.8GB로 늘어난 뒤 같은 메시지로 다시 시도해 커밋 `d82e7ce`가 만들어졌다. 리뷰를 반영한 뒤의 명령은 위 "다시 돌린 명령"에 있다. 변이 도구(`tools/mutate.py`)는 돌리지 않았다.
+
+## PR 직전 리뷰
+
+커밋 `d82e7ce` 위에서 돌렸다. 버그·성능 축은 CodeRabbit CLI(`coderabbit-review` 서브에이전트가 부른다. `--base origin/dev --include-untracked`)가 맡았고 끝까지 돌았다(좌석은 배정되지 않은 무료 계획이다). 보안 축은 이 세션의 내장 `/security-review`가 맡았고, 후보를 찾는 하위 작업 하나가 읽었다. 보고는 받은 턴에 아래로 옮겼다.
+
+**CodeRabbit 보고.** 지적 일곱이었고 Critical은 없었다. 서브에이전트가 밀어 달라고 한 사실 문장 넷(정규식 주석, `create_source` 독스트링, `CreateSourceRequest` 독스트링, `skipped`가 열거에 없다는 주석)은 모두 맞았다.
+
+- **오탐 다섯.** 서브에이전트가 코드로 확인해 거른 것이다. `documents.status`는 글 칸이고 검사 제약에 `skipped`가 있어 비교가 실패하지 않는다(Major로 보고됐으나 오탐). 문서 목록의 `source`는 `DocumentQuery`의 `source_id`로 가고 없는 원천은 빈 목록이다. 넣기와 지우기는 모두 `get_by_key(source.id, key)`로 원천을 함께 건다(`지우기_요청은_source로_그_원천의_문서만_지운다` 시험이 고정한다). `RoundTrip.work()`는 꺼낼 수 있는 작업을 모두 처리한다.
+- **유효 하나(Minor).** `test_catalog_sources.py`의 겹침 시험에서 첫 요청이 `set()` 전에 실패하면 둘째가 `wait()`에서 영원히 기다려 시험이 멈춘다. 맞다. 고쳤다: `set()`을 `finally`에 둔다. 첫 요청이 실패하면 둘째가 먼저 만들어 시험이 어서션에서 빨갛게 끝난다.
+- **Nit(사실 문장 대조).** 개행이 붙은 이름은 `is_valid_source_name` 시험에만 있고 HTTP 시험에는 없다. 맞다. 고쳤다: `"wiki\n"`을 원천 만들기, 수집 API 넣기, 지우기 쿼리의 422 시험에 더했고 셋 모두 통과했다(pydantic이 개행 이름을 거절한다는 것이 이제 HTTP 층에서 고정된다).
+- **보류(Minor).** `require_source`가 지운 원천(`deleted_at`)을 거르지 않아 지운 원천에도 넣을 수 있다. 원천을 지우는 길이 아직 없고 `source_deleted`(409)는 티켓이 11의 몫으로 넘겼다. "다음"에 이미 적혀 있다.
+- **Nit.** 원천 목록이 원천마다 문서 수 질의를 따로 날린다. 원천이 수십 개면 문제가 없고 늘면 `GROUP BY` 한 번으로 바꾼다. 남긴다. 지금은 원천 수가 둘로 시작하고 목록이 관리 화면의 조회다(성능 시험으로 재 본 것은 아니다).
+
+**다시 돌린 명령(PR 직전 반영).** `ruff format`(변경 없음), `ruff check tests`(통과), 세 시험 파일의 `pyright`(0 errors), 세 파일 57개 통과. 전체 검사는 이 반영을 담는 커밋의 pre-commit이 돈다.
+
+**보안 리뷰(`/security-review`).** 확신도 7 이상인 취약점은 없었다. 그래서 거짓 양성을 거르는 하위 작업은 띄우지 않았다. 하위 작업이 따라간 흐름은 넷이다. 새 라우터는 인증 미들웨어가 경로로 판정하므로(`/health`만 면제) `admin` 토큰이 필요하고 요청 문맥 미들웨어의 라우트 목록에도 들어 있다. 폼과 쿼리의 `source`와 JSON의 `name`은 전체 일치 패턴으로 검증되고 경로 `{name}`과 문서 목록의 `source`는 바인딩 파라미터로만 쓰여 SQL 주입이 없다. 파일 저장 경로는 원천 ID(UUID)로 짓고 이름은 경로에 들어가지 않는다. 오류 본문은 고정 문구라 입력이 섞이지 않고 새 코드에 로그 출력이 없다. 참고로 `get_source`가 `deleted_at`을 거르지 않는다는 지적이 있었다. 원천을 지우는 경로가 아직 없어 지금은 닿지 않고, 11이 원천 삭제를 넣을 때 수집 API가 지운 원천을 거부하는지 확인하는 일은 "다음"에 이미 적혀 있다.
 
 ## 회고
 

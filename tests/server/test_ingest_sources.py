@@ -112,7 +112,7 @@ async def test_원천에_넣은_문서는_작업자를_한_번_돌린_뒤_검색
     assert (found.source, found.key) == ("groupware", "휴가.docx")
 
 
-@pytest.mark.parametrize("name", ["Groupware", "a" * 64, "-wiki", "wiki system"])
+@pytest.mark.parametrize("name", ["Groupware", "a" * 64, "-wiki", "wiki system", "wiki\n"])
 async def test_규칙에_어긋나는_이름을_수집_API의_source에_적으면_422다(
     round_trip: RoundTrip, name: str
 ) -> None:
@@ -125,7 +125,7 @@ async def test_규칙에_어긋나는_이름을_수집_API의_source에_적으�
     assert _documents(round_trip.server) == []
 
 
-@pytest.mark.parametrize("name", ["", "Groupware", "a" * 64, "-wiki", "wiki system"])
+@pytest.mark.parametrize("name", ["", "Groupware", "a" * 64, "-wiki", "wiki system", "wiki\n"])
 async def test_규칙에_어긋나는_이름을_지우기_요청의_source에_적으면_422다(
     round_trip: RoundTrip, name: str
 ) -> None:

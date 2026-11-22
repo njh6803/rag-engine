@@ -123,7 +123,9 @@ def test_없는_원천을_보면_404_source_not_found다(server: RunningServer) 
     assert response.json()["code"] == "source_not_found"
 
 
-@pytest.mark.parametrize("name", ["Groupware", "a" * 64, "-wiki", "_wiki", "wiki system", ""])
+@pytest.mark.parametrize(
+    "name", ["Groupware", "a" * 64, "-wiki", "_wiki", "wiki system", "wiki\n", ""]
+)
 def test_규칙에_어긋나는_이름으로_만들면_422이고_위치의_마지막_토막이_name이다(
     server: RunningServer, name: str
 ) -> None:

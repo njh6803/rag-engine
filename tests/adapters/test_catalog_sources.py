@@ -88,8 +88,10 @@ async def test_이름이_겹친_두_요청이_동시에_오면_하나만_만들�
 
     async def first() -> None:
         async with unit_of_work.begin() as transaction:
-            await transaction.catalog.create_source(_source("race"))
-            first_inserted.set()
+            try:
+                await transaction.catalog.create_source(_source("race"))
+            finally:
+                first_inserted.set()
             await asyncio.sleep(0.3)
 
     async def second() -> None:
