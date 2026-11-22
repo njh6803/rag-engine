@@ -218,14 +218,14 @@ class _FdDirectory:
     def scan(self) -> Sequence[_Entry]:
         with os.scandir(self._descriptor) as iterator:
             names = sorted(entry.name for entry in iterator)
-        entries: tuple[_Entry, ...] = ()
+        entries: list[_Entry] = []
         for name in names:
             try:
                 info = os.stat(name, dir_fd=self._descriptor, follow_symlinks=False)
             except FileNotFoundError:
                 continue
-            entries += (_entry_of(name, _kind_of(info), info),)
-        return entries
+            entries.append(_entry_of(name, _kind_of(info), info))
+        return tuple(entries)
 
     def read_file(self, name: str, limit: int) -> _FileContent:
         flags = _O_RDONLY | _O_NOFOLLOW | _O_NONBLOCK | _O_CLOEXEC
@@ -276,7 +276,7 @@ class _PathDirectory:
         raise ConnectorError(failure)
 
     def scan(self) -> Sequence[_Entry]:
-        entries: tuple[_Entry, ...] = ()
+        entries: list[_Entry] = []
         with os.scandir(self._path) as iterator:
             for entry in sorted(iterator, key=lambda candidate: candidate.name):
                 try:
@@ -284,8 +284,8 @@ class _PathDirectory:
                 except FileNotFoundError:
                     continue
                 kind = "link" if entry.is_junction() else _kind_of(info)
-                entries += (_entry_of(entry.name, kind, info),)
-        return entries
+                entries.append(_entry_of(entry.name, kind, info))
+        return tuple(entries)
 
     def read_file(self, name: str, limit: int) -> _FileContent:
         path = os.path.join(self._path, name)
