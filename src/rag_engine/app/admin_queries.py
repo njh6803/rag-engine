@@ -53,8 +53,17 @@ class JobReport:
     (이 작업 자신이 아직 그렇다면 참이다)."""
 
     job: Job
-    document: DocumentReport
+    document: DocumentReport | None  # 원천 단위 작업(동기화 등)은 문서가 없다
     active_jobs_remain: bool
+    source: str | None = None  # 원천 단위 작업이 가리키는 원천의 이름
+
+
+@dataclass(frozen=True, slots=True)
+class JobItem:
+    """작업 목록의 항목. 원천 단위 작업은 그 원천의 이름(`source`)을 함께 낸다."""
+
+    job: Job
+    source: str | None
 
 
 async def get_job_report(unit_of_work: UnitOfWork, job_id: UUID) -> JobReport:
@@ -62,6 +71,13 @@ async def get_job_report(unit_of_work: UnitOfWork, job_id: UUID) -> JobReport:
         job = await transaction.jobs.get(job_id)
         if job is None:
             raise RequestError(ErrorCode.JOB_NOT_FOUND, "작업을 찾을 수 없다")
+        if job.document_id is None:
+            return JobReport(
+                job=job,
+                document=None,
+                active_jobs_remain=False,
+                source=await _source_name(transaction, job),
+            )
         document = await transaction.documents.get(job.document_id)
         if document is None:
             raise RuntimeError("작업이 가리키는 문서가 없다")
@@ -74,9 +90,18 @@ async def get_job_report(unit_of_work: UnitOfWork, job_id: UUID) -> JobReport:
 
 async def list_jobs(
     unit_of_work: UnitOfWork, *, status: JobStatus | None, limit: int, after: UUID | None
-) -> list[Job]:
+) -> list[JobItem]:
     async with unit_of_work.begin() as transaction:
-        return await transaction.jobs.list_jobs(status, limit, after)
+        jobs = await transaction.jobs.list_jobs(status, limit, after)
+        return [JobItem(job, await _source_name(transaction, job)) for job in jobs]
+
+
+async def _source_name(transaction: Transaction, job: Job) -> str | None:
+    """원천 단위 작업이 가리키는 원천의 이름. 원천을 가리키지 않는 작업은 `None`이다."""
+    if job.source_id is None:
+        return None
+    source = await transaction.catalog.get_source_by_id(job.source_id)
+    return None if source is None else source.name
 
 
 async def get_document_report(unit_of_work: UnitOfWork, document_id: UUID) -> DocumentReport:

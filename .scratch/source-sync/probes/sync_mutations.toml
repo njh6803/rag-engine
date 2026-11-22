@@ -1,0 +1,316 @@
+# source-sync 07(지금 동기화로 새 파일과 바뀐 파일 넣기)의 시험 가운데 구현 뒤에 쓴 것의 변이.
+# 후보 대조, 변경 확인값 갱신, 수집 정책, 실패 사유 옮기기, 색인 작업의 원본 읽기, 대기열의 꺼내는
+# 순서와 중복 방지, 로그에 싣는 칸마다 그 규칙을 깨는 변이를 넣어 시험이 빨개지는지 본다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/source-sync/probes/sync_mutations.toml
+
+[[mutation]]
+name = "변경 확인값이 같아도 파일을 읽는다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["AssertionError: assert ['규정.docx', '지침.docx'] == []"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''            and existing.change_marker == item.change_marker
+'''
+new = '''            and False
+'''
+
+[[mutation]]
+name = "내용이 같은 파일의 변경 확인값을 새 값으로 적지 않는다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["AssertionError: assert 'm1' == 'm2'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''            await transaction.documents.update(replace(locked, change_marker=item.change_marker))
+'''
+new = '''            pass
+'''
+
+[[mutation]]
+name = "제목에 확장자를 남긴다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["AssertionError: assert '지침.docx' == '지침'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''    return unicodedata.normalize("NFC", PurePosixPath(key).stem)'''
+new = '''    return PurePosixPath(key).name'''
+
+[[mutation]]
+name = "같은 키를 두 번 내도 실패로 보지 않는다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["assert <SyncRecordStatus.SUCCEEDED: 'succeeded'> is <SyncRecordStatus.FAILED: 'failed'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''            if item.key in items:
+                raise SyncFailure(ErrorCode.CONNECTOR_ERROR)
+'''
+new = '''            if item.key in items:
+                continue
+'''
+
+[[mutation]]
+name = "커넥터를 만들지 못한 동기화를 connector_error로 닫는다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["AssertionError: assert 'connector_error' == 'connector_unavailable'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        raise SyncFailure(ErrorCode.CONNECTOR_UNAVAILABLE) from None'''
+new = '''        raise SyncFailure(ErrorCode.CONNECTOR_ERROR) from None'''
+
+[[mutation]]
+name = "읽다가 too_large가 나온 파일을 읽지 못한 파일로 센다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["AssertionError: assert {} == {'too_large': 1}"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''            counts.reject(RejectReason.TOO_LARGE)
+        elif error.reason is ConnectorFailureReason.REJECTED:'''
+new = '''            counts.fail(ErrorCode.SOURCE_UNREADABLE)
+        elif error.reason is ConnectorFailureReason.REJECTED:'''
+
+[[mutation]]
+name = "목록을 받다 읽을 수 없는 원천을 connector_error로 닫는다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["AssertionError: assert 'connector_error' == 'source_unreadable'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        if error.reason is ConnectorFailureReason.UNREADABLE:
+            return SyncFailure(ErrorCode.SOURCE_UNREADABLE)'''
+new = '''        if error.reason is ConnectorFailureReason.UNREADABLE:
+            return SyncFailure(ErrorCode.CONNECTOR_ERROR)'''
+
+[[mutation]]
+name = "수집 정책을 적용하지 않는다"
+tests = ["tests/app/test_sync_source.py", "tests/app/test_sync_source_formats.py"]
+expect = "red"
+expect_output = ["assert <SyncRecordStatus.FAILED: 'failed'> is <SyncRecordStatus.SUCCEEDED: 'succeeded'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        if reason is None:
+            candidates.append(item)
+        else:
+            counts.reject(reason)'''
+new = '''        candidates.append(item)'''
+
+[[mutation]]
+name = "건너뜀 문서를 건너뜀이 아니라 그대로로 센다"
+tests = ["tests/app/test_sync_source_formats.py"]
+expect = "red"
+expect_output = ["AssertionError: assert {} == {'encrypted': 1, 'no_text': 1}"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        counts.skip(document.skip_reason.value)
+        return'''
+new = '''        counts.unchanged += 1
+        return'''
+
+[[mutation]]
+name = "실패로 끝난 기록에 센 개수를 남기지 않는다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["AssertionError: assert {} == {'source_unreadable': 1}"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''                failed=dict(counts.failed),'''
+new = '''                failed={},'''
+
+[[mutation]]
+name = "원본이 바뀐 문서의 변경 확인값을 비우지 않는다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["assert 'm1' is None"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''                change_marker=(
+                    None if failure.code is ErrorCode.SOURCE_CHANGED else document.change_marker
+                ),'''
+new = '''                change_marker=document.change_marker,'''
+
+[[mutation]]
+name = "색인 작업이 읽은 원본의 내용 해시를 대 보지 않는다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["assert <DocumentStatus.PARSED: 'parsed'> is <DocumentStatus.FAILED: 'failed'>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''    if digest != claim.content_hash:
+        raise PermanentFailure(ErrorCode.SOURCE_CHANGED, "원천이 바뀌었다")'''
+new = '''    if False:
+        raise PermanentFailure(ErrorCode.SOURCE_CHANGED, "원천이 바뀌었다")'''
+
+[[mutation]]
+name = "색인 작업을 원천 단위 작업보다 먼저 꺼낸다"
+tests = ["tests/adapters/test_job_queue_source_jobs.py"]
+expect = "red"
+expect_output = ["At index 0 diff: UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''        non_index = await self._claim(worker_id, now, lease_seconds, index_documents=False)
+        if non_index is not None:
+            return non_index
+        return await self._claim(worker_id, now, lease_seconds, index_documents=True)'''
+new = '''        indexed = await self._claim(worker_id, now, lease_seconds, index_documents=True)
+        if indexed is not None:
+            return indexed
+        return await self._claim(worker_id, now, lease_seconds, index_documents=False)'''
+
+[[mutation]]
+name = "같은 원천의 같은 종류 작업을 겹쳐 넣는다"
+tests = ["tests/adapters/test_job_queue_source_jobs.py"]
+expect = "red"
+expect_output = ["UniqueViolation) duplicate key value violates unique constraint"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''            .on_conflict_do_nothing(
+                index_elements=[tables.jobs.c.source_id, tables.jobs.c.kind],
+                index_where=_SOURCE_JOB_ACTIVE,
+            )
+'''
+new = ''
+
+[[mutation]]
+name = "시작 줄에 커넥터 설정을 싣는다"
+tests = ["tests/app/test_sync_source_connector_faults.py"]
+expect = "red"
+expect_output = ["'비밀폴더-토큰' is contained here"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''                "source": source.name,
+                "sync_record_id": str(record.id),
+                "trigger": record.trigger.value,'''
+new = '''                "source": source.name,
+                "sync_record_id": str(record.id),
+                "trigger": record.trigger.value,
+                "config": str(source.config),'''
+
+[[mutation]]
+name = "한도를 넘긴 읽기를 파일마다 실패로 세고 동기화를 이어 간다"
+tests = ["tests/app/test_sync_hung_calls.py"]
+expect = "red"
+expect_output = ["<SyncRecordStatus.FAILED: 'failed'> = SyncRecordStatus.FAILED"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''    except (ConnectorCallTimedOutError, ConnectorCallBlockedError):
+        raise SyncFailure(ErrorCode.SOURCE_UNREADABLE) from None'''
+new = '''    except (ConnectorCallTimedOutError, ConnectorCallBlockedError):
+        counts.fail(ErrorCode.SOURCE_UNREADABLE)
+        return None'''
+
+[[mutation]]
+name = "색인 작업의 한도 넘긴 읽기를 영구 실패로 끝낸다"
+tests = ["tests/app/test_sync_hung_calls.py"]
+expect = "red"
+expect_output = ["<DocumentStatus.RECEIVED: 'received'> = DocumentStatus.RECEIVED"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        ConnectorBrokenError,
+    ):
+        raise TransientFailure(ErrorCode.SOURCE_UNREADABLE, "원천을 읽을 수 없다") from None'''
+new = '''        ConnectorBrokenError,
+    ):
+        raise PermanentFailure(ErrorCode.SOURCE_CHANGED, "원천이 바뀌었다") from None'''
+
+[[mutation]]
+name = "동기화 작업이 도는 동안 작업 담당 기록의 기한을 늘리지 않는다"
+tests = ["tests/app/test_sync_hung_calls.py"]
+expect = "red"
+expect_output = ["assert Job(id=UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''                await transaction.jobs.extend_lease(
+                    job, deps.now() + timedelta(seconds=lease_seconds)
+                )'''
+new = '''                pass'''
+
+[[mutation]]
+name = "목록을 여는 호출을 예외 번역 밖에서 부른다"
+tests = ["tests/app/test_sync_source_connector_faults.py"]
+expect = "red"
+expect_output = ["AssertionError: assert 'internal_error' == 'connector_error'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/registry.py"
+old = '''        try:
+            # `list`는 일반 함수로 선언돼 있어, 반복자를 돌려주기 전에 원천을 부르거나 예외를 올릴
+            # 수도 있다. 그래서 반복자를 만드는 일도 `fetch`처럼 장치의 첫 호출로 태운다.
+            items = await self._guard.call(
+                connector=self._name,
+                config=self._config,
+                kind=ConnectorCallKind.LIST,
+                start=self._open_iterator,
+                timeout_seconds=self._timeout_seconds,
+                source=self._source,
+            )
+'''
+new = '''        items = aiter(self._connector.list())
+        try:
+'''
+
+[[mutation]]
+name = "목록을 여는 호출을 호출 장치의 막힘 판정 없이 부른다"
+tests = ["tests/adapters/test_guarded_reader.py"]
+expect = "red"
+expect_output = ["AssertionError: 받은 호출: ['list']"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/connectors/registry.py"
+old = '''            items = await self._guard.call(
+                connector=self._name,
+                config=self._config,
+                kind=ConnectorCallKind.LIST,
+                start=self._open_iterator,
+                timeout_seconds=self._timeout_seconds,
+                source=self._source,
+            )
+'''
+new = '''            items = aiter(self._connector.list())
+'''
+
+[[mutation]]
+name = "색인 작업이 읽은 파일의 크기를 지금 상한에 대 보지 않는다"
+tests = ["tests/app/test_sync_source.py"]
+expect = "red"
+expect_output = ["AssertionError: 받은 상태: parsed"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''    if len(fetched.data) > deps.max_upload_bytes:
+        # 동기화 뒤에 운영자가 상한을 낮췄을 수 있고, 커넥터가 제 상한을 지킨다는 보장은 없다.
+        raise PermanentFailure(ErrorCode.SOURCE_CHANGED, "원천이 바뀌었다")
+'''
+new = ''
+
+[[mutation]]
+name = "제외 패턴을 맞출 때 키를 NFC로 맞추지 않는다"
+tests = ["tests/app/test_ingest_policy.py"]
+expect = "red"
+expect_output = ["AssertionError: 받은 값: False"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest_policy.py"
+old = '''    folded_key = unicodedata.normalize("NFC", key)'''
+new = '''    folded_key = key'''

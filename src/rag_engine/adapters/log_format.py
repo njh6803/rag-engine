@@ -15,6 +15,7 @@ import json
 import logging
 import sys
 import traceback
+from collections.abc import Mapping
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from types import TracebackType
@@ -43,11 +44,38 @@ def log_event(
     exception: BaseException | None = None,
     **fields: FieldValue,
 ) -> None:
+    log_event_fields(
+        logger,
+        event,
+        fields,
+        level=level,
+        request_id=request_id,
+        duration_ms=duration_ms,
+        exception=exception,
+    )
+
+
+def log_event_fields(
+    logger: logging.Logger,
+    event: str,
+    fields: Mapping[str, FieldValue],
+    *,
+    level: int = logging.INFO,
+    request_id: UUID | None = None,
+    duration_ms: float | None = None,
+    exception: BaseException | None = None,
+) -> None:
+    """칸을 키워드 인자가 아니라 맵으로 받는 `log_event`. 칸 이름이 `exception`처럼 이 함수의
+    인자 이름과 겹칠 수 있는 호출(맵으로 모은 칸)이 쓴다."""
     logger.log(
         level,
         event,
         exc_info=exception,
-        extra={"request_id": request_id, "duration_ms": duration_ms, _FIELDS_ATTRIBUTE: fields},
+        extra={
+            "request_id": request_id,
+            "duration_ms": duration_ms,
+            _FIELDS_ATTRIBUTE: dict(fields),
+        },
     )
 
 

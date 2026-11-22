@@ -36,6 +36,7 @@ from uuid import UUID
 
 from rag_engine.app.default_records import DEFAULT_NAME
 from rag_engine.app.document_outcome import index_failure_code
+from rag_engine.app.job_attempt import hold_attempt
 from rag_engine.app.live_versions import live_index_versions
 from rag_engine.app.source_lookup import require_push_source
 from rag_engine.app.version_switch import check_version_switch
@@ -47,8 +48,10 @@ from rag_engine.domain.entities import (
     IndexVersion,
     IndexVersionStatus,
     IngestAction,
+    Job,
     JsonValue,
     KnowledgeBase,
+    Source,
 )
 from rag_engine.domain.errors import (
     DocumentAlreadyExistsError,
@@ -104,7 +107,25 @@ class _Upload:
     metadata: Mapping[str, JsonValue]
     updated_at: datetime | None
     document_id: UUID
-    blob_key: str
+    # 가져오는 원천의 문서는 원본을 파일 저장소에 쓰지 않아 비어 있다.
+    blob_key: str | None
+    change_marker: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PulledDocument:
+    """가져오는 원천에서 읽은 파일 하나. 원본은 파일 저장소에 쓰지 않고 문서 행에 원본 경로를
+    비운다. 그룹은 원천의 그룹이다. `content_hash`는 호출한 쪽(동기화)이 이미 낸 바이트의 해시다."""
+
+    source: Source
+    key: str
+    data: bytes
+    content_hash: str
+    mime: str
+    title: str
+    metadata: Mapping[str, JsonValue]
+    updated_at: datetime | None
+    change_marker: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,10 +164,50 @@ async def ingest_document(
         raise RequestError(ErrorCode.UNSUPPORTED_MEDIA_TYPE, "PDF, DOCX, HWPX만 받는다")
     upload = await _locate(unit_of_work, request, key, mime)
 
-    await blob_store.write(upload.blob_key, request.data)
+    await blob_store.write(_stored_key(upload), request.data)
     recorded = await _record_with_retry(unit_of_work, blob_store, request, upload, request_id, now)
     await _remove_quietly(blob_store, recorded.stale_blob_key)
     return recorded.result
+
+
+async def ingest_pulled_document(
+    unit_of_work: UnitOfWork,
+    pulled: PulledDocument,
+    *,
+    request_id: UUID,
+    now: datetime,
+    holding: Job,
+) -> IngestResult:
+    """동기화가 가져온 파일을 문서로 넣는다. 문서 행과 색인 작업을 한 작업 단위에 쓰고, 그 끝에서
+    `holding`(동기화 작업)의 작업 행 조건을 본다. 어긋나면 작업 단위를 되돌리고 `AttemptLostError`를
+    올린다. 원본은 쓰지 않으므로 지울 원본도 없다."""
+    group_id = pulled.source.group_id
+    if group_id is None:
+        raise RuntimeError("가져오는 원천에 그룹이 없다")
+    async with unit_of_work.begin() as transaction:
+        existing = await transaction.documents.get_by_key(pulled.source.id, pulled.key)
+    upload = _Upload(
+        source_id=pulled.source.id,
+        group_id=group_id,
+        key=pulled.key,
+        title=pulled.title,
+        mime=pulled.mime,
+        size_bytes=len(pulled.data),
+        content_hash=pulled.content_hash,
+        metadata=pulled.metadata,
+        updated_at=pulled.updated_at,
+        document_id=new_id() if existing is None else existing.id,
+        blob_key=None,
+        change_marker=pulled.change_marker,
+    )
+    return (await _record(unit_of_work, upload, request_id, now, holding)).result
+
+
+def _stored_key(upload: _Upload) -> str:
+    """파일 저장소에 쓴 원본의 경로. 밀어 넣는 원천의 수집만 부른다."""
+    if upload.blob_key is None:
+        raise RuntimeError("원본 경로가 없는 수집이다")
+    return upload.blob_key
 
 
 def _ensure_filename_storable(filename: str | None) -> None:
@@ -259,25 +320,40 @@ async def _write_under_winner(
     if winner is None:
         raise RuntimeError("같은 키의 문서가 있다고 했는데 읽히지 않는다")
     moved = replace(upload, document_id=winner.id, blob_key=_blob_key(winner.id))
-    await blob_store.write(moved.blob_key, request.data)
+    await blob_store.write(_stored_key(moved), request.data)
     return moved
 
 
 async def _record(
-    unit_of_work: UnitOfWork, upload: _Upload, request_id: UUID, now: datetime
+    unit_of_work: UnitOfWork,
+    upload: _Upload,
+    request_id: UUID,
+    now: datetime,
+    holding: Job | None = None,
 ) -> _Recorded:
+    """`holding`은 동기화 작업이다. 주면 작업 단위의 끝(작업 행을 마지막에 잠그는 자리)에서 작업 행
+    조건을 본다."""
     async with unit_of_work.begin() as transaction:
-        existing = await transaction.documents.get_by_key(upload.source_id, upload.key)
-        if existing is None:
-            return await _create(transaction, upload, request_id, now)
-        if existing.id != upload.document_id:
-            # 원본 경로를 정한 뒤에 같은 키의 문서가 생겼다. 원본은 그 문서의 UUID 아래에 있어야
-            # 한다.
-            raise DocumentAlreadyExistsError("원본 경로를 정한 뒤에 같은 키의 문서가 생겼다")
-        locked = await transaction.documents.lock(existing.id)
-        if locked is None:
-            raise RuntimeError("문서 행이 잠그는 사이에 사라졌다")
-        return await _amend(transaction, locked, upload, request_id, now)
+        recorded = await _record_in(transaction, upload, request_id, now)
+        if holding is not None:
+            await hold_attempt(transaction, holding)
+        return recorded
+
+
+async def _record_in(
+    transaction: Transaction, upload: _Upload, request_id: UUID, now: datetime
+) -> _Recorded:
+    existing = await transaction.documents.get_by_key(upload.source_id, upload.key)
+    if existing is None:
+        return await _create(transaction, upload, request_id, now)
+    if existing.id != upload.document_id:
+        # 원본 경로를 정한 뒤에 같은 키의 문서가 생겼다. 원본은 그 문서의 UUID 아래에 있어야
+        # 한다.
+        raise DocumentAlreadyExistsError("원본 경로를 정한 뒤에 같은 키의 문서가 생겼다")
+    locked = await transaction.documents.lock(existing.id)
+    if locked is None:
+        raise RuntimeError("문서 행이 잠그는 사이에 사라졌다")
+    return await _amend(transaction, locked, upload, request_id, now)
 
 
 def _fresh_document(upload: _Upload, now: datetime, *, generation: int) -> Document:
@@ -304,6 +380,7 @@ def _fresh_document(upload: _Upload, now: datetime, *, generation: int) -> Docum
         purged_at=None,
         created_at=now,
         modified_at=now,
+        change_marker=upload.change_marker,
     )
 
 
@@ -363,6 +440,7 @@ def _refresh_metadata(existing: Document, upload: _Upload) -> Document:
         title=upload.title,
         metadata=upload.metadata,
         updated_at=existing.updated_at if upload.updated_at is None else upload.updated_at,
+        change_marker=upload.change_marker,
     )
 
 
@@ -484,6 +562,7 @@ async def _update_content(
         skip_reason=None,
         generation=existing.generation + 1,
         modified_at=now,
+        change_marker=upload.change_marker,
     )
     await transaction.documents.update(document)
     job_id = await _schedule(transaction, document, existing, request_id, now)

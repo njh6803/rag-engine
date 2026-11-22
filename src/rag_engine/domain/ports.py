@@ -1,9 +1,10 @@
 """포트. `typing.Protocol`이고 `app`의 유스케이스는 이 모양만 부른다(ADR 0007, 명세 "포트 열셋과 그
 값").
 
-작업 단위 안에서 얻는 포트는 `Catalog`, `DocumentStore`, `VectorIndex`, `JobQueue` 넷뿐이고 한
-연결의 한 트랜잭션을 공유한다. 나머지는 트랜잭션 밖에서 부른다. 서드파티 예외는 어댑터가 `domain`의
-영구·일시 실패 예외(`rag_engine.domain.errors`)로 바꿔 올리고 메시지는 옮기지 않는다.
+작업 단위 안에서 얻는 포트는 `Catalog`, `DocumentStore`, `VectorIndex`, `JobQueue`,
+`SyncRecordStore` 다섯뿐이고 한 연결의 한 트랜잭션을 공유한다. 나머지는 트랜잭션 밖에서 부른다.
+서드파티 예외는 어댑터가 `domain`의 영구·일시 실패 예외(`rag_engine.domain.errors`)로 바꿔 올리고
+메시지는 옮기지 않는다.
 
 `Parser`는 플러그인 자리라 인터페이스 버전과 함께 `rag_engine.domain.parsing`에 있고, `Connector`도
 같은 까닭으로 `rag_engine.domain.connectors`에 있다. `Transform`의 Protocol은 db-source가
@@ -18,7 +19,7 @@ from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
 
-from rag_engine.domain.connectors import Connector, FolderLocation, FolderTarget
+from rag_engine.domain.connectors import Connector, FolderLocation, FolderTarget, SourceReader
 from rag_engine.domain.entities import (
     Block,
     CandidateScan,
@@ -35,6 +36,7 @@ from rag_engine.domain.entities import (
     IndexStateStatus,
     IndexVersion,
     Job,
+    JobKind,
     JobStatus,
     JsonValue,
     KnowledgeBase,
@@ -386,6 +388,21 @@ class JobQueue(Protocol):
         일이 한 번에 이뤄져야 해서 조회와 변경을 나누지 않고 `Job`을 돌려준다."""
         ...
 
+    async def enqueue_source_job(
+        self,
+        kind: JobKind,
+        source_id: UUID,
+        options: Mapping[str, JsonValue],
+        request_id: UUID,
+        now: datetime,
+    ) -> Job | None:
+        """원천 단위 작업(`sync_source`, `delete_source`, `restore_source`)을 넣는다. 같은 원천의
+        같은 종류 작업이 대기 중이거나 실행 중이면 아무것도 넣지 않고 `None`을 낸다. 있는지 보는
+        일과 넣는 일이 한 문장(`INSERT … ON CONFLICT DO NOTHING`)이어야 같은 원천에 동시에 넣어도
+        하나만 들어가므로 조회와 변경을 나누지 않고 `Job`이나 `None`을
+        돌려준다(`CODING_STANDARDS.md`의 CQS에 대한 의도한 예외다)."""
+        ...
+
     async def delete_queued(self, document_id: UUID) -> None:
         """그 문서의 대기(`queued`) 작업을 지운다. 실행 중인 작업과 끝난 작업은 건드리지 않는다."""
         ...
@@ -412,7 +429,9 @@ class JobQueue(Protocol):
 
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:
         """`SKIP LOCKED`로 꺼낼 수 있는 작업 하나를 `running`으로 바꿔 낸다. 꺼내는 일과 바꾸는 일을
-        나누면 두 작업자가 같은 작업을 잡으므로 한 번에 하고 `Job`을 돌려준다."""
+        나누면 두 작업자가 같은 작업을 잡으므로 한 번에 하고 `Job`을 돌려준다. 두 번 묻는다. 색인
+        작업이 아닌 작업이 있으면 그 가운데 예약 시각과 식별자 순으로 먼저 꺼내고, 없을 때만 색인
+        작업을 같은 순서로 꺼낸다(명세 "작업 대기열")."""
         ...
 
     async def hold_attempt(self, job: Job) -> bool:
@@ -523,6 +542,19 @@ class ConnectorRegistry(Protocol):
         부르는 쪽이 그 원천과는 저장 경로의 글자로 견준다."""
         ...
 
+    def open_reader(
+        self,
+        name: str,
+        config: Mapping[str, JsonValue],
+        *,
+        source: str,
+        timeout_seconds: float,
+    ) -> SourceReader:
+        """작업자가 원천을 읽는 길을 낸다. 커넥터를 만들고(`create`와 같은 예외) 그 `list()`와
+        `fetch`를 호출 장치에 태운다. 호출 하나는 `timeout_seconds`까지만 기다린다. `source`는
+        한도를 넘긴 호출의 로그 줄에 싣는 원천의 이름이다."""
+        ...
+
     async def check_connection(
         self, name: str, config: Mapping[str, JsonValue], source: str
     ) -> None:
@@ -551,20 +583,33 @@ class ScheduleCalculator(Protocol):
 
 class SyncRecordStore(Protocol):
     """동기화 기록의 저장소. 동기화 기록을 동기화 작업을 넣는 같은 작업 단위에서 만들기 때문에 작업
-    단위 안에서 얻는 포트다(`Transaction`에 넣는 일은 이 포트를 처음 쓰는 티켓 07이 한다). 07이
-    메서드의 이름과 모양을 바꿀 수 있다."""
+    단위 안에서 얻는 포트다(`Transaction.sync_records`)."""
 
     async def add(self, record: SyncRecord) -> None: ...
 
     async def get(self, record_id: UUID) -> SyncRecord | None: ...
 
+    async def get_by_job(self, job_id: UUID) -> SyncRecord | None:
+        """그 동기화 작업이 쓰는 기록. 작업자가 기록을 찾는 데 쓴다."""
+        ...
+
     async def update(self, record: SyncRecord) -> None:
         """같은 식별자의 기록을 이 값으로 바꾼다. 개수와 상태와 끝 시각을 쓰는 데 쓴다."""
         ...
 
+    async def list_for_source(
+        self, source_id: UUID, limit: int, after: UUID | None
+    ) -> list[SyncRecord]:
+        """그 원천의 기록을 최근 것부터(ID의 내림차순) 낸다. `after`는 마지막으로 본 기록의 ID다."""
+        ...
+
+    async def latest_for_source(self, source_id: UUID) -> SyncRecord | None:
+        """그 원천의 가장 최근 기록. 없으면 `None`이다."""
+        ...
+
 
 class Transaction(Protocol):
-    """작업 단위 안에서 얻는 네 포트. 한 연결의 한 트랜잭션을 공유한다."""
+    """작업 단위 안에서 얻는 다섯 포트. 한 연결의 한 트랜잭션을 공유한다."""
 
     @property
     def catalog(self) -> Catalog: ...
@@ -577,6 +622,9 @@ class Transaction(Protocol):
 
     @property
     def jobs(self) -> JobQueue: ...
+
+    @property
+    def sync_records(self) -> SyncRecordStore: ...
 
 
 class UnitOfWork(Protocol):

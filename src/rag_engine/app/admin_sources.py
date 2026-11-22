@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from rag_engine.app.source_lookup import require_source
-from rag_engine.domain.entities import DocumentCounts, Source, SourceKind
+from rag_engine.domain.entities import DocumentCounts, Source, SourceKind, SyncRecord
 from rag_engine.domain.errors import ErrorCode, RequestError, SourceAlreadyExistsError
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.ports import Transaction, UnitOfWork
@@ -22,6 +22,7 @@ class SourceReport:
     source: Source
     documents: DocumentCounts
     group: str | None = None
+    last_sync: SyncRecord | None = None
 
 
 async def create_push_source(unit_of_work: UnitOfWork, name: str, *, now: datetime) -> SourceReport:
@@ -59,4 +60,5 @@ async def source_report(transaction: Transaction, source: Source) -> SourceRepor
         source,
         await transaction.documents.count_documents_of_source(source.id),
         None if group is None else group.name,
+        await transaction.sync_records.latest_for_source(source.id),
     )

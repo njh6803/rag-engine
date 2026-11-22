@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     worker_concurrency: int = Field(default=2, gt=0)
     worker_poll_seconds: int = Field(default=5, gt=0)
     job_lease_seconds: int = Field(default=600, gt=0)
+    # 작업자가 커넥터 호출 하나(목록의 다음 항목 하나, 파일 하나 읽기)를 기다리는 한도(source-sync
+    # 명세 "설정"). 작업 담당 기록의 기한과 따로 둔다.
+    source_read_timeout_seconds: int = Field(default=600, gt=0)
     job_max_attempts: int = Field(default=6, gt=0)
     job_backoff_base_seconds: float = Field(default=30.0, gt=0)
     tei_batch_size: int = Field(default=32, gt=0)

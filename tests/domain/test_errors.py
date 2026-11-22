@@ -18,7 +18,8 @@ from rag_engine.domain.errors import (
     TransientFailure,
 )
 
-# 명세가 적은 작업 코드 열넷. 명세의 문장에서 옮긴 것이라 코드와 따로 늘어나지 않는다.
+# 명세가 적은 작업 코드 열넷에 가져오는 원천의 다섯(source-sync 명세 "오류 코드")을 더한 열아홉.
+# 명세의 문장에서 옮긴 것이라 코드와 따로 늘어나지 않는다.
 SPEC_JOB_CODES = {
     "parse_timeout",
     "parse_memory_exceeded",
@@ -34,6 +35,11 @@ SPEC_JOB_CODES = {
     "blob_store_error",
     "internal_error",
     "worker_lost",
+    "source_unreadable",
+    "source_changed",
+    "source_path_rejected",
+    "connector_unavailable",
+    "connector_error",
 }
 
 # 관련성 판정기의 실패 코드 둘(ADR 0019, search-eval 12). 작업 행이나 응답에는 나가지 않는다.
@@ -59,6 +65,8 @@ SPEC_PROBLEM_CODES = {
     "source_already_exists",
     "wrong_source_kind",
     "source_folder_overlap",
+    "sync_in_progress",
+    "sync_record_not_found",
 }
 
 # 도구 오류의 코드(명세 "MCP 도구").
@@ -71,11 +79,11 @@ SPEC_TOOL_CODES = {
 }
 
 
-def test_작업_코드_열넷이_모두_정의되어_있다() -> None:
+def test_작업_코드_열아홉이_모두_정의되어_있다() -> None:
     assert {code.value for code in JOB_ERROR_CODES} == SPEC_JOB_CODES
 
 
-def test_HTTP_코드_열여덟이_모두_정의되어_있다() -> None:
+def test_HTTP_코드_스물이_모두_정의되어_있다() -> None:
     assert {code.value for code in PROBLEM_ERROR_CODES} == SPEC_PROBLEM_CODES
 
 

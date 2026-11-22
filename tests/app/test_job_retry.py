@@ -177,7 +177,7 @@ async def test_원본을_읽지_못하면_blob_store_error로_다시_예약된�
     ingested = await pipeline.ingest(휴가)
     async with pipeline.unit_of_work.begin() as transaction:
         document = await transaction.documents.get(ingested.document_id)
-    assert document is not None
+    assert document is not None and document.blob_path is not None
     await pipeline.blob_store.delete(document.blob_path)
 
     await _attempt(pipeline, _policy(6))

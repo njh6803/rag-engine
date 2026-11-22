@@ -22,7 +22,7 @@ entry point가 가리키는 것은 설정을 받아 커넥터를 돌려주는 �
 
 import asyncio
 import logging
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Iterable, Mapping, Sequence
 from importlib.metadata import EntryPoint, entry_points
 from typing import Final
 
@@ -41,8 +41,11 @@ from rag_engine.domain.connectors import (
     ConnectorFactory,
     ConnectorFailureReason,
     ConnectorUnavailableError,
+    FetchedItem,
     FolderLocation,
     FolderTarget,
+    ListedItem,
+    SourceReader,
 )
 from rag_engine.domain.entities import JsonValue
 
@@ -62,11 +65,96 @@ def _major(semver: str) -> str:
     return semver.partition(".")[0]
 
 
+class _GuardedReader:
+    """커넥터의 `list()`와 `fetch`를 호출 장치에 태운다(`SourceReader`). 커넥터가 인터페이스에 없는
+    예외를 내면 `ConnectorBrokenError`로 바꾸고 로그에 예외의 종류 이름만 남긴다. 커넥터의 예외
+    글에는 토큰이나 연결 문자열이 섞일 수 있다(원칙 V)."""
+
+    def __init__(
+        self,
+        guard: ConnectorCallGuard,
+        connector: Connector,
+        name: str,
+        config: Mapping[str, JsonValue],
+        source: str,
+        timeout_seconds: float,
+    ) -> None:
+        self._guard = guard
+        self._connector = connector
+        self._name = name
+        self._config = config
+        self._source = source
+        self._timeout_seconds = timeout_seconds
+
+    async def list(self) -> AsyncIterator[ListedItem]:
+        try:
+            # `list`는 일반 함수로 선언돼 있어, 반복자를 돌려주기 전에 원천을 부르거나 예외를 올릴
+            # 수도 있다. 그래서 반복자를 만드는 일도 `fetch`처럼 장치의 첫 호출로 태운다.
+            items = await self._guard.call(
+                connector=self._name,
+                config=self._config,
+                kind=ConnectorCallKind.LIST,
+                start=self._open_iterator,
+                timeout_seconds=self._timeout_seconds,
+                source=self._source,
+            )
+            async for item in self._guard.iterate(
+                connector=self._name,
+                config=self._config,
+                items=items,
+                timeout_seconds=self._timeout_seconds,
+                source=self._source,
+            ):
+                yield item
+        except _PASSED_THROUGH:
+            raise
+        except Exception as error:  # 설치처의 커넥터가 어떻게 깨져도 같은 오류로 알린다
+            self._log_broken(ConnectorCallKind.LIST, error)
+            raise ConnectorBrokenError from None
+
+    async def _open_iterator(self) -> AsyncIterator[ListedItem]:
+        return aiter(self._connector.list())
+
+    async def fetch(self, key: str) -> FetchedItem:
+        try:
+            return await self._guard.call(
+                connector=self._name,
+                config=self._config,
+                kind=ConnectorCallKind.FETCH,
+                start=lambda: self._connector.fetch(key),
+                timeout_seconds=self._timeout_seconds,
+                source=self._source,
+            )
+        except _PASSED_THROUGH:
+            raise
+        except Exception as error:
+            self._log_broken(ConnectorCallKind.FETCH, error)
+            raise ConnectorBrokenError from None
+
+    def _log_broken(self, kind: ConnectorCallKind, error: Exception) -> None:
+        log_event(
+            logger,
+            "connector_call_failed",
+            level=logging.WARNING,
+            connector=self._name,
+            kind=kind.value,
+            exception_type=type(error).__name__,
+        )
+
+
+_PASSED_THROUGH: Final = (
+    ConnectorError,
+    ConnectorCallTimedOutError,
+    ConnectorCallBlockedError,
+    asyncio.CancelledError,
+)
+
+
 class EntryPointConnectorRegistry:
     """`ConnectorRegistry`의 구현. `create`를 부를 때마다 entry point를 읽고 캐시하지 않는다.
-    읽는 데 드는 시간은 재지 않았다. 작업자가 문서마다 커넥터를 만들게 되면(명세 "수집 파이프라인과
-    작업") 그 호출이 잦아지므로, 그때 부르는 티켓이 캐시를 더한다. 시험은 읽는 함수를 바꿔
-    끼운다."""
+    읽는 데 드는 시간은 재지 않았다. 동기화 작업은 한 번에 커넥터를 하나만 만들고, 색인 작업은
+    원본을 읽을 때 문서마다 한 번 만든다. 색인 작업이 몰리면 이 호출이 잦아진다. 시험은 읽는
+    함수를 바꿔 끼운다."""
 
     def __init__(
         self,
@@ -115,6 +203,18 @@ class EntryPointConnectorRegistry:
                 exception_type=type(unexpected).__name__,
             )
             raise ConnectorBrokenError
+
+    def open_reader(
+        self,
+        name: str,
+        config: Mapping[str, JsonValue],
+        *,
+        source: str,
+        timeout_seconds: float,
+    ) -> SourceReader:
+        return _GuardedReader(
+            self._guard, self.create(name, config), name, config, source, timeout_seconds
+        )
 
     async def _guarded_folder(
         self, name: str, config: Mapping[str, JsonValue], source: str | None

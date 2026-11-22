@@ -84,6 +84,7 @@ def _document(row: sa.RowMapping) -> Document:
         created_at=row["created_at"],
         modified_at=row["modified_at"],
         skip_reason=None if skip_reason is None else SkipReason(skip_reason),
+        change_marker=row["change_marker"],
     )
 
 
@@ -103,6 +104,7 @@ def _mutable_values(document: Document) -> dict[str, object]:
         "status": document.status.value,
         "error_code": None if document.error_code is None else document.error_code.value,
         "skip_reason": None if document.skip_reason is None else document.skip_reason.value,
+        "change_marker": document.change_marker,
         "generation": document.generation,
         "deleted_at": document.deleted_at,
         "purged_at": document.purged_at,

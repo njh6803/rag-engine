@@ -58,7 +58,7 @@ def build_admin_query_router(unit_of_work: UnitOfWork) -> APIRouter:
         after: After = None,
     ) -> JobListResponse:
         found = await list_jobs(unit_of_work, status=status, limit=limit, after=after)
-        return JobListResponse(jobs=[JobResponse.of(item) for item in found])
+        return JobListResponse(jobs=[JobResponse.of(item.job, item.source) for item in found])
 
     @router.get("/documents/{document_id}", responses=_DOCUMENT_NOT_FOUND)
     async def document(document_id: UUID) -> DocumentResponse:

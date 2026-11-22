@@ -22,6 +22,7 @@ from tests.support.tei_stub import TeiStub
 
 from rag_engine.adapters.blob_store import LocalBlobStore
 from rag_engine.adapters.chunking import chunker_for
+from rag_engine.adapters.connectors.registry import EntryPointConnectorRegistry
 from rag_engine.adapters.kiwi import tokenize_keywords
 from rag_engine.adapters.parsers.registry import ParserRegistry, discover_parser_specs
 from rag_engine.adapters.parsers.runner import SubprocessParseRunner
@@ -44,7 +45,7 @@ from rag_engine.domain.entities import (
 )
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.parsing import ParseRunner
-from rag_engine.domain.ports import EmbedderFor, UnitOfWork
+from rag_engine.domain.ports import ConnectorRegistry, EmbedderFor, UnitOfWork
 
 DIMENSIONS = 16
 LEASE_SECONDS = 600.0
@@ -86,8 +87,14 @@ class Pipeline:
         parse_runner: ParseRunner | None = None,
         unit_of_work: UnitOfWork | None = None,
         retry: RetryPolicy = DEFAULT_RETRY,
+        connectors: ConnectorRegistry | None = None,
+        source_read_timeout_seconds: float = 600.0,
+        max_upload_bytes: int = 100 * 1024 * 1024,
     ) -> IndexDocumentDeps:
         return IndexDocumentDeps(
+            connectors=connectors or EntryPointConnectorRegistry(lambda: []),
+            source_read_timeout_seconds=source_read_timeout_seconds,
+            max_upload_bytes=max_upload_bytes,
             retry=retry,
             unit_of_work=unit_of_work or self.unit_of_work,
             blob_store=self.blob_store,
