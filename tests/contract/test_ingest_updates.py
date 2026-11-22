@@ -12,7 +12,6 @@ from uuid import UUID
 import psycopg
 from tests.harness import RunningServer
 from tests.support.docx_files import docx_bytes
-from tests.support.pdf_files import PdfPage, pdf_bytes, text_block
 from tests.support.round_trip import RoundTrip, document_output, output
 
 휴가 = ("제1조 휴가", "연차휴가는 입사 일 년 뒤부터 발생한다.")
@@ -105,14 +104,15 @@ async def test_내용과_그룹을_바꾼_직후_파싱_전의_get_document는_�
 async def test_파싱이_영구_실패한_문서를_같은_내용으로_다시_넣으면_requeued로_작업을_다시_넣는다(
     round_trip: RoundTrip,
 ) -> None:
-    encrypted = pdf_bytes([PdfPage(text_block("제1조 휴가"))], user_password="secret")
-    first = await round_trip.ingest_bytes(encrypted, "규정.pdf")
+    # 암호가 걸린 PDF는 이제 실패가 아니라 건너뜀이라(source-sync 02) 영구 실패는 깨진 PDF로 만든다.
+    broken = b"%PDF-1.4 broken"
+    first = await round_trip.ingest_bytes(broken, "규정.pdf")
     document_id = first.json()["document_id"]
     assert await round_trip.work() == 1
     failed = _document_row(round_trip.server, document_id)
-    assert failed[:2] == ("failed", "encrypted_document")
+    assert failed[:2] == ("failed", "parse_failed")
 
-    again = await round_trip.ingest_bytes(encrypted, "규정.pdf")
+    again = await round_trip.ingest_bytes(broken, "규정.pdf")
 
     assert again.status_code == 202
     body = again.json()
@@ -120,7 +120,7 @@ async def test_파싱이_영구_실패한_문서를_같은_내용으로_다시_�
     assert body["job_id"] not in (None, first.json()["job_id"])
     assert _document_row(round_trip.server, document_id)[2] > failed[2]
     assert await round_trip.work() == 1
-    assert _document_row(round_trip.server, document_id)[:2] == ("failed", "encrypted_document")
+    assert _document_row(round_trip.server, document_id)[:2] == ("failed", "parse_failed")
 
 
 async def test_색인이_실패한_문서를_같은_내용으로_다시_넣으면_requeued로_다시_색인되어_검색된다(
