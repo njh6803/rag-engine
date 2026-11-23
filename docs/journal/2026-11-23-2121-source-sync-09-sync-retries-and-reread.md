@@ -1,0 +1,96 @@
+# source-sync 09: 실패한 문서 다시 시도와 모두 다시 읽기 · 2026-11-23
+
+source-sync 티켓 08과 CI 나눠 돌리기 chore를 병합한 세션이 낸 지시문으로 연 세션의 기록이다(Sonnet 5.5). 시작 프롬프트는 `/implement .scratch/source-sync/issues/09-sync-retries-and-reread.md`이고, 브랜치는 `feature/09-sync-retries-and-reread`, 작업은 워크트리 `09-sync-retries-and-reread`에서 했다. 요청 범위는 PR과 병합까지다. 이 세션의 대화는 구현 도중 한 번 요약으로 줄었다.
+
+## 준비
+
+- 읽은 것: 티켓 09, 명세 `.scratch/source-sync/spec.md`의 "동기화의 차례", "가져오는 원천의 문서 색인", "Testing Decisions", 08 일지의 "다음"과 "남긴 것", `2026-11-23-1422-ci-pytest-parallel.md`의 "다음".
+- 지시문이 시킨 순서: `tidy-checkouts`를 먼저 돌았고(주 체크아웃이 뒤처져 있어 사람에게 넘길 것은 보고만 했다), `EnterWorktree`로 새 워크트리에 들어가 브랜치를 바꿨다.
+- PR #108(CI를 `-n auto`로 나눠 돌린 chore)의 dev 푸시 CI(실행 45151783403, 머리 `50d15a8`)를 `gh run view`로 열기 전에 봤다. 모든 잡이 성공이어서 부하로 지는 시험도 없었고, 작업자 수를 줄일지 사용자에게 물을 일이 없었다.
+- 시험용 PostgreSQL은 `RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test`로 붙여 돌렸다.
+- 08이 to-spec으로 넘긴 물음 둘(동기화가 `NOT_FOUND`를 지움 수에 세는지, 빈 목록 판정이 "두 자리"라는 명세 문구)은 이 티켓의 범위가 아니라서 손대지 않았다. 아래 "다음"에 이어서 적는다.
+
+## 지은 것
+
+- **내용이 그대로인 문서를 다시 시도시키는 길.** `sync_source._settle_unchanged`가 변경 확인값이 같아 읽지 않은 문서와, 읽어 보니 내용이 같은 문서를 같은 길로 처리한다. 문서의 지금 상태(`_Standing`: 건너뜀이면 그 사유, 아니면 `index_failure_code`가 낸 실패 코드)를 세고, 다시 시도시킬 상태면 문서 행을 잠근 뒤 상태를 다시 읽어 `requeue_locked_document`로 색인 작업을 다시 넣는다. 개수는 다시 넣기 전의 상태로 센다(명세 "개수는 그 동기화가 본 순간의 분류").
+- **무엇을 다시 넣는가.** 보통 동기화는 일시 실패의 코드 넷과 `worker_lost`, `source_changed`로 실패한 문서만 다시 넣는다(`_RETRIED_CODES`). 건너뜀과 그 밖의 실패(`parse_failed` 같은 것)는 "모두 다시 읽기"만 다시 넣는다. 상태를 고르는 두 질의는 `_Standing.retried_by_sync`와 `retried_by_reread`이고, 어느 쪽을 쓸지는 `_is_requeued(standing, job)` 한 곳이 `job.options`의 `reread`로 정한다.
+- **모두 다시 읽기.** `_reconcile`이 `reread`가 켜져 있으면 변경 확인값이 같아도 파일을 읽어 내용 해시를 비교한다. 내용이 바뀐 파일은 바뀐 문서로 넣고, 그대로인 문서는 `_refresh_marker`가 확인값만 고쳐 적은 뒤(이미 같으면 쓰지 않는다) 위의 길로 간다. 일정이 시작한 동기화는 옵션이 비어 이 길에 들지 않는다.
+- **`source_changed`.** 확인값이 비어 있어 다음 동기화가 읽고, 내용이 문서 행의 것 그대로이면 같은 길이 색인 작업을 다시 넣는다. 별도의 코드는 없다.
+- **`requeue_locked_document`**(`app/ingest.py`, 공개 함수). 문서 행을 잠근 작업 단위에서 세대를 하나 올리고 `documents.update` 뒤 `_schedule`로 작업을 넣는다. 수집 API의 재색인 갈래(`_requeue`)와 같은 모양이지만, 저쪽은 새 그룹과 갱신일이 든 `refreshed`와 고치기 전의 `existing`을 따로 `_schedule`에 넘겨야 해서 합치지 않았다.
+- **시험.** 새 파일 둘: `tests/app/test_sync_retries.py`(19개), `tests/server/test_sync_reread_round_trip.py`(실제 서버와 실제 `server_path` 커넥터, 실제 작업자, MCP `search`로 1개). 시험 도우미 `run_sync`에 `reread`, `parse_runner`, `retry` 인자를 더했다. 변이는 `.scratch/source-sync/probes/sync_mutations.toml`에 열한 개(34~44번)를 더해 44개가 됐다.
+
+## 이 세션이 정한 것
+
+- **다시 넣기는 세대를 올린다.** 다시 넣은 색인 작업이 시작하며 세대를 한 번 더 올리므로(`index_document._raise_generation`) 한 번의 다시 넣기에 문서의 세대는 둘 늘어난다(`generation == 처음 + 2`를 시험이 건다). 세대를 올려야 앞선 시도의 작업이 아직 돌고 있을 때 그 결과가 버려진다.
+- **`reread`는 값으로 지나가지 않는다.** 처음에는 `reread: bool`을 `_reconcile`에서 `_refresh_marker`, `_settle_unchanged`, `_Standing.is_retried`까지 4단으로 넘겼다. 셀프 리뷰(표준 축)가 `CODING_STANDARDS.md`의 "지나간 플래그" 줄에 걸린다고 짚었고 `_reconcile`의 `reread=False` 리터럴은 `not reread` 분기 안이라 늘 같은 값이었다. 두 함수에서 인자를 지우고 `_is_requeued` 한 곳이 `job`에서 읽도록 바꿨다.
+- **건너뛴 문서의 판별 색인 상태는 보지 않는다.** `_standing_of`는 문서가 `SKIPPED`이고 사유가 있으면 그 사유로만 센다. 건너뛰면서 어느 판의 색인 상태가 `failed`인 문서는 보통 동기화가 다시 넣지 않는다(수집 API는 `requeued`로 다시 넣는다). 명세가 건너뜀 문서를 "그대로 두고 `skipped`로 센다"고 적어 어긋남이 아니라고 봤다. 아래 "다음"에 물음으로 남긴다.
+
+## 겪은 것
+
+- 시험 하나가 빨강이었을 때 처음에는 세대 단언(`+ 1`, `+ 2`)을 의심했다. 변이 도구가 "기준선이 초록이 아니라 변이를 넣지 않았다"고 멈춘 뒤 그 시험만 따로 돌려 보니 세대 단언은 통과했고, 실패는 그 아래 `assert await pipeline.chunk_texts(...)`였다. 문서를 `docx_bytes("규정")`(제목만 있고 본문이 없다)로 만들어 색인이 성공해도 조각이 0개였다. 본문 문단을 넣어 고쳤다. 실패한 줄을 읽기 전에 단언을 바꾼 것이 한 번 헛걸음이었다.
+- 변이 43번(내용이 같은 문서를 다시 넣은 작업 단위가 작업 행 조건을 보지 않는다)이 처음에는 초록으로 살아남았다. 작업 담당을 잃는 경쟁을 만드는 시험이 없어서였다. 문서 행을 잠그기 직전에 다른 작업자가 작업을 가로채게 하는 시험(`_InterruptedUnitOfWork`, 08의 같은 꼴을 따랐다)을 더했고, 셀프 리뷰가 "읽어 본 길(`_refresh_marker`)은 이 시험이 안 본다"고 짚어 시험을 두 길로 넓히고 변이 44번을 더했다.
+- 변이표의 `expect_output`에 시험 이름을 어림으로 적었더니 네 개가 어긋났다. 변이 도구가 첫 실패에서 멈추므로 한 변이가 여러 시험을 깨면 먼저 걸리는 시험의 이름이 찍힌다. 실제 출력으로 고쳤다.
+- 한글 이름의 긴 시험 이름과 줄 길이(ruff가 한글을 폭 2로 센다)에 몇 번 걸려 이름을 줄였다.
+
+## 셀프 리뷰
+
+`/code-review`를 고정점 `origin/dev`(base `50d15a8`)로 돌렸다. 본 범위는 고친 추적 파일 5개, 미추적 파일 2개, 커밋 0이다. 표준 축은 Sonnet(노력 high), 명세 축은 이 세션의 모델로 돌렸다. 명세 축에는 문서 상태, 색인 상태, 작업, 세대가 얽혀 전이 교차 (d)를 붙였다.
+
+### 보고(요약)
+
+- **표준 축.** Critical, Major 없음.
+  - **Minor.** `reread` 불리언이 네 함수를 지나감(`CODING_STANDARDS.md` "불리언 플래그 인자를 만들지 않는다"). `_settle_unchanged`가 세고 넣으면서 불리언을 돌려주는 CQS 혼합.
+  - **냄새(판단).** `requeue_locked_document`와 `_requeue`의 중복(Duplicated Code), `_Standing` 이름(Mysterious Name), 두 칸이 동시에 채워지지 않는 합 타입 꼴(Primitive Obsession 기미).
+  - **Nit.** "영구 실패"가 `PERMANENT_FAILURE_CODES`(`source_changed` 포함)와 겹치는 용어, `_PERMANENT`의 `INTERNAL_ERROR`에 붙은 주석, 변이 43번 이름이 일반적임, `_counts(plain)["updated"]`를 거치는 것, `_force_failure`가 SQL로 직접 쓰는 것.
+  - **주장 검증.** 모듈 독스트링 4단계, `_RETRIED_CODES` 주석, `_Standing`·`_settle_unchanged`·`requeue_locked_document` 독스트링의 사실 문장은 코드와 어긋나지 않았다. 세대 +2와 변경 확인값 `mtime_ns:size`도 맞았다. 옛 `_count_existing`과 "뜻은 티켓 09가 붙인다"는 살아 있는 문서에 남지 않았다(07 일지의 같은 문장은 기록이다).
+- **명세 축.** 막는 결함 없음. 티켓의 네 요구와 장면 표 시험이 모두 있다. 범위 넘침과 틀린 구현도 없다. 변이표의 `expect_output`이 가리키는 시험 이름은 실제 이름과 맞는다.
+  - **사소한 어긋남.** 건너뜀이면서 판별 색인 상태가 `failed`인 문서(위 "정한 것").
+  - **(d) 다시 넣기와 아직 도는 색인 작업의 교차.** 다시 넣은 작업이 도는 동안 색인 상태는 `failed`로 남는다. 그 사이 동기화가 한 번 더 돌면 세대를 또 올리고 작업을 또 넣는다. 대기 작업은 `enqueue`가 하나로 합치고, 실행 중 작업은 세대 대조로 결과가 버려진다. 안전하지만 색인이 동기화 간격보다 오래 걸리는 큰 문서는 끝내 `indexed`가 못 될 수 있다. 관련 시험이 없다.
+  - **(d) 나머지.** 작업 담당을 잃으면 다시 넣기와 `hold_attempt`가 같은 작업 단위라 함께 되돌려진다(위 변이 43·44번이 잡는다). 지워진 문서와 원천과 함께 지워졌다는 표시가 선 문서는 문서 행을 잠근 뒤 `_is_live`로 걸러 다시 넣지 않는다. `source_changed` 순환은 막히는 자리가 없다.
+
+### 판정과 반영
+
+고친 것(코드가 바뀌는 것은 시험이나 변이로 먼저 확인했다).
+
+- 표준 Minor, `reread` 플래그. `_Standing.is_retried(*, reread)`를 `retried_by_sync`와 `retried_by_reread` 두 질의로 쪼개고, `_settle_unchanged`와 `_refresh_marker`의 `reread` 인자를 지웠다. 어느 쪽을 쓸지는 `_is_requeued(standing, job)`가 `job.options`로 정한다. 변이 34~37번의 편집을 새 코드에 맞춰 고쳤고 모두 기대한 빨강이다.
+- 표준 Nit, 용어 겹침. `_RETRIED_CODES` 주석을 "이 집합에 없는 실패(`parse_failed` 같은 것)는 모두 다시 읽기만 다시 넣는다. `source_changed`는 영구 실패 코드이지만 원천이 되돌아오면 풀리므로 여기 든다"로 고쳤다. `_PERMANENT` 주석은 "다시 넣는 집합 밖의 실패 코드"로 바로잡았다.
+- 표준 Minor 둘째와 변이 43번 이름. 작업을 가로채는 시험을 읽지 않은 길과 모두 다시 읽기의 읽는 길 둘로 넓히고, 변이 43번 이름을 "읽지 않은 문서를 …"로, 새 44번을 "읽어 보니 내용이 같은 문서를 …"로 했다.
+
+남긴 것과 이유.
+
+- `requeue_locked_document`와 `_requeue`의 중복: 두 함수가 `_schedule`에 넘기는 `previous`가 다르다(수집 쪽은 그룹과 갱신일이 고쳐진 새 문서와 고치기 전 문서를 따로 넘겨 조각의 복사 칸을 고친다). 합치면 인자가 늘어나 둘의 모양이 더 흐려진다. 판단 항목이라 그대로 둔다.
+- `_settle_unchanged`가 불리언을 돌려주는 CQS 혼합: 반환값은 부른 쪽이 그 작업 단위의 끝에서 작업 행 조건을 볼지 가르는 데 쓴다. 쓰기가 없는 길(대부분의 파일은 상태가 정상이라 다시 넣지 않는다)에서 파일마다 작업 행을 한 번 더 잠그지 않으려는 것이고, 독스트링이 밝혀 둔다. Minor로 남긴다.
+- `_Standing`의 이름과 합 타입 꼴, `_counts(plain)["updated"]`, `_force_failure`의 SQL: 판단이거나 Nit이다. `_force_failure`는 `test_catalog_sources.py`에 같은 관행이 있다.
+- 명세 (d) 첫째(아직 도는 색인 작업과의 교차): 수집 API의 재색인 갈래(`_requeue`)가 이미 같은 동작이다(세대를 올리고 `_schedule`로 넣는다). 이 티켓이 새로 만든 틈이 아니고, 안전은 세대 대조가 지킨다. 큰 문서가 동기화 간격보다 오래 걸릴 때의 굶김은 아래 "다음"에 적는다.
+
+밀 주장(PR 직전 리뷰가 겨냥할 새 사실 문장).
+
+- `sync_source` 모듈 독스트링 4단계: "내용이 같은 문서 가운데 색인이 실패했거나 건너뛴 것은 색인 작업을 다시 넣는다. 보통 동기화는 일시 실패와 `worker_lost`, `source_changed`로 실패한 문서만 다시 넣고, 모두 다시 읽기는 영구 실패와 건너뜀 문서도 다시 넣는다."
+- `_RETRIED_CODES` 위의 주석: "`source_changed`는 영구 실패 코드이지만 원천이 되돌아오면 풀리므로 여기 든다."
+- `_Standing.retried_by_sync`: "건너뜀이 아니고, 실패 코드가 일시 실패나 `worker_lost`나 `source_changed`인 문서다." `retried_by_reread`: "건너뛰었거나 실패로 남은 문서는 사유와 코드가 무엇이든 모두 다시 넣는다."
+- `requeue_locked_document`: "내용은 그대로이고 세대만 올린다(앞선 시도의 작업이 아직 돌고 있으면 그 시도의 결과는 버려진다). 문서 상태는 작업이 정한다."
+
+다시 돌린 명령(반영 뒤): `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`가 통과했다. `tests/app/test_sync_retries.py`(19개), `test_sync_source.py`, `test_sync_deletes.py`를 돌려 통과했다. 변이 34~44번을 모두 돌려 기대한 빨강을 확인했다. 커밋 직전 pre-commit의 검사 러너가 전체 시험을 다시 돌린다.
+
+## 검증
+
+- 변이 표 44개 가운데 열한 개(34~44)가 이 티켓의 것이다. 처음 열 개(34~43)를 돌려 여섯은 기대한 빨강이었고 넷은 어긋났다(35·39·41번은 변이는 잡혔으나 `expect_output`의 시험 이름이 달랐고, 43번은 초록으로 살아남아 시험을 더했다). 셀프 리뷰 반영 뒤 34~44번을 한 번에 다시 돌려 열한 개 모두 기대한 빨강이었다. 기존 변이 둘의 `old`를 새 코드에 맞췄다. 표 전체 44개를 한 번에 다시 돌리지는 않았다.
+- 변이 파일의 원문 확인(`--check`)을 `sync_mutations.toml`과, `ingest.py`와 `sync_source.py`를 겨누는 다른 변이 파일 여덟(`ingest`, `ingest_updates`, `delete_restore`, `lease_worker`, `retries`, `schedule`, `pull_sources`, `call_guard`)에 돌려 모두 통과했다.
+- 전체 검사 러너(`tools/run_checks.py`)는 반영 전 작업 트리에서 통과했고 `pytest` 단계가 595.5초(이 PC, xdist)였다. 반영 뒤 바뀐 것은 시험 몇 개와 소스의 작은 쪼갬이라 전체를 다시 돌리지는 않았고, 커밋의 pre-commit이 전체를 돈다.
+- 08 일지가 남긴 `delete_restore_mutations.toml` 16번의 살아남은 변이는 이 티켓의 범위가 아니라서 손대지 않았다. `--check`는 통과한다.
+
+## 회고
+
+- 변이 도구가 기준선의 빨강을 먼저 막아 주었다. 빨간 시험을 고칠 때 단언부터 바꾸지 않고 그 시험만 따로 돌려 실패한 줄을 먼저 읽는다. 이번에는 세대 단언을 의심했지만 실제 원인은 제목뿐인 시험 문서였다.
+- 새 규칙을 더하지 않았다. 변이가 살아남아 시험을 더하는 일(43번)은 08에서도 같은 꼴(잠그기 전의 틈)로 일어났다. 두 번째다.
+
+## 다음
+
+- 09는 끝났다. 열린 것은 11(원천 삭제, 09를 기다렸다)과 그 뒤의 12(원천 되살리기), 13(문서 되살리기), 14(정리 작업), 15(단독 설치의 원천 폴더)다. 지금 선행 조건이 끝난 티켓은 11 하나다.
+- 11이 알아야 할 것(08 일지의 "다음"과 같다): `_delete_one`에 원천의 지움 표시를 보는 자리가 필요하다. 이 티켓의 `_settle_unchanged`도 문서 행을 잠근 뒤 `_is_live`만 본다. 11이 표시를 선 문서를 만들면 이 자리와 `_refresh_marker`에서 표시를 다시 봐야 한다(명세 "문서를 넣거나 지우는 작업 단위마다 원천의 지움 표시를 다시 본다").
+- to-spec으로 넘길 것(08에서 이어짐, 이 티켓은 건드리지 않았다):
+  - 동기화가 파일을 읽을 때 `NOT_FOUND`를 어떻게 셀지.
+  - 빈 목록 판정이 후보 직후와 삭제 반영 직전의 두 자리라는 명세 문구와 구현의 한 자리.
+  - 건너뛰면서 어느 판의 색인 상태가 `failed`인 문서를 보통 동기화가 다시 넣을지(수집 API의 재색인은 다시 넣는다). 지금은 건너뜀 사유로만 센다.
+- 하네스로 따로 할 일: 다시 넣은 색인 작업이 동기화 간격보다 오래 걸리는 큰 문서는 동기화마다 세대가 올라 끝내 `indexed`가 못 될 수 있다(대기 작업은 하나로 합쳐지고 실행 중 작업의 결과는 세대 대조로 버려진다). 이미 도는 색인 작업이 있는 문서는 다시 넣지 않는 것을 11 이후나 정리 기능의 티켓에서 정할 수 있다. 지금은 시험이 없고 수집 API의 재색인과 같은 동작이다.
+- CI `python` 잡의 15분 제한은 PR #108이 시험을 나눠 돌려 풀었다. 이 PR의 CI에서 본 시간은 PR 뒤에 적는다.

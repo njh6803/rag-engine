@@ -8,8 +8,11 @@
 3. 받은 목록에 수집 정책(제외 패턴, 형식, 크기)을 적용해 후보를 만든다. 걸린 파일은 사유별 개수로만
    남는다.
 4. 후보마다 같은 (원천, 키)의 문서와 대 본다. 변경 확인값이 같으면 읽지 않고, 아니면 읽어서 내용
-   해시를 비교한다. 새 문서와 내용이 바뀐 문서는 수집 유스케이스로 넣고, 내용이 같은 문서는 변경
-   확인값만 새 값으로 적는다. 읽다가 `too_large`가 나온 파일은 후보에서 빠진다.
+   해시를 비교한다. "모두 다시 읽기"를 켠 동기화는 확인값이 같아도 읽는다. 새 문서와 내용이 바뀐
+   문서는 수집 유스케이스로 넣고, 내용이 같은 문서는 변경 확인값만 새 값으로 적는다. 내용이 같은
+   문서 가운데 색인이 실패했거나 건너뛴 것은 색인 작업을 다시 넣는다. 보통 동기화는 일시 실패와
+   `worker_lost`, `source_changed`로 실패한 문서만 다시 넣고, "모두 다시 읽기"는 영구 실패와 건너뜀
+   문서도 다시 넣는다. 읽다가 `too_large`가 나온 파일은 후보에서 빠진다.
 5. 삭제를 반영한다. 먼저 빈 목록 판정을 한다. 읽다가 후보에서 빠진 파일까지 뺀 뒤에도 후보가 0건이고
    그 원천에 지워지지 않은 문서가 있으면 아무것도 지우지 않고 실패로 끝난다. 지나면 그 원천의
    지워지지 않은 문서 가운데 후보에 키가 없는 것을 문서마다 작업 단위 하나에서 임시 삭제한다. 넣은
@@ -38,7 +41,12 @@ from uuid import UUID
 
 from rag_engine.app.delete_document import delete_locked_document
 from rag_engine.app.document_outcome import index_failure_code
-from rag_engine.app.ingest import IngestResult, PulledDocument, ingest_pulled_document
+from rag_engine.app.ingest import (
+    IngestResult,
+    PulledDocument,
+    ingest_pulled_document,
+    requeue_locked_document,
+)
 from rag_engine.app.ingest_policy import RejectReason, reject_reason
 from rag_engine.app.job_attempt import hold_attempt
 from rag_engine.domain.connectors import (
@@ -59,15 +67,23 @@ from rag_engine.domain.entities import (
     Job,
     JobStatus,
     JsonValue,
+    SkipReason,
     Source,
     SyncRecord,
     SyncRecordStatus,
 )
-from rag_engine.domain.errors import ErrorCode
+from rag_engine.domain.errors import TRANSIENT_FAILURE_CODES, ErrorCode
 from rag_engine.domain.media_types import SUPPORTED_EXTENSIONS
 from rag_engine.domain.ports import ConnectorRegistry, JobOutcome, Transaction, UnitOfWork
 
 _MS_PER_SECOND: Final = 1000.0
+
+# 보통 동기화가 색인 작업을 다시 넣는 실패의 코드(명세 "가져오는 원천의 문서 색인"). 일시 실패의
+# 코드에, 작업자가 죽어 끝난 `worker_lost`와 목록을 받은 뒤 원천이 바뀐 `source_changed`를 더했다.
+# 이 집합에 없는 실패(`parse_failed` 같은 것)는 같은 파일로 다시 해도 같은 결과가 나오기 쉬워
+# "모두 다시 읽기"만 다시 넣는다. `source_changed`는 영구 실패 코드이지만 원천이 되돌아오면 풀리므로
+# 여기 든다.
+_RETRIED_CODES: Final = TRANSIENT_FAILURE_CODES | {ErrorCode.WORKER_LOST, ErrorCode.SOURCE_CHANGED}
 
 type LogValue = str | int | float | bool | None
 
@@ -372,6 +388,11 @@ async def _delete_one(deps: SyncDeps, job: Job, document_id: UUID, counts: _Coun
         await hold_attempt(transaction, job)
 
 
+def _rereads(job: Job) -> bool:
+    """지금 동기화가 "모두 다시 읽기"를 켠 요청인가."""
+    return job.options.get("reread") is True
+
+
 async def _reconcile(
     deps: SyncDeps,
     job: Job,
@@ -380,16 +401,20 @@ async def _reconcile(
     item: ListedItem,
     counts: _Counts,
 ) -> None:
-    """후보 하나를 문서와 대 보고 맞춘다. 변경 확인값이 같으면 파일을 읽지 않는다. 지금 동기화의
-    옵션 `reread`는 작업과 기록의 옵션 칸에만 남고 이 함수는 보지 않는다(뜻은 티켓 09가 붙인다)."""
+    """후보 하나를 문서와 대 보고 맞춘다. 변경 확인값이 같으면 파일을 읽지 않는다. 다만 "모두 다시
+    읽기"를 켠 동기화는 확인값이 같아도 읽어 내용 해시를 비교한다. 내용이 그대로인 문서는 색인이
+    실패했거나 건너뛴 것을 골라 색인 작업을 다시 넣는다(`_settle_unchanged`)."""
+    reread = _rereads(job)
     async with deps.unit_of_work.begin() as transaction:
         existing = await transaction.documents.get_by_key(source.id, item.key)
         if (
-            existing is not None
+            not reread
+            and existing is not None
             and _is_live(existing)
             and existing.change_marker == item.change_marker
         ):
-            await _count_existing(transaction, existing, counts)
+            if await _settle_unchanged(deps, job, transaction, existing, counts):
+                await hold_attempt(transaction, job)
             return
     fetched = await _fetch(reader, item, counts)
     if fetched is None:
@@ -448,17 +473,76 @@ async def _fetch(reader: SourceReader, item: ListedItem, counts: _Counts) -> Fet
         raise SyncFailure(ErrorCode.SOURCE_UNREADABLE) from None
 
 
-async def _count_existing(transaction: Transaction, document: Document, counts: _Counts) -> None:
-    """내용이 그대로인 파일을 그 문서의 지금 상태로 센다. 건너뜀이면 사유별 `skipped`, 문서나 색인이
-    실패로 남아 있으면 오류 코드별 `failed`, 그 밖이면 `unchanged`다."""
+@dataclass(frozen=True, slots=True)
+class _Standing:
+    """내용이 그대로인 문서가 지금 놓인 상태. 건너뜀이면 그 사유, 문서나 색인이 실패로 남아 있으면
+    그 오류 코드를 든다. 둘 다 비면 색인된(또는 색인을 기다리는) 문서다."""
+
+    skip_reason: SkipReason | None
+    failure: ErrorCode | None
+
+    def retried_by_sync(self) -> bool:
+        """보통 동기화가 색인 작업을 다시 넣을 상태인가. 건너뜀이 아니고, 실패 코드가 일시 실패나
+        `worker_lost`나 `source_changed`(`_RETRIED_CODES`)인 문서다."""
+        if self.skip_reason is not None or self.failure is None:
+            return False
+        return self.failure in _RETRIED_CODES
+
+    def retried_by_reread(self) -> bool:
+        """모두 다시 읽기가 색인 작업을 다시 넣을 상태인가. 건너뛰었거나 실패로 남은 문서는 사유와
+        코드가 무엇이든 모두 다시 넣는다."""
+        return self.skip_reason is not None or self.failure is not None
+
+    def count(self, counts: _Counts) -> None:
+        """건너뜀이면 사유별 `skipped`, 실패로 남아 있으면 오류 코드별 `failed`, 그 밖이면
+        `unchanged`로 센다."""
+        if self.skip_reason is not None:
+            counts.skip(self.skip_reason.value)
+        elif self.failure is not None:
+            counts.fail(self.failure)
+        else:
+            counts.unchanged += 1
+
+
+async def _standing_of(transaction: Transaction, document: Document) -> _Standing:
     if document.status is DocumentStatus.SKIPPED and document.skip_reason is not None:
-        counts.skip(document.skip_reason.value)
-        return
-    code = await index_failure_code(transaction, document)
-    if code is None:
+        return _Standing(document.skip_reason, None)
+    return _Standing(None, await index_failure_code(transaction, document))
+
+
+def _is_requeued(standing: _Standing, job: Job) -> bool:
+    """이 동기화가 그 상태의 문서에 색인 작업을 다시 넣는가. "모두 다시 읽기"를 켠 동기화와 보통
+    동기화가 다시 넣는 상태가 다르다."""
+    if _rereads(job):
+        return standing.retried_by_reread()
+    return standing.retried_by_sync()
+
+
+async def _settle_unchanged(
+    deps: SyncDeps,
+    job: Job,
+    transaction: Transaction,
+    document: Document,
+    counts: _Counts,
+) -> bool:
+    """내용이 그대로인 파일을 그 문서의 지금 상태로 세고, 다시 시도시킬 상태면 그 문서의 색인 작업을
+    다시 넣는다. 다시 넣었으면 참을 낸다. 부른 쪽이 그 작업 단위의 끝에서 작업 행 조건을 본다. 다시
+    넣기 전에 문서 행을 잠그고 상태를 다시 읽는다(그사이 색인이 끝났거나 문서가 지워졌을 수 있다).
+    개수는 다시 넣기 전의 상태로 센다."""
+    standing = await _standing_of(transaction, document)
+    if not _is_requeued(standing, job):
+        standing.count(counts)
+        return False
+    locked = await transaction.documents.lock(document.id)
+    if locked is None or not _is_live(locked):
         counts.unchanged += 1
-    else:
-        counts.fail(code)
+        return False
+    standing = await _standing_of(transaction, locked)
+    standing.count(counts)
+    if not _is_requeued(standing, job):
+        return False
+    await requeue_locked_document(transaction, locked, request_id=job.request_id, now=deps.now())
+    return True
 
 
 def _title(key: str, metadata: Mapping[str, JsonValue]) -> str:
@@ -480,15 +564,22 @@ def _count_ingested(result: IngestResult, counts: _Counts) -> None:
 
 
 async def _refresh_marker(
-    deps: SyncDeps, job: Job, document: Document, item: ListedItem, counts: _Counts
+    deps: SyncDeps,
+    job: Job,
+    document: Document,
+    item: ListedItem,
+    counts: _Counts,
 ) -> None:
     """읽어 보니 내용이 같은 문서다. 변경 확인값만 새 값으로 적고 다른 칸은 고치지 않는다(갱신일을
-    고치면 조각의 복사 칸까지 다시 써야 한다)."""
+    고치면 조각의 복사 칸까지 다시 써야 한다). 값이 이미 같으면(모두 다시 읽기) 쓰지 않는다. 그 뒤
+    색인이 실패했거나 건너뛴 문서는 색인 작업을 다시 넣는다(`_settle_unchanged`)."""
     async with deps.unit_of_work.begin() as transaction:
         locked = await transaction.documents.lock(document.id)
         if locked is not None and _is_live(locked):
-            await transaction.documents.update(replace(locked, change_marker=item.change_marker))
-            await _count_existing(transaction, locked, counts)
+            marked = replace(locked, change_marker=item.change_marker)
+            if marked != locked:
+                await transaction.documents.update(marked)
+            await _settle_unchanged(deps, job, transaction, marked, counts)
         else:
             counts.unchanged += 1
         await hold_attempt(transaction, job)

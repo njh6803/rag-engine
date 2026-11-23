@@ -24,9 +24,9 @@ expect_output = ["AssertionError: assert 'm1' == 'm2'"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/sync_source.py"
-old = '''            await transaction.documents.update(replace(locked, change_marker=item.change_marker))
+old = '''                await transaction.documents.update(marked)
 '''
-new = '''            pass
+new = '''                pass
 '''
 
 [[mutation]]
@@ -114,10 +114,10 @@ expect_output = ["AssertionError: assert {} == {'encrypted': 1, 'no_text': 1}"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/sync_source.py"
-old = '''        counts.skip(document.skip_reason.value)
-        return'''
-new = '''        counts.unchanged += 1
-        return'''
+old = '''            counts.skip(self.skip_reason.value)
+'''
+new = '''            counts.unchanged += 1
+'''
 
 [[mutation]]
 name = "실패로 끝난 기록에 센 개수를 남기지 않는다"
@@ -451,3 +451,155 @@ old = '''            sa.or_(documents.c.deleted_at.is_(None), documents.c.delete
 '''
 new = '''            documents.c.deleted_at.is_(None),
 '''
+
+# source-sync 09(실패한 문서 다시 시도와 모두 다시 읽기)의 변이. 어떤 상태의 문서를 다시 넣을지,
+# 모두 다시 읽기가 확인값을 건너뛰는지, 다시 넣을 때 세대를 올리는지를 시험이 가르는지 본다.
+
+[[mutation]]
+name = "보통 동기화도 건너뜀 문서의 색인 작업을 다시 넣는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_글자가_없어_건너뛴_문서는_모두_다시_읽기가_작업을_넣되_다시_파싱하지_않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        if self.skip_reason is not None or self.failure is None:
+            return False
+        return self.failure in _RETRIED_CODES
+'''
+new = '''        if self.skip_reason is not None:
+            return True
+        if self.failure is None:
+            return False
+        return self.failure in _RETRIED_CODES
+'''
+
+[[mutation]]
+name = "모두 다시 읽기를 켜도 건너뜀 문서를 다시 넣지 않는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_글자가_없어_건너뛴_문서는_모두_다시_읽기가_작업을_넣되_다시_파싱하지_않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        return self.skip_reason is not None or self.failure is not None
+'''
+new = '''        return self.failure is not None
+'''
+
+[[mutation]]
+name = "보통 동기화도 영구 실패로 남은 문서를 다시 넣는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_영구_실패로_남은_문서는_보통_동기화가_다시_넣지_않고_모두_다시_읽기는_다시_넣는다[parse_failed]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        if self.skip_reason is not None or self.failure is None:
+            return False
+        return self.failure in _RETRIED_CODES
+'''
+new = '''        if self.skip_reason is not None or self.failure is None:
+            return False
+        return True
+'''
+
+[[mutation]]
+name = "모두 다시 읽기를 켜도 영구 실패로 남은 문서를 다시 넣지 않는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_영구_실패로_남은_문서는_보통_동기화가_다시_넣지_않고_모두_다시_읽기는_다시_넣는다[parse_failed]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''        return self.skip_reason is not None or self.failure is not None
+'''
+new = '''        return self.skip_reason is not None or self.failure in _RETRIED_CODES
+'''
+
+[[mutation]]
+name = "보통 동기화가 worker_lost로 실패한 문서를 다시 넣지 않는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_일시_실패와_worker_lost와_source_changed로_실패한_문서는_보통_동기화가_다시_넣는다[worker_lost]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''TRANSIENT_FAILURE_CODES | {ErrorCode.WORKER_LOST, ErrorCode.SOURCE_CHANGED}'''
+new = '''TRANSIENT_FAILURE_CODES | {ErrorCode.SOURCE_CHANGED}'''
+
+[[mutation]]
+name = "보통 동기화가 source_changed로 실패한 문서를 다시 넣지 않는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_일시_실패와_worker_lost와_source_changed로_실패한_문서는_보통_동기화가_다시_넣는다[source_changed]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''TRANSIENT_FAILURE_CODES | {ErrorCode.WORKER_LOST, ErrorCode.SOURCE_CHANGED}'''
+new = '''TRANSIENT_FAILURE_CODES | {ErrorCode.WORKER_LOST}'''
+
+[[mutation]]
+name = "보통 동기화가 일시 실패의 코드를 다시 넣지 않는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_재시도를_다_쓰고_실패한_문서는_다음_동기화가_읽지_않고_색인_작업을_다시_넣는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''TRANSIENT_FAILURE_CODES | {ErrorCode.WORKER_LOST, ErrorCode.SOURCE_CHANGED}'''
+new = '''frozenset({ErrorCode.WORKER_LOST, ErrorCode.SOURCE_CHANGED})'''
+
+[[mutation]]
+name = "모두 다시 읽기를 켜도 확인값이 같으면 파일을 읽지 않는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_영구_실패로_남은_문서는_보통_동기화가_다시_넣지_않고_모두_다시_읽기는_다시_넣는다[parse_failed]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''            not reread
+            and existing is not None'''
+new = '''            True
+            and existing is not None'''
+
+[[mutation]]
+name = "다시 넣어도 문서의 세대를 올리지 않는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_재시도를_다_쓰고_실패한_문서는_다음_동기화가_읽지_않고_색인_작업을_다시_넣는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    requeued = replace(document, generation=document.generation + 1, modified_at=now)'''
+new = '''    requeued = replace(document, generation=document.generation, modified_at=now)'''
+
+[[mutation]]
+name = "읽지 않은 문서를 다시 넣은 작업 단위가 작업 행 조건을 보지 않는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_다시_넣는_사이_작업을_다른_작업자에게_뺏기면_다시_넣기도_함께_버려진다[읽지_않는_길]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''            if await _settle_unchanged(deps, job, transaction, existing, counts):
+                await hold_attempt(transaction, job)
+            return'''
+new = '''            await _settle_unchanged(deps, job, transaction, existing, counts)
+            return'''
+
+[[mutation]]
+name = "읽어 보니 내용이 같은 문서를 다시 넣은 작업 단위가 작업 행 조건을 보지 않는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_다시_넣는_사이_작업을_다른_작업자에게_뺏기면_다시_넣기도_함께_버려진다[모두_다시_읽기의_읽는_길]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''            await _settle_unchanged(deps, job, transaction, marked, counts)
+        else:
+            counts.unchanged += 1
+        await hold_attempt(transaction, job)'''
+new = '''            await _settle_unchanged(deps, job, transaction, marked, counts)
+        else:
+            counts.unchanged += 1'''
