@@ -203,6 +203,18 @@ async def ingest_pulled_document(
     return (await _record(unit_of_work, upload, request_id, now, holding)).result
 
 
+async def requeue_locked_document(
+    transaction: Transaction, document: Document, *, request_id: UUID, now: datetime
+) -> IngestResult:
+    """문서 행을 잠근 작업 단위에서 그 문서의 색인 작업을 다시 넣는다. 내용은 그대로이고 세대만
+    올린다(앞선 시도의 작업이 아직 돌고 있으면 그 시도의 결과는 버려진다). 문서 상태는 작업이
+    정한다. 동기화가 실패하거나 건너뛴 문서를 다시 시도시킬 때 쓴다."""
+    requeued = replace(document, generation=document.generation + 1, modified_at=now)
+    await transaction.documents.update(requeued)
+    job_id = await _schedule(transaction, requeued, document, request_id, now)
+    return IngestResult(IngestAction.REQUEUED, requeued.id, job_id)
+
+
 def _stored_key(upload: _Upload) -> str:
     """파일 저장소에 쓴 원본의 경로. 밀어 넣는 원천의 수집만 부른다."""
     if upload.blob_key is None:

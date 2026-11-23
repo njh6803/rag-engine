@@ -2,11 +2,13 @@
 요청해 작업자 루프를 비울 때까지 돈 뒤 그 동기화 기록을 낸다."""
 
 from tests.records import NOW
-from tests.support.pipeline import LEASE_SECONDS, Pipeline
+from tests.support.pipeline import DEFAULT_RETRY, LEASE_SECONDS, Pipeline
 
+from rag_engine.app.retry_policy import RetryPolicy
 from rag_engine.app.sync_requests import request_sync
 from rag_engine.domain.entities import Source, SourceKind, SyncRecord
 from rag_engine.domain.identifiers import new_id
+from rag_engine.domain.parsing import ParseRunner
 from rag_engine.domain.ports import ConnectorRegistry, UnitOfWork
 from rag_engine.worker.processing import run_once
 
@@ -43,22 +45,28 @@ async def run_sync(
     source_read_timeout_seconds: float = 600.0,
     max_upload_bytes: int = 100 * 1024 * 1024,
     apply_empty: bool = False,
+    reread: bool = False,
     unit_of_work: UnitOfWork | None = None,
+    parse_runner: ParseRunner | None = None,
+    retry: RetryPolicy = DEFAULT_RETRY,
 ) -> SyncRecord:
     """지금 동기화를 요청하고 작업자 루프를 비울 때까지 돌린 뒤 그 기록을 읽어 낸다. 동기화가 넣은
-    문서의 색인 작업도 같은 루프에서 돈다. `apply_empty`는 "빈 목록도 반영" 옵션이고
-    `unit_of_work`는 작업자가 쓸 작업 단위를 바꿔 끼울 때(끼어드는 경쟁을 만들 때) 준다."""
+    문서의 색인 작업도 같은 루프에서 돈다. `apply_empty`는 "빈 목록도 반영", `reread`는 "모두 다시
+    읽기" 옵션이고, `unit_of_work`는 작업자가 쓸 작업 단위를 바꿔 끼울 때(끼어드는 경쟁을 만들 때),
+    `parse_runner`는 파싱 실행기를, `retry`는 색인 작업의 재시도 규칙을 바꿔 끼울 때 준다."""
     requested = await request_sync(
         pipeline.unit_of_work,
         source.name,
         apply_empty=apply_empty,
-        reread=False,
+        reread=reread,
         request_id=new_id(),
         now=pipeline.clock[0],
     )
     await run_once(
         pipeline.deps(
             unit_of_work=unit_of_work,
+            parse_runner=parse_runner,
+            retry=retry,
             connectors=registry,
             source_read_timeout_seconds=source_read_timeout_seconds,
             max_upload_bytes=max_upload_bytes,
