@@ -46,7 +46,7 @@ from rag_engine.app.index_document import (
 )
 from rag_engine.app.job_failure import exhaust, settle_transient_failure
 from rag_engine.app.retire_cleanup import clean_retired_versions
-from rag_engine.app.sync_source import SyncDeps, SyncLogLine, sync_source
+from rag_engine.app.sync_source import SyncDeps, SyncLogLevel, SyncLogLine, sync_source
 from rag_engine.domain.entities import Job, JobKind, JobStatus
 from rag_engine.domain.errors import AttemptLostError, ErrorCode, RagEngineError, TransientFailure
 from rag_engine.domain.ports import JobOutcome
@@ -54,6 +54,7 @@ from rag_engine.domain.ports import JobOutcome
 logger = logging.getLogger(__name__)
 
 _MS_PER_SECOND: Final = 1000.0
+_LOG_LEVELS: Final = {SyncLogLevel.INFO: logging.INFO, SyncLogLevel.WARNING: logging.WARNING}
 # 작업 담당 기록의 기한 안에서 연장하는 횟수. 간격은 앞 연장이 끝난 뒤부터 센다. 연장 한 번이 그
 # 기한의 삼분의 일 안에 실패로 돌아오면 기한이 끝나기 전에 한 번 더 시도한다.
 _EXTENSIONS_PER_LEASE: Final = 3
@@ -233,7 +234,7 @@ def _log_sync_line(line: SyncLogLine) -> None:
         logger,
         line.event,
         line.fields,
-        level=logging.WARNING if line.warning else logging.INFO,
+        level=_LOG_LEVELS[line.level],
         request_id=line.request_id,
         duration_ms=line.duration_ms,
     )

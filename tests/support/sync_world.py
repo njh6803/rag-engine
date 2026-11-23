@@ -7,7 +7,7 @@ from tests.support.pipeline import LEASE_SECONDS, Pipeline
 from rag_engine.app.sync_requests import request_sync
 from rag_engine.domain.entities import Source, SourceKind, SyncRecord
 from rag_engine.domain.identifiers import new_id
-from rag_engine.domain.ports import ConnectorRegistry
+from rag_engine.domain.ports import ConnectorRegistry, UnitOfWork
 from rag_engine.worker.processing import run_once
 
 
@@ -41,19 +41,28 @@ async def run_sync(
     registry: ConnectorRegistry,
     *,
     source_read_timeout_seconds: float = 600.0,
+    max_upload_bytes: int = 100 * 1024 * 1024,
+    apply_empty: bool = False,
+    unit_of_work: UnitOfWork | None = None,
 ) -> SyncRecord:
     """지금 동기화를 요청하고 작업자 루프를 비울 때까지 돌린 뒤 그 기록을 읽어 낸다. 동기화가 넣은
-    문서의 색인 작업도 같은 루프에서 돈다."""
+    문서의 색인 작업도 같은 루프에서 돈다. `apply_empty`는 "빈 목록도 반영" 옵션이고
+    `unit_of_work`는 작업자가 쓸 작업 단위를 바꿔 끼울 때(끼어드는 경쟁을 만들 때) 준다."""
     requested = await request_sync(
         pipeline.unit_of_work,
         source.name,
-        apply_empty=False,
+        apply_empty=apply_empty,
         reread=False,
         request_id=new_id(),
         now=pipeline.clock[0],
     )
     await run_once(
-        pipeline.deps(connectors=registry, source_read_timeout_seconds=source_read_timeout_seconds),
+        pipeline.deps(
+            unit_of_work=unit_of_work,
+            connectors=registry,
+            source_read_timeout_seconds=source_read_timeout_seconds,
+            max_upload_bytes=max_upload_bytes,
+        ),
         worker_id="worker-sync",
         lease_seconds=LEASE_SECONDS,
     )

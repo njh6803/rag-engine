@@ -1,7 +1,6 @@
 """`sync_source` 작업의 유스케이스(source-sync 명세 "동기화의 차례", "수집 정책", "동기화 기록").
 
-가져오는 원천 하나의 문서를 원천의 목록에 맞춘다. 이 티켓의 범위는 더하기와 고치기다. 지우기는
-뒤의 티켓이 더한다. 순서는 다음과 같다.
+가져오는 원천 하나의 문서를 원천의 목록에 맞춘다. 순서는 다음과 같다.
 
 1. 동기화 기록과 원천을 읽고, 커넥터를 만들지 못하면 `connector_unavailable`로 끝낸다. 만들었으면
    기록을 `running`으로 쓴다.
@@ -10,8 +9,12 @@
    남는다.
 4. 후보마다 같은 (원천, 키)의 문서와 대 본다. 변경 확인값이 같으면 읽지 않고, 아니면 읽어서 내용
    해시를 비교한다. 새 문서와 내용이 바뀐 문서는 수집 유스케이스로 넣고, 내용이 같은 문서는 변경
-   확인값만 새 값으로 적는다.
-5. 기록을 끝낸 상태로 쓴다. 실패로 끝나도 그때까지 센 개수를 남긴다.
+   확인값만 새 값으로 적는다. 읽다가 `too_large`가 나온 파일은 후보에서 빠진다.
+5. 삭제를 반영한다. 먼저 빈 목록 판정을 한다. 읽다가 후보에서 빠진 파일까지 뺀 뒤에도 후보가 0건이고
+   그 원천에 지워지지 않은 문서가 있으면 아무것도 지우지 않고 실패로 끝난다. 지나면 그 원천의
+   지워지지 않은 문서 가운데 후보에 키가 없는 것을 문서마다 작업 단위 하나에서 임시 삭제한다. 넣은
+   문서의 색인이 끝나기를 기다리지 않는다.
+6. 기록을 끝낸 상태로 쓴다. 실패로 끝나도 그때까지 센 개수를 남긴다.
 
 문서를 쓰는 작업 단위마다 마지막에 작업 행 조건을 본다. 어긋나면 `AttemptLostError`가 그대로
 올라가 그 시도를 버린다. 원천 쪽의 까닭으로 실패한 동기화는 이 모듈이 기록과 결과를 정해 돌려주고
@@ -25,13 +28,15 @@ import asyncio
 import hashlib
 import time
 import unicodedata
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Final
 from uuid import UUID
 
+from rag_engine.app.delete_document import delete_locked_document
 from rag_engine.app.document_outcome import index_failure_code
 from rag_engine.app.ingest import IngestResult, PulledDocument, ingest_pulled_document
 from rag_engine.app.ingest_policy import RejectReason, reject_reason
@@ -67,13 +72,20 @@ _MS_PER_SECOND: Final = 1000.0
 type LogValue = str | int | float | bool | None
 
 
+class SyncLogLevel(StrEnum):
+    """동기화가 내는 로그 줄의 수준. 닫힌 값이고 작업자가 로그 수준으로 옮긴다."""
+
+    INFO = "info"
+    WARNING = "warning"
+
+
 @dataclass(frozen=True, slots=True)
 class SyncLogLine:
-    """작업자가 로그로 옮길 한 줄. `warning`이 참이면 경고 수준이다."""
+    """작업자가 로그로 옮길 한 줄."""
 
     event: str
     request_id: UUID
-    warning: bool
+    level: SyncLogLevel
     duration_ms: float | None
     fields: Mapping[str, LogValue]
 
@@ -110,9 +122,17 @@ class _Counts:
     skipped: dict[str, int] = field(default_factory=lambda: dict[str, int]())
     not_accepted: dict[str, int] = field(default_factory=lambda: dict[str, int]())
     failed: dict[str, int] = field(default_factory=lambda: dict[str, int]())
+    # 후보였다가 읽는 도중 수집 정책에 걸려(`too_large`) 후보에서 빠진 키. 삭제 반영이 이 키의
+    # 문서도 지운다.
+    withdrawn: set[str] = field(default_factory=lambda: set[str]())
 
     def reject(self, reason: RejectReason) -> None:
         self.not_accepted[reason.value] = self.not_accepted.get(reason.value, 0) + 1
+
+    def reject_on_read(self, key: str) -> None:
+        """읽다가 크기 상한에 걸린 파일을 정책에 걸린 파일로 세고 후보에서 뺀다."""
+        self.reject(RejectReason.TOO_LARGE)
+        self.withdrawn.add(key)
 
     def fail(self, code: ErrorCode) -> None:
         self.failed[code.value] = self.failed.get(code.value, 0) + 1
@@ -151,7 +171,7 @@ async def sync_source(deps: SyncDeps, job: Job) -> JobOutcome:
         SyncLogLine(
             event="sync_started",
             request_id=job.request_id,
-            warning=False,
+            level=SyncLogLevel.INFO,
             duration_ms=None,
             fields={
                 "source": source.name,
@@ -171,7 +191,7 @@ async def sync_source(deps: SyncDeps, job: Job) -> JobOutcome:
         SyncLogLine(
             event="sync_finished",
             request_id=job.request_id,
-            warning=code is not None,
+            level=SyncLogLevel.INFO if code is None else SyncLogLevel.WARNING,
             duration_ms=(time.perf_counter() - started) * _MS_PER_SECOND,
             fields={
                 "source": source.name,
@@ -193,8 +213,11 @@ async def _sync(deps: SyncDeps, job: Job, source: Source, counts: _Counts) -> No
     items = await _list(reader)
     counts.listed = len(items)
     candidates = _candidates(deps, source, items, counts)
-    for item in candidates:
+    for item in candidates.values():
         await _reconcile(deps, job, source, reader, item, counts)
+    kept = candidates.keys() - counts.withdrawn
+    await _guard_empty_list(deps, job, source, counts, kept)
+    await _apply_deletions(deps, job, source, kept, counts)
 
 
 def _open(deps: SyncDeps, source: Source) -> SourceReader:
@@ -281,9 +304,9 @@ async def _list(reader: SourceReader) -> dict[str, ListedItem]:
 
 def _candidates(
     deps: SyncDeps, source: Source, items: Mapping[str, ListedItem], counts: _Counts
-) -> list[ListedItem]:
-    """수집 정책에 걸리지 않은 항목. 걸린 파일은 처음 걸린 사유 하나로 센다."""
-    candidates: list[ListedItem] = []
+) -> dict[str, ListedItem]:
+    """수집 정책에 걸리지 않은 항목을 키로 묶어 낸다. 걸린 파일은 처음 걸린 사유 하나로 센다."""
+    candidates: dict[str, ListedItem] = {}
     for item in items.values():
         reason = reject_reason(
             item.key,
@@ -292,10 +315,61 @@ def _candidates(
             max_bytes=deps.max_upload_bytes,
         )
         if reason is None:
-            candidates.append(item)
+            candidates[item.key] = item
         else:
             counts.reject(reason)
     return candidates
+
+
+async def _guard_empty_list(
+    deps: SyncDeps, job: Job, source: Source, counts: _Counts, kept: Collection[str]
+) -> None:
+    """후보가 하나도 남지 않았는데 그 원천에 지워지지 않은 문서가 있으면 삭제를 반영하지 않고
+    동기화를 실패로 끝낸다(명세 "동기화의 차례"의 빈 목록 판정). 폴더가 안 붙은 자리를 빈 폴더로
+    읽어 문서를 모두 지우는 사고를 막는다. 커넥터가 낸 항목이 0건이면 `source_unreadable`이고 항목은
+    있는데 모두 걸렸으면 `nothing_accepted`다. "빈 목록도 반영"을 켠 동기화는 목록을 끝까지 받은
+    뒤이므로(받는 도중의 실패는 이 자리에 닿기 전에 끝난다) 지나간다."""
+    if kept or _applies_empty(job):
+        return
+    async with deps.unit_of_work.begin() as transaction:
+        if not await transaction.documents.has_documents_held_by_source(source.id):
+            return
+    raise SyncFailure(
+        ErrorCode.SOURCE_UNREADABLE if counts.listed == 0 else ErrorCode.NOTHING_ACCEPTED
+    )
+
+
+def _applies_empty(job: Job) -> bool:
+    """지금 동기화가 "빈 목록도 반영"을 켠 요청인가."""
+    return job.options.get("apply_empty") is True
+
+
+async def _live_keys(deps: SyncDeps, source: Source) -> dict[str, UUID]:
+    """그 원천의, 지워지지 않은 문서의 키마다 문서 ID."""
+    async with deps.unit_of_work.begin() as transaction:
+        return await transaction.documents.list_live_keys_of_source(source.id)
+
+
+async def _apply_deletions(
+    deps: SyncDeps, job: Job, source: Source, kept: Collection[str], counts: _Counts
+) -> None:
+    """후보에 키가 없는 문서를 문서마다 작업 단위 하나에서 임시 삭제한다. 읽지 못해 실패로 센
+    파일은 후보에 있으므로 지우지 않고, 읽다가 `too_large`가 난 파일은 후보에서 빠졌으므로 그 키의
+    문서를 지운다. 넣은 문서의 색인이 끝나기를 기다리지 않는다."""
+    for key, document_id in (await _live_keys(deps, source)).items():
+        if key not in kept:
+            await _delete_one(deps, job, document_id, counts)
+
+
+async def _delete_one(deps: SyncDeps, job: Job, document_id: UUID, counts: _Counts) -> None:
+    """문서 하나를 지운다. 잠그고 보니 이미 지워졌으면 아무것도 하지 않고 세지도 않는다. 잠금
+    순서는 문서 행, 지식베이스 행, 작업 행이다."""
+    async with deps.unit_of_work.begin() as transaction:
+        document = await transaction.documents.lock(document_id)
+        if document is not None and _is_live(document):
+            await delete_locked_document(transaction, document, deps.now())
+            counts.deleted += 1
+        await hold_attempt(transaction, job)
 
 
 async def _reconcile(
@@ -321,7 +395,7 @@ async def _reconcile(
     if fetched is None:
         return
     if len(fetched.data) > deps.max_upload_bytes:
-        counts.reject(RejectReason.TOO_LARGE)
+        counts.reject_on_read(item.key)
         return
     content_hash = await asyncio.to_thread(lambda: hashlib.sha256(fetched.data).hexdigest())
     if existing is not None and _is_live(existing) and existing.content_hash == content_hash:
@@ -353,13 +427,13 @@ def _is_live(document: Document) -> bool:
 
 async def _fetch(reader: SourceReader, item: ListedItem, counts: _Counts) -> FetchedItem | None:
     """파일을 읽는다. 읽지 못한 파일은 실패로 세고 `None`을 낸다. 커넥터가 `too_large`로 알리면
-    수집 정책에 걸린 파일로 센다. 한도를 넘기거나 막히면 동기화를 `source_unreadable`로 끝낸다(남은
-    파일을 하나씩 실패로 세지 않는다)."""
+    수집 정책에 걸린 파일로 세고 후보에서 뺀다. 한도를 넘기거나 막히면 동기화를
+    `source_unreadable`로 끝낸다(남은 파일을 하나씩 실패로 세지 않는다)."""
     try:
         return await reader.fetch(item.key)
     except ConnectorError as error:
         if error.reason is ConnectorFailureReason.TOO_LARGE:
-            counts.reject(RejectReason.TOO_LARGE)
+            counts.reject_on_read(item.key)
         elif error.reason is ConnectorFailureReason.REJECTED:
             counts.fail(ErrorCode.SOURCE_PATH_REJECTED)
         elif error.reason is ConnectorFailureReason.INVALID_CONFIG:

@@ -239,6 +239,24 @@ class PostgresDocumentStore:
         rows = (await self._connection.execute(statement)).mappings().all()
         return [_document(row) for row in rows]
 
+    async def list_live_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
+        documents = tables.documents
+        rows = await self._connection.execute(
+            sa.select(documents.c.key, documents.c.id).where(
+                documents.c.source_id == source_id, documents.c.deleted_at.is_(None)
+            )
+        )
+        return {row.key: row.id for row in rows}
+
+    async def has_documents_held_by_source(self, source_id: UUID) -> bool:
+        documents = tables.documents
+        held = sa.and_(
+            documents.c.source_id == source_id,
+            documents.c.purged_at.is_(None),
+            sa.or_(documents.c.deleted_at.is_(None), documents.c.deleted_with_source.is_(True)),
+        )
+        return bool(await self._connection.scalar(sa.select(sa.exists().where(held))))
+
     async def count_documents_of_source(self, source_id: UUID) -> DocumentCounts:
         documents = tables.documents
         row = (
