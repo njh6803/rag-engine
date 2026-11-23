@@ -31,7 +31,7 @@
 - `.claude/skills/next-session/SKILL.md`의 Docker 갈래: 문서만 바꾼 커밋은 Docker가 필요 없다는 것을 반영한다. 이 스킬 파일이 `PATCHED_SKILLS`의 덧댄 사본이면 센티널 규칙을 지킨다(`tools/check_instructions.py`).
 - 옛 표현("문서만 바뀐 커밋에서도 pytest를 건너뛰지 않는다", 문서 커밋도 Docker가 필요하다는 문장)을 grep으로 찾아 잔존이 0인지 본다(`CLAUDE.md` 작업 규약 4).
 
-**ADR을 쓰지 않는 까닭.** "문서만 바뀐 커밋에서도 건너뛰지 않는다"는 결정은 ADR이 아니라 `tools/run_checks.py` 독스트링(core 01 결정)과 `.pre-commit-config.yaml` 주석에만 적혀 있다. 헌법 `docs/constitution/operations.md`의 가드레일 절은 훅과 검사의 목록을 코드와 설정이 원천이라고 가리킬 뿐 이 결정을 적지 않는다. 그래서 그 독스트링을 고치면 결정이 바뀐다. 헌법과 계약은 건드리지 않는다.
+**ADR을 쓰지 않는 까닭.** 문서만 바뀐 커밋에서도 pytest를 건너뛰지 않는다는 결정은 ADR이 아니라 `tools/run_checks.py` 독스트링(core 01 결정)과 `.pre-commit-config.yaml` 주석에만 적혀 있다. 헌법 `docs/constitution/operations.md`의 가드레일 절은 훅과 검사의 목록을 코드와 설정이 원천이라고 가리킬 뿐 이 결정을 적지 않는다. 그래서 그 독스트링을 고치면 결정이 바뀐다. 헌법과 계약은 건드리지 않는다.
 
 **이번에 바꾸지 않는 것.**
 - CI의 `python` 잡. 그대로 전체 pytest를 돈다. 문서 커밋에서 빠진 몫은 PR에서 잡힌다.
