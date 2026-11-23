@@ -251,6 +251,23 @@ async def test_파일_하나를_읽다가_멈춘_동기화도_원천을_지우�
     assert await _document_keys(pipeline, source) == []
 
 
+async def test_기한을_늘릴_때_멈춘_동기화도_그때까지_넣은_문서의_개수를_기록에_남긴다(
+    pipeline: Pipeline, world: World
+) -> None:
+    plan = world.plan("절반", {"가.docx": _docx(), "나.docx": _docx("다른 내용")}, fetch_ok=1)
+    source = await _make_source(pipeline, "절반")
+    requested = await _request(pipeline, source)
+
+    async def second_file_is_being_read() -> bool:
+        return plan.fetch_calls == 2
+
+    await _run_and_delete_when(pipeline, source, second_file_is_being_read)
+
+    record = await _record(pipeline, requested)
+    assert (record.status, record.failure_code) == (SyncRecordStatus.FAILED, "source_deleted")
+    assert (record.listed, record.added) == (2, 1)
+
+
 async def test_원천을_지우면_다음_실행_시각이_비워진다(pipeline: Pipeline, world: World) -> None:
     world.plan("일정", {})
     source = await _make_source(pipeline, "일정")

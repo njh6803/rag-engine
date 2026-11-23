@@ -48,6 +48,7 @@ from rag_engine.app.index_document import (
 from rag_engine.app.job_failure import exhaust, settle_transient_failure
 from rag_engine.app.retire_cleanup import clean_retired_versions
 from rag_engine.app.sync_source import (
+    SyncCounts,
     SyncDeps,
     SyncLogLevel,
     SyncLogLine,
@@ -221,12 +222,13 @@ async def _dispatch(
         return await _leased(deps, job, lease_seconds, lambda: index_document(deps, job, timer))
     if job.kind is JobKind.SYNC_SOURCE:
         sync_deps = _sync_deps(deps)
+        counts = SyncCounts()
         outcome = await _leased(
             deps,
             job,
             lease_seconds,
-            lambda: sync_source(sync_deps, job),
-            on_source_deleted=lambda: close_after_source_deleted(sync_deps, job),
+            lambda: sync_source(sync_deps, job, counts),
+            on_source_deleted=lambda: close_after_source_deleted(sync_deps, job, counts),
         )
         return IndexResult(outcome=outcome, timings=timer.timings())
     if job.kind is JobKind.DELETE_SOURCE:

@@ -103,3 +103,14 @@ old = '''    return source is not None and source.deleted_at is not None
 '''
 new = '''    return False
 '''
+
+[[mutation]]
+name = "기한을 늘릴 때 멈춘 동기화가 센 개수를 남기지 않는다"
+tests = ["tests/app/test_delete_source.py"]
+expect = "red"
+expect_output = ["At index 0 diff: None != 2"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''on_source_deleted=lambda: close_after_source_deleted(sync_deps, job, counts),'''
+new = '''on_source_deleted=lambda: close_after_source_deleted(sync_deps, job, SyncCounts()),'''
