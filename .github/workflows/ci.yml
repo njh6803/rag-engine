@@ -74,7 +74,11 @@ jobs:
       - run: uv run pyright
       - run: uv run lint-imports
       - run: command -v rg > /dev/null || { sudo apt-get update -q && sudo apt-get install -y -q ripgrep; }
-      - run: uv run pytest -q
+      # 한 프로세스로 돌린 pytest 스텝이 13분 반 안팎이라 잡의 제한 15분을 넘긴 실행이 나왔다(.scratch/harness/issues/
+      # ci-pytest-parallel.md). 시험은 작업자마다 템플릿 데이터베이스를 만들고 시험마다 이름이 다른 복제본을 쓰므로 나눠
+      # 돌아도 데이터가 부딪히지 않는다. 로컬 pre-commit 의 검사 러너(tools/run_checks.py)는 논리 CPU 의 절반으로 나누고,
+      # 이 스텝은 러너의 CPU 전부(auto)를 쓴다. 부하로 간헐히 지는 시험이 늘면 작업자 수를 줄인다.
+      - run: uv run pytest -q -n auto
       - run: uv run python tools/check_instructions.py
       - run: uv run python tools/check_type_escapes.py
       - run: uv run python tools/run_hooks.py
