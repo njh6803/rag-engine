@@ -2,6 +2,7 @@
 "포트 열셋과 그 값"). 작업 단위가 연 연결 위에서 돈다."""
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Final
 from uuid import UUID
 
@@ -189,6 +190,44 @@ class PostgresCatalog:
         await self._connection.execute(
             sa.update(tables.sources).where(tables.sources.c.id == source_id).values(paused=paused)
         )
+
+    async def set_source_schedule(self, source_id: UUID, schedule: str | None) -> None:
+        await self._connection.execute(
+            sa.update(tables.sources)
+            .where(tables.sources.c.id == source_id)
+            .values(schedule=schedule)
+        )
+
+    async def set_next_run_at(self, source_id: UUID, next_run_at: datetime | None) -> None:
+        await self._connection.execute(
+            sa.update(tables.sources)
+            .where(tables.sources.c.id == source_id)
+            .values(next_run_at=next_run_at)
+        )
+
+    async def lock_source(self, source_id: UUID) -> Source | None:
+        result = await self._connection.execute(
+            sa.select(tables.sources)
+            .where(tables.sources.c.id == source_id)
+            .with_for_update(key_share=True)
+        )
+        row = result.mappings().one_or_none()
+        return None if row is None else _source(row)
+
+    async def lock_due_sources(self, now: datetime) -> list[Source]:
+        sources = tables.sources
+        result = await self._connection.execute(
+            sa.select(sources)
+            .where(
+                sources.c.kind == SourceKind.PULL.value,
+                sources.c.next_run_at <= now,
+                sources.c.paused.is_(False),
+                sources.c.deleted_at.is_(None),
+            )
+            .order_by(sources.c.next_run_at, sources.c.id)
+            .with_for_update(key_share=True, skip_locked=True)
+        )
+        return [_source(row) for row in result.mappings().all()]
 
     async def get_source(self, name: str) -> Source | None:
         result = await self._connection.execute(

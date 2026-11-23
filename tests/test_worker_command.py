@@ -48,6 +48,22 @@ def test_허용_호스트가_비면_종료_코드_1과_칸_이름을_내고_뜨�
     assert seeded_command_environment not in output_text.err + output_text.out
 
 
+def test_모르는_시간대_이름이면_종료_코드_1과_칸_이름을_내고_뜨지_않는다(
+    seeded_command_environment: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("RAG_SCHEDULE_TIMEZONE", "Asia/Seol")
+
+    with pytest.raises(SystemExit) as caught:
+        main(["worker"])
+
+    output_text = capsys.readouterr()
+    assert caught.value.code == 1
+    assert "RAG_SCHEDULE_TIMEZONE" in output_text.err
+    assert "Asia/Seol" not in output_text.err + output_text.out
+
+
 class _Output:
     """하위 프로세스의 stdout을 다른 스레드에서 줄 단위로 모은다. 파이프를 읽지 않으면 가득 차
     자식이 멈춘다."""

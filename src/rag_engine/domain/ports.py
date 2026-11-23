@@ -173,6 +173,29 @@ class Catalog(Protocol):
         """가져오는 원천의 `paused` 칸만 바꾼다. 다른 칸은 건드리지 않는다."""
         ...
 
+    async def set_source_schedule(self, source_id: UUID, schedule: str | None) -> None:
+        """가져오는 원천의 `schedule` 칸만 바꾼다. `None`이면 일정을 없앤다. 다음 실행 시각은
+        `set_next_run_at`이 따로 쓴다."""
+        ...
+
+    async def set_next_run_at(self, source_id: UUID, next_run_at: datetime | None) -> None:
+        """가져오는 원천의 `next_run_at` 칸만 바꾼다. `None`이면 비운다."""
+        ...
+
+    async def lock_source(self, source_id: UUID) -> Source | None:
+        """그 원천의 행을 `FOR NO KEY UPDATE`로 잠그고 잠근 뒤의 값을 낸다. 일정, 일시 중지, 다음
+        실행 시각을 읽고 고치는 요청이 서로의 칸을 되돌리지 않게 차례로 지나게 한다. 다른 연결이
+        잡고 있으면 풀릴 때까지 기다린다. 외래 키 확인이 거는 `FOR KEY SHARE`와는 부딪치지
+        않으므로, 그 원천에 작업이나 기록을 넣는 요청은 막지 않는다."""
+        ...
+
+    async def lock_due_sources(self, now: datetime) -> list[Source]:
+        """다음 실행 시각이 `now` 이전이거나 같고 일시 중지도 지움 표시도 없는 가져오는 원천의 행을
+        `FOR NO KEY UPDATE SKIP LOCKED`로 잠가 낸다. 다른 연결이 잡은 행은 기다리지 않고
+        건너뛰므로, 작업자를 여럿 띄워도 같은 원천을 두 연결이 함께 잡지 않고, 일정을 고치는
+        요청이 잡은 원천은 이번 확인에서 건너뛴다. 다음 실행 시각과 식별자 순이다."""
+        ...
+
     async def get_source(self, name: str) -> Source | None: ...
 
     async def list_sources(self) -> list[Source]:
@@ -568,7 +591,7 @@ class ConnectorRegistry(Protocol):
 
 class ScheduleCalculator(Protocol):
     """일정 표현식(cron 다섯 칸)을 확인하고 다음 실행 시각을 낸다(source-sync 명세 "일정과 일정
-    확인"). 처음 쓰는 티켓(일정을 여는 10)이 메서드의 이름과 모양을 바꿀 수 있다."""
+    확인"). 두 메서드 모두 받지 않는 표현식에 `InvalidScheduleError`를 올린다."""
 
     def validate(self, expression: str) -> None:
         """표현식을 받으면 그대로 돌아오고, 칸 수가 다섯이 아니거나 값이 틀리거나 오지 않는
@@ -576,8 +599,8 @@ class ScheduleCalculator(Protocol):
         ...
 
     def next_run(self, expression: str, after: datetime) -> datetime:
-        """`after` 다음의 실행 시각을 UTC로 낸다. 표현식의 시각은 설치 전체에 하나인 시간대 설정으로
-        읽는다."""
+        """`after`보다 뒤인 첫 실행 시각을 UTC로 낸다. `after`와 같은 시각은 넘긴다. 표현식의 시각은
+        설치 전체에 하나인 시간대 설정으로 읽는다."""
         ...
 
 
