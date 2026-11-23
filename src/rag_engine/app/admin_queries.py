@@ -10,7 +10,7 @@
 범위를 보지 않는다. 관리 API는 `admin` 토큰의 몫이다.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from uuid import UUID
 
 from rag_engine.domain.entities import (
@@ -155,6 +155,9 @@ async def _report(transaction: Transaction, document: Document) -> DocumentRepor
     group = await transaction.catalog.get_group_by_id(document.group_id)
     if source is None or group is None:
         raise RuntimeError("문서가 가리키는 원천이나 그룹이 없다")
+    if source.deleted_at is not None and document.deleted_at is None:
+        # 지움 표시가 선 원천의 문서는 작업자가 옮기기 전에도 지워진 문서로 보인다.
+        document = replace(document, deleted_at=source.deleted_at)
     indexes = () if document.deleted_at is not None else await _indexes(transaction, document)
     return DocumentReport(document=document, source=source.name, group=group.name, indexes=indexes)
 

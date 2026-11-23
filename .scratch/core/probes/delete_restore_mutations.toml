@@ -10,9 +10,12 @@ expect_output = ['At index 1 diff: 3 != 4']
 
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
-old = '''        replace(document, deleted_at=now, generation=document.generation + 1, modified_at=now)
+old = '''            generation=document.generation + 1,
+            modified_at=now,
+            deleted_with_source=with_source,
 '''
-new = '''        replace(document, deleted_at=now, modified_at=now)
+new = '''            modified_at=now,
+            deleted_with_source=with_source,
 '''
 
 [[mutation]]
@@ -135,12 +138,12 @@ old = '''                tables.jobs.c.document_id == document_id,
             )
         )
 
-    async def lock_queued_documents('''
+    async def lock_queued_source_job('''
 new = '''                tables.jobs.c.document_id == document_id,
             )
         )
 
-    async def lock_queued_documents('''
+    async def lock_queued_source_job('''
 
 [[mutation]]
 name = "다른 내용의 되살림이 내용을 가리지 않는다"

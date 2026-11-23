@@ -38,7 +38,7 @@ from rag_engine.app.default_records import DEFAULT_NAME
 from rag_engine.app.document_outcome import index_failure_code
 from rag_engine.app.job_attempt import hold_attempt
 from rag_engine.app.live_versions import live_index_versions
-from rag_engine.app.source_lookup import require_push_source
+from rag_engine.app.source_lookup import lock_live_source, require_push_source
 from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import (
     Document,
@@ -355,6 +355,7 @@ async def _record(
 async def _record_in(
     transaction: Transaction, upload: _Upload, request_id: UUID, now: datetime
 ) -> _Recorded:
+    await lock_live_source(transaction, upload.source_id)
     existing = await transaction.documents.get_by_key(upload.source_id, upload.key)
     if existing is None:
         return await _create(transaction, upload, request_id, now)

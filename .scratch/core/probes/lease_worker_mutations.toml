@@ -23,10 +23,10 @@ expect_output = ["<built-in function monotonic>"]
 
 [[mutation.edit]]
 file = "src/rag_engine/worker/processing.py"
-old = '''        keeper.result()
+old = '''            return await on_source_deleted()
         raise AttemptLostError
 '''
-new = '''        keeper.result()
+new = '''            return await on_source_deleted()
         return await work
 '''
 
@@ -236,7 +236,7 @@ expect_output = ["<built-in function monotonic>"]
 [[mutation.edit]]
 file = "src/rag_engine/worker/processing.py"
 old = '''        except AttemptLostError:
-            return
+            return _LeaseEnd.LOST
         except TransientFailure:
 '''
 new = '''        except AttemptLostError:

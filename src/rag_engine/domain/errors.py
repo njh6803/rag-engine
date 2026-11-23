@@ -1,6 +1,6 @@
 """오류 코드와 이 저장소의 예외 계층. 코드의 이름은 이 파일 한 자리에서만 정의한다.
 
-작업 코드 스물(`internal_error` 포함)과 HTTP·도구 코드 전부가 `ErrorCode` 하나에 든다. 판정기의
+작업 코드 스물하나(`internal_error` 포함)와 HTTP·도구 코드 전부가 `ErrorCode` 하나에 든다. 판정기의
 코드 둘(`judge_unavailable`, `judge_rejected`)도 여기 있지만 작업 코드가 아니라서 작업 코드의
 집합에는 들지 않고 `JUDGE_*_FAILURE_CODES`에 따로 든다. 뒤의 티켓은 이 자리의 이름만 쓰고 문자열을
 새로 짓지 않는다(명세 "수집 파이프라인과 작업", "관리 API", "MCP 도구").
@@ -54,13 +54,17 @@ class ErrorCode(StrEnum):
     # 가져오는 원천의 작업 코드(source-sync 명세 "오류 코드"). 문서의 색인에는 `source_unreadable`
     # (일시 실패)과 `source_changed`(영구 실패)가 쓰이고, 동기화 작업과 동기화 기록의 실패 사유에는
     # `source_unreadable`, `nothing_accepted`, `source_path_rejected`, `connector_unavailable`,
-    # `connector_error`가 쓰인다. 동기화의 `source_deleted`는 원천을 지우는 티켓이 더한다.
+    # `connector_error`, `source_deleted`가 쓰인다. `source_deleted`는 Problem Details에도 쓰여
+    # 지운 원천을 고치거나 수집을 보내는 요청을 409로 거절한다. `source_protected`는 `default`와
+    # `upload`를 지우려는 요청을 거절한다.
     SOURCE_UNREADABLE = "source_unreadable"
     SOURCE_CHANGED = "source_changed"
     NOTHING_ACCEPTED = "nothing_accepted"
     SOURCE_PATH_REJECTED = "source_path_rejected"
     CONNECTOR_UNAVAILABLE = "connector_unavailable"
     CONNECTOR_ERROR = "connector_error"
+    SOURCE_DELETED = "source_deleted"
+    SOURCE_PROTECTED = "source_protected"
     # 관련성 판정기(ADR 0019). 평가 도구만 쓰고 작업 행과 응답에는 나가지 않는다.
     JUDGE_UNAVAILABLE = "judge_unavailable"
     JUDGE_REJECTED = "judge_rejected"
@@ -103,6 +107,7 @@ SYNC_FAILURE_CODES = frozenset(
         ErrorCode.SOURCE_PATH_REJECTED,
         ErrorCode.CONNECTOR_UNAVAILABLE,
         ErrorCode.CONNECTOR_ERROR,
+        ErrorCode.SOURCE_DELETED,
     }
 )
 
@@ -111,7 +116,7 @@ SYNC_FAILURE_CODES = frozenset(
 JUDGE_PERMANENT_FAILURE_CODES = frozenset({ErrorCode.JUDGE_REJECTED})
 JUDGE_TRANSIENT_FAILURE_CODES = frozenset({ErrorCode.JUDGE_UNAVAILABLE})
 
-# 작업 행과 문서·색인 상태의 오류 코드 칸에 들어갈 수 있는 값 스물. 이 가운데
+# 작업 행과 문서·색인 상태의 오류 코드 칸에 들어갈 수 있는 값 스물하나. 이 가운데
 # `encrypted_document`는 업그레이드 전에 쓰인 행에만 남는다.
 JOB_ERROR_CODES = (
     PERMANENT_FAILURE_CODES
@@ -131,7 +136,7 @@ TOOL_ERROR_CODES = frozenset(
     }
 )
 
-# Problem Details 의 `code`로 낼 수 있는 값 스물.
+# Problem Details 의 `code`로 낼 수 있는 값 스물둘.
 PROBLEM_ERROR_CODES = frozenset(
     {
         ErrorCode.UNAUTHENTICATED,
@@ -154,6 +159,8 @@ PROBLEM_ERROR_CODES = frozenset(
         ErrorCode.SOURCE_FOLDER_OVERLAP,
         ErrorCode.SYNC_IN_PROGRESS,
         ErrorCode.SYNC_RECORD_NOT_FOUND,
+        ErrorCode.SOURCE_DELETED,
+        ErrorCode.SOURCE_PROTECTED,
     }
 )
 

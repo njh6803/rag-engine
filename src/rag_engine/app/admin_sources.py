@@ -37,11 +37,15 @@ async def create_push_source(unit_of_work: UnitOfWork, name: str, *, now: dateti
     return SourceReport(source, DocumentCounts(total=0, failed=0, skipped=0))
 
 
-async def list_source_reports(unit_of_work: UnitOfWork) -> list[SourceReport]:
+async def list_source_reports(
+    unit_of_work: UnitOfWork, *, include_deleted: bool = False
+) -> list[SourceReport]:
+    """지운 원천은 `include_deleted`를 켜야 낸다."""
     async with unit_of_work.begin() as transaction:
         return [
             await source_report(transaction, source)
             for source in await transaction.catalog.list_sources()
+            if include_deleted or source.deleted_at is None
         ]
 
 

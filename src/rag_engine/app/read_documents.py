@@ -61,6 +61,13 @@ async def get_document(
         document = await transaction.documents.get(document_id)
         if document is None or document.deleted_at is not None:
             raise _not_found()
+        source = await transaction.catalog.get_source_by_id(document.source_id)
+        group = await transaction.catalog.get_group_by_id(document.group_id)
+        if source is None or group is None:
+            raise RuntimeError("문서가 가리키는 원천이나 그룹이 없다")
+        # 지움 표시가 선 원천의 문서는 문서 행이 그대로여도 지워진 문서와 같게 답한다.
+        if source.deleted_at is not None:
+            raise _not_found()
         visible = [
             knowledge_base
             for knowledge_base in await transaction.catalog.list_knowledge_bases_of_group(
@@ -70,10 +77,6 @@ async def get_document(
         ]
         if not visible:
             raise _not_found()
-        source = await transaction.catalog.get_source_by_id(document.source_id)
-        group = await transaction.catalog.get_group_by_id(document.group_id)
-        if source is None or group is None:
-            raise RuntimeError("문서가 가리키는 원천이나 그룹이 없다")
         blocks = await _parsed_blocks(transaction, document)
         length = None if blocks is None else text_length(blocks)
         text: str | None = None

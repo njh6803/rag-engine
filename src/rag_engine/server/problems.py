@@ -37,6 +37,8 @@ ERROR_STATUS: Final[Mapping[ErrorCode, int]] = {
     ErrorCode.SOURCE_FOLDER_OVERLAP: 409,
     ErrorCode.SYNC_IN_PROGRESS: 409,
     ErrorCode.SYNC_RECORD_NOT_FOUND: 404,
+    ErrorCode.SOURCE_DELETED: 409,
+    ErrorCode.SOURCE_PROTECTED: 409,
     ErrorCode.SEARCH_UNAVAILABLE: 503,
     ErrorCode.INTERNAL_ERROR: 500,
 }
@@ -63,6 +65,8 @@ ERROR_TITLE: Final[Mapping[ErrorCode, str]] = {
     ErrorCode.SOURCE_FOLDER_OVERLAP: "다른 원천의 폴더와 겹친다",
     ErrorCode.SYNC_IN_PROGRESS: "같은 원천의 동기화가 이미 진행 중이다",
     ErrorCode.SYNC_RECORD_NOT_FOUND: "동기화 기록을 찾을 수 없다",
+    ErrorCode.SOURCE_DELETED: "지운 원천이다",
+    ErrorCode.SOURCE_PROTECTED: "지울 수 없는 원천이다",
     ErrorCode.SEARCH_UNAVAILABLE: "검색을 쓸 수 없다",
     ErrorCode.INTERNAL_ERROR: "서버 내부 오류",
 }

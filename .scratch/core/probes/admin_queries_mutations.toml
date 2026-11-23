@@ -162,7 +162,9 @@ expect_output = ["At index 0 diff: '지움' != '파싱됨'"]
 [[mutation.edit]]
 file = "src/rag_engine/adapters/postgres/document_store.py"
 old = '''            statement = statement.where(
-                documents.c.deleted_at.is_(None), documents.c.status == query.state.value
+                documents.c.deleted_at.is_(None),
+                ~of_deleted_source,
+                documents.c.status == query.state.value,
             )
 '''
 new = '''            statement = statement.where(documents.c.status == query.state.value)

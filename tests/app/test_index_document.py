@@ -155,6 +155,22 @@ async def test_지워진_문서는_아무것도_쓰지_않고_성공으로_끝�
         assert await transaction.documents.get_content(ingested.document_id) is None
 
 
+async def test_지운_원천의_문서는_아무것도_쓰지_않고_성공으로_끝난다(pipeline: Pipeline) -> None:
+    ingested = await pipeline.ingest(휴가)
+    async with pipeline.unit_of_work.begin() as transaction:
+        await transaction.catalog.mark_source_deleted(pipeline.source.id, NOW)
+    before = await _generation(pipeline, ingested.document_id)
+
+    result = await index_document(pipeline.deps(), await pipeline.claim())
+
+    assert result.outcome == SUCCEEDED
+    assert [await _generation(pipeline, ingested.document_id)] == [before]
+    assert await pipeline.chunk_texts(ingested.document_id) == []
+    async with pipeline.unit_of_work.begin() as transaction:
+        assert await transaction.documents.get_content(ingested.document_id) is None
+    assert await pipeline.job_statuses(ingested.document_id) == ["running"]
+
+
 async def test_임베딩하는_사이_세대가_올라가면_조각을_쓰지_않고_성공으로_끝난다(
     pipeline: Pipeline,
 ) -> None:

@@ -2,6 +2,8 @@
 기본 원천 `default`다. 없는 이름은 404 `source_not_found`이고, 이름을 주지 않았는데 `default`가
 없으면 `migrate`를 돌리지 않은 설치라 요청의 잘못이 아니다."""
 
+from uuid import UUID
+
 from rag_engine.app.default_records import DEFAULT_NAME
 from rag_engine.domain.entities import Source, SourceKind
 from rag_engine.domain.errors import ErrorCode, RequestError
@@ -17,18 +19,38 @@ async def require_source(transaction: Transaction, name: str | None) -> Source:
     raise RequestError(ErrorCode.SOURCE_NOT_FOUND, "그 이름의 원천이 없다")
 
 
+def ensure_not_deleted(source: Source) -> None:
+    """지움 표시가 선 원천이면 409 `source_deleted`다."""
+    if source.deleted_at is not None:
+        raise RequestError(ErrorCode.SOURCE_DELETED, "지운 원천이다")
+
+
 async def require_push_source(transaction: Transaction, name: str | None) -> Source:
-    """수집 API가 가리킨 원천. 가져오는 원천에는 넣거나 지울 수 없어 409 `wrong_source_kind`다."""
+    """수집 API가 가리킨 원천. 가져오는 원천에는 넣거나 지울 수 없어 409 `wrong_source_kind`이고,
+    지운 원천은 409 `source_deleted`다."""
     source = await require_source(transaction, name)
+    ensure_not_deleted(source)
     if source.kind is not SourceKind.PUSH:
         raise RequestError(ErrorCode.WRONG_SOURCE_KIND, "밀어 넣는 원천이 아니다")
     return source
 
 
 async def require_pull_source(transaction: Transaction, name: str) -> Source:
-    """관리 API의 고치기, 연결 확인, 일시 중지, 다시 시작이 가리킨 원천. 밀어 넣는 원천이면 409
-    `wrong_source_kind`다."""
+    """관리 API의 고치기, 연결 확인, 지금 동기화, 일시 중지, 다시 시작이 가리킨 원천. 밀어 넣는
+    원천이면 409 `wrong_source_kind`이고, 지운 원천은 409 `source_deleted`다."""
     source = await require_source(transaction, name)
+    ensure_not_deleted(source)
     if source.kind is not SourceKind.PULL:
         raise RequestError(ErrorCode.WRONG_SOURCE_KIND, "가져오는 원천이 아니다")
+    return source
+
+
+async def lock_live_source(transaction: Transaction, source_id: UUID) -> Source:
+    """문서를 넣는 작업 단위가 맨 먼저 부른다. 원천 행을 공유 잠금으로 잡고 지움 표시를 다시
+    본다. 표시가 서 있으면 409 `source_deleted`다(잠금 순서는 원천 행, 문서 행, 지식베이스 행, 작업
+    행이다)."""
+    source = await transaction.catalog.lock_source_shared(source_id)
+    if source is None:
+        raise RuntimeError("문서가 가리키는 원천이 없다")
+    ensure_not_deleted(source)
     return source

@@ -189,6 +189,19 @@ class Catalog(Protocol):
         않으므로, 그 원천에 작업이나 기록을 넣는 요청은 막지 않는다."""
         ...
 
+    async def lock_source_shared(self, source_id: UUID) -> Source | None:
+        """그 원천의 행을 `FOR SHARE`로 잠그고 잠근 뒤의 값을 낸다. 문서를 넣거나 옮기는
+        작업 단위(수집 API, 동기화, 원천 삭제 작업, 색인 작업의 첫째 단계)가 맨 먼저 부르고 지움
+        표시를 본다. 여럿이 함께 잡을 수 있고, `lock_source`와 지움 표시를 쓰는 갱신은 이 잠금이
+        풀리기를 기다린다. 그래서 지움 표시가 선 뒤에 그 원천의 문서를 새로 넣는 작업 단위는
+        없다(잠금 순서는 원천 행, 문서 행, 지식베이스 행, 작업 행이다)."""
+        ...
+
+    async def mark_source_deleted(self, source_id: UUID, deleted_at: datetime) -> None:
+        """원천 행에 지움 표시를 쓰고 다음 실행 시각을 비운다. 다른 칸은 건드리지 않는다. 부르기
+        전에 `lock_source`로 잠근다."""
+        ...
+
     async def lock_due_sources(self, now: datetime) -> list[Source]:
         """다음 실행 시각이 `now` 이전이거나 같고 일시 중지도 지움 표시도 없는 가져오는 원천의 행을
         `FOR NO KEY UPDATE SKIP LOCKED`로 잠가 낸다. 다른 연결이 잡은 행은 기다리지 않고
@@ -304,6 +317,12 @@ class DocumentStore(Protocol):
     async def list_live_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
         """그 원천의, 지워지지 않은 문서의 키마다 문서 ID를 낸다. 동기화가 삭제 반영 대상을 고르는
         데 쓴다."""
+        ...
+
+    async def list_undeleted_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        """그 원천의, 지워지지 않은 문서(삭제 기록 행이 아닌 것)의 ID를 ID 순으로 `limit`개까지
+        낸다. 원천 삭제 작업이 묶음을 고르는 데 쓴다. 지운 문서는 다음에 부를 때 빠지므로 되풀이해
+        부르면 끝에 이른다."""
         ...
 
     async def has_documents_held_by_source(self, source_id: UUID) -> bool:
@@ -439,6 +458,16 @@ class JobQueue(Protocol):
 
     async def delete_queued(self, document_id: UUID) -> None:
         """그 문서의 대기(`queued`) 작업을 지운다. 실행 중인 작업과 끝난 작업은 건드리지 않는다."""
+        ...
+
+    async def lock_queued_source_job(self, source_id: UUID, kind: JobKind) -> Job | None:
+        """그 원천의 그 종류 대기(`queued`) 작업 행을 `FOR UPDATE`로 잠가 낸다. 없으면 `None`이다.
+        작업자가 막 꺼내 `running`이 된 작업은 대기 작업이 아니다."""
+        ...
+
+    async def delete_queued_job(self, job_id: UUID) -> None:
+        """잠가 둔 대기 작업 행을 지운다. 그 작업을 가리키던 동기화 기록은 작업 참조만 비고
+        남는다."""
         ...
 
     async def lock_queued_documents(self, document_ids: Sequence[UUID]) -> set[UUID]:
