@@ -394,3 +394,36 @@ async def test_다시_넣는_사이_작업을_다른_작업자에게_뺏기면_�
     after = await _document(pipeline, source, "규정.docx")
     assert after.generation == indexed.generation
     assert await _jobs(pipeline, indexed) == [_SUCCEEDED]
+
+
+@pytest.mark.parametrize("reread", [False, True], ids=["읽지_않는_길", "모두_다시_읽기의_읽는_길"])
+async def test_읽은_뒤_잠그기_전에_지워진_문서는_다시_넣지_않는다(
+    pipeline: Pipeline, *, reread: bool
+) -> None:
+    source = await make_pull_source(pipeline)
+    folder = ScriptedFolder()
+    folder.put("규정.docx", docx_bytes("규정"), "m1")
+    registry = ScriptedRegistry(folder)
+    await run_sync(pipeline, source, registry)
+    indexed = await _document(pipeline, source, "규정.docx")
+    await _force_failure(pipeline, indexed.id, ErrorCode.EMBEDDING_UNAVAILABLE)
+
+    async def delete_the_document() -> None:
+        async with pipeline.engine.begin() as connection:
+            await connection.execute(
+                sa.text("UPDATE documents SET deleted_at = now() WHERE id = :id"),
+                {"id": indexed.id},
+            )
+
+    record = await run_sync(
+        pipeline,
+        source,
+        registry,
+        reread=reread,
+        unit_of_work=_InterruptedUnitOfWork(pipeline, delete_the_document),
+    )
+
+    after = await _document(pipeline, source, "규정.docx")
+    assert (after.generation, after.deleted_at is not None) == (indexed.generation, True)
+    assert await _jobs(pipeline, indexed) == [_SUCCEEDED]
+    assert _counts(record)["unchanged"] == 1

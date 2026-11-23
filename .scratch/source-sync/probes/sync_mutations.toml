@@ -603,3 +603,18 @@ old = '''            await _settle_unchanged(deps, job, transaction, marked, cou
 new = '''            await _settle_unchanged(deps, job, transaction, marked, counts)
         else:
             counts.unchanged += 1'''
+
+[[mutation]]
+name = "다시 넣기 전에 잠가 보니 이미 지워진 문서를 그대로 다시 넣는다"
+tests = ["tests/app/test_sync_retries.py"]
+expect = "red"
+expect_output = ["FAILED tests/app/test_sync_retries.py::test_읽은_뒤_잠그기_전에_지워진_문서는_다시_넣지_않는다[읽지_않는_길]"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''    if locked is None or not _is_live(locked):
+        counts.unchanged += 1
+        return False'''
+new = '''    if locked is None:
+        counts.unchanged += 1
+        return False'''
