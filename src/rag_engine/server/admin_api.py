@@ -2,7 +2,7 @@
 미들웨어가 `reader`의 REST를 막는다).
 
 목록은 최근 순이고 커서는 마지막으로 본 ID다(UUIDv7이 시간순이라 ID 비교로 한다). 없는 그룹 이름으로
-거른 문서 목록은 오류가 아니라 빈 목록이다.
+거른 문서 목록은 오류가 아니라 빈 목록이고 없는 원천 이름도 같다.
 """
 
 from typing import Annotated, Final
@@ -58,7 +58,7 @@ def build_admin_query_router(unit_of_work: UnitOfWork) -> APIRouter:
         after: After = None,
     ) -> JobListResponse:
         found = await list_jobs(unit_of_work, status=status, limit=limit, after=after)
-        return JobListResponse(jobs=[JobResponse.of(item) for item in found])
+        return JobListResponse(jobs=[JobResponse.of(item.job, item.source) for item in found])
 
     @router.get("/documents/{document_id}", responses=_DOCUMENT_NOT_FOUND)
     async def document(document_id: UUID) -> DocumentResponse:
@@ -68,12 +68,22 @@ def build_admin_query_router(unit_of_work: UnitOfWork) -> APIRouter:
     async def documents(
         status: Annotated[DocumentState | None, Query(description="이 상태의 문서만")] = None,
         group: Annotated[str | None, Query(description="이 그룹 이름의 문서만")] = None,
-        key: Annotated[str | None, Query(description="그 키의 문서 하나를 찾는다")] = None,
+        source: Annotated[str | None, Query(description="이 원천 이름의 문서만")] = None,
+        key: Annotated[
+            str | None,
+            Query(description="그 키의 문서를 찾는다. `source`가 없으면 모든 원천에서 찾는다"),
+        ] = None,
         limit: Limit = DEFAULT_LIMIT,
         after: After = None,
     ) -> DocumentListResponse:
         found = await list_document_reports(
-            unit_of_work, state=status, group=group, key=key, limit=limit, after=after
+            unit_of_work,
+            state=status,
+            group=group,
+            source=source,
+            key=key,
+            limit=limit,
+            after=after,
         )
         return DocumentListResponse(documents=[DocumentResponse.of(item) for item in found])
 

@@ -288,21 +288,21 @@ async def test_파싱이_영구_실패하면_문서와_색인_상태를_failed�
 
     failure = await _fail_parsing(pipeline)
 
-    assert failure.code is ErrorCode.ENCRYPTED_DOCUMENT
+    assert failure.code is ErrorCode.PARSE_FAILED
     async with pipeline.unit_of_work.begin() as transaction:
         document = await transaction.documents.get(ingested.document_id)
         state = await transaction.index.get_state(ingested.document_id, pipeline.version.id)
     assert document is not None and state is not None
     assert (document.status, document.error_code) == (
         DocumentStatus.FAILED,
-        ErrorCode.ENCRYPTED_DOCUMENT,
+        ErrorCode.PARSE_FAILED,
     )
     assert await pipeline.chunk_texts(ingested.document_id) == []
     assert (state.status, state.chunk_count, state.built_content_hash, state.error_code) == (
         IndexStateStatus.FAILED,
         0,
         None,
-        ErrorCode.ENCRYPTED_DOCUMENT,
+        ErrorCode.PARSE_FAILED,
     )
 
 
@@ -348,7 +348,7 @@ async def test_파싱하는_사이_세대가_올라가면_문서도_조각도_�
 
     failure = await _fail_parsing(pipeline, FailingRunner(before_failing=bump_generation))
 
-    assert failure.code is ErrorCode.ENCRYPTED_DOCUMENT
+    assert failure.code is ErrorCode.PARSE_FAILED
     async with pipeline.unit_of_work.begin() as transaction:
         document = await transaction.documents.get(ingested.document_id)
         state = await transaction.index.get_state(ingested.document_id, pipeline.version.id)

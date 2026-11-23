@@ -173,8 +173,10 @@ expect_output = ["Right contains one more item: 'rag_jobs'"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/postgres/job_queue.py"
-old = '''        await self._connection.execute(sa.select(sa.func.pg_notify(NOTIFY_CHANNEL, "")))'''
-new = '''        pass'''
+old = '''        row = (await self._connection.execute(statement)).mappings().one()
+        await self._connection.execute(sa.select(sa.func.pg_notify(NOTIFY_CHANNEL, "")))'''
+new = '''        row = (await self._connection.execute(statement)).mappings().one()
+        pass'''
 
 [[mutation]]
 name = "이긴 문서 아래로 옮기다 실패해도 처음 쓴 원본을 지우지 않는다"

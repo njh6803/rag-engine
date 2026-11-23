@@ -235,6 +235,7 @@ async def test_내용이_다른_수집으로_되살리면_보관_조각을_지�
     assert await pipeline.archived_texts(ingested.document_id) == []
     assert await pipeline.chunk_texts(ingested.document_id) == []
     (new_blob,) = _blobs(tmp_path)
+    assert document.blob_path is not None
     assert new_blob != old_blob and document.blob_path.endswith(new_blob.name)
     await _work(pipeline)
     texts = await pipeline.chunk_texts(ingested.document_id)
@@ -301,6 +302,7 @@ async def test_삭제_기록_행과_같은_키가_오면_그_행을_다시_써_U
         DocumentStatus.RECEIVED,
     )
     assert (document.created_at, document.modified_at) == (tombstone.created_at, pipeline.clock[0])
+    assert document.blob_path is not None
     assert document.blob_path != tombstone.blob_path
     assert _blobs(tmp_path) == [tmp_path / document.blob_path]
     await _work(pipeline)

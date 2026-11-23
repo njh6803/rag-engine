@@ -32,6 +32,9 @@ dependencies = [
     # 수집 API 의 파일 올리기가 이 패키지로 멀티파트 본문을 읽는다. mcp 가 끌어오는 전이 의존으로만 들어 있으면
     # 그 패키지가 의존을 뗄 때 이미지에서 올리기가 깨지므로 직접 선언한다(release-image 01).
     "python-multipart>=0.0.33",
+    # 가져오는 원천의 일정 표현식(cron 다섯 칸)을 읽고 다음 실행 시각을 계산한다(ADR 0022). 측정한 버전은
+    # 프로브 cron-expr/ 의 2.8 이고 major 가 같다.
+    "cronsim>=2.8,<3",
 ]
 
 [project.scripts]
@@ -42,6 +45,12 @@ rag-engine = "rag_engine.main:main"
 docx = "rag_engine.adapters.parsers.docx_parser:DocxParser"
 pdf = "rag_engine.adapters.parsers.pdf_parser:PdfParser"
 hwpx = "rag_engine.adapters.parsers.hwpx_parser:HwpxParser"
+
+# 커넥터 그룹의 이름과 인터페이스는 ADR 0012가 정한다. 서버 경로 커넥터는 가져오는 원천의 첫 구현이고
+# (ADR 0021), 바깥 커넥터와 같은 길로 찾도록 내장 커넥터도 이 그룹에 등록한다. 부모 폴더 아래 하위 폴더
+# 하나를 읽는다.
+[project.entry-points."rag_engine.connectors"]
+server_path = "rag_engine.adapters.connectors.server_path:create_server_path_connector"
 
 [dependency-groups]
 # httpx 는 HTTP 표면을 미는 테스트 클라이언트다. 다른 의존성 뒤에서 이미 락파일에 있어도 선언한다. 전이
@@ -56,7 +65,7 @@ dev = [
     "httpx>=0.28",
     # 워크플로 하드닝의 판정자. 버전은 uv.lock 이 고정해 pre-commit 러너와 CI 가 같은 버전을 돈다.
     "zizmor>=1.30.1",
-    # pre-commit 러너의 pytest 만 프로세스 여럿에 나눠 돌린다. 손으로 치는 pytest 와 CI 는 한 프로세스다.
+    # pre-commit 러너와 CI 의 pytest 는 프로세스 여럿에 나눠 돌린다. 손으로 치는 pytest 는 한 프로세스다.
     "pytest-xdist>=3.8.0",
     # MCP SDK 클라이언트(`streamable_http_client`)는 httpx2 의 클라이언트를 받는다. 계약 시험이 인증 헤더를 주려면
     # 그 클라이언트를 직접 만든다. mcp 의 전이 의존이지만 위 httpx 와 같은 까닭으로 선언한다.
@@ -135,11 +144,12 @@ layers = [
     "rag_engine.domain",
 ]
 
-# domain 과 app 이 쓰는 서드파티는 uuid6 하나다(명세 "층, 패키지, 조립"). 아래 열일곱은 어느 쪽도
+# domain 과 app 이 쓰는 서드파티는 uuid6 하나다(명세 "층, 패키지, 조립"). 아래 열여덟은 어느 쪽도
 # import 하지 못한다. 목록에 없는 서드파티(uuid6)는 막지 않는다. `anthropic` 은 관련성 판정기(ADR 0019)가
-# 들어오며 더했다. SDK 는 adapters 에서만 쓴다.
+# 들어오며 더했다. SDK 는 adapters 에서만 쓴다. `cronsim` 은 일정 계산(ADR 0022)이 들어오며 더했고
+# `adapters` 의 `ScheduleCalculator` 구현만 쓴다.
 [[tool.importlinter.contracts]]
-name = "domain and app import none of the seventeen listed third-party packages"
+name = "domain and app import none of the eighteen listed third-party packages"
 type = "forbidden"
 source_modules = [
     "rag_engine.domain",
@@ -163,4 +173,5 @@ forbidden_modules = [
     "docx",
     "hwpx",
     "anthropic",
+    "cronsim",
 ]

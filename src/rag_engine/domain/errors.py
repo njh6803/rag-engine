@@ -1,6 +1,6 @@
 """오류 코드와 이 저장소의 예외 계층. 코드의 이름은 이 파일 한 자리에서만 정의한다.
 
-작업 코드 열넷(`internal_error` 포함)과 HTTP·도구 코드 전부가 `ErrorCode` 하나에 든다. 판정기의
+작업 코드 스물(`internal_error` 포함)과 HTTP·도구 코드 전부가 `ErrorCode` 하나에 든다. 판정기의
 코드 둘(`judge_unavailable`, `judge_rejected`)도 여기 있지만 작업 코드가 아니라서 작업 코드의
 집합에는 들지 않고 `JUDGE_*_FAILURE_CODES`에 따로 든다. 뒤의 티켓은 이 자리의 이름만 쓰고 문자열을
 새로 짓지 않는다(명세 "수집 파이프라인과 작업", "관리 API", "MCP 도구").
@@ -13,7 +13,9 @@ from enum import StrEnum
 
 
 class ErrorCode(StrEnum):
-    # 작업 코드. 문서 상태·색인 상태·작업 행의 오류 코드 칸에 쓴다.
+    # 작업 코드. 문서 상태·색인 상태·작업 행의 오류 코드 칸에 쓴다. 다만 `encrypted_document`는
+    # 파서가 알리는 신호일 뿐이라 새로 쓰지 않는다(색인 작업이 건너뜀으로 남긴다). 업그레이드 전의
+    # 작업 행에 남아 있어 값은 지우지 않는다.
     PARSE_TIMEOUT = "parse_timeout"
     PARSE_MEMORY_EXCEEDED = "parse_memory_exceeded"
     PARSE_FAILED = "parse_failed"
@@ -43,12 +45,29 @@ class ErrorCode(StrEnum):
     REINDEX_IN_PROGRESS = "reindex_in_progress"
     SEARCH_UNAVAILABLE = "search_unavailable"
     INVALID_ARGUMENT = "invalid_argument"
+    SOURCE_NOT_FOUND = "source_not_found"
+    SOURCE_ALREADY_EXISTS = "source_already_exists"
+    WRONG_SOURCE_KIND = "wrong_source_kind"
+    SOURCE_FOLDER_OVERLAP = "source_folder_overlap"
+    SYNC_IN_PROGRESS = "sync_in_progress"
+    SYNC_RECORD_NOT_FOUND = "sync_record_not_found"
+    # 가져오는 원천의 작업 코드(source-sync 명세 "오류 코드"). 문서의 색인에는 `source_unreadable`
+    # (일시 실패)과 `source_changed`(영구 실패)가 쓰이고, 동기화 작업과 동기화 기록의 실패 사유에는
+    # `source_unreadable`, `nothing_accepted`, `source_path_rejected`, `connector_unavailable`,
+    # `connector_error`가 쓰인다. 동기화의 `source_deleted`는 원천을 지우는 티켓이 더한다.
+    SOURCE_UNREADABLE = "source_unreadable"
+    SOURCE_CHANGED = "source_changed"
+    NOTHING_ACCEPTED = "nothing_accepted"
+    SOURCE_PATH_REJECTED = "source_path_rejected"
+    CONNECTOR_UNAVAILABLE = "connector_unavailable"
+    CONNECTOR_ERROR = "connector_error"
     # 관련성 판정기(ADR 0019). 평가 도구만 쓰고 작업 행과 응답에는 나가지 않는다.
     JUDGE_UNAVAILABLE = "judge_unavailable"
     JUDGE_REJECTED = "judge_rejected"
 
 
-# 영구 실패의 코드. 다시 시도하지 않고 작업이 `failed`로 끝난다.
+# 영구 실패의 코드. 다시 시도하지 않는다. `encrypted_document`를 뺀 코드는 작업이 `failed`로
+# 끝나고, `encrypted_document`는 색인 작업이 건너뜀으로 쓰고 작업이 `succeeded`로 끝난다.
 PERMANENT_FAILURE_CODES = frozenset(
     {
         ErrorCode.PARSE_TIMEOUT,
@@ -60,6 +79,7 @@ PERMANENT_FAILURE_CODES = frozenset(
         ErrorCode.ENCRYPTED_DOCUMENT,
         ErrorCode.EMBEDDING_REJECTED,
         ErrorCode.EMBEDDING_DIMENSION_MISMATCH,
+        ErrorCode.SOURCE_CHANGED,
     }
 )
 
@@ -69,6 +89,20 @@ TRANSIENT_FAILURE_CODES = frozenset(
         ErrorCode.EMBEDDING_UNAVAILABLE,
         ErrorCode.DATABASE_UNAVAILABLE,
         ErrorCode.BLOB_STORE_ERROR,
+        ErrorCode.SOURCE_UNREADABLE,
+    }
+)
+
+# 동기화 작업이 원천 쪽의 까닭으로 실패했을 때의 코드. 작업의 재시도 규칙을 타지 않고 한 번에 실패로
+# 끝난다(명세 "동기화의 차례"). `source_unreadable`은 일시 실패의 코드이기도 하지만 동기화에서는
+# 다시 예약하지 않는다.
+SYNC_FAILURE_CODES = frozenset(
+    {
+        ErrorCode.SOURCE_UNREADABLE,
+        ErrorCode.NOTHING_ACCEPTED,
+        ErrorCode.SOURCE_PATH_REJECTED,
+        ErrorCode.CONNECTOR_UNAVAILABLE,
+        ErrorCode.CONNECTOR_ERROR,
     }
 )
 
@@ -77,10 +111,12 @@ TRANSIENT_FAILURE_CODES = frozenset(
 JUDGE_PERMANENT_FAILURE_CODES = frozenset({ErrorCode.JUDGE_REJECTED})
 JUDGE_TRANSIENT_FAILURE_CODES = frozenset({ErrorCode.JUDGE_UNAVAILABLE})
 
-# 작업 행과 문서·색인 상태의 오류 코드 칸에 들어갈 수 있는 값 열넷.
+# 작업 행과 문서·색인 상태의 오류 코드 칸에 들어갈 수 있는 값 스물. 이 가운데
+# `encrypted_document`는 업그레이드 전에 쓰인 행에만 남는다.
 JOB_ERROR_CODES = (
     PERMANENT_FAILURE_CODES
     | TRANSIENT_FAILURE_CODES
+    | SYNC_FAILURE_CODES
     | frozenset({ErrorCode.INTERNAL_ERROR, ErrorCode.WORKER_LOST})
 )
 
@@ -95,7 +131,7 @@ TOOL_ERROR_CODES = frozenset(
     }
 )
 
-# Problem Details 의 `code`로 낼 수 있는 값 열넷.
+# Problem Details 의 `code`로 낼 수 있는 값 스물.
 PROBLEM_ERROR_CODES = frozenset(
     {
         ErrorCode.UNAUTHENTICATED,
@@ -112,6 +148,12 @@ PROBLEM_ERROR_CODES = frozenset(
         ErrorCode.REINDEX_IN_PROGRESS,
         ErrorCode.SEARCH_UNAVAILABLE,
         ErrorCode.INTERNAL_ERROR,
+        ErrorCode.SOURCE_NOT_FOUND,
+        ErrorCode.SOURCE_ALREADY_EXISTS,
+        ErrorCode.WRONG_SOURCE_KIND,
+        ErrorCode.SOURCE_FOLDER_OVERLAP,
+        ErrorCode.SYNC_IN_PROGRESS,
+        ErrorCode.SYNC_RECORD_NOT_FOUND,
     }
 )
 
@@ -122,10 +164,23 @@ class ConfigurationError(Exception):
     아니라서 오류 코드를 드는 `RagEngineError` 밖에 둔다."""
 
 
+class InvalidScheduleError(ValueError):
+    """일정 표현식을 받지 않는다. 칸 수가 다섯이 아니거나 값이 틀리거나 오지 않는 날짜다.
+    `ScheduleCalculator`가 올린다. 메시지는 이 저장소가 쓴 글만 담고 라이브러리의 예외 글은 옮기지
+    않는다(응답에 옮기지 않는다. source-sync 명세 "일정과 일정 확인"). 오류 코드를 드는
+    `RagEngineError` 밖에 둔다. 응답으로 바꾸는 일은 일정을 받는 쪽이 한다."""
+
+
 class DocumentAlreadyExistsError(Exception):
     """같은 (원천, 키)의 문서가 이미 있다. `DocumentStore.add`가 유일 제약의 위반을 이 예외로
     바꿔 올린다. 같은 키를 동시에 넣은 수집이 진 쪽에서 받고, 이긴 문서로 갱신을 다시 한다. 응답으로
     나가는 오류가 아니라서 오류 코드를 드는 `RagEngineError` 밖에 둔다."""
+
+
+class SourceAlreadyExistsError(Exception):
+    """같은 이름의 원천이 이미 있다(지운 원천 포함). `Catalog.create_source`가 유일 제약의 위반을
+    이 예외로 바꿔 올린다. 응답으로 바꾸는 일은 원천을 만드는 유스케이스가 한다. 오류 코드를 드는
+    `RagEngineError` 밖에 둔다."""
 
 
 class AttemptLostError(Exception):

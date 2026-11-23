@@ -38,6 +38,7 @@ CONTRACT = (
     "검색 도구의 형식 1.1.0\n"
     "수집 API와 관리 API의 경로 v1\n"
     "파서 인터페이스 1.0.0\n"
+    "커넥터 인터페이스 1.0.0\n"
     "색인 형식의 스키마 1\n"
 )
 CONTRACT_SECTION = f"## 계약 버전\n\n```text\n{CONTRACT}```"

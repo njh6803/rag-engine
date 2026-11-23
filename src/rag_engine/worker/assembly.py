@@ -17,11 +17,13 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Final
+from zoneinfo import ZoneInfo
 
 import httpx
 
 from rag_engine.adapters.blob_store import LocalBlobStore
 from rag_engine.adapters.chunking import chunker_for
+from rag_engine.adapters.connectors.registry import EntryPointConnectorRegistry
 from rag_engine.adapters.kiwi import tokenize_keywords
 from rag_engine.adapters.log_format import configure_logging
 from rag_engine.adapters.parsers.registry import ParserRegistry, discover_parser_specs
@@ -30,17 +32,22 @@ from rag_engine.adapters.postgres.engine import create_engine
 from rag_engine.adapters.postgres.index_maintenance import PostgresIndexMaintenance
 from rag_engine.adapters.postgres.notifications import JobNotificationListener
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
+from rag_engine.adapters.schedule import CronsimScheduleCalculator
 from rag_engine.adapters.settings import Settings
 from rag_engine.adapters.tei import TeiEmbedderPool
 from rag_engine.app.index_document import IndexDocumentDeps
 from rag_engine.app.retry_policy import RetryPolicy
 from rag_engine.domain.ports import EmbedderWrapper
 from rag_engine.worker.processing import run_once
+from rag_engine.worker.schedule_loop import ScheduleDeps
 from rag_engine.worker.service import WorkerConfig, serve
 from rag_engine.worker.signals import stop_on_signals
 
 # 슬롯 하나가 동시에 쥐는 연결의 수. 처리하는 작업 단위 하나와 작업 담당 기록 연장 하나다.
 _CONNECTIONS_PER_SLOT: Final = 2
+# 일정 확인이 슬롯과 따로 쥐는 연결의 수. 한 번에 작업 단위 하나다.
+_SCHEDULE_CONNECTIONS: Final = 1
+_BYTES_PER_MB: Final = 1024 * 1024
 
 
 def worker_id() -> str:
@@ -73,8 +80,17 @@ async def run_worker(settings: Settings) -> int:
     # 조립(Kiwi 예열이 수 초 걸린다) 중에 온 신호도 놓치지 않으려고 신호 처리기를 먼저 단다.
     with stop_on_signals(stop):
         async with _assembled(settings) as deps:
+            schedules = ScheduleDeps(
+                deps.unit_of_work,
+                CronsimScheduleCalculator(ZoneInfo(settings.schedule_timezone)),
+                deps.now,
+            )
             await serve(
-                deps, config, stop=stop, listener=JobNotificationListener(settings.database_url)
+                deps,
+                config,
+                stop=stop,
+                listener=JobNotificationListener(settings.database_url),
+                schedules=schedules,
             )
     return 0
 
@@ -88,7 +104,8 @@ async def _assembled(
     configure_logging(settings.log_format)
     engine = create_engine(
         settings.database_url,
-        at_least_connections=settings.worker_concurrency * _CONNECTIONS_PER_SLOT,
+        at_least_connections=settings.worker_concurrency * _CONNECTIONS_PER_SLOT
+        + _SCHEDULE_CONNECTIONS,
     )
     embedders = TeiEmbedderPool(
         lambda endpoint: httpx.AsyncClient(base_url=endpoint, timeout=settings.tei_timeout_seconds),
@@ -116,6 +133,9 @@ async def _assembled(
             max_attempts=settings.job_max_attempts,
             backoff_base_seconds=settings.job_backoff_base_seconds,
         ),
+        connectors=EntryPointConnectorRegistry(),
+        source_read_timeout_seconds=float(settings.source_read_timeout_seconds),
+        max_upload_bytes=settings.max_upload_mb * _BYTES_PER_MB,
     )
     try:
         yield deps

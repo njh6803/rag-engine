@@ -1,10 +1,12 @@
 """tools/check_line_separators.py. 날것 U+2028·U+2029·U+0085 와 홀로 선 CR 을 잡고(대기열 22·52),
-`.py` 에서는 보이지 않는 공백·서식 문자도 잡는 검사(대기열 52).
+`.py` 에서는 보이지 않는 공백·서식 문자도 잡으며(대기열 52), 텍스트 파일의 CRLF 줄 끝도 파일마다
+한 줄로 잡는 검사(대기열 crlf-from-script-edits).
 
 이 파일은 그 문자를 `chr()` 로 만든다. 역슬래시-u 이스케이프로 쓰면 편집 도구가 날것으로 저장할 수
 있고(PR #58, 그리고 이 검사를 쓰던 2026-09-28 세션에서 다시), 그러면 검사가 이 파일을 잡는다.
 고정하는 것은 그 문자들을 잡는 것, 이스케이프 여섯 글자는 잡지 않는 것, 줄 번호를 개행으로만 세는
-것, CRLF 의 CR 은 줄 끝이라 잡지 않는 것, 보이지 않는 문자는 `.py` 에서만 잡는 것.
+것, CRLF 의 CR 을 홀로 선 CR 로 세지 않고 CRLF 줄 끝으로 따로 알리는 것, 보이지 않는 문자는 `.py`
+에서만 잡는 것.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ import pytest
 from tools.check_line_separators import (
     CALL_TIMEOUT,
     ROOT,
+    crlf_in,
     is_text,
     main,
     problems_in,
@@ -55,15 +58,62 @@ def test_줄_번호는_개행으로만_센다() -> None:
     ]
 
 
-def test_홀로_선_CR_은_잡고_CRLF_의_CR_은_줄_끝이라_잡지_않는다() -> None:
+def test_separators_in_은_홀로_선_CR_만_잡고_CRLF_의_CR_은_줄_끝이라_잡지_않는다() -> None:
     """도구 호출의 역슬래시-r 이 날것 CR 로 바뀌어 `.md` 표에 들었다(일지 2026-09-29-05). 표
-    밖이면 조용히 줄을 가른다. 파일 끝의 CR 도 뒤에 LF 가 없으니 홀로 선 것이다."""
+    밖이면 조용히 줄을 가른다. 파일 끝의 CR 도 뒤에 LF 가 없으니 홀로 선 것이다. CRLF 는 이 함수가
+    아니라 `crlf_in` 이 따로 알린다."""
     text = f"a{CR}\nb{CR}c\nd{CR}"
 
     assert separators_in(text) == [
         "2:2: U+000D CARRIAGE RETURN",
         "3:2: U+000D CARRIAGE RETURN",
     ]
+
+
+def test_CRLF_는_파일마다_한_줄로_첫_자리와_줄_수를_알린다() -> None:
+    """스크립트의 `write_text` 와 리다이렉트가 Windows 에서 파일을 CRLF 로 바꿨고 `git add` 의
+    경고로야 알았다(대기열 crlf-from-script-edits). 922 줄 파일이 922 줄의 출력을 내지 않는다."""
+    assert crlf_in(f"a{CR}\nb{CR}\nc\n") == ["1:2: CRLF 줄 끝 2줄"]
+    assert crlf_in("".join(f"줄{number}{CR}\n" for number in range(922))) == [
+        "1:3: CRLF 줄 끝 922줄"
+    ]
+
+
+def test_CRLF_의_자리는_개행으로만_센_줄과_코드_포인트_열이다() -> None:
+    assert crlf_in(f"가나\n다{LINE_SEPARATOR}라{CR}\n") == ["2:4: CRLF 줄 끝 1줄"]
+
+
+def test_LF_만_있거나_홀로_선_CR_뿐이면_CRLF_가_아니다() -> None:
+    assert crlf_in("a\nb\n") == []
+    assert crlf_in(f"a{CR}b{CR}") == []
+    assert crlf_in(f"a{CR}{CR}\n") == ["1:3: CRLF 줄 끝 1줄"]
+
+
+def test_problems_in_은_CRLF_를_어느_확장자에서나_알리고_다른_어긋남_뒤에_붙인다() -> None:
+    data = f"a{CR}\nb{LINE_SEPARATOR}c{CR}d\n".encode()
+
+    for suffix in (".md", ".py", ".toml", ""):
+        assert problems_in(data, suffix) == [
+            "2:2: U+2028 LINE SEPARATOR",
+            "2:4: U+000D CARRIAGE RETURN",
+            "1:2: CRLF 줄 끝 1줄",
+        ], suffix
+
+
+def test_NUL_이_있는_이진_파일의_CRLF_는_보지_않는다() -> None:
+    """`evals/public-docs/` 의 PDF·HWPX 에는 CRLF 바이트가 든다. 이진이라 텍스트 검사 밖이다."""
+    assert problems_in(b"%PDF\0" + f"a{CR}\nb{CR}\n".encode(), ".pdf") == []
+
+
+def test_NUL_이_8000_바이트_뒤에만_있는_파일의_CRLF_는_텍스트로_보고_센다() -> None:
+    """이 검사의 이진 판정은 처음 8000 바이트만 본다.
+
+    git 의 줄 끝 변환은 파일 전체의 NUL 을 봐서 이런 파일을 바꾸지 않는다(2026-11-21 git 2.32 의
+    `git ls-files --eol` 이 `-text` 로 냈다). 그래서 검사는 git 이 바꾸지 않는 CRLF 도 알린다.
+    """
+    data = f"a{CR}\nb{CR}\n".encode() + b"x" * 9000 + b"\0" + f"{CR}\n".encode()
+
+    assert problems_in(data, ".txt") == ["1:2: CRLF 줄 끝 3줄"]
 
 
 def test_보이지_않는_공백과_서식_문자를_줄과_열로_잡는다() -> None:
@@ -87,7 +137,8 @@ def test_한글과_ASCII_공백은_보이지_않는_문자가_아니다() -> Non
 
 def test_보이지_않는_문자의_정의는_ASCII_밖의_Zs_와_Cf_다() -> None:
     """모든 코드 포인트를 한 줄에 하나씩 두고 `.py` 와 `.md` 로 훑는다. CR 은 뒤에 LF 가 와 줄
-    끝이 되므로 여기서는 잡히지 않는다(홀로 선 CR 은 위 시험). NUL 이 들면 이진으로 본다."""
+    끝이 되므로 홀로 선 CR 로는 잡히지 않고(위 시험), 대신 CRLF 항목 하나가 붙는다. 그 항목은 문자
+    항목(` U+`)이 아니라 코드 포인트 해석에서 뺀다. NUL 이 들면 이진으로 본다."""
     points = [p for p in range(0x110000) if p not in (0x00, 0x0A) and not 0xD800 <= p <= 0xDFFF]
     data = "\n".join(chr(point) for point in points).encode()
     invisible = {
@@ -98,10 +149,13 @@ def test_보이지_않는_문자의_정의는_ASCII_밖의_Zs_와_Cf_다() -> No
     separators = {0x85, 0x2028, 0x2029}
 
     def codes(found: list[str]) -> set[int]:
-        return {int(item.split(" U+", 1)[1].split(" ", 1)[0], 16) for item in found}
+        return {
+            int(item.split(" U+", 1)[1].split(" ", 1)[0], 16) for item in found if " U+" in item
+        }
 
     assert codes(problems_in(data, ".py")) == invisible | separators
     assert codes(problems_in(data, ".md")) == separators
+    assert sum("CRLF 줄 끝" in item for item in problems_in(data, ".md")) == 1
     assert {0x00A0, 0x00AD, 0x200B, 0x200D, 0x202E, 0x2066, 0x3000, 0xFEFF} <= invisible
     # 독스트링의 못 보는 것(Mn 인 이체 선택자 U+FE0F, 탭·개행·CR·U+0085 밖의 Cc)은 위 두 등식이
     # 고정한다. 검사가 그 문자를 잡게 바뀌면 등식이 깨진다.
@@ -145,8 +199,8 @@ def test_NUL_이_있는_파일은_텍스트가_아니라_보지_않는다() -> N
     assert problems_in(binary, ".py") == []
 
 
-def test_이진_판정의_경계는_git_과_같은_8000_바이트다() -> None:
-    """git 의 buffer_is_binary 는 처음 8000 바이트를 본다. 그 뒤의 NUL 은 텍스트다."""
+def test_이진_판정의_경계는_처음_8000_바이트다() -> None:
+    """git 의 buffer_is_binary(diff 용)와 같은 경계다. 그 뒤의 NUL 은 텍스트로 본다."""
     assert not is_text(b"a" * 7999 + b"\0")
     assert is_text(b"a" * 8000 + b"\0")
 
@@ -295,3 +349,57 @@ def test_CLI_진입점이_인자로_받은_파일의_날것_문자를_출력한�
     assert "dirty.py:1:7: U+2028 LINE SEPARATOR" in process.stdout
     assert "invisible.py:1:6: U+200B ZERO WIDTH SPACE" in process.stdout
     assert "chr(0x2028)" in process.stdout
+
+
+def test_CRLF_파일은_실패하고_CRLF_안내만_붙는다(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    clean = tmp_path / "clean.md"
+    clean.write_bytes(b"a\nb\n")
+    crlf = tmp_path / "crlf.md"
+    crlf.write_bytes(f"a{CR}\nb{CR}\n".encode())
+
+    assert main([clean], root=tmp_path) == 0
+    assert capsys.readouterr().out == ""
+    assert main([clean, crlf], root=tmp_path) == 1
+
+    output = capsys.readouterr().out
+    assert output.splitlines()[0] == "crlf.md:1:2: CRLF 줄 끝 2줄"
+    assert "chr(0x2028)" not in output
+    assert "LF" in output.splitlines()[-1]
+    assert len(output.splitlines()) == 2
+
+
+def test_CRLF_와_날것_문자가_함께_있으면_두_안내가_모두_붙는다(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mixed = tmp_path / "mixed.md"
+    mixed.write_bytes(f"a{CR}\nb{LINE_SEPARATOR}\n".encode())
+
+    assert main([mixed], root=tmp_path) == 1
+
+    output = capsys.readouterr().out
+    assert "mixed.md:2:2: U+2028 LINE SEPARATOR" in output
+    assert "mixed.md:1:2: CRLF 줄 끝 1줄" in output
+    assert "chr(0x2028)" in output
+
+
+def test_CLI_진입점이_CRLF_로_저장된_파일을_출력하고_1로_끝난다(tmp_path: Path) -> None:
+    """git 은 `git add` 때 경고를 한 번 낼 뿐 담는 내용을 LF 로 바꿔, 그 뒤에는 상태가 깨끗해
+    보인다. pre-commit 이 부르는 진입점이 작업 사본을 직접 읽어 잡는지 본다(저장소 밖 픽스처,
+    tests.md)."""
+    crlf = tmp_path / "crlf.py"
+    crlf.write_bytes(f"x = 1{CR}\ny = 2{CR}\n".encode())
+
+    process = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "check_line_separators.py"), str(crlf)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=ROOT,
+        env={**os.environ, "PYTHONUTF8": "1"},
+        check=False,
+    )
+
+    assert process.returncode == 1
+    assert "crlf.py:1:6: CRLF 줄 끝 2줄" in process.stdout

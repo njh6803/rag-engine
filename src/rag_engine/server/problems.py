@@ -9,6 +9,7 @@ from typing import Final, Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic_core import ErrorDetails
 
 from rag_engine.domain.errors import PROBLEM_ERROR_CODES, TOOL_ERROR_CODES, ErrorCode
 
@@ -27,9 +28,15 @@ ERROR_STATUS: Final[Mapping[ErrorCode, int]] = {
     ErrorCode.GROUP_NOT_FOUND: 404,
     ErrorCode.JOB_NOT_FOUND: 404,
     ErrorCode.TOKEN_NOT_FOUND: 404,
+    ErrorCode.SOURCE_NOT_FOUND: 404,
     ErrorCode.UPLOAD_TOO_LARGE: 413,
     ErrorCode.UNSUPPORTED_MEDIA_TYPE: 415,
     ErrorCode.REINDEX_IN_PROGRESS: 409,
+    ErrorCode.SOURCE_ALREADY_EXISTS: 409,
+    ErrorCode.WRONG_SOURCE_KIND: 409,
+    ErrorCode.SOURCE_FOLDER_OVERLAP: 409,
+    ErrorCode.SYNC_IN_PROGRESS: 409,
+    ErrorCode.SYNC_RECORD_NOT_FOUND: 404,
     ErrorCode.SEARCH_UNAVAILABLE: 503,
     ErrorCode.INTERNAL_ERROR: 500,
 }
@@ -47,9 +54,15 @@ ERROR_TITLE: Final[Mapping[ErrorCode, str]] = {
     ErrorCode.GROUP_NOT_FOUND: "그룹을 찾을 수 없다",
     ErrorCode.JOB_NOT_FOUND: "작업을 찾을 수 없다",
     ErrorCode.TOKEN_NOT_FOUND: "토큰을 찾을 수 없다",
+    ErrorCode.SOURCE_NOT_FOUND: "원천을 찾을 수 없다",
     ErrorCode.UPLOAD_TOO_LARGE: "업로드가 너무 크다",
     ErrorCode.UNSUPPORTED_MEDIA_TYPE: "지원하지 않는 형식이다",
     ErrorCode.REINDEX_IN_PROGRESS: "재색인이 이미 진행 중이다",
+    ErrorCode.SOURCE_ALREADY_EXISTS: "같은 이름의 원천이 이미 있다",
+    ErrorCode.WRONG_SOURCE_KIND: "원천의 갈래가 맞지 않는다",
+    ErrorCode.SOURCE_FOLDER_OVERLAP: "다른 원천의 폴더와 겹친다",
+    ErrorCode.SYNC_IN_PROGRESS: "같은 원천의 동기화가 이미 진행 중이다",
+    ErrorCode.SYNC_RECORD_NOT_FOUND: "동기화 기록을 찾을 수 없다",
     ErrorCode.SEARCH_UNAVAILABLE: "검색을 쓸 수 없다",
     ErrorCode.INTERNAL_ERROR: "서버 내부 오류",
 }
@@ -94,6 +107,26 @@ class ValidationIssue(BaseModel):
     loc: list[str | int] = Field(description="오류가 난 입력의 위치")
     type: str = Field(description="오류 유형")
     msg: str = Field(description="오류 메시지")
+
+
+_UNION_TAG_ISSUES: Final = frozenset({"union_tag_not_found", "union_tag_invalid"})
+
+
+def validation_issue_of(issue: ErrorDetails) -> ValidationIssue:
+    """pydantic의 검증 오류 하나를 응답의 오류 하나로 옮긴다. 판별 유니온의 갈래 칸이 없거나
+    틀린 오류는 위치가 `body`에서 끝난다. 그래서 위치 끝에 칸 이름을 더한다. 칸이 틀린 오류
+    (`union_tag_invalid`)는 글이 클라이언트가 보낸 갈래 값을 되울리므로 그 값 대신 받을 수 있는
+    값을 싣는다. 칸이 없는 오류(`union_tag_not_found`)의 글에는 보낸 값이 없어 그대로 둔다."""
+    location = list(issue["loc"])
+    message = issue["msg"]
+    context = issue.get("ctx")
+    if issue["type"] in _UNION_TAG_ISSUES and context is not None:
+        # pydantic은 칸 이름과 받을 수 있는 값을 따옴표로 감싸 싣는다(`'kind'`, `'push', 'pull'`).
+        location.append(str(context.get("discriminator", "")).strip("'"))
+        if issue["type"] == "union_tag_invalid":
+            expected = context.get("expected_tags", "")
+            message = f"Input tag does not match any of the expected tags: {expected}"
+    return ValidationIssue(loc=location, type=issue["type"], msg=message)
 
 
 class ValidationProblem(_ProblemBase):

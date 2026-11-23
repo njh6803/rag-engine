@@ -43,7 +43,7 @@ repos:
         types: [markdown]
         require_serial: true
       - id: check-line-separators
-        name: line separators (날것 U+2028·U+2029·U+0085·홀로 선 CR, .py 의 보이지 않는 공백·서식 문자)
+        name: line separators (날것 U+2028·U+2029·U+0085·홀로 선 CR, CRLF 줄 끝, .py 의 보이지 않는 공백·서식 문자)
         entry: uv run python tools/check_line_separators.py
         language: system
         types: [text]

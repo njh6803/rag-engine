@@ -1,15 +1,17 @@
 """포트. `typing.Protocol`이고 `app`의 유스케이스는 이 모양만 부른다(ADR 0007, 명세 "포트 열셋과 그
 값").
 
-작업 단위 안에서 얻는 포트는 `Catalog`, `DocumentStore`, `VectorIndex`, `JobQueue` 넷뿐이고 한
-연결의 한 트랜잭션을 공유한다. 나머지는 트랜잭션 밖에서 부른다. 서드파티 예외는 어댑터가 `domain`의
-영구·일시 실패 예외(`rag_engine.domain.errors`)로 바꿔 올리고 메시지는 옮기지 않는다.
+작업 단위 안에서 얻는 포트는 `Catalog`, `DocumentStore`, `VectorIndex`, `JobQueue`,
+`SyncRecordStore` 다섯뿐이고 한 연결의 한 트랜잭션을 공유한다. 나머지는 트랜잭션 밖에서 부른다.
+서드파티 예외는 어댑터가 `domain`의 영구·일시 실패 예외(`rag_engine.domain.errors`)로 바꿔 올리고
+메시지는 옮기지 않는다.
 
-`Parser`는 플러그인 자리라 인터페이스 버전과 함께 `rag_engine.domain.parsing`에 있다. `Connector`와
-`Transform`의 Protocol은 처음 쓰는 source-sync가 만든다(명세 Further Notes).
+`Parser`는 플러그인 자리라 인터페이스 버전과 함께 `rag_engine.domain.parsing`에 있고, `Connector`도
+같은 까닭으로 `rag_engine.domain.connectors`에 있다. `Transform`의 Protocol은 db-source가
+만든다(변환 인터페이스는 db-source로 넘어갔다. ADR 0021 "이번에 짓지 않는 것").
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
@@ -17,6 +19,7 @@ from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
 
+from rag_engine.domain.connectors import Connector, FolderLocation, FolderTarget, SourceReader
 from rag_engine.domain.entities import (
     Block,
     CandidateScan,
@@ -25,6 +28,7 @@ from rag_engine.domain.entities import (
     ChunkingConfig,
     Document,
     DocumentContent,
+    DocumentCounts,
     DocumentQuery,
     Group,
     IndexElements,
@@ -32,13 +36,16 @@ from rag_engine.domain.entities import (
     IndexStateStatus,
     IndexVersion,
     Job,
+    JobKind,
     JobStatus,
+    JsonValue,
     KnowledgeBase,
     SearchCandidates,
     SearchDiagnosis,
     SearchQuery,
     Source,
     StoredChunk,
+    SyncRecord,
     Token,
 )
 from rag_engine.domain.errors import ErrorCode
@@ -139,7 +146,61 @@ class Catalog(Protocol):
         """같은 이름의 원천이 이미 있으면 아무것도 하지 않는다(`migrate`가 겹쳐 돌아도 멱등이다)."""
         ...
 
+    async def create_source(self, source: Source) -> None:
+        """같은 이름의 원천이 있으면(지운 원천 포함) `SourceAlreadyExistsError`를 올린다. 이름이
+        겹친 두 요청이 동시에 오면 나중에 넣는 쪽이 먼저 넣은 쪽의 커밋을 기다린 뒤 판정하므로
+        하나만 만들어진다(이름의 유일 제약이 판정한다)."""
+        ...
+
+    async def lock_source_folders(self) -> None:
+        """폴더를 정하는 요청(원천 만들기, 폴더 고치기)끼리 차례로 지나게 하는 트랜잭션 수준
+        자문 잠금을 잡는다. 겹침 확인 앞에서 맨 먼저 부르고, 작업 단위가 끝나면 풀린다."""
+        ...
+
+    async def update_pull_source(
+        self,
+        source_id: UUID,
+        *,
+        config: Mapping[str, JsonValue] | None,
+        exclude_patterns: Sequence[str] | None,
+    ) -> None:
+        """가져오는 원천의 `config`와 `exclude_patterns` 가운데 `None`이 아닌 칸만 바꾼다. 다른
+        칸은 읽어 둔 값으로 다시 쓰지 않으므로, 같은 원천을 동시에 바꾸는 다른 요청(일시 중지 등)이
+        커밋한 칸을 되돌리지 않는다. 이름, 갈래, 커넥터, 그룹은 바꾸지 않는다."""
+        ...
+
+    async def set_source_paused(self, source_id: UUID, *, paused: bool) -> None:
+        """가져오는 원천의 `paused` 칸만 바꾼다. 다른 칸은 건드리지 않는다."""
+        ...
+
+    async def set_source_schedule(self, source_id: UUID, schedule: str | None) -> None:
+        """가져오는 원천의 `schedule` 칸만 바꾼다. `None`이면 일정을 없앤다. 다음 실행 시각은
+        `set_next_run_at`이 따로 쓴다."""
+        ...
+
+    async def set_next_run_at(self, source_id: UUID, next_run_at: datetime | None) -> None:
+        """가져오는 원천의 `next_run_at` 칸만 바꾼다. `None`이면 비운다."""
+        ...
+
+    async def lock_source(self, source_id: UUID) -> Source | None:
+        """그 원천의 행을 `FOR NO KEY UPDATE`로 잠그고 잠근 뒤의 값을 낸다. 일정, 일시 중지, 다음
+        실행 시각을 읽고 고치는 요청이 서로의 칸을 되돌리지 않게 차례로 지나게 한다. 다른 연결이
+        잡고 있으면 풀릴 때까지 기다린다. 외래 키 확인이 거는 `FOR KEY SHARE`와는 부딪치지
+        않으므로, 그 원천에 작업이나 기록을 넣는 요청은 막지 않는다."""
+        ...
+
+    async def lock_due_sources(self, now: datetime) -> list[Source]:
+        """다음 실행 시각이 `now` 이전이거나 같고 일시 중지도 지움 표시도 없는 가져오는 원천의 행을
+        `FOR NO KEY UPDATE SKIP LOCKED`로 잠가 낸다. 다른 연결이 잡은 행은 기다리지 않고
+        건너뛰므로, 작업자를 여럿 띄워도 같은 원천을 두 연결이 함께 잡지 않고, 일정을 고치는
+        요청이 잡은 원천은 이번 확인에서 건너뛴다. 다음 실행 시각과 식별자 순이다."""
+        ...
+
     async def get_source(self, name: str) -> Source | None: ...
+
+    async def list_sources(self) -> list[Source]:
+        """지운 원천까지 모두 만든 시각 순으로 낸다. 같은 시각이면 ID 순이다."""
+        ...
 
     async def add_group(self, group: Group) -> None:
         """같은 이름의 그룹이 이미 있으면 아무것도 하지 않는다."""
@@ -234,6 +295,21 @@ class DocumentStore(Protocol):
 
     async def list_documents(self, query: DocumentQuery) -> list[Document]:
         """조건에 맞는 문서를 최근 순(ID의 내림차순)으로 낸다. 지운 문서와 삭제 기록 행도 든다."""
+        ...
+
+    async def count_documents_of_source(self, source_id: UUID) -> DocumentCounts:
+        """그 원천의, 지워지지 않은 문서를 문서 상태로 센다."""
+        ...
+
+    async def list_live_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
+        """그 원천의, 지워지지 않은 문서의 키마다 문서 ID를 낸다. 동기화가 삭제 반영 대상을 고르는
+        데 쓴다."""
+        ...
+
+    async def has_documents_held_by_source(self, source_id: UUID) -> bool:
+        """그 원천에 빈 목록 판정이 있는 문서로 셀 문서가 하나라도 있는가. 지워지지 않은 문서와,
+        원천과 함께 지워졌다는 표시가 남은 문서(원천 되살리기 작업이 아직 되살리지 않은 문서)를
+        센다. 완전히 지워져 삭제 기록 행만 남은 문서는 세지 않는다."""
         ...
 
 
@@ -346,6 +422,21 @@ class JobQueue(Protocol):
         일이 한 번에 이뤄져야 해서 조회와 변경을 나누지 않고 `Job`을 돌려준다."""
         ...
 
+    async def enqueue_source_job(
+        self,
+        kind: JobKind,
+        source_id: UUID,
+        options: Mapping[str, JsonValue],
+        request_id: UUID,
+        now: datetime,
+    ) -> Job | None:
+        """원천 단위 작업(`sync_source`, `delete_source`, `restore_source`)을 넣는다. 같은 원천의
+        같은 종류 작업이 대기 중이거나 실행 중이면 아무것도 넣지 않고 `None`을 낸다. 있는지 보는
+        일과 넣는 일이 한 문장(`INSERT … ON CONFLICT DO NOTHING`)이어야 같은 원천에 동시에 넣어도
+        하나만 들어가므로 조회와 변경을 나누지 않고 `Job`이나 `None`을
+        돌려준다(`CODING_STANDARDS.md`의 CQS에 대한 의도한 예외다)."""
+        ...
+
     async def delete_queued(self, document_id: UUID) -> None:
         """그 문서의 대기(`queued`) 작업을 지운다. 실행 중인 작업과 끝난 작업은 건드리지 않는다."""
         ...
@@ -372,7 +463,9 @@ class JobQueue(Protocol):
 
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:
         """`SKIP LOCKED`로 꺼낼 수 있는 작업 하나를 `running`으로 바꿔 낸다. 꺼내는 일과 바꾸는 일을
-        나누면 두 작업자가 같은 작업을 잡으므로 한 번에 하고 `Job`을 돌려준다."""
+        나누면 두 작업자가 같은 작업을 잡으므로 한 번에 하고 `Job`을 돌려준다. 두 번 묻는다. 색인
+        작업이 아닌 작업이 있으면 그 가운데 예약 시각과 식별자 순으로 먼저 꺼내고, 없을 때만 색인
+        작업을 같은 순서로 꺼낸다(명세 "작업 대기열")."""
         ...
 
     async def hold_attempt(self, job: Job) -> bool:
@@ -458,8 +551,99 @@ class TokenStore(Protocol):
         ...
 
 
+class ConnectorRegistry(Protocol):
+    """커넥터의 이름과 원천의 설정을 받아 커넥터를 만들고 인터페이스 버전을 판정한다(source-sync
+    명세 "층과 포트"). 트랜잭션 밖에서 부른다. 메서드의 모양은 처음 쓰는 티켓이 바꿀 수 있다."""
+
+    def create(self, name: str, config: Mapping[str, JsonValue]) -> Connector:
+        """그 이름의 커넥터를 원천의 설정으로 만든다. 원천에 닿지 않는다. 설치되지 않은 이름이거나
+        인터페이스 버전의 major가 1이 아닌 커넥터는 `ConnectorUnavailableError`로 거부한다. 만드는
+        함수가 설정이 틀렸다고 알리면 그 `ConnectorError`(사유 `invalid_config`)를 그대로 올린다."""
+        ...
+
+    async def locate_folder(self, name: str, config: Mapping[str, JsonValue]) -> FolderLocation:
+        """서버 경로 커넥터(`SERVER_PATH_CONNECTOR`)의 폴더를 찾고 확인한다. 인터페이스 밖에서
+        서버가 부르는 확인이다. 적은 글자 그대로 찾고, 없으면 NFC로 맞춘 이름이 같은 폴더가 하나뿐일
+        때만 그 폴더로 본다. 낸 저장 경로는 글자 그대로 찾은 토막이면 적은 글자이고, NFC로 맞춰
+        찾은 토막만 디스크의 이름이다. 호출 장치를 지나고 한도를 넘기거나
+        막혀도 폴더를 읽을 수 없다는 `ConnectorError`(사유 `unreadable`)다. 없는 폴더는 `not_found`,
+        링크나 폴더가 아닌 것은 `rejected`, 모양이 틀린 설정은 `invalid_config`다."""
+        ...
+
+    async def survey_folders(self, targets: Sequence[FolderTarget]) -> list[FolderLocation | None]:
+        """이미 있는 원천의 폴더를 한꺼번에 확인한다. 대상마다 따로 내보내 같은 한도 동안 함께
+        기다린다. 폴더가 없거나 읽을 수 없거나 한도 안에 답하지 않거나 막힌 대상은 `None`이다.
+        부르는 쪽이 그 원천과는 저장 경로의 글자로 견준다."""
+        ...
+
+    def open_reader(
+        self,
+        name: str,
+        config: Mapping[str, JsonValue],
+        *,
+        source: str,
+        timeout_seconds: float,
+    ) -> SourceReader:
+        """작업자가 원천을 읽는 길을 낸다. 커넥터를 만들고(`create`와 같은 예외) 그 `list()`와
+        `fetch`를 호출 장치에 태운다. 호출 하나는 `timeout_seconds`까지만 기다린다. `source`는
+        한도를 넘긴 호출의 로그 줄에 싣는 원천의 이름이다."""
+        ...
+
+    async def check_connection(
+        self, name: str, config: Mapping[str, JsonValue], source: str
+    ) -> None:
+        """커넥터의 `check()`를 호출 장치를 지나 부른다. `source`는 로그에 싣는 원천의 이름이다.
+        만들 수 없으면 `ConnectorUnavailableError`나 `ConnectorError`(`invalid_config`)를, 커넥터의
+        `ConnectorError`는 그대로, 한도를 넘기면 `ConnectorCallTimedOutError`를, 같은 설정의 호출이
+        남아 있으면 `ConnectorCallBlockedError`를, 인터페이스에 없는 예외는 `ConnectorBrokenError`를
+        올린다."""
+        ...
+
+
+class ScheduleCalculator(Protocol):
+    """일정 표현식(cron 다섯 칸)을 확인하고 다음 실행 시각을 낸다(source-sync 명세 "일정과 일정
+    확인"). 두 메서드 모두 받지 않는 표현식에 `InvalidScheduleError`를 올린다."""
+
+    def validate(self, expression: str) -> None:
+        """표현식을 받으면 그대로 돌아오고, 칸 수가 다섯이 아니거나 값이 틀리거나 오지 않는
+        날짜이면 `InvalidScheduleError`를 올린다."""
+        ...
+
+    def next_run(self, expression: str, after: datetime) -> datetime:
+        """`after`보다 뒤인 첫 실행 시각을 UTC로 낸다. `after`와 같은 시각은 넘긴다. 표현식의 시각은
+        설치 전체에 하나인 시간대 설정으로 읽는다."""
+        ...
+
+
+class SyncRecordStore(Protocol):
+    """동기화 기록의 저장소. 동기화 기록을 동기화 작업을 넣는 같은 작업 단위에서 만들기 때문에 작업
+    단위 안에서 얻는 포트다(`Transaction.sync_records`)."""
+
+    async def add(self, record: SyncRecord) -> None: ...
+
+    async def get(self, record_id: UUID) -> SyncRecord | None: ...
+
+    async def get_by_job(self, job_id: UUID) -> SyncRecord | None:
+        """그 동기화 작업이 쓰는 기록. 작업자가 기록을 찾는 데 쓴다."""
+        ...
+
+    async def update(self, record: SyncRecord) -> None:
+        """같은 식별자의 기록을 이 값으로 바꾼다. 개수와 상태와 끝 시각을 쓰는 데 쓴다."""
+        ...
+
+    async def list_for_source(
+        self, source_id: UUID, limit: int, after: UUID | None
+    ) -> list[SyncRecord]:
+        """그 원천의 기록을 최근 것부터(ID의 내림차순) 낸다. `after`는 마지막으로 본 기록의 ID다."""
+        ...
+
+    async def latest_for_source(self, source_id: UUID) -> SyncRecord | None:
+        """그 원천의 가장 최근 기록. 없으면 `None`이다."""
+        ...
+
+
 class Transaction(Protocol):
-    """작업 단위 안에서 얻는 네 포트. 한 연결의 한 트랜잭션을 공유한다."""
+    """작업 단위 안에서 얻는 다섯 포트. 한 연결의 한 트랜잭션을 공유한다."""
 
     @property
     def catalog(self) -> Catalog: ...
@@ -472,6 +656,9 @@ class Transaction(Protocol):
 
     @property
     def jobs(self) -> JobQueue: ...
+
+    @property
+    def sync_records(self) -> SyncRecordStore: ...
 
 
 class UnitOfWork(Protocol):

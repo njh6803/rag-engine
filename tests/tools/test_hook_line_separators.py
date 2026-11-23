@@ -52,7 +52,11 @@ def test_날것_줄_구분_문자의_줄과_열을_알린다(tmp_path: Path) -> 
 def test_커밋_전_검사와_같은_문자를_같은_자리에서_본다() -> None:
     """훅은 단독 실행이라 검사를 import 하지 않고 같은 판정을 옮겨 적었다. 갈리면 여기서 잡는다.
     상수만 견주면 옮겨 적은 판정이 갈린 것을 놓치므로, 모든 코드 포인트를 한 줄에 하나씩 둔 글에
-    홀로 선 CR 과 CRLF 를 더해 두 쪽이 내는 자리를 견준다. NUL 이 들면 검사가 이진으로 본다."""
+    홀로 선 CR 과 CRLF 를 더해 두 쪽이 내는 자리를 견준다. NUL 이 들면 검사가 이진으로 본다.
+
+    CRLF 줄 끝은 검사만 파일마다 한 줄로 알리고(대기열 crlf-from-script-edits) 훅은 알리지 않는다.
+    그래서 검사의 결과에서 그 한 줄을 뺀 몫만 견주고, 훅이 CRLF 에 침묵하는 것은 아래
+    `test_홀로_선_CR_은_어느_파일에서나_알리고_CRLF_는_침묵한다` 가 고정한다."""
     points = [p for p in range(0x110000) if p not in (0x00, 0x0A) and not 0xD800 <= p <= 0xDFFF]
     text = "\n".join(chr(point) for point in points) + f"\na{CR}b{CR}\nc{CR}"
 
@@ -64,7 +68,11 @@ def test_커밋_전_검사와_같은_문자를_같은_자리에서_본다() -> N
     assert SOURCE_SUFFIXES == check.SOURCE_SUFFIXES
     for suffix in (".py", ".md"):
         hook_spots = spots(flagged_in(text, suffix))
-        assert hook_spots == spots(check.problems_in(text.encode(), suffix)), suffix
+        check_found = check.problems_in(text.encode(), suffix)
+        crlf_found = [item for item in check_found if check.CRLF_LABEL in item]
+        assert len(crlf_found) == 1, suffix
+        shared = [item for item in check_found if check.CRLF_LABEL not in item]
+        assert hook_spots == spots(shared), suffix
         assert len(hook_spots) > 3, suffix
 
 

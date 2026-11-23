@@ -20,14 +20,24 @@
 실패와 (셋째 단계에서 이미 알아낸) 임베딩의 영구 실패는 세대가 달라 문서와 색인에 쓰지 않을 때도 그
 실패를 작업의 결과로 올리므로 작업은 `failed`로 끝난다(아래).
 
-파싱이 영구 실패하면 둘째 단계가 문서와 색인에 그 실패를 적고(`_record_permanent_failure`) 실패를
-그대로 올려 작업자가 작업을 재시도 없이 `failed`로 끝낸다. 임베딩이 영구 실패한 판은 그 판만
+암호가 걸린 파일(파서가 `encrypted_document`로 알린다)과 색인할 글이 하나도 나오지 않는 파일(공백만
+있는 것도 같다)은 실패가 아니라 건너뜀이다. 문서 상태를 `skipped`와 그 사유(`encrypted`,
+`no_text`)로 쓰고, 대상 판마다 그 문서의 옛 조각을 지운 뒤 색인 상태를 `indexed`(조각 0개)로 쓰며,
+건설 중인 판이면 전환 검사를 부르고, 작업은 `succeeded`로 끝난다(`_record_skipped`). 색인 상태를
+`indexed`로 쓰는 것은 건너뜀 문서가 판 전환을 막지 않게 하려는 것이다(전환 조건은 모든 색인 상태가
+`indexed`나 `failed`다). 오류 코드 `encrypted_document`는 문서, 색인 상태, 작업 행에 더는 쓰이지
+않는다.
+
+파싱이 그 밖의 이유로 영구 실패하면 둘째 단계가 문서와 색인에 그 실패를 적고
+(`_record_permanent_failure`) 실패를 그대로 올려 작업자가 작업을 재시도 없이 `failed`로 끝낸다.
+임베딩이 영구 실패한 판은 그 판만
 `failed`로 쓰고(`mark_version_failed`) 남은 판을 끝까지 처리한 뒤 작업을 그 오류 코드로 끝낸다.
 일시 실패는 그대로 올리고, 작업자가 `job_failure`로 다시 예약하거나 재시도를 다 썼으면 그쪽에서
 끝낸다. 작업 담당 기록 연장은 작업자(`worker/processing.py`)가 이 유스케이스를 돌리는 동안 따로
 한다.
 """
 
+import asyncio
 import hashlib
 import time
 from collections.abc import Callable, Sequence
@@ -41,6 +51,14 @@ from rag_engine.app.keyword_copy import read_copy_sources, rebuild_keywords
 from rag_engine.app.live_versions import live_index_versions
 from rag_engine.app.retry_policy import RetryPolicy
 from rag_engine.app.version_switch import check_version_switch
+from rag_engine.domain.connectors import (
+    ConnectorBrokenError,
+    ConnectorCallBlockedError,
+    ConnectorCallTimedOutError,
+    ConnectorError,
+    ConnectorFailureReason,
+    ConnectorUnavailableError,
+)
 from rag_engine.domain.entities import (
     Block,
     Chunk,
@@ -53,14 +71,16 @@ from rag_engine.domain.entities import (
     IndexVersionStatus,
     Job,
     JobStatus,
+    SkipReason,
     StoredChunk,
 )
-from rag_engine.domain.errors import ErrorCode, PermanentFailure
+from rag_engine.domain.errors import ErrorCode, PermanentFailure, TransientFailure
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.parsing import ParseRunner, ParserVersion
 from rag_engine.domain.ports import (
     BlobStore,
     ChunkerFor,
+    ConnectorRegistry,
     EmbedderFor,
     IndexMaintenance,
     JobOutcome,
@@ -86,6 +106,11 @@ class IndexDocumentDeps:
     now: Callable[[], datetime]
     retry: RetryPolicy
     maintenance: IndexMaintenance
+    # 가져오는 원천의 문서는 원본을 그 원천의 커넥터로 읽는다. 호출 하나를 기다리는 한도다.
+    connectors: ConnectorRegistry
+    source_read_timeout_seconds: float
+    # 동기화가 읽은 파일의 크기 상한. 수집 API와 같은 값이다.
+    max_upload_bytes: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,9 +137,12 @@ class _Claim:
 
     generation: int
     content_hash: str
-    blob_path: str
+    # 가져오는 원천의 문서는 비어 있고, 그때는 그 원천의 커넥터로 원본을 읽는다.
+    blob_path: str | None
     mime: str
     group_id: UUID
+    source_id: UUID
+    key: str
 
 
 @dataclass(slots=True)
@@ -159,14 +187,22 @@ async def index_document(
     content = await _ensure_parsed(deps, job, claim, timer)
     if content is None:
         return timer.result()
+    if not _has_text(content):
+        await _record_skipped(deps, job, claim, SkipReason.NO_TEXT)
+        return timer.result()
     failure = await _replace_chunks(deps, job, claim, content, timer)
     return timer.result(failure)
+
+
+def _has_text(content: DocumentContent) -> bool:
+    """색인할 글이 있는가. 공백만 있는 블록은 글로 세지 않는다."""
+    return any(block.text.strip() for block in content.blocks)
 
 
 async def _raise_generation(deps: IndexDocumentDeps, job: Job) -> _Claim | None:
     """첫째 단계. 지워진 문서면 `None`이다."""
     async with deps.unit_of_work.begin() as transaction:
-        document = await transaction.documents.lock(job.document_id)
+        document = await transaction.documents.lock(job.index_document_id)
         await hold_attempt(transaction, job)
         if document is None or document.deleted_at is not None or document.purged_at is not None:
             return None
@@ -181,15 +217,17 @@ async def _raise_generation(deps: IndexDocumentDeps, job: Job) -> _Claim | None:
             blob_path=document.blob_path,
             mime=document.mime,
             group_id=document.group_id,
+            source_id=document.source_id,
+            key=document.key,
         )
 
 
 async def _ensure_parsed(
     deps: IndexDocumentDeps, job: Job, claim: _Claim, timer: IndexTimer
 ) -> DocumentContent | None:
-    """둘째 단계. 세대 대조에 걸리면 `None`이다."""
+    """둘째 단계. 세대 대조에 걸리거나 암호가 걸린 파일이라 건너뛰었으면 `None`이다."""
     async with deps.unit_of_work.begin() as transaction:
-        saved = await transaction.documents.get_content(job.document_id)
+        saved = await transaction.documents.get_content(job.index_document_id)
     if saved is not None and _is_reusable(
         saved, claim.content_hash, deps.parse_runner.current_version(claim.mime)
     ):
@@ -201,19 +239,66 @@ async def _ensure_parsed(
         timer.parse_ms += _elapsed_ms(started)
 
 
+async def _read_original(deps: IndexDocumentDeps, claim: _Claim) -> bytes:
+    """원본 바이트를 낸다. 파일 저장소에 복사해 둔 문서는 거기서 읽고, 원본 경로가 빈 문서(가져오는
+    원천의 문서)는 그 원천의 커넥터로 읽는다. 목록을 받은 뒤에 원천이 바뀐 것(그 키의 파일이 없거나
+    크기 상한을 넘거나 내용 해시가 다르다)은 `source_changed`(영구 실패)이고, 원천을 읽을 수 없거나
+    한도까지 돌아오지 않거나 커넥터를 만들지 못한 것은 `source_unreadable`(일시 실패)이다. 예외의
+    글과 키는 싣지 않는다(원칙 V)."""
+    if claim.blob_path is not None:
+        return await deps.blob_store.read(claim.blob_path)
+    async with deps.unit_of_work.begin() as transaction:
+        source = await transaction.catalog.get_source_by_id(claim.source_id)
+    if source is None or source.connector is None or source.config is None:
+        raise TransientFailure(ErrorCode.SOURCE_UNREADABLE, "원천을 읽을 수 없다")
+    try:
+        reader = deps.connectors.open_reader(
+            source.connector,
+            source.config,
+            source=source.name,
+            timeout_seconds=deps.source_read_timeout_seconds,
+        )
+        fetched = await reader.fetch(claim.key)
+    except ConnectorError as error:
+        if error.reason in (ConnectorFailureReason.NOT_FOUND, ConnectorFailureReason.TOO_LARGE):
+            raise PermanentFailure(ErrorCode.SOURCE_CHANGED, "원천이 바뀌었다") from None
+        raise TransientFailure(ErrorCode.SOURCE_UNREADABLE, "원천을 읽을 수 없다") from None
+    except (
+        ConnectorUnavailableError,
+        ConnectorCallTimedOutError,
+        ConnectorCallBlockedError,
+        ConnectorBrokenError,
+    ):
+        raise TransientFailure(ErrorCode.SOURCE_UNREADABLE, "원천을 읽을 수 없다") from None
+    if len(fetched.data) > deps.max_upload_bytes:
+        # 동기화 뒤에 운영자가 상한을 낮췄을 수 있고, 커넥터가 제 상한을 지킨다는 보장은 없다.
+        raise PermanentFailure(ErrorCode.SOURCE_CHANGED, "원천이 바뀌었다")
+    digest = await asyncio.to_thread(lambda: hashlib.sha256(fetched.data).hexdigest())
+    if digest != claim.content_hash:
+        raise PermanentFailure(ErrorCode.SOURCE_CHANGED, "원천이 바뀌었다")
+    return fetched.data
+
+
 async def _parse_and_save(
     deps: IndexDocumentDeps, job: Job, claim: _Claim
 ) -> DocumentContent | None:
     """원본을 읽어 파싱하고 결과를 쓴다. 어떻게 끝나든 호출한 쪽이 걸린 시간을 `parse_ms`에
     더한다."""
-    data = await deps.blob_store.read(claim.blob_path)
     try:
-        parsed = await deps.parse_runner.parse(data, claim.mime)
+        data = await _read_original(deps, claim)
     except PermanentFailure as failure:
         await _record_permanent_failure(deps, job, claim, failure)
         raise
+    try:
+        parsed = await deps.parse_runner.parse(data, claim.mime)
+    except PermanentFailure as failure:
+        if failure.code is ErrorCode.ENCRYPTED_DOCUMENT:
+            await _record_skipped(deps, job, claim, SkipReason.ENCRYPTED)
+            return None
+        await _record_permanent_failure(deps, job, claim, failure)
+        raise
     content = DocumentContent(
-        document_id=job.document_id,
+        document_id=job.index_document_id,
         parser_name=parsed.parser_name,
         parser_interface_version=parsed.interface_version,
         parser_library_version=parsed.library_version,
@@ -223,7 +308,7 @@ async def _parse_and_save(
         parsed_at=deps.now(),
     )
     async with deps.unit_of_work.begin() as transaction:
-        document = await transaction.documents.lock(job.document_id)
+        document = await transaction.documents.lock(job.index_document_id)
         await hold_attempt(transaction, job)
         if document is None or document.generation != claim.generation:
             return None
@@ -233,10 +318,55 @@ async def _parse_and_save(
                 document,
                 status=DocumentStatus.PARSED,
                 error_code=None,
+                skip_reason=None,
                 modified_at=deps.now(),
             )
         )
     return content
+
+
+async def _record_skipped(
+    deps: IndexDocumentDeps, job: Job, claim: _Claim, reason: SkipReason
+) -> None:
+    """문서를 건너뜀으로 적는다. 세대가 같을 때만 문서 상태를 `skipped`와 사유로 쓰고, 살아 있는
+    판마다 그 문서의 옛 조각을 지우고 색인 상태 `indexed`(조각 0개)를 쓴다. 옛 조각을 두면 지금
+    내용과 다른 글이 검색에 남는다. 건설 중인 판이면 전환 검사를 부른다. 세대가 다르면 새 내용을
+    맡은 쪽이 문서를 맞추므로 아무것도 건드리지 않는다. 잠금 순서는 `_record_permanent_failure`와
+    같다."""
+    async with deps.unit_of_work.begin() as transaction:
+        document = await transaction.documents.lock(job.index_document_id)
+        versions = await live_index_versions(transaction, claim.group_id)
+        building = sorted(
+            {v.knowledge_base_id for v in versions if v.status is IndexVersionStatus.BUILDING}
+        )
+        await transaction.catalog.lock_knowledge_bases(building, LockMode.UPDATE)
+        await hold_attempt(transaction, job)
+        if document is None or document.generation != claim.generation:
+            return
+        await transaction.documents.update(
+            replace(
+                document,
+                status=DocumentStatus.SKIPPED,
+                error_code=None,
+                skip_reason=reason,
+                modified_at=deps.now(),
+            )
+        )
+        for version in versions:
+            await transaction.index.delete_chunks(document.id, version.id)
+            await transaction.index.save_state(
+                IndexState(
+                    document_id=document.id,
+                    index_version_id=version.id,
+                    status=IndexStateStatus.INDEXED,
+                    chunk_count=0,
+                    built_content_hash=document.content_hash,
+                    error_code=None,
+                    updated_at=deps.now(),
+                )
+            )
+            if version.status is IndexVersionStatus.BUILDING:
+                await check_version_switch(transaction, version)
 
 
 async def _record_permanent_failure(
@@ -248,7 +378,7 @@ async def _record_permanent_failure(
     색인 상태도 건드리지 않는다. 호출한 쪽이 실패를 다시 올려 작업이 재시도 없이 `failed`로
     끝난다."""
     async with deps.unit_of_work.begin() as transaction:
-        document = await transaction.documents.lock(job.document_id)
+        document = await transaction.documents.lock(job.index_document_id)
         versions = await live_index_versions(transaction, claim.group_id)
         # 건설 중인 판에 쓰면 `mark_version_failed`가 전환 검사로 그 지식베이스 행을 `FOR UPDATE`로
         # 잠그므로, 잠금 순서(문서 행, 지식베이스 행, 작업 행)를 지키려고 건설 중인 판이 든
@@ -266,7 +396,12 @@ async def _record_permanent_failure(
                 document,
                 status=DocumentStatus.FAILED,
                 error_code=failure.code,
+                skip_reason=None,
                 modified_at=deps.now(),
+                # 원천이 목록 뒤에 바뀐 것을 알았으므로 다음 동기화가 그 파일을 다시 읽게 비운다.
+                change_marker=(
+                    None if failure.code is ErrorCode.SOURCE_CHANGED else document.change_marker
+                ),
             )
         )
         for version in versions:
@@ -296,7 +431,9 @@ async def _replace_chunks(
     예외가 올라가 시도 전체가 일시 실패다."""
     async with deps.unit_of_work.begin() as transaction:
         versions = await live_index_versions(transaction, claim.group_id)
-        copies = await read_copy_sources(transaction, versions, job.document_id, claim.content_hash)
+        copies = await read_copy_sources(
+            transaction, versions, job.index_document_id, claim.content_hash
+        )
     started = time.perf_counter()
     prepared: list[_Prepared] = []
     rejected: list[tuple[IndexVersion, ErrorCode]] = []
@@ -320,7 +457,7 @@ async def _replace_chunks(
     started = time.perf_counter()
     try:
         async with deps.unit_of_work.begin() as transaction:
-            document = await transaction.documents.lock(job.document_id)
+            document = await transaction.documents.lock(job.index_document_id)
             # 건설 중인 판에 쓰면 전환 검사가 그 지식베이스 행을 `FOR UPDATE`로 잠그므로, 작업 행
             # 앞에서 먼저 잠근다(잠금 순서는 문서 행, 지식베이스 행, 작업 행이다). 건설 중인 판이
             # 없으면 잠그지 않아 평소의 색인 쓰기가 지식베이스 행에서 줄을 서지 않는다.
@@ -334,6 +471,7 @@ async def _replace_chunks(
                         document,
                         status=DocumentStatus.PARSED,
                         error_code=None,
+                        skip_reason=None,
                         modified_at=deps.now(),
                     )
                 )

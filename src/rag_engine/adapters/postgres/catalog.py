@@ -2,11 +2,14 @@
 "포트 열셋과 그 값"). 작업 단위가 연 연결 위에서 돈다."""
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Final
 from uuid import UUID
 
+import psycopg.errors
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from rag_engine.adapters.postgres import tables
@@ -15,13 +18,53 @@ from rag_engine.domain.entities import (
     Group,
     IndexVersion,
     IndexVersionStatus,
+    JsonValue,
     KnowledgeBase,
     Source,
     SourceKind,
 )
+from rag_engine.domain.errors import SourceAlreadyExistsError
 from rag_engine.domain.ports import LockMode
 
 _LIVE_STATUSES: Final = (IndexVersionStatus.CURRENT.value, IndexVersionStatus.BUILDING.value)
+# 폴더를 정하는 요청끼리 차례로 지나게 하는 자문 잠금의 열쇠. 이 저장소가 쓰는 임의의 고정 정수다.
+_SOURCE_FOLDERS_LOCK_KEY: Final = 0x52414701
+
+
+def _source(row: sa.RowMapping) -> Source:
+    config: Mapping[str, JsonValue] | None = row["config"]
+    return Source(
+        id=row["id"],
+        name=row["name"],
+        kind=SourceKind(row["kind"]),
+        created_at=row["created_at"],
+        deleted_at=row["deleted_at"],
+        connector=row["connector"],
+        config=config,
+        group_id=row["group_id"],
+        schedule=row["schedule"],
+        next_run_at=row["next_run_at"],
+        paused=row["paused"],
+        exclude_patterns=tuple(row["exclude_patterns"]),
+    )
+
+
+def _source_values(source: Source) -> dict[str, object]:
+    return {
+        "id": source.id,
+        "name": source.name,
+        "kind": source.kind.value,
+        "created_at": source.created_at,
+        "deleted_at": source.deleted_at,
+        "connector": source.connector,
+        # 파이썬의 `None`은 JSON의 `null`로 들어가므로 비운 칸은 SQL의 NULL로 따로 적는다.
+        "config": sa.null() if source.config is None else source.config,
+        "group_id": source.group_id,
+        "schedule": source.schedule,
+        "next_run_at": source.next_run_at,
+        "paused": source.paused,
+        "exclude_patterns": list(source.exclude_patterns),
+    }
 
 
 def _knowledge_base(row: sa.RowMapping) -> KnowledgeBase:
@@ -106,18 +149,99 @@ class PostgresCatalog:
     async def add_source(self, source: Source) -> None:
         await self._connection.execute(
             insert(tables.sources)
-            .values(id=source.id, name=source.name, kind=source.kind.value)
+            .values(**_source_values(source))
             .on_conflict_do_nothing(index_elements=["name"])
         )
+
+    async def create_source(self, source: Source) -> None:
+        try:
+            await self._connection.execute(
+                sa.insert(tables.sources).values(**_source_values(source))
+            )
+        except IntegrityError as error:
+            if isinstance(error.orig, psycopg.errors.UniqueViolation):
+                raise SourceAlreadyExistsError("같은 이름의 원천이 이미 있다") from None
+            raise
+
+    async def lock_source_folders(self) -> None:
+        await self._connection.execute(
+            sa.select(sa.func.pg_advisory_xact_lock(_SOURCE_FOLDERS_LOCK_KEY))
+        )
+
+    async def update_pull_source(
+        self,
+        source_id: UUID,
+        *,
+        config: Mapping[str, JsonValue] | None,
+        exclude_patterns: Sequence[str] | None,
+    ) -> None:
+        values: dict[str, object] = {}
+        if config is not None:
+            values["config"] = config
+        if exclude_patterns is not None:
+            values["exclude_patterns"] = list(exclude_patterns)
+        if not values:
+            return
+        await self._connection.execute(
+            sa.update(tables.sources).where(tables.sources.c.id == source_id).values(**values)
+        )
+
+    async def set_source_paused(self, source_id: UUID, *, paused: bool) -> None:
+        await self._connection.execute(
+            sa.update(tables.sources).where(tables.sources.c.id == source_id).values(paused=paused)
+        )
+
+    async def set_source_schedule(self, source_id: UUID, schedule: str | None) -> None:
+        await self._connection.execute(
+            sa.update(tables.sources)
+            .where(tables.sources.c.id == source_id)
+            .values(schedule=schedule)
+        )
+
+    async def set_next_run_at(self, source_id: UUID, next_run_at: datetime | None) -> None:
+        await self._connection.execute(
+            sa.update(tables.sources)
+            .where(tables.sources.c.id == source_id)
+            .values(next_run_at=next_run_at)
+        )
+
+    async def lock_source(self, source_id: UUID) -> Source | None:
+        result = await self._connection.execute(
+            sa.select(tables.sources)
+            .where(tables.sources.c.id == source_id)
+            .with_for_update(key_share=True)
+        )
+        row = result.mappings().one_or_none()
+        return None if row is None else _source(row)
+
+    async def lock_due_sources(self, now: datetime) -> list[Source]:
+        sources = tables.sources
+        result = await self._connection.execute(
+            sa.select(sources)
+            .where(
+                sources.c.kind == SourceKind.PULL.value,
+                sources.c.next_run_at <= now,
+                sources.c.paused.is_(False),
+                sources.c.deleted_at.is_(None),
+            )
+            .order_by(sources.c.next_run_at, sources.c.id)
+            .with_for_update(key_share=True, skip_locked=True)
+        )
+        return [_source(row) for row in result.mappings().all()]
 
     async def get_source(self, name: str) -> Source | None:
         result = await self._connection.execute(
             sa.select(tables.sources).where(tables.sources.c.name == name)
         )
         row = result.mappings().one_or_none()
-        if row is None:
-            return None
-        return Source(id=row["id"], name=row["name"], kind=SourceKind(row["kind"]))
+        return None if row is None else _source(row)
+
+    async def list_sources(self) -> list[Source]:
+        sources = tables.sources
+        result = await self._connection.execute(
+            sa.select(sources).order_by(sources.c.created_at, sources.c.id)
+        )
+        return [_source(row) for row in result.mappings().all()]
 
     async def add_group(self, group: Group) -> None:
         await self._connection.execute(
@@ -134,9 +258,7 @@ class PostgresCatalog:
             sa.select(tables.sources).where(tables.sources.c.id == source_id)
         )
         row = result.mappings().one_or_none()
-        if row is None:
-            return None
-        return Source(id=row["id"], name=row["name"], kind=SourceKind(row["kind"]))
+        return None if row is None else _source(row)
 
     async def get_group_by_id(self, group_id: UUID) -> Group | None:
         return await self._group_where(tables.groups.c.id == group_id)

@@ -26,3 +26,4 @@
 | [0020](0020-release-follows-agent-os-adr-0056.md) | 판 내기는 agent-os ADR 0056을 따르고, 이 저장소에서 다른 것만 적는다 | accepted | 2026-11-17 |
 | [0021](0021-push-and-pull-sources-and-source-ownership.md) | 원천은 밀어 넣는 원천과 가져오는 원천으로 가르고, 수집 API는 원천 이름을 받으며, 서버 경로 원천은 붙인 부모 폴더 아래만 읽는다 | accepted | 2026-11-20 |
 | [0022](0022-worker-starts-sync-on-cron-schedule.md) | 동기화는 작업자가 cron 일정으로 시작하고, 목록이 비면 지우지 않으며, 색인할 글이 없는 문서는 건너뜀으로 남긴다 | accepted | 2026-11-20 |
+| [0023](0023-stuck-connector-calls-are-abandoned-and-remembered.md) | 돌아오지 않는 커넥터 호출은 한도까지만 기다리고, 남아 있는 동안 같은 설정으로 다시 부르지 않는다 | accepted | 2026-11-21 |

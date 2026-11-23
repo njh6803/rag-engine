@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from rag_engine.adapters.settings import Settings
+from rag_engine.adapters.settings import Settings, load_settings
 from rag_engine.domain.errors import ConfigurationError
 
 REQUIRED = {
@@ -35,6 +35,7 @@ OPTIONAL_SETTINGS = [
     ("RAG_MAX_UPLOAD_MB", "10", "max_upload_mb", 10),
     ("RAG_WORKER_CONCURRENCY", "4", "worker_concurrency", 4),
     ("RAG_WORKER_POLL_SECONDS", "9", "worker_poll_seconds", 9),
+    ("RAG_SCHEDULE_TIMEZONE", "America/New_York", "schedule_timezone", "America/New_York"),
     ("RAG_JOB_LEASE_SECONDS", "60", "job_lease_seconds", 60),
     ("RAG_JOB_MAX_ATTEMPTS", "3", "job_max_attempts", 3),
     ("RAG_JOB_BACKOFF_BASE_SECONDS", "0.5", "job_backoff_base_seconds", 0.5),
@@ -87,6 +88,7 @@ def test_필수_셋만_주면_나머지는_명세의_기본값이다(required_en
     assert settings.max_upload_mb == 100
     assert settings.worker_concurrency == 2
     assert settings.worker_poll_seconds == 5
+    assert settings.schedule_timezone == "Asia/Seoul"
     assert settings.job_lease_seconds == 600
     assert settings.job_max_attempts == 6
     assert settings.job_backoff_base_seconds == 30
@@ -183,6 +185,21 @@ def test_모르는_로그_형식은_거부한다(
     assert [(error["loc"], error["type"]) for error in caught.value.errors()] == [
         (("log_format",), "literal_error")
     ]
+
+
+@pytest.mark.parametrize("value", ["Asia/Seol", "서울", "", "../etc/passwd", "UTC+9"])
+def test_모르는_시간대_이름은_값을_싣지_않고_거부한다(
+    required_environment: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, value: str
+) -> None:
+    monkeypatch.chdir(tmp_path)  # `load_settings`는 작업 폴더의 `.env`도 읽는다
+    monkeypatch.setenv("RAG_SCHEDULE_TIMEZONE", value)
+
+    with pytest.raises(ConfigurationError) as caught:
+        load_settings()
+
+    assert "RAG_SCHEDULE_TIMEZONE" in str(caught.value)
+    if value:
+        assert value not in str(caught.value)
 
 
 def test_임베딩_끝점이_없으면_기본_지식베이스를_만들_설정이_모자라다(

@@ -24,9 +24,11 @@ from rag_engine.domain.entities import (
     BlockKind,
     Document,
     DocumentContent,
+    DocumentCounts,
     DocumentQuery,
     DocumentState,
     DocumentStatus,
+    SkipReason,
 )
 from rag_engine.domain.errors import DocumentAlreadyExistsError, ErrorCode
 
@@ -59,6 +61,7 @@ _BLOCK_LIST: Final = TypeAdapter(list[_BlockJson])
 
 def _document(row: sa.RowMapping) -> Document:
     error_code: str | None = row["error_code"]
+    skip_reason: str | None = row["skip_reason"]
     return Document(
         id=row["id"],
         source_id=row["source_id"],
@@ -80,6 +83,8 @@ def _document(row: sa.RowMapping) -> Document:
         purged_at=row["purged_at"],
         created_at=row["created_at"],
         modified_at=row["modified_at"],
+        skip_reason=None if skip_reason is None else SkipReason(skip_reason),
+        change_marker=row["change_marker"],
     )
 
 
@@ -98,6 +103,8 @@ def _mutable_values(document: Document) -> dict[str, object]:
         "access_groups": list(document.access_groups),
         "status": document.status.value,
         "error_code": None if document.error_code is None else document.error_code.value,
+        "skip_reason": None if document.skip_reason is None else document.skip_reason.value,
+        "change_marker": document.change_marker,
         "generation": document.generation,
         "deleted_at": document.deleted_at,
         "purged_at": document.purged_at,
@@ -223,12 +230,53 @@ class PostgresDocumentStore:
             )
         if query.group_id is not None:
             statement = statement.where(documents.c.group_id == query.group_id)
+        if query.source_id is not None:
+            statement = statement.where(documents.c.source_id == query.source_id)
         if query.key is not None:
             statement = statement.where(documents.c.key == query.key)
         if query.after is not None:
             statement = statement.where(documents.c.id < query.after)
         rows = (await self._connection.execute(statement)).mappings().all()
         return [_document(row) for row in rows]
+
+    async def list_live_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
+        documents = tables.documents
+        rows = await self._connection.execute(
+            sa.select(documents.c.key, documents.c.id).where(
+                documents.c.source_id == source_id, documents.c.deleted_at.is_(None)
+            )
+        )
+        return {row.key: row.id for row in rows}
+
+    async def has_documents_held_by_source(self, source_id: UUID) -> bool:
+        documents = tables.documents
+        held = sa.and_(
+            documents.c.source_id == source_id,
+            documents.c.purged_at.is_(None),
+            sa.or_(documents.c.deleted_at.is_(None), documents.c.deleted_with_source.is_(True)),
+        )
+        return bool(await self._connection.scalar(sa.select(sa.exists().where(held))))
+
+    async def count_documents_of_source(self, source_id: UUID) -> DocumentCounts:
+        documents = tables.documents
+        row = (
+            (
+                await self._connection.execute(
+                    sa.select(
+                        sa.func.count().label("total"),
+                        sa.func.count()
+                        .filter(documents.c.status == DocumentState.FAILED.value)
+                        .label("failed"),
+                        sa.func.count()
+                        .filter(documents.c.status == DocumentState.SKIPPED.value)
+                        .label("skipped"),
+                    ).where(documents.c.source_id == source_id, documents.c.deleted_at.is_(None))
+                )
+            )
+            .mappings()
+            .one()
+        )
+        return DocumentCounts(total=row["total"], failed=row["failed"], skipped=row["skipped"])
 
     async def _select_one(
         self, *conditions: sa.ColumnElement[bool], lock: bool = False

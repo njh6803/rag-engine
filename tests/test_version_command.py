@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from rag_engine.adapters.index_elements import SCHEMA_VERSION
+from rag_engine.domain.connectors import CONNECTOR_INTERFACE_VERSION
 from rag_engine.domain.parsing import PARSER_INTERFACE_VERSION
 from rag_engine.main import main
 from rag_engine.server.api_version import API_VERSION
@@ -48,6 +49,7 @@ def test_이어서_계약마다_버전을_한_줄씩_그_계약을_정한_코드
         f"검색 도구의 형식 {FORMAT_VERSION}",
         f"수집 API와 관리 API의 경로 {API_VERSION}",
         f"파서 인터페이스 {PARSER_INTERFACE_VERSION}",
+        f"커넥터 인터페이스 {CONNECTOR_INTERFACE_VERSION}",
         f"색인 형식의 스키마 {SCHEMA_VERSION}",
     ]
 
@@ -65,5 +67,6 @@ def test_계약_버전_값이_지금_릴리스_노트가_옮기는_값이다(
         "검색 도구의 형식 1.1.0",
         "수집 API와 관리 API의 경로 v1",
         "파서 인터페이스 1.0.0",
+        "커넥터 인터페이스 1.0.0",
         "색인 형식의 스키마 1",
     ]

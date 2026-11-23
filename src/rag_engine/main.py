@@ -16,6 +16,7 @@ from rag_engine.adapters.postgres.bootstrap import issue_bootstrap_token, migrat
 from rag_engine.adapters.postgres.engine import run_in_selector_loop
 from rag_engine.adapters.release_number import release_number
 from rag_engine.adapters.settings import Settings, load_settings
+from rag_engine.domain.connectors import CONNECTOR_INTERFACE_VERSION
 from rag_engine.domain.errors import ConfigurationError
 from rag_engine.domain.parsing import PARSER_INTERFACE_VERSION
 from rag_engine.server import create_app
@@ -45,6 +46,7 @@ def version_lines() -> list[str]:
         f"검색 도구의 형식 {FORMAT_VERSION}",
         f"수집 API와 관리 API의 경로 {API_VERSION}",
         f"파서 인터페이스 {PARSER_INTERFACE_VERSION}",
+        f"커넥터 인터페이스 {CONNECTOR_INTERFACE_VERSION}",
         f"색인 형식의 스키마 {SCHEMA_VERSION}",
     ]
 

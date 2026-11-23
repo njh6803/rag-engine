@@ -12,7 +12,7 @@
 | HTTP와 MCP | FastAPI와 uvicorn. REST(관리 API, 수집 API)와 MCP를 한 프로세스의 한 앱이 연다. MCP는 공식 SDK `mcp`(major 2로 묶는다)의 Streamable HTTP 앱을 `/mcp`에 붙인다. ADR 0005. 연결 방식은 설정 `RAG_MCP_STATELESS`(기본 true)와 `RAG_MCP_JSON_RESPONSE`(기본 false)로 고르고 기본은 세션 없음 + SSE 응답이다. 허용 호스트 설정은 필수다(ADR 0014). 파일 업로드는 `python-multipart` |
 | 데이터베이스 | PostgreSQL 18. compose가 동봉한 것 하나만 지원하고(ADR 0002 이력 2026-11-09) 연결 문자열 하나만 받는다. 접근은 SQLAlchemy 2.1 Core 비동기(psycopg 3, greenlet), 마이그레이션은 alembic이고 `rag-engine migrate`가 돌린다. ADR 0011 |
 | 벡터 저장소 | pgvector 0.8.x(자기 PostgreSQL)와 PostgreSQL 전문 검색. 한국어 형태소 분석은 앱의 kiwipiepy(Apache-2.0, 우리 스텁)가 하고 `to_tsvector('simple', …)`에 넣는다. 벡터와 키워드는 한 SQL에서 RRF로 합친다. ADR 0006 |
-| 작업 대기열 | PostgreSQL 작업 표(SKIP LOCKED + LISTEN/NOTIFY). 작업자는 검색 서버와 다른 프로세스·이미지다. ADR 0009 |
+| 작업 대기열 | PostgreSQL 작업 표(SKIP LOCKED + LISTEN/NOTIFY). 작업자는 검색 서버와 다른 프로세스·이미지다. ADR 0009. 가져오는 원천의 일정(cron 다섯 칸)은 작업자가 대기열을 살피는 주기에 원천 행을 `FOR UPDATE SKIP LOCKED`로 잠그고 동기화 작업을 넣는 것으로 시작하고, 다음 실행 시각은 cronsim 2.8(BSD, `py.typed`)이 계산한다. 시간대는 설치 전체에 하나인 `RAG_SCHEDULE_TIMEZONE`(기본 `Asia/Seoul`)이다. ADR 0022 |
 | 파서, 임베딩, 리랭커 | 파서는 pdfplumber(PDF), python-docx(DOCX), python-hwpx(HWPX, 1.0의 HWP 5.0도 같은 라이브러리). 설치형으로 재배포하므로 라이선스(특히 GPL과 AGPL 계열)를 원문으로 확인한 것만 들인다. PyMuPDF와 pyhwp는 AGPL이라 들이지 않는다. 임베딩과 리랭커는 설치 안의 TEI(text-embeddings-inference) 컨테이너가 돌리고(기본 임베딩 bge-m3, 리랭커 bge-reranker-v2-m3는 켜는 설치에서만) 서버·작업자 이미지에는 torch가 없다. 호출은 `/v1/embeddings`, `/tokenize`, `/rerank`. ADR 0010 |
 | 관련성 판정(LLM) | 검색 평가의 관련성 판정에만 쓴다. Anthropic 공식 SDK `anthropic`(Apache-2.0, major 2로 묶는다)으로 Claude API를 부르고 모델은 설정값이다. 기본은 꺼짐이고 설치처가 끝점 주소, 모델, 키를 모두 설정해야 조립된다. 검색 요청을 처리하는 길에서는 부르지 않는다. ADR 0019 |
 | 설정 | pydantic-settings. 환경 변수 `RAG_*`, `.env`, 비밀 파일. ADR 0015 |
