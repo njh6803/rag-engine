@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import os
 import re
+import shlex
 import socket
 import stat
 import subprocess
@@ -167,6 +168,67 @@ def test_CI_의_python_잡은_같은_이미지를_서비스_컨테이너로_띄�
     assert "--health-cmd" in job, "서비스 컨테이너가 준비되기 전에 pytest 가 시작한다"
     expected = f"{TEST_DATABASE_ENV}: postgresql://{parts.username}:{parts.password}@127.0.0.1:5432"
     assert f"{expected}/{database}" in job
+
+
+def _나눠_돌린다(command: str) -> bool:
+    """pytest 명령이 xdist 로 작업자를 둘 이상 띄우는가. `-n`(붙여 쓴 `-nauto`, 긴 이름
+    `--numprocesses`)의 값이 `auto`·`logical` 이거나 2 이상이고, 줄 끝 주석과 `-p no:xdist`
+    (플러그인 끄기)가 없을 때다."""
+    words = shlex.split(command, comments=True)
+    if "no:xdist" in words:
+        return False
+    value: str | None = None
+    for position, word in enumerate(words):
+        following = words[position + 1] if position + 1 < len(words) else None
+        if word in ("-n", "--numprocesses"):
+            value = following
+        elif word.startswith("--numprocesses="):
+            value = word.removeprefix("--numprocesses=")
+        elif word.startswith("-n") and not word.startswith("--"):
+            value = word.removeprefix("-n")
+    if value is None:
+        return False
+    return value in ("auto", "logical") or (value.isdigit() and int(value) >= 2)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run pytest -q -n auto",
+        "uv run pytest -q -n 2",
+        "uv run pytest -q -nauto",
+        "uv run pytest -q --numprocesses=auto",
+        "uv run pytest -q -n logical",
+    ],
+)
+def test_나눠_돌리는_pytest_명령으로_읽는다(command: str) -> None:
+    assert _나눠_돌린다(command)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run pytest -q",
+        "uv run pytest -q -n 0",
+        "uv run pytest -q -n 1",
+        "uv run pytest -q # -n auto",
+        "uv run pytest -q -n auto -p no:xdist",
+    ],
+)
+def test_나눠_돌리지_않는_pytest_명령으로_읽는다(command: str) -> None:
+    assert not _나눠_돌린다(command)
+
+
+def test_CI_의_python_잡은_pytest_를_작업자_여럿으로_나눠_돌린다() -> None:
+    """한 프로세스로 돌린 pytest 스텝이 13분 반 안팎이라 잡의 제한 15분을 넘긴 실행이 나왔다
+    (`.scratch/harness/issues/ci-pytest-parallel.md`). 시험은 작업자마다 템플릿 데이터베이스를
+    만들고 시험마다 이름이 다른 복제본을 쓰므로 나눠 돌아도 데이터가 부딪히지 않는다."""
+    commands = re.findall(r"^\s*- run: (uv run pytest\b.*)$", _CI_python_잡(), re.MULTILINE)
+
+    assert len(commands) == 1, (
+        f"python 잡에서 `- run: uv run pytest …` 한 줄 꼴의 스텝이 하나가 아니다: {commands}"
+    )
+    assert _나눠_돌린다(commands[0]), f"pytest 를 나눠 돌리지 않는다: {commands[0]}"
 
 
 def test_데이터베이스_문제가_없으면_None_이다() -> None:

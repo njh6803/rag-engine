@@ -64,8 +64,8 @@ def test_pytest_프로세스_수는_논리_CPU_의_절반이고_1_아래로_내�
 
 
 def test_러너의_pytest_는_계산한_프로세스_수로_나눠_돈다() -> None:
-    """`-n` 은 러너에만 둔다(손으로 치는 pytest, mutate, CI 는 한 프로세스로 둔다는 결정, ADR
-    0035)."""
+    """`-n` 은 러너와 CI 에 둔다(손으로 치는 pytest 와 mutate 는 한 프로세스로 둔다는 결정, ADR
+    0035. CI 는 2026-11-23에 나눠 돌리기로 바꿨고 그 시험은 `test_run_checks_database.py`)."""
     (pytest_check,) = [check for check in CHECKS if check.id == "pytest"]
     command = pytest_check.command
 
