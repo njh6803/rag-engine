@@ -24,7 +24,7 @@
 **Status:** done
 
 - [x] 고치기 전에 실패하는 시험이 있다: `tests/tools/test_run_checks_database.py`의 `test_CI_의_python_잡은_pytest_를_작업자_여럿으로_나눠_돌린다`가 `uv run pytest -q`에 `-n`이 없다는 단언으로 빨갰다
-- [x] 그 시험이 `ci.yml`의 `python` 잡에서 `- run: uv run pytest …` 한 줄 꼴의 스텝이 하나뿐이고 그 명령이 작업자를 둘 이상 띄우는지 본다. `-n auto`, `-n 2`, `-nauto`, `--numprocesses=auto`, `-n logical`은 나눠 돈다고 읽고, `-n 0`, `-n 1`, 줄 끝 주석 속의 `-n auto`, `-p no:xdist`와 함께 쓴 `-n auto`는 나눠 돌지 않는다고 읽는 입력 열 개를 시험이 고정한다
+- [x] 그 시험이 `ci.yml`의 `python` 잡에서 `- run: uv run pytest …` 한 줄 꼴의 스텝이 하나뿐이고 그 명령이 작업자를 둘 이상 띄우는지 본다. `-n auto`, `-n 2`, `-nauto`, `--numprocesses=auto`, `-n logical`은 나눠 돈다고 읽고, `-n 0`, `-n 1`, 줄 끝 주석 속의 `-n auto`, `-p no:xdist`나 붙여 쓴 `-pno:xdist`와 함께 쓴 `-n auto`, 숫자가 아닌 `-n ²`는 나눠 돌지 않는다고 읽는 입력 열두 개를 시험이 고정한다
 - [x] "CI는 한 프로세스"라고 적은 옛 문장 셋(`pyproject.toml`, `tools/run_checks.py`의 독스트링, `tests/tools/test_run_checks.py`의 독스트링)을 고쳤다. `한 프로세스`와 `손으로 치는 pytest`로 grep해 살아 있는 문서의 남은 곳은 손으로 치는 pytest만 말하는 문장뿐이다
 - [x] 손으로 치는 검사 다섯(테스트, 린트, 포맷 검사, 타입체크, import 경계)이 초록이다(테스트는 커밋의 pre-commit이 갈음한다)
 

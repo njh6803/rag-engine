@@ -175,7 +175,7 @@ def _나눠_돌린다(command: str) -> bool:
     `--numprocesses`)의 값이 `auto`·`logical` 이거나 2 이상이고, 줄 끝 주석과 `-p no:xdist`
     (플러그인 끄기)가 없을 때다."""
     words = shlex.split(command, comments=True)
-    if "no:xdist" in words:
+    if any("no:xdist" in word for word in words):
         return False
     value: str | None = None
     for position, word in enumerate(words):
@@ -188,7 +188,7 @@ def _나눠_돌린다(command: str) -> bool:
             value = word.removeprefix("-n")
     if value is None:
         return False
-    return value in ("auto", "logical") or (value.isdigit() and int(value) >= 2)
+    return value in ("auto", "logical") or (value.isascii() and value.isdigit() and int(value) >= 2)
 
 
 @pytest.mark.parametrize(
@@ -213,6 +213,8 @@ def test_나눠_돌리는_pytest_명령으로_읽는다(command: str) -> None:
         "uv run pytest -q -n 1",
         "uv run pytest -q # -n auto",
         "uv run pytest -q -n auto -p no:xdist",
+        "uv run pytest -q -n auto -pno:xdist",
+        "uv run pytest -q -n ²",
     ],
 )
 def test_나눠_돌리지_않는_pytest_명령으로_읽는다(command: str) -> None:
