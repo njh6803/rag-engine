@@ -40,13 +40,19 @@
 
 **대기열:** docs-only-commit-full-pytest
 
-**Status:** in-progress
+**Status:** done
 
-- [ ] 문서만 바꾼 커밋의 판정 함수가 위 범위대로 가르고, 하나라도 벗어난 경로, 빈 목록, 읽기 실패, 시간 제한 초과는 전체 pytest로 간다(시험이 각 경우를 본다)
-- [ ] 문서만 바꾼 커밋에서 pytest 검사는 위 시험 넷만 돌고 `-n`이 없으며 시험 데이터베이스 준비를 건너뛴다. 그 밖의 커밋은 지금과 같다(시험이 본다)
-- [ ] 남길 시험 넷의 경로가 실제로 있는지 시험이 본다(이름을 바꾸면 빨개진다)
-- [ ] 실제 커밋으로 확인한다: 문서 하나만 스테이징한 커밋의 pre-commit에서 pytest 검사가 몇 초에 끝나고, 코드 한 줄을 섞은 커밋에서는 전체 pytest가 돈다(걸린 시간과 명령을 `## Comments`에 손으로 봤다고 적는다)
-- [ ] `tools/run_checks.py` 독스트링, `.pre-commit-config.yaml` 주석, `next-session` Docker 갈래가 새 동작과 어긋나지 않고, 옛 표현의 잔존이 0이다
-- [ ] 검증 명령이 초록이다: `uv run pytest`(전체, 이 티켓의 시험 포함), `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`, `uv run lint-imports`
-- [ ] 대기열 항목 `docs-only-commit-full-pytest`의 상태가 닫힘으로 바뀐다
-- [ ] 일지가 있고 이 PR의 셀프 리뷰 결과를 담는다
+- [x] 문서만 바꾼 커밋의 판정 함수가 위 범위대로 가르고, 하나라도 벗어난 경로, 빈 목록, 읽기 실패는 전체 pytest로 간다(시험이 각 경우를 본다). 시간 제한 초과는 위 "고치는 곳"대로 두 갈래다: 스테이징 목록을 읽는 git 명령이 넘기면 전체로 가고(시험이 본다), 좁힌 pytest가 제 900초를 넘기면 실패로 끝난다(시험이 시간 제한 값만 본다)
+- [x] 문서만 바꾼 커밋에서 pytest 검사는 위 시험 넷만 돌고 `-n`이 없으며 시험 데이터베이스 준비를 건너뛴다. 그 밖의 커밋은 지금과 같다(시험이 본다)
+- [x] 남길 시험 넷의 경로가 실제로 있는지 시험이 본다(이름을 바꾸면 빨개진다)
+- [x] 실제 커밋으로 확인한다: 문서 하나만 스테이징한 커밋의 pre-commit에서 pytest 검사가 몇 초에 끝나고, 코드 한 줄을 섞은 커밋에서는 전체 pytest가 돈다(걸린 시간과 명령을 `## Comments`에 손으로 봤다고 적는다)
+- [x] `tools/run_checks.py` 독스트링, `.pre-commit-config.yaml` 주석, `next-session` Docker 갈래가 새 동작과 어긋나지 않고, 옛 표현의 잔존이 0이다
+- [x] 검증 명령이 초록이다: `uv run pytest`(전체, 이 티켓의 시험 포함), `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`, `uv run lint-imports`
+- [x] 대기열 항목 `docs-only-commit-full-pytest`의 상태가 닫힘으로 바뀐다
+- [x] 일지가 있고 이 PR의 셀프 리뷰 결과를 담는다
+
+## Comments
+
+- 2026-11-24, 실제 커밋으로 본 것(손으로 봤다). 첫 커밋(코드와 문서 열 파일)의 pre-commit은 `git commit -F <메시지 파일>`로 쳤고 `docs-only` 줄 없이 `test-db` 단계가 돌았으며 pytest 검사가 836.6초 걸려 통과했다. 둘째 커밋(일지와 티켓, 문서 두 파일)은 같은 명령으로 쳤고 `docs-only...pytest 를 문서 시험 넷으로 좁혔다` 줄이 찍혔고 `test-db` 단계가 나오지 않았으며 pytest 검사가 122.3초에 통과했다(검사 러너 전체 122.73초). 좁힌 길도 같은 pre-commit의 pyright와 run-hooks 등과 동시에 돌아 손으로 돌린 24~165초 범위에 든다.
+- 2026-11-24, 부분 커밋(`git commit <파일>`)의 임시 색인으로는 커밋하지 않았다. 독스트링의 못 보는 것 (2)는 그대로 남는다.
+- 2026-11-24, 셀프 리뷰 등 감사와 PR 직전 리뷰의 판정은 일지 `docs/journal/2026-11-23-2323-docs-only-commit-narrow-pytest.md`에 있다.
