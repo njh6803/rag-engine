@@ -43,11 +43,17 @@ class CronsimScheduleCalculator:
         if len(expression.split()) != _FIELD_COUNT:
             raise InvalidScheduleError(_MESSAGE)
         try:
-            moment = next(CronSim(expression, after.astimezone(self._zone)))
+            runs = CronSim(expression, after.astimezone(self._zone))
+            moment = next(runs).astimezone(UTC)
+            # 서머타임이 끝나 현지 시각이 두 번 오는 날에는 라이브러리가 그 시각에 앞의 것을 붙여
+            # 내서, 받은 시각이 뒤의 것이면 받은 시각보다 앞선 시각이 나온다. 그 시각을 저장하면
+            # 다음 확인이 같은 원천을 곧바로 다시 시작하므로 받은 시각보다 뒤인 시각까지 넘긴다.
+            while moment <= after:
+                moment = next(runs).astimezone(UTC)
         except (CronSimError, StopIteration):
             failure = InvalidScheduleError(_MESSAGE)
         else:
-            return moment.astimezone(UTC)
+            return moment
         # 라이브러리의 예외를 원인이나 맥락으로 달지 않는다. 그 글이 응답이나 로그로 나가지 않게
         # 한다.
         raise failure

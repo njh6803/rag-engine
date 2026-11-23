@@ -177,7 +177,7 @@ new = '''                next_run_at=None,'''
 name = "서버가 시간대 설정을 읽지 않고 서울로 계산한다"
 tests = ["tests/server/test_admin_source_schedule.py"]
 expect = "red"
-expect_output = ["AssertionError: next_run_at time is 17:00Z"]
+expect_output = ["AssertionError: next_run_at time is 19:00Z"]
 
 [[mutation.edit]]
 file = "src/rag_engine/server/app.py"
@@ -194,6 +194,19 @@ expect_output = ["DID NOT RAISE InvalidScheduleError"]
 file = "src/rag_engine/adapters/schedule.py"
 old = '''        if len(expression.split()) != _FIELD_COUNT:
             raise InvalidScheduleError(_MESSAGE)
+'''
+new = ''''''
+
+[[mutation]]
+name = "계산기가 받은 시각보다 앞선 시각을 그대로 낸다"
+tests = ["tests/adapters/test_schedule_calculator.py"]
+expect = "red"
+expect_output = ["AssertionError: next_run returned 2027-11-07 05:30Z"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/schedule.py"
+old = '''            while moment <= after:
+                moment = next(runs).astimezone(UTC)
 '''
 new = ''''''
 

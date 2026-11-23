@@ -65,6 +65,29 @@ def test_서머타임이_있는_시간대에서_없는_시각은_뒤로_밀어_�
 
 
 @pytest.mark.parametrize(
+    "after",
+    [
+        datetime(2027, 11, 7, 5, 45, tzinfo=UTC),
+        datetime(2027, 11, 7, 6, 15, tzinfo=UTC),
+        datetime(2027, 11, 7, 6, 29, tzinfo=UTC),
+    ],
+    ids=["첫번째_01시대", "두번째_01시대", "두번째_01시대_끝"],
+)
+def test_현지_시각이_두_번_오는_서머타임_끝에서도_다음_시각은_받은_시각보다_뒤다(
+    after: datetime,
+) -> None:
+    new_york = CronsimScheduleCalculator(ZoneInfo("America/New_York"))
+
+    # 2027-11-07 01:30(뉴욕)은 05:30Z와 06:30Z에 두 번 온다. 라이브러리는 이 표현식의 시각에
+    # 앞의 것을 붙여 내므로, 받은 시각이 두 번째 01시대이면 받은 시각보다 앞선 시각이 나온다.
+    got = new_york.next_run("30 1 * * *", after)
+
+    assert got == datetime(2027, 11, 8, 6, 30, tzinfo=UTC), (
+        f"next_run returned {got:%Y-%m-%d %H:%MZ}"
+    )
+
+
+@pytest.mark.parametrize(
     "expression",
     [
         "*/10 * * * * *",  # 프로브 C: 라이브러리는 첫 칸을 초로 읽어 10초마다 돈다

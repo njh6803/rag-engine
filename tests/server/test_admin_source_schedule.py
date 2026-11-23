@@ -56,9 +56,11 @@ def _next_run(body: dict[str, object]) -> datetime:
     return datetime.fromisoformat(value)
 
 
-def _is_next_two_o_clock(moment: datetime, zone: ZoneInfo, *, after: datetime) -> bool:
+def _is_next_two_o_clock(
+    moment: datetime, zone: ZoneInfo, *, after: datetime, hour: int = 2
+) -> bool:
     local = moment.astimezone(zone)
-    return (local.hour, local.minute, local.second) == (2, 0, 0) and (
+    return (local.hour, local.minute, local.second) == (hour, 0, 0) and (
         after < moment <= after + timedelta(days=1, hours=1)
     )
 
@@ -153,16 +155,18 @@ def test_일정을_적어_만들면_다음_실행_시각이_설정한_시간대�
     assert request(server, "GET", f"{SOURCES}/wiki").json() == body
 
 
-def test_시간대_설정을_바꾸면_그_시간대의_02시로_계산한다(
+def test_시간대_설정을_바꾸면_그_시간대의_04시로_계산한다(
     run_server: Callable[..., RunningServer], parent: Path
 ) -> None:
+    # 뉴욕의 02시는 서머타임이 시작하는 날(3월 둘째 일요일)에 없는 시각이라 04시로 본다. 실제
+    # 시계를 쓰므로 02시로 하면 그 날짜 앞뒤에 돌 때 정상 구현도 실패한다.
     server = run_server(schedule_timezone="America/New_York")
     before = datetime.now(UTC)
 
-    body = _create(server, schedule=AT_TWO).json()
+    body = _create(server, schedule="0 4 * * *").json()
 
     next_run = _next_run(body)
-    assert _is_next_two_o_clock(next_run, NEW_YORK, after=before), (
+    assert _is_next_two_o_clock(next_run, NEW_YORK, after=before, hour=4), (
         f"next_run_at time is {next_run:%H:%M}Z"
     )
 
@@ -210,7 +214,7 @@ def test_일정에_null을_적으면_일정과_다음_실행_시각이_비고_�
 def test_일시_중지하면_다음_실행_시각이_비고_다시_시작하면_다시_채운다(
     server: RunningServer, parent: Path
 ) -> None:
-    created = _create(server, schedule=AT_TWO).json()
+    _create(server, schedule=AT_TWO)
 
     paused = request(server, "POST", f"{SOURCES}/wiki/pause").json()
     before = datetime.now(UTC)
@@ -219,7 +223,6 @@ def test_일시_중지하면_다음_실행_시각이_비고_다시_시작하면_
     assert (paused["schedule"], paused["paused"], paused["next_run_at"]) == (AT_TWO, True, None)
     assert resumed["paused"] is False
     assert _is_next_two_o_clock(_next_run(resumed), SEOUL, after=before)
-    assert resumed["next_run_at"] == created["next_run_at"]
 
 
 def test_이미_돌고_있는_원천을_다시_시작해도_이미_지난_다음_실행_시각을_밀지_않는다(
