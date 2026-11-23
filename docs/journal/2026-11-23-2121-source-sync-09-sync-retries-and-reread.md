@@ -86,6 +86,15 @@ source-sync 티켓 08과 CI 나눠 돌리기 chore를 병합한 세션이 낸 �
 - 변이 파일의 원문 확인(`--check`)을 `sync_mutations.toml`과, `ingest.py`와 `sync_source.py`를 겨누는 다른 변이 파일 여덟(`ingest`, `ingest_updates`, `delete_restore`, `lease_worker`, `retries`, `schedule`, `pull_sources`, `call_guard`)에 돌려 모두 통과했다.
 - 전체 검사 러너(`tools/run_checks.py`)는 반영 전 작업 트리에서 통과했고 `pytest` 단계가 595.5초(이 PC, xdist)였다. 반영 뒤 바뀐 것은 시험 몇 개와 소스의 작은 쪼갬이라 전체를 다시 돌리지는 않았고, 커밋의 pre-commit이 전체를 돈다.
 - 08 일지가 남긴 `delete_restore_mutations.toml` 16번의 살아남은 변이는 이 티켓의 범위가 아니라서 손대지 않았다. `--check`는 통과한다.
+- 두 커밋의 pre-commit이 전체 시험을 돌렸다. 두 번째 커밋은 시험 DB를 다른 세션의 전체 시험과 겹쳐 쓰는 바람에 세 번 실패한 뒤 통과했다(`pytest` 단계 871초). 실패는 이 변경과 무관했다. 처음에는 테스트 PostgreSQL 컨테이너가 종료 코드 255로 멈춰 시험 후반이 모두 연결 오류가 됐고(4200초 제한), 다음 두 번은 `tests/server/test_admin_pull_source_stuck_calls.py`의 1.0초 단언이 1.3~3.6초로 빨개졌다(한 번은 `test_serve_command.py`의 30초 기동도). 그 두 파일은 단독으로 돌리면 16개 모두 통과했고, 같은 DB를 쓰는 다른 세션의 시험이 끝난 뒤 같은 커밋이 통과했다.
+- PR #111의 CI(실행 45228476288, 머리 `36289bf`)는 모든 잡이 성공이다: `python` 373초(그 가운데 `pytest -q -n auto` 313초), `eval-fast` 307초, `image` 49초, `standalone` 11초, `eval-full` 6초, `ticket` 6초, `verify` 4초. `python` 잡의 15분 제한에는 한참 못 미친다.
+
+## PR 봇 첫 회차
+
+- **CodeRabbit.** 이 저장소는 별이 열 개 미만이라 자동 리뷰를 받지 않는다(`Review skipped: manual review required`). `@coderabbitai review` 코멘트는 자동 모드 분류기가 거부해 달지 못했고, 우회하지 않았다. 로컬 CLI 리뷰는 PR 직전에 끝까지 돌았으므로(위 "PR 직전 리뷰") 그 결과가 이 PR의 CodeRabbit 축이다.
+- **claude-review 첫 회차**(Critical·Major 없음, Minor 하나와 Nit 하나).
+  - 보류: `_settle_unchanged`가 개수를 세고, 잠그고, 다시 넣고, 불리언을 돌려주는 CQS 혼합(Minor). 셀프 리뷰가 이미 같은 지적을 내 판정했다. 반환값은 `_reconcile`이 그 작업 단위의 끝에서 작업 행 조건을 볼지 가르는 데 쓰고, 파일 대부분이 다시 넣지 않는 길에서 파일마다 작업 행을 한 번 더 잠그지 않으려는 것이다. 위 "판정과 반영"의 남긴 것과 같다.
+  - 보류: `_is_requeued`의 이름이 "다시 넣어야 하는가"가 아니라 이미 다시 넣은 일처럼 읽힌다는 Nit. 소스 세 자리에서만 쓰이고 시험과 변이 표는 이 이름을 가리키지 않아 바꾸는 값은 작지만, 이름만 바꾸는 코드 커밋도 전체 시험과 새 봇 회차를 다시 부른다. 둘째 회차부터는 Critical·Major만 고치므로 Nit 하나로 그 비용을 쓰지 않는다.
 
 ## 회고
 
@@ -101,4 +110,5 @@ source-sync 티켓 08과 CI 나눠 돌리기 chore를 병합한 세션이 낸 �
   - 빈 목록 판정이 후보 직후와 삭제 반영 직전의 두 자리라는 명세 문구와 구현의 한 자리.
   - 건너뛰면서 어느 판의 색인 상태가 `failed`인 문서를 보통 동기화가 다시 넣을지(수집 API의 재색인은 다시 넣는다). 지금은 건너뜀 사유로만 센다.
 - 하네스로 따로 할 일: 다시 넣은 색인 작업이 동기화 간격보다 오래 걸리는 큰 문서는 동기화마다 세대가 올라 끝내 `indexed`가 못 될 수 있다(대기 작업은 하나로 합쳐지고 실행 중 작업의 결과는 세대 대조로 버려진다). 이미 도는 색인 작업이 있는 문서는 다시 넣지 않는 것을 11 이후나 정리 기능의 티켓에서 정할 수 있다. 지금은 시험이 없고 수집 API의 재색인과 같은 동작이다.
-- CI `python` 잡의 15분 제한은 PR #108이 시험을 나눠 돌려 풀었다. 이 PR의 CI에서 본 시간은 PR 뒤에 적는다.
+- CI `python` 잡의 15분 제한은 PR #108이 시험을 나눠 돌려 풀었다. 이 PR의 `python` 잡은 373초였다(위 "검증").
+- 하네스로 따로 할 일: `tests/server/test_admin_pull_source_stuck_calls.py`의 `PROMPT_SECONDS = 1.0`은 이 PC에서 다른 세션의 전체 시험과 시험 DB를 겹쳐 쓸 때 1.3~3.6초로 자주 빨개진다(위 "검증"). 시험 규칙(`.claude/rules/tests.md`)은 시간 단언을 넉넉하게 잡으라고 한다. 이 PR은 그 파일을 건드리지 않았다.
