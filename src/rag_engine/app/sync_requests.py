@@ -55,6 +55,9 @@ async def request_sync(
     options = _enabled_options(apply_empty=apply_empty, reread=reread)
     async with unit_of_work.begin() as transaction:
         source = await require_pull_source(transaction, source_name)
+        # 원천 행을 잠그지 않는다. 일정 확인이 그 행을 잡은 동안에도 이 요청은 기다리지 않는다(티켓
+        # 10). 그래서 삭제 요청과 겹치면 지운 원천에 대기 동기화가 남을 수 있고, 그 동기화는 시작할
+        # 때 지움 표시를 보고 `source_deleted`로 끝난다.
         job = await transaction.jobs.enqueue_source_job(
             JobKind.SYNC_SOURCE, source.id, options, request_id, now
         )

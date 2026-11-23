@@ -214,6 +214,22 @@ class PostgresCatalog:
         row = result.mappings().one_or_none()
         return None if row is None else _source(row)
 
+    async def lock_source_shared(self, source_id: UUID) -> Source | None:
+        result = await self._connection.execute(
+            sa.select(tables.sources)
+            .where(tables.sources.c.id == source_id)
+            .with_for_update(read=True)
+        )
+        row = result.mappings().one_or_none()
+        return None if row is None else _source(row)
+
+    async def mark_source_deleted(self, source_id: UUID, deleted_at: datetime) -> None:
+        await self._connection.execute(
+            sa.update(tables.sources)
+            .where(tables.sources.c.id == source_id)
+            .values(deleted_at=deleted_at, next_run_at=None)
+        )
+
     async def lock_due_sources(self, now: datetime) -> list[Source]:
         sources = tables.sources
         result = await self._connection.execute(

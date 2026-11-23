@@ -5,7 +5,12 @@
 가져오는 원천의 폴더와 설정이 틀리면 422, 이름이 이미 있으면(지운 원천 포함) 409
 `source_already_exists`, 다른 원천의 폴더와 겹치면 409 `source_folder_overlap`이다.
 `GET /sources`와 `GET /sources/{name}`은 같은 모양의 원천을 낸다. 없는 이름은 404
-`source_not_found`다.
+`source_not_found`다. 목록은 `include_deleted=true`를 적어야 지운 원천도 낸다.
+
+`DELETE /sources/{name}`은 지움 표시를 쓰고 원천 삭제 작업을 넣어 202와 그 작업의 식별자로
+답한다. 문서를 옮기는 일은 작업자가 뒤에서 한다. `default`와 `upload`는 409 `source_protected`다.
+지운 원천은 보기와 동기화 기록 보기만 받고, 고치기, 지우기, 연결 확인, 지금 동기화, 일시 중지, 다시
+시작은 409 `source_deleted`다.
 
 `PATCH /sources/{name}`, `POST /sources/{name}/check`, `/sync`, `/pause`, `/resume`은 가져오는
 원천에만 통한다. 밀어 넣는 원천에는 409 `wrong_source_kind`다. 연결 확인은 원천을 읽지 못해도
@@ -33,6 +38,7 @@ from rag_engine.app.admin_sources import (
     get_source_report,
     list_source_reports,
 )
+from rag_engine.app.delete_source import request_source_deletion
 from rag_engine.app.pull_sources import PullSources, ScheduleChange
 from rag_engine.app.sync_requests import get_sync_record, list_sync_records, request_sync
 from rag_engine.domain.ports import UnitOfWork
@@ -41,6 +47,7 @@ from rag_engine.server.admin_source_models import (
     ConnectionCheckResponse,
     CreatePullSourceRequest,
     CreateSourceRequest,
+    SourceDeletionResponse,
     SourceListResponse,
     SourceResponse,
     UpdateSourceRequest,
@@ -73,8 +80,8 @@ _PULL_ONLY_PROBLEMS: dict[int | str, dict[str, object]] = {
     409: {
         "model": ProblemDetails,
         "description": (
-            "밀어 넣는 원천이다(`wrong_source_kind`). 설정을 고칠 때는 다른 원천의 폴더와 "
-            "겹치는 것(`source_folder_overlap`)도 409다"
+            "밀어 넣는 원천이다(`wrong_source_kind`)거나 지운 원천이다(`source_deleted`). 설정을 "
+            "고칠 때는 다른 원천의 폴더와 겹치는 것(`source_folder_overlap`)도 409다"
         ),
     },
 }
@@ -83,8 +90,18 @@ _SYNC_PROBLEMS: dict[int | str, dict[str, object]] = {
     409: {
         "model": ProblemDetails,
         "description": (
-            "밀어 넣는 원천이다(`wrong_source_kind`)거나 그 원천의 동기화가 대기 중이거나 "
-            "실행 중이다(`sync_in_progress`)"
+            "밀어 넣는 원천이다(`wrong_source_kind`)거나 지운 원천이다(`source_deleted`)거나 그 "
+            "원천의 동기화가 대기 중이거나 실행 중이다(`sync_in_progress`)"
+        ),
+    },
+}
+_DELETE_PROBLEMS: dict[int | str, dict[str, object]] = {
+    **_NOT_FOUND,
+    409: {
+        "model": ProblemDetails,
+        "description": (
+            "`default`와 `upload`는 지울 수 없다(`source_protected`). 이미 지운 원천이다"
+            "(`source_deleted`)"
         ),
     },
 }
@@ -120,13 +137,20 @@ def build_admin_source_router(unit_of_work: UnitOfWork, pull_sources: PullSource
         return SourceResponse.of(report)
 
     @router.get("/sources")
-    async def sources() -> SourceListResponse:
-        found = await list_source_reports(unit_of_work)
+    async def sources(*, include_deleted: bool = False) -> SourceListResponse:
+        found = await list_source_reports(unit_of_work, include_deleted=include_deleted)
         return SourceListResponse(sources=[SourceResponse.of(report) for report in found])
 
     @router.get("/sources/{name}", responses=_NOT_FOUND)
     async def source(name: str) -> SourceResponse:
         return SourceResponse.of(await get_source_report(unit_of_work, name))
+
+    @router.delete("/sources/{name}", status_code=202, responses=_DELETE_PROBLEMS)
+    async def delete(name: str, request: Request) -> SourceDeletionResponse:
+        requested = await request_source_deletion(
+            unit_of_work, name, request_id=request_id_of(request.scope), now=datetime.now(UTC)
+        )
+        return SourceDeletionResponse.of(requested)
 
     @router.patch("/sources/{name}", responses=_PULL_ONLY_PROBLEMS)
     async def update(name: str, body: UpdateSourceRequest) -> SourceResponse:

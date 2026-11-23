@@ -37,6 +37,7 @@ from typing import Final
 from uuid import UUID
 
 from rag_engine.adapters.log_format import log_event, log_event_fields
+from rag_engine.app.delete_source import delete_source_documents
 from rag_engine.app.index_document import (
     IndexDocumentDeps,
     IndexResult,
@@ -46,10 +47,17 @@ from rag_engine.app.index_document import (
 )
 from rag_engine.app.job_failure import exhaust, settle_transient_failure
 from rag_engine.app.retire_cleanup import clean_retired_versions
-from rag_engine.app.sync_source import SyncDeps, SyncLogLevel, SyncLogLine, sync_source
+from rag_engine.app.sync_source import (
+    SyncCounts,
+    SyncDeps,
+    SyncLogLevel,
+    SyncLogLine,
+    close_after_source_deleted,
+    sync_source,
+)
 from rag_engine.domain.entities import Job, JobKind, JobStatus
 from rag_engine.domain.errors import AttemptLostError, ErrorCode, RagEngineError, TransientFailure
-from rag_engine.domain.ports import JobOutcome
+from rag_engine.domain.ports import JobOutcome, Transaction
 
 logger = logging.getLogger(__name__)
 
@@ -208,12 +216,28 @@ async def _dispatch(
     deps: IndexDocumentDeps, job: Job, timer: IndexTimer, lease_seconds: float | None
 ) -> IndexResult:
     """작업의 종류로 유스케이스를 고른다. 색인 작업은 `index_document`, 동기화 작업은
-    `sync_source`다. 나머지 종류(원천 삭제, 원천 되살리기, 정리)는 뒤의 티켓이 더한다."""
+    `sync_source`, 원천 삭제 작업은 `delete_source_documents`다. 나머지 종류(원천 되살리기, 정리)는
+    뒤의 티켓이 더한다."""
     if job.kind is JobKind.INDEX_DOCUMENT:
         return await _leased(deps, job, lease_seconds, lambda: index_document(deps, job, timer))
     if job.kind is JobKind.SYNC_SOURCE:
         sync_deps = _sync_deps(deps)
-        outcome = await _leased(deps, job, lease_seconds, lambda: sync_source(sync_deps, job))
+        counts = SyncCounts()
+        outcome = await _leased(
+            deps,
+            job,
+            lease_seconds,
+            lambda: sync_source(sync_deps, job, counts),
+            on_source_deleted=lambda: close_after_source_deleted(sync_deps, job, counts),
+        )
+        return IndexResult(outcome=outcome, timings=timer.timings())
+    if job.kind is JobKind.DELETE_SOURCE:
+        outcome = await _leased(
+            deps,
+            job,
+            lease_seconds,
+            lambda: delete_source_documents(deps.unit_of_work, job),
+        )
         return IndexResult(outcome=outcome, timings=timer.timings())
     raise RuntimeError("이 작업자가 처리하지 못하는 종류의 작업이다")
 
@@ -240,15 +264,26 @@ def _log_sync_line(line: SyncLogLine) -> None:
     )
 
 
+class _LeaseEnd(Enum):
+    """작업 담당 기록의 기한을 늘리는 쪽이 일을 멈추라고 알리는 까닭. `LOST`는 작업 담당 기록을
+    잃은 것이고, `SOURCE_DELETED`는 동기화가 가리키는 원천에 지움 표시가 선 것이다."""
+
+    LOST = auto()
+    SOURCE_DELETED = auto()
+
+
 async def _leased[Result](
     deps: IndexDocumentDeps,
     job: Job,
     lease_seconds: float | None,
     make_work: Callable[[], Coroutine[object, object, Result]],
+    *,
+    on_source_deleted: Callable[[], Awaitable[Result]] | None = None,
 ) -> Result:
     """유스케이스를 돌리면서 작업 담당 기록의 기한을 늘린다. 연장이 작업 담당 기록을 잃었다고 알리면
-    유스케이스를 취소하고 `AttemptLostError`를 올린다. 유스케이스가 끝나거나 실패하면 연장을
-    멈춘다."""
+    유스케이스를 취소하고 `AttemptLostError`를 올린다. 동기화의 연장이 원천의 지움 표시를 보면
+    유스케이스를 취소하고 `on_source_deleted`로 그 시도를 마무리한다(시도를 버리지 않는다).
+    유스케이스가 끝나거나 실패하면 연장을 멈춘다."""
     if lease_seconds is None:
         return await make_work()
     work = asyncio.create_task(make_work())
@@ -257,7 +292,14 @@ async def _leased[Result](
         await asyncio.wait({work, keeper}, return_when=asyncio.FIRST_COMPLETED)
         if work.done():
             return work.result()
-        keeper.result()
+        ended = keeper.result()
+        if ended is _LeaseEnd.SOURCE_DELETED and on_source_deleted is not None:
+            work.cancel()
+            await asyncio.gather(work, return_exceptions=True)
+            if not work.cancelled():
+                # 취소가 닿기 전에 처리가 끝났다. 끝난 결과를 버리지 않는다.
+                return work.result()
+            return await on_source_deleted()
         raise AttemptLostError
     finally:
         work.cancel()
@@ -270,11 +312,21 @@ def extension_interval_seconds(lease_seconds: float) -> float:
     return lease_seconds / _EXTENSIONS_PER_LEASE
 
 
-async def _keep_lease(deps: IndexDocumentDeps, job: Job, lease_seconds: float) -> None:
+async def _source_is_deleted(transaction: Transaction, job: Job) -> bool:
+    """동기화 작업이 가리키는 원천에 지움 표시가 섰는가. 다른 종류의 작업은 묻지 않는다. 원천 삭제
+    작업은 지움 표시가 선 원천에서 돌고, 색인 작업은 첫째 단계가 스스로 본다."""
+    if job.kind is not JobKind.SYNC_SOURCE:
+        return False
+    source = await transaction.catalog.get_source_by_id(job.target_source_id)
+    return source is not None and source.deleted_at is not None
+
+
+async def _keep_lease(deps: IndexDocumentDeps, job: Job, lease_seconds: float) -> _LeaseEnd:
     """작업 담당 기록의 기한을 그 삼분의 일마다 늘린다. 연장이 작업 행 조건에 걸려 작업 담당 기록을
-    잃은 것이 드러나면 돌아온다. 그 밖의 이유로 연장하지 못한 것(일시 실패, 잠금 대기 시간 초과 같은
-    예기치 않은 오류)은 알리고 다음 간격에 다시 한다. 연장이 죽어 건강한 작업이 같이 실패하는
-    것보다, 계속 실패해 작업 담당 기록의 기한이 끝나고 다른 작업자가 인수하는 쪽이 안전하다."""
+    잃은 것이 드러나거나 동기화가 가리키는 원천에 지움 표시가 선 것을 보면 그 까닭을 알리며
+    돌아온다. 그 밖의 이유로 연장하지 못한 것(일시 실패, 잠금 대기 시간 초과 같은 예기치 않은
+    오류)은 알리고 다음 간격에 다시 한다. 연장이 죽어 건강한 작업이 같이 실패하는 것보다, 계속
+    실패해 작업 담당 기록의 기한이 끝나고 다른 작업자가 인수하는 쪽이 안전하다."""
     while True:
         await asyncio.sleep(extension_interval_seconds(lease_seconds))
         try:
@@ -282,8 +334,10 @@ async def _keep_lease(deps: IndexDocumentDeps, job: Job, lease_seconds: float) -
                 await transaction.jobs.extend_lease(
                     job, deps.now() + timedelta(seconds=lease_seconds)
                 )
+                if await _source_is_deleted(transaction, job):
+                    return _LeaseEnd.SOURCE_DELETED
         except AttemptLostError:
-            return
+            return _LeaseEnd.LOST
         except TransientFailure:
             log_event(
                 logger,

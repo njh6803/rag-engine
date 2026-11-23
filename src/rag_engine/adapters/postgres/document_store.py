@@ -85,6 +85,7 @@ def _document(row: sa.RowMapping) -> Document:
         modified_at=row["modified_at"],
         skip_reason=None if skip_reason is None else SkipReason(skip_reason),
         change_marker=row["change_marker"],
+        deleted_with_source=row["deleted_with_source"],
     )
 
 
@@ -109,6 +110,7 @@ def _mutable_values(document: Document) -> dict[str, object]:
         "deleted_at": document.deleted_at,
         "purged_at": document.purged_at,
         "modified_at": document.modified_at,
+        "deleted_with_source": document.deleted_with_source,
     }
 
 
@@ -222,11 +224,19 @@ class PostgresDocumentStore:
     async def list_documents(self, query: DocumentQuery) -> list[Document]:
         documents = tables.documents
         statement = sa.select(documents).order_by(documents.c.id.desc()).limit(query.limit)
+        # 지움 표시가 선 원천의 문서는 문서 행이 아직 그대로여도 지워진 문서로 읽힌다.
+        of_deleted_source = sa.exists().where(
+            tables.sources.c.id == documents.c.source_id, tables.sources.c.deleted_at.is_not(None)
+        )
         if query.state is DocumentState.DELETED:
-            statement = statement.where(documents.c.deleted_at.is_not(None))
+            statement = statement.where(
+                sa.or_(documents.c.deleted_at.is_not(None), of_deleted_source)
+            )
         elif query.state is not None:
             statement = statement.where(
-                documents.c.deleted_at.is_(None), documents.c.status == query.state.value
+                documents.c.deleted_at.is_(None),
+                ~of_deleted_source,
+                documents.c.status == query.state.value,
             )
         if query.group_id is not None:
             statement = statement.where(documents.c.group_id == query.group_id)
@@ -247,6 +257,16 @@ class PostgresDocumentStore:
             )
         )
         return {row.key: row.id for row in rows}
+
+    async def list_undeleted_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        documents = tables.documents
+        rows = await self._connection.scalars(
+            sa.select(documents.c.id)
+            .where(documents.c.source_id == source_id, documents.c.deleted_at.is_(None))
+            .order_by(documents.c.id)
+            .limit(limit)
+        )
+        return list(rows)
 
     async def has_documents_held_by_source(self, source_id: UUID) -> bool:
         documents = tables.documents

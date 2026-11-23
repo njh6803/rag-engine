@@ -2,8 +2,8 @@
 
 가져오는 원천 하나의 문서를 원천의 목록에 맞춘다. 순서는 다음과 같다.
 
-1. 동기화 기록과 원천을 읽고, 커넥터를 만들지 못하면 `connector_unavailable`로 끝낸다. 만들었으면
-   기록을 `running`으로 쓴다.
+1. 동기화 기록과 원천을 읽는다. 원천에 지움 표시가 서 있으면 `source_deleted`로 끝낸다. 커넥터를
+   만들지 못하면 `connector_unavailable`로 끝낸다. 만들었으면 기록을 `running`으로 쓴다.
 2. 목록을 끝까지 받는다. 받는 도중의 예외는 아무것도 넣지 않은 채 실패로 끝난다.
 3. 받은 목록에 수집 정책(제외 패턴, 형식, 크기)을 적용해 후보를 만든다. 걸린 파일은 사유별 개수로만
    남는다.
@@ -18,6 +18,13 @@
    지워지지 않은 문서 가운데 후보에 키가 없는 것을 문서마다 작업 단위 하나에서 임시 삭제한다. 넣은
    문서의 색인이 끝나기를 기다리지 않는다.
 6. 기록을 끝낸 상태로 쓴다. 실패로 끝나도 그때까지 센 개수를 남긴다.
+
+문서를 넣거나 지우는 작업 단위마다 맨 먼저 원천 행을 공유 잠금으로 잡고 지움 표시를 다시 본다.
+표시가 서 있으면 그 자리에서 `source_deleted`로 끝나고 그때까지 센 개수를 남긴다. 목록을 받는 중이나
+파일 하나를 읽는 중에는 이 자리에 닿지 못하므로, 작업자가 작업 담당 기록의 기한을 늘릴 때도 표시를
+본다. 거기서 본 동기화는 처리를 취소하고 `close_after_source_deleted`로 기록을 `failed`와
+`source_deleted`로 닫는다. 작업자가 센 개수의 그릇(`SyncCounts`)을 `sync_source`와
+`close_after_source_deleted`에 함께 넘기므로 이 길도 취소하기 전까지 센 개수를 남긴다.
 
 문서를 쓰는 작업 단위마다 마지막에 작업 행 조건을 본다. 어긋나면 `AttemptLostError`가 그대로
 올라가 그 시도를 버린다. 원천 쪽의 까닭으로 실패한 동기화는 이 모듈이 기록과 결과를 정해 돌려주고
@@ -72,7 +79,7 @@ from rag_engine.domain.entities import (
     SyncRecord,
     SyncRecordStatus,
 )
-from rag_engine.domain.errors import TRANSIENT_FAILURE_CODES, ErrorCode
+from rag_engine.domain.errors import TRANSIENT_FAILURE_CODES, ErrorCode, RequestError
 from rag_engine.domain.media_types import SUPPORTED_EXTENSIONS
 from rag_engine.domain.ports import ConnectorRegistry, JobOutcome, Transaction, UnitOfWork
 
@@ -127,7 +134,7 @@ class SyncFailure(Exception):
 
 
 @dataclass(slots=True)
-class _Counts:
+class SyncCounts:
     """동기화가 파일과 문서를 본 순간의 분류. 기록의 개수 칸이 된다."""
 
     listed: int | None = None
@@ -174,14 +181,15 @@ def _flatten(counts: Mapping[str, int]) -> str:
     return ",".join(f"{reason}={number}" for reason, number in sorted(counts.items()))
 
 
-async def sync_source(deps: SyncDeps, job: Job) -> JobOutcome:
+async def sync_source(deps: SyncDeps, job: Job, counts: SyncCounts | None = None) -> JobOutcome:
     """동기화 작업 하나를 끝까지 돌린다. 원천 쪽의 실패는 기록을 `failed`로 닫고 그 코드의 실패로,
-    아니면 기록을 `succeeded`로 닫고 성공으로 낸다."""
+    아니면 기록을 `succeeded`로 닫고 성공으로 낸다. `counts`는 작업자가 처리를 취소하고 기록을 닫을
+    때(`close_after_source_deleted`) 그때까지 센 개수를 읽으려고 넘기는 그릇이다."""
     started = time.perf_counter()
     async with deps.unit_of_work.begin() as transaction:
         record = await transaction.sync_records.get_by_job(job.id)
         source = await transaction.catalog.get_source_by_id(job.target_source_id)
-    if record is None or source is None or source.deleted_at is not None:
+    if record is None or source is None:
         raise RuntimeError("동기화 작업이 가리키는 기록이나 원천이 없다")
     deps.log(
         SyncLogLine(
@@ -196,7 +204,7 @@ async def sync_source(deps: SyncDeps, job: Job) -> JobOutcome:
             },
         )
     )
-    counts = _Counts()
+    counts = SyncCounts() if counts is None else counts
     code: ErrorCode | None = None
     try:
         await _sync(deps, job, source, counts)
@@ -223,7 +231,26 @@ async def sync_source(deps: SyncDeps, job: Job) -> JobOutcome:
     return JobOutcome(JobStatus.FAILED, code)
 
 
-async def _sync(deps: SyncDeps, job: Job, source: Source, counts: _Counts) -> None:
+async def _hold_live_source(transaction: Transaction, job: Job) -> None:
+    """문서를 넣거나 지우는 작업 단위가 맨 먼저 부른다. 원천 행을 공유 잠금으로 잡고 지움 표시를
+    다시 본다. 표시가 서 있으면 `source_deleted`로 끝난다(재시도 없음)."""
+    source = await transaction.catalog.lock_source_shared(job.target_source_id)
+    if source is None or source.deleted_at is not None:
+        raise SyncFailure(ErrorCode.SOURCE_DELETED)
+
+
+async def close_after_source_deleted(deps: SyncDeps, job: Job, counts: SyncCounts) -> JobOutcome:
+    """작업 담당 기록의 기한을 늘리는 쪽이 지움 표시를 봐서 처리를 멈춘 동기화를 마무리한다. 그
+    시도를 버리지 않고 기록을 `failed`와 `source_deleted`로 닫고, 취소하기 전까지 센
+    개수(`counts`)를 남긴다. 그때까지 넣은 문서와 지운 문서는 그대로 두고 남은 삭제는 반영하지
+    않는다."""
+    await _close(deps, job, counts, ErrorCode.SOURCE_DELETED)
+    return JobOutcome(JobStatus.FAILED, ErrorCode.SOURCE_DELETED)
+
+
+async def _sync(deps: SyncDeps, job: Job, source: Source, counts: SyncCounts) -> None:
+    if source.deleted_at is not None:
+        raise SyncFailure(ErrorCode.SOURCE_DELETED)
     reader = _open(deps, source)
     await _mark_running(deps, job)
     items = await _list(reader)
@@ -256,6 +283,7 @@ async def _mark_running(deps: SyncDeps, job: Job) -> None:
     """기록을 `running`으로 쓰고 개수를 비운다. 작업자가 죽어 다른 작업자가 처음부터 다시 돌 때도
     개수는 마지막 시도가 본 것이다."""
     async with deps.unit_of_work.begin() as transaction:
+        await _hold_live_source(transaction, job)
         record = await _record_of(transaction, job)
         await transaction.sync_records.update(
             replace(
@@ -319,7 +347,7 @@ async def _list(reader: SourceReader) -> dict[str, ListedItem]:
 
 
 def _candidates(
-    deps: SyncDeps, source: Source, items: Mapping[str, ListedItem], counts: _Counts
+    deps: SyncDeps, source: Source, items: Mapping[str, ListedItem], counts: SyncCounts
 ) -> dict[str, ListedItem]:
     """수집 정책에 걸리지 않은 항목을 키로 묶어 낸다. 걸린 파일은 처음 걸린 사유 하나로 센다."""
     candidates: dict[str, ListedItem] = {}
@@ -338,7 +366,7 @@ def _candidates(
 
 
 async def _guard_empty_list(
-    deps: SyncDeps, job: Job, source: Source, counts: _Counts, kept: Collection[str]
+    deps: SyncDeps, job: Job, source: Source, counts: SyncCounts, kept: Collection[str]
 ) -> None:
     """후보가 하나도 남지 않았는데 그 원천에 지워지지 않은 문서가 있으면 삭제를 반영하지 않고
     동기화를 실패로 끝낸다(명세 "동기화의 차례"의 빈 목록 판정). 폴더가 안 붙은 자리를 빈 폴더로
@@ -367,7 +395,7 @@ async def _live_keys(deps: SyncDeps, source: Source) -> dict[str, UUID]:
 
 
 async def _apply_deletions(
-    deps: SyncDeps, job: Job, source: Source, kept: Collection[str], counts: _Counts
+    deps: SyncDeps, job: Job, source: Source, kept: Collection[str], counts: SyncCounts
 ) -> None:
     """후보에 키가 없는 문서를 문서마다 작업 단위 하나에서 임시 삭제한다. 읽지 못해 실패로 센
     파일은 후보에 있으므로 지우지 않고, 읽다가 `too_large`가 난 파일은 후보에서 빠졌으므로 그 키의
@@ -377,10 +405,11 @@ async def _apply_deletions(
             await _delete_one(deps, job, document_id, counts)
 
 
-async def _delete_one(deps: SyncDeps, job: Job, document_id: UUID, counts: _Counts) -> None:
+async def _delete_one(deps: SyncDeps, job: Job, document_id: UUID, counts: SyncCounts) -> None:
     """문서 하나를 지운다. 잠그고 보니 이미 지워졌으면 아무것도 하지 않고 세지도 않는다. 잠금
     순서는 문서 행, 지식베이스 행, 작업 행이다."""
     async with deps.unit_of_work.begin() as transaction:
+        await _hold_live_source(transaction, job)
         document = await transaction.documents.lock(document_id)
         if document is not None and _is_live(document):
             await delete_locked_document(transaction, document, deps.now())
@@ -399,13 +428,14 @@ async def _reconcile(
     source: Source,
     reader: SourceReader,
     item: ListedItem,
-    counts: _Counts,
+    counts: SyncCounts,
 ) -> None:
     """후보 하나를 문서와 대 보고 맞춘다. 변경 확인값이 같으면 파일을 읽지 않는다. 다만 "모두 다시
     읽기"를 켠 동기화는 확인값이 같아도 읽어 내용 해시를 비교한다. 내용이 그대로인 문서는 색인이
     실패했거나 건너뛴 것을 골라 색인 작업을 다시 넣는다(`_settle_unchanged`)."""
     reread = _rereads(job)
     async with deps.unit_of_work.begin() as transaction:
+        await _hold_live_source(transaction, job)
         existing = await transaction.documents.get_by_key(source.id, item.key)
         if (
             not reread
@@ -426,23 +456,28 @@ async def _reconcile(
     if existing is not None and _is_live(existing) and existing.content_hash == content_hash:
         await _refresh_marker(deps, job, existing, item, counts)
         return
-    result = await ingest_pulled_document(
-        deps.unit_of_work,
-        PulledDocument(
-            source=source,
-            key=item.key,
-            data=fetched.data,
-            content_hash=content_hash,
-            mime=SUPPORTED_EXTENSIONS[PurePosixPath(item.key).suffix.lower()],
-            title=_title(item.key, fetched.metadata),
-            metadata=fetched.metadata,
-            updated_at=fetched.updated_at,
-            change_marker=item.change_marker,
-        ),
-        request_id=job.request_id,
-        now=deps.now(),
-        holding=job,
-    )
+    try:
+        result = await ingest_pulled_document(
+            deps.unit_of_work,
+            PulledDocument(
+                source=source,
+                key=item.key,
+                data=fetched.data,
+                content_hash=content_hash,
+                mime=SUPPORTED_EXTENSIONS[PurePosixPath(item.key).suffix.lower()],
+                title=_title(item.key, fetched.metadata),
+                metadata=fetched.metadata,
+                updated_at=fetched.updated_at,
+                change_marker=item.change_marker,
+            ),
+            request_id=job.request_id,
+            now=deps.now(),
+            holding=job,
+        )
+    except RequestError as error:
+        if error.code is ErrorCode.SOURCE_DELETED:
+            raise SyncFailure(ErrorCode.SOURCE_DELETED) from None
+        raise
     _count_ingested(result, counts)
 
 
@@ -450,7 +485,7 @@ def _is_live(document: Document) -> bool:
     return document.deleted_at is None and document.purged_at is None
 
 
-async def _fetch(reader: SourceReader, item: ListedItem, counts: _Counts) -> FetchedItem | None:
+async def _fetch(reader: SourceReader, item: ListedItem, counts: SyncCounts) -> FetchedItem | None:
     """파일을 읽는다. 읽지 못한 파일은 실패로 세고 `None`을 낸다. 커넥터가 `too_large`로 알리면
     수집 정책에 걸린 파일로 세고 후보에서 뺀다. 한도를 넘기거나 막히면 동기화를
     `source_unreadable`로 끝낸다(남은 파일을 하나씩 실패로 세지 않는다)."""
@@ -493,7 +528,7 @@ class _Standing:
         코드가 무엇이든 모두 다시 넣는다."""
         return self.skip_reason is not None or self.failure is not None
 
-    def count(self, counts: _Counts) -> None:
+    def count(self, counts: SyncCounts) -> None:
         """건너뜀이면 사유별 `skipped`, 실패로 남아 있으면 오류 코드별 `failed`, 그 밖이면
         `unchanged`로 센다."""
         if self.skip_reason is not None:
@@ -523,7 +558,7 @@ async def _settle_unchanged(
     job: Job,
     transaction: Transaction,
     document: Document,
-    counts: _Counts,
+    counts: SyncCounts,
 ) -> bool:
     """내용이 그대로인 파일을 그 문서의 지금 상태로 세고, 다시 시도시킬 상태면 그 문서의 색인 작업을
     다시 넣는다. 다시 넣었으면 참을 낸다. 부른 쪽이 그 작업 단위의 끝에서 작업 행 조건을 본다. 다시
@@ -554,7 +589,7 @@ def _title(key: str, metadata: Mapping[str, JsonValue]) -> str:
     return unicodedata.normalize("NFC", PurePosixPath(key).stem)
 
 
-def _count_ingested(result: IngestResult, counts: _Counts) -> None:
+def _count_ingested(result: IngestResult, counts: SyncCounts) -> None:
     if result.action in (IngestAction.CREATED, IngestAction.RESTORED):
         counts.added += 1
     elif result.action is IngestAction.UPDATED:
@@ -568,12 +603,13 @@ async def _refresh_marker(
     job: Job,
     document: Document,
     item: ListedItem,
-    counts: _Counts,
+    counts: SyncCounts,
 ) -> None:
     """읽어 보니 내용이 같은 문서다. 변경 확인값만 새 값으로 적고 다른 칸은 고치지 않는다(갱신일을
     고치면 조각의 복사 칸까지 다시 써야 한다). 값이 이미 같으면(모두 다시 읽기) 쓰지 않는다. 그 뒤
     색인이 실패했거나 건너뛴 문서는 색인 작업을 다시 넣는다(`_settle_unchanged`)."""
     async with deps.unit_of_work.begin() as transaction:
+        await _hold_live_source(transaction, job)
         locked = await transaction.documents.lock(document.id)
         if locked is not None and _is_live(locked):
             marked = replace(locked, change_marker=item.change_marker)
@@ -596,7 +632,7 @@ async def fail_record(transaction: Transaction, job: Job, code: ErrorCode, now: 
     )
 
 
-async def _close(deps: SyncDeps, job: Job, counts: _Counts, code: ErrorCode | None) -> None:
+async def _close(deps: SyncDeps, job: Job, counts: SyncCounts, code: ErrorCode | None) -> None:
     """기록을 끝낸 상태로 쓴다. 실패로 끝나도 그때까지 센 개수를 남긴다."""
     async with deps.unit_of_work.begin() as transaction:
         record = await _record_of(transaction, job)

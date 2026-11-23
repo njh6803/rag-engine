@@ -136,6 +136,32 @@ class PostgresJobQueue:
             )
         )
 
+    async def lock_queued_source_job(self, source_id: UUID, kind: JobKind) -> Job | None:
+        jobs = tables.jobs
+        row = (
+            (
+                await self._connection.execute(
+                    sa.select(jobs)
+                    .where(
+                        jobs.c.source_id == source_id,
+                        jobs.c.kind == kind.value,
+                        jobs.c.status == JobStatus.QUEUED.value,
+                    )
+                    .with_for_update()
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        return None if row is None else _job(row)
+
+    async def delete_queued_job(self, job_id: UUID) -> None:
+        await self._connection.execute(
+            sa.delete(tables.jobs).where(
+                tables.jobs.c.id == job_id, tables.jobs.c.status == JobStatus.QUEUED.value
+            )
+        )
+
     async def lock_queued_documents(self, document_ids: Sequence[UUID]) -> set[UUID]:
         # psycopg는 한 문장에 바인드 파라미터를 65535개까지만 받으므로 `IN` 목록을 묶음으로 나눠
         # 문장을 여러 번 보낸다. 묶음 사이의 잠금 순서는 전체 ID 순이 아니지만, 이 함수를 부르는

@@ -41,17 +41,24 @@ async def delete_document(
 
 
 async def delete_locked_document(
-    transaction: Transaction, document: Document, now: datetime
+    transaction: Transaction, document: Document, now: datetime, *, with_source: bool = False
 ) -> None:
     """이미 잠근, 아직 지워지지 않은 문서를 임시 삭제한다. 작업 단위 하나가 문서 하나를 지우는
-    규칙이고 수집 API의 삭제와 동기화의 삭제 반영이 함께 쓴다. 부르는 쪽이 문서 행을 먼저 잠그고,
-    작업 행은 이 함수 뒤에 잠근다(잠금 순서)."""
+    규칙이고 수집 API의 삭제와 동기화의 삭제 반영과 원천 삭제 작업이 함께 쓴다. 부르는 쪽이 문서
+    행을 먼저 잠그고, 작업 행은 이 함수 뒤에 잠근다(잠금 순서). `with_source`는 원천 삭제 작업이
+    준다. 원천과 함께 지워졌다는 표시를 세워, 뒤에 원천을 되살릴 때 따로 지운 문서와 가른다."""
     knowledge_bases = await transaction.catalog.list_knowledge_bases_of_group(document.group_id)
     await transaction.catalog.lock_knowledge_bases(
         [knowledge_base.id for knowledge_base in knowledge_bases], LockMode.UPDATE
     )
     await transaction.documents.update(
-        replace(document, deleted_at=now, generation=document.generation + 1, modified_at=now)
+        replace(
+            document,
+            deleted_at=now,
+            generation=document.generation + 1,
+            modified_at=now,
+            deleted_with_source=with_source,
+        )
     )
     await transaction.index.archive_chunks(document.id, now)
     await transaction.index.delete_states(document.id)

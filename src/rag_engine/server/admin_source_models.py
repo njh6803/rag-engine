@@ -6,10 +6,12 @@
 """
 
 from typing import Annotated, Final, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, field_validator
 
 from rag_engine.app.admin_sources import SourceReport
+from rag_engine.app.delete_source import SourceDeletionRequested
 from rag_engine.app.pull_sources import ConnectionCheck
 from rag_engine.domain.connectors import ConnectionCheckCode
 from rag_engine.domain.entities import SourceKind
@@ -171,3 +173,15 @@ class SourceResponse(BaseModel):
 
 class SourceListResponse(BaseModel):
     sources: list[SourceResponse]
+
+
+class SourceDeletionResponse(BaseModel):
+    """원천 삭제 요청의 응답(202). 문서를 옮기는 일은 뒤에서 이 작업이 한다."""
+
+    model_config = ConfigDict(frozen=True)
+
+    job_id: UUID = Field(description="대기열에 넣은 원천 삭제 작업의 식별자")
+
+    @staticmethod
+    def of(requested: SourceDeletionRequested) -> "SourceDeletionResponse":
+        return SourceDeletionResponse(job_id=requested.job_id)

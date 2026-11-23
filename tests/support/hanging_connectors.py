@@ -11,6 +11,8 @@ import asyncio
 import threading
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 
+from tests.support.holding_connectors import EndlessConnector
+
 from rag_engine.domain.connectors import (
     CONNECTOR_INTERFACE_VERSION,
     FetchedItem,
@@ -40,8 +42,11 @@ class Plan:
         fetch_ok: int | None = None,
         list_delay: float = 0.0,
         in_thread: bool = False,
+        endless_cap: int | None = None,
     ) -> None:
         self.files = dict(files)
+        # 주면 `list()`가 파일 대신 항목을 끝없이 낸다(`EndlessConnector`). `cap`개를 넘기면 오류다.
+        self.endless_cap = endless_cap
         self.marker = "m1"
         self.hang_list = hang_list
         self.fetch_ok = fetch_ok
@@ -92,6 +97,9 @@ class PlannedConnector:
             await asyncio.sleep(plan.list_delay)
         if plan.hang_list:
             await plan.hold()
+        if plan.endless_cap is not None:
+            async for item in EndlessConnector(cap=plan.endless_cap).list():
+                yield item
         for key, data in plan.files.items():
             yield ListedItem(key=key, change_marker=plan.marker, size_bytes=len(data))
 
@@ -125,6 +133,7 @@ class World:
         fetch_ok: int | None = None,
         list_delay: float = 0.0,
         in_thread: bool = False,
+        endless_cap: int | None = None,
     ) -> Plan:
         made = Plan(
             files or {},
@@ -132,6 +141,7 @@ class World:
             fetch_ok=fetch_ok,
             list_delay=list_delay,
             in_thread=in_thread,
+            endless_cap=endless_cap,
         )
         PLANS[folder] = made
         return made

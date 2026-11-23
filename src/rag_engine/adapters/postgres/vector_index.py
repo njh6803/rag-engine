@@ -129,17 +129,23 @@ def _candidate_parts(query: SearchQuery) -> _CandidateParts:
 
 def _final_select(query: SearchQuery, extra_columns: str, order_by: str) -> str:
     """합친 `fused` CTE에 조각, 문서, 원천의 칸을 붙이고 질의한 판이 현재 판인지 읽는 마지막
-    `SELECT`. 후보가 없어도 `is_current`를 읽도록 한 줄은 늘 나온다."""
+    `SELECT`. 후보가 없어도 `is_current`를 읽도록 한 줄은 늘 나온다.
+
+    지움 표시가 선 원천의 조각은 안쪽 `JOIN`에서 빠진다(원천을 지운 순간부터 그 원천의 문서는 지워진
+    문서로 읽힌다. 후보를 뽑는 질의는 조각 표만 읽는다). 안쪽 결과를 `LEFT JOIN`으로 붙여 한 줄을
+    늘 내므로 후보가 모두 빠져도 `is_current`를 읽는다. `order_by`는 안쪽 칸 이름(`r.`)으로
+    적는다."""
     return (
         f" SELECT (SELECT current_index_version_id = '{query.index_version_id}'"
-        f" FROM knowledge_bases WHERE id = '{query.knowledge_base_id}') AS is_current,"
-        " c.id, c.document_id, s.name AS source, d.key, d.title, c.text, c.location,"
+        f" FROM knowledge_bases WHERE id = '{query.knowledge_base_id}') AS is_current, r.*"
+        " FROM (SELECT 1) AS one LEFT JOIN ("
+        "SELECT c.id, c.document_id, s.name AS source, d.key, d.title, c.text, c.location,"
         " c.updated_at, c.effective_date, c.access_groups, d.metadata, f.score"
         + extra_columns
-        + " FROM (SELECT 1) AS one LEFT JOIN fused f ON true"
-        " LEFT JOIN chunks c ON c.id = f.id"
-        " LEFT JOIN documents d ON d.id = c.document_id"
-        " LEFT JOIN sources s ON s.id = d.source_id"
+        + " FROM fused f JOIN chunks c ON c.id = f.id"
+        " JOIN documents d ON d.id = c.document_id"
+        " JOIN sources s ON s.id = d.source_id AND s.deleted_at IS NULL"
+        ") r ON true"
         f" ORDER BY {order_by}"
     )
 
@@ -152,7 +158,7 @@ def search_sql(query: SearchQuery) -> str:
         f" FROM {parts.joined} ORDER BY score DESC, id LIMIT :candidates)"
     )
     return f"WITH {', '.join([*parts.ctes, fused])}" + _final_select(
-        query, "", "f.score DESC NULLS LAST, c.id"
+        query, "", "r.score DESC NULLS LAST, r.id"
     )
 
 
@@ -180,7 +186,7 @@ def diagnosis_sql(query: SearchQuery, scan: CandidateScan) -> str:
         + _final_select(
             query,
             ", c.ordinal, f.vector_rank, f.keyword_rank, f.fused_rank",
-            "f.fused_rank NULLS LAST, c.id",
+            "r.fused_rank NULLS LAST, r.id",
         )
     )
 

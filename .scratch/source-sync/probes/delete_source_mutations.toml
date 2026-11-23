@@ -1,0 +1,116 @@
+# source-sync 11(원천 삭제)의 시험이 지움 표시를 보는 자리마다 빨개지는지 본다. 검색에서 빼는 SQL,
+# 수집의 거절과 잠금, 색인 작업의 첫째 단계, 동기화의 시작, 작업 담당 기록의 연장, 원천과 함께
+# 지웠다는 표시를 하나씩 깨뜨린다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/source-sync/probes/delete_source_mutations.toml
+
+[[mutation]]
+name = "원천과 함께 지운 문서에 그 표시를 세우지 않는다"
+tests = ["tests/server/test_delete_source_round_trip.py"]
+expect = "red"
+expect_output = ["('b.docx', True, False) != ('b.docx', True, True)"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/delete_source.py"
+old = '''deleted_at, with_source=True)'''
+new = '''deleted_at, with_source=False)'''
+
+[[mutation]]
+name = "수집 API가 지운 원천을 거절하지 않는다"
+tests = ["tests/server/test_delete_source_round_trip.py"]
+expect = "red"
+expect_output = ["JSONDecodeError: Expecting value"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/source_lookup.py"
+old = '''    ensure_not_deleted(source)
+    if source.kind is not SourceKind.PUSH:
+'''
+new = '''    if source.kind is not SourceKind.PUSH:
+'''
+
+[[mutation]]
+name = "지운 원천의 조각을 검색 SQL에서 거르지 않는다"
+tests = ["tests/server/test_delete_source_round_trip.py"]
+expect = "red"
+expect_output = ["Extra items in the left set:"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/vector_index.py"
+old = '''" JOIN sources s ON s.id = d.source_id AND s.deleted_at IS NULL"'''
+new = '''" JOIN sources s ON s.id = d.source_id"'''
+
+[[mutation]]
+name = "수집의 작업 단위가 원천 행을 공유 잠금으로 잡지 않는다"
+tests = ["tests/app/test_delete_source.py"]
+expect = "red"
+expect_output = ["Left contains one more item: '가.docx'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/ingest.py"
+old = '''    await lock_live_source(transaction, upload.source_id)
+'''
+new = '''    pass
+'''
+
+[[mutation]]
+name = "색인 작업의 첫째 단계가 지운 원천을 보지 않는다"
+tests = ["tests/app/test_index_document.py"]
+expect = "red"
+expect_output = ["At index 0 diff: 2 != 1"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/index_document.py"
+old = '''        if source is not None and source.deleted_at is not None:
+            return None
+'''
+new = '''        if False:
+            return None
+'''
+
+[[mutation]]
+name = "동기화가 시작할 때 지움 표시를 보지 않는다"
+tests = ["tests/app/test_delete_source.py"]
+expect = "red"
+expect_output = ["At index 0 diff: 1 != 0"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''    if source.deleted_at is not None:
+        raise SyncFailure(ErrorCode.SOURCE_DELETED)
+    reader = _open(deps, source)
+'''
+new = '''    reader = _open(deps, source)
+'''
+
+[[mutation.edit]]
+file = "src/rag_engine/app/sync_source.py"
+old = '''    if source is None or source.deleted_at is not None:
+        raise SyncFailure(ErrorCode.SOURCE_DELETED)
+'''
+new = '''    if source is None:
+        raise SyncFailure(ErrorCode.SOURCE_DELETED)
+'''
+
+[[mutation]]
+name = "작업 담당 기록을 늘릴 때 원천의 지움 표시를 보지 않는다"
+tests = ["tests/app/test_delete_source.py"]
+expect = "red"
+expect_output = ["'connector_error' != 'source_deleted'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''    return source is not None and source.deleted_at is not None
+'''
+new = '''    return False
+'''
+
+[[mutation]]
+name = "기한을 늘릴 때 멈춘 동기화가 센 개수를 남기지 않는다"
+tests = ["tests/app/test_delete_source.py"]
+expect = "red"
+expect_output = ["At index 0 diff: None != 2"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''on_source_deleted=lambda: close_after_source_deleted(sync_deps, job, counts),'''
+new = '''on_source_deleted=lambda: close_after_source_deleted(sync_deps, job, SyncCounts()),'''

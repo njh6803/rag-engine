@@ -27,7 +27,7 @@ from uuid import UUID
 
 from rag_engine.app.admin_sources import SourceReport, source_report
 from rag_engine.app.default_records import DEFAULT_NAME
-from rag_engine.app.source_lookup import require_pull_source
+from rag_engine.app.source_lookup import ensure_not_deleted, require_pull_source
 from rag_engine.domain.connectors import (
     SERVER_PATH_CONNECTOR,
     ConnectionCheckCode,
@@ -219,6 +219,8 @@ class PullSources:
                 if location is not None:
                     await catalog.lock_source_folders()
                 latest = await require_pull_source(transaction, name)
+                # 원천을 지우는 요청과 겹치면 잠금을 기다린 뒤 지움 표시를 다시 본다.
+                ensure_not_deleted(await catalog.lock_source(latest.id) or latest)
                 if location is not None and stored is not None:
                     await self._reject_overlap(catalog, stored, location, own=latest.id)
                 await catalog.update_pull_source(
@@ -237,6 +239,7 @@ class PullSources:
             catalog = transaction.catalog
             current = await require_pull_source(transaction, name)
             locked = await catalog.lock_source(current.id) or current
+            ensure_not_deleted(locked)
             await catalog.set_source_paused(current.id, paused=paused)
             if paused:
                 await catalog.set_next_run_at(current.id, None)

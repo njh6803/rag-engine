@@ -2,8 +2,9 @@
 
 이 문서를 그 그룹이 든 모든 지식베이스의 살아 있는 색인 판에 맞춘다. 순서는 넷이다.
 
-1. 작업 단위 하나에서 문서 행을 잠그고 작업 행 조건을 본 뒤, 지워진 문서면 아무것도 하지 않고
-   성공으로 끝내고, 아니면 세대를 올려 작업 행에 적는다. 그때의 내용 해시와 원본 경로를 기억한다.
+1. 작업 단위 하나에서 문서가 속한 원천 행을 공유 잠금으로, 이어서 문서 행을 잠그고 작업 행 조건을
+   본 뒤, 지워진 문서이거나 지움 표시가 선 원천의 문서면 아무것도 하지 않고 성공으로 끝내고, 아니면
+   세대를 올려 작업 행에 적는다. 그때의 내용 해시와 원본 경로를 기억한다.
 2. 파싱 결과가 없거나, 파싱한 내용 해시가 다르거나, 파서 버전이 바뀌었으면 원본을 파싱해 파싱 결과
    행을 쓰고 문서 상태를 `parsed`로 쓴다.
 3. 살아 있는 판을 대상 판으로 읽어 판마다 청킹, 토큰 세기, 임베딩, 키워드 토큰화를 한 뒤, 작업 단위
@@ -200,11 +201,21 @@ def _has_text(content: DocumentContent) -> bool:
 
 
 async def _raise_generation(deps: IndexDocumentDeps, job: Job) -> _Claim | None:
-    """첫째 단계. 지워진 문서면 `None`이다."""
+    """첫째 단계. 지워진 문서이거나 지운 원천의 문서면 `None`이다. 잠금 순서(원천 행, 문서 행, 작업
+    행)를 지키려고 문서가 속한 원천을 먼저 읽어 공유 잠금으로 잡는다. 문서의 원천은 바뀌지
+    않는다."""
     async with deps.unit_of_work.begin() as transaction:
+        peeked = await transaction.documents.get(job.index_document_id)
+        source = (
+            None
+            if peeked is None
+            else await transaction.catalog.lock_source_shared(peeked.source_id)
+        )
         document = await transaction.documents.lock(job.index_document_id)
         await hold_attempt(transaction, job)
         if document is None or document.deleted_at is not None or document.purged_at is not None:
+            return None
+        if source is not None and source.deleted_at is not None:
             return None
         generation = document.generation + 1
         await transaction.documents.update(

@@ -257,6 +257,9 @@ class Document:
     # 커넥터가 준 변경 확인값. 밀어 넣는 원천의 문서에서는 비어 있다. 색인 작업이 원천이 목록 뒤에
     # 바뀐 것을 알아내면 비워서 다음 동기화가 그 파일을 다시 읽게 한다.
     change_marker: str | None = None
+    # 원천을 지우는 작업이 이 문서를 지웠다. 따로 지운 문서와 갈라 원천을 되살릴 때 이 문서만
+    # 되살린다. 문서가 지워지지 않았거나 따로 지웠으면 거짓이다.
+    deleted_with_source: bool = False
 
     @property
     def state(self) -> DocumentState:
