@@ -554,6 +554,12 @@ def test_main_은_준비한_주소를_검사들이_물려받을_환경에_넣는
     monkeypatch.setattr(run_checks, "prepare_test_database", 준비된_주소)
     monkeypatch.setattr(run_checks, "run", 환경을_기록하고_통과한다)
 
+    # 진짜 색인에 문서만 스테이징돼 있으면 러너가 데이터베이스를 준비하지 않아 이 시험이 깨진다
+    def 코드를_스테이징했다(_: Path) -> list[str]:
+        return ["src/rag_engine/main.py"]
+
+    monkeypatch.setattr(run_checks, "staged_paths", 코드를_스테이징했다)
+
     assert run_checks.main() == 0
     assert seen == ["postgresql://ready/x"]
 

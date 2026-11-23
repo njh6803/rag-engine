@@ -13,19 +13,29 @@ import os
 import subprocess
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 from tools.run_checks import (
     CHECKS,
+    DOC_STATE_TESTS,
     Check,
     Running,
+    checks_for,
+    docs_only,
+    is_doc_path,
+    needs_test_database,
     pyright_checks,
     pytest_workers,
     run,
     run_one,
     skipped_ids,
+    staged_paths,
 )
+
+from tools import run_checks
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -331,3 +341,305 @@ def test_이_저장소의_pre_commit_은_러너의_검사를_따로_등록하지
     for check in CHECKS:
         assert " ".join(check.command) not in entries, check.id
         assert check.id not in hook_ids, check.id
+
+
+# --- 문서만 바꾼 커밋은 pytest 를 문서를 읽는 시험으로 좁힌다 -----------------------------------
+# 문서만 바꾼 커밋의 pre-commit 이 전체 pytest 를 약 7분에서 21분 돌았다(대기열
+# docs-only-commit-full-pytest 의 기록 434초~1292초).
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "CLAUDE.md",
+        "GLOSSARY.md",
+        "CODING_STANDARDS.md",
+        "README.md",
+        "docs/PRD.md",
+        "docs/adr/0001-x.md",
+        "docs/journal/2026-11-23-1200-x.md",
+        ".scratch/plan.md",
+        ".scratch/harness/issues/x.md",
+        ".scratch/core/probes/facts/out.txt",
+        ".scratch/core/probes/facts/out.json",
+        ".scratch/search-eval/probes/report.tsv",
+        ".scratch/search-eval/probes/report.csv",
+    ],
+)
+def test_문서_범위_안의_경로는_문서다(path: str) -> None:
+    assert is_doc_path(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/rag_engine/main.py",
+        "tests/test_plan_status.py",
+        "tools/run_checks.py",
+        "pyproject.toml",
+        "uv.lock",
+        ".github/workflows/ci.yml",
+        ".claude/rules/tests.md",
+        ".claude/skills/retro/SKILL.md",
+        ".pre-commit-config.yaml",
+        "evals/public-docs/a.md",
+        "deploy/standalone/README.md",
+        "docs/diagram.png",
+        "docs/data.json",
+        ".scratch/core/probes/facts/run.py",
+        ".scratch/core/probes/facts/run.sh",
+        ".scratch/core/probes/x_mutations.toml",
+        ".scratch/core/probes/facts/a.yml",
+        "src/notes.md",
+        "tests/notes.md",
+        "web/README.md",
+        "docs",
+        "",
+    ],
+)
+def test_문서_범위_밖의_경로는_문서가_아니다(path: str) -> None:
+    """같은 확장자라도 자리가 다르면 시험이 읽는 파일일 수 있다. `docs/` 아래의 `.json` 은 문서
+    범위가 아니고, `.scratch/` 아래에서만 프로브 출력(`.txt` `.json` `.tsv` `.csv`)을 문서로
+    센다."""
+    assert not is_doc_path(path)
+
+
+def test_스테이징한_경로가_전부_문서일_때만_문서만_바꾼_커밋이다() -> None:
+    assert docs_only(["docs/PRD.md", ".scratch/plan.md"])
+    assert not docs_only(["docs/PRD.md", "src/rag_engine/main.py"])
+    assert not docs_only(["tools/run_checks.py"])
+
+
+def test_스테이징한_경로가_없으면_문서만_바꾼_커밋이_아니다() -> None:
+    """빈 목록은 `all([])` 이 참이라, 막지 않으면 빈 커밋이 좁힌 시험으로 지난다."""
+    assert not docs_only([])
+
+
+def _pytest_검사(checks: tuple[Check, ...]) -> Check:
+    (found,) = [check for check in checks if check.id == "pytest"]
+    return found
+
+
+def test_문서만_바꾼_커밋은_pytest_를_문서_시험으로만_좁힌다() -> None:
+    command = _pytest_검사(checks_for(["docs/PRD.md"])).command
+
+    assert command[:4] == ("uv", "run", "pytest", "-q")
+    assert command[4:] == DOC_STATE_TESTS
+    assert "-n" not in command
+
+
+def test_pytest_밖의_검사는_문서만_바꾼_커밋에서도_그대로다() -> None:
+    narrowed = checks_for(["docs/PRD.md"])
+
+    assert [check.id for check in narrowed] == [check.id for check in CHECKS]
+    assert [check for check in narrowed if check.id != "pytest"] == [
+        check for check in CHECKS if check.id != "pytest"
+    ]
+
+
+def test_좁힌_pytest_는_전체_pytest_보다_짧은_시간_제한을_둔다() -> None:
+    """넷을 손으로 돌려 24~165초였다. 멈추면 전체 pytest 의 시간 제한을 기다리지 않는다."""
+    assert _pytest_검사(checks_for(["docs/PRD.md"])).timeout < _pytest_검사(CHECKS).timeout
+
+
+@pytest.mark.parametrize(
+    "staged",
+    [None, [], ["src/rag_engine/main.py"], ["docs/PRD.md", "tools/run_checks.py"]],
+    ids=["읽지_못함", "빈_목록", "코드", "문서와_코드"],
+)
+def test_문서만_바꾼_커밋이_아니면_전체_pytest_를_돈다(staged: list[str] | None) -> None:
+    assert checks_for(staged) == CHECKS
+
+
+def test_문서만_바꾼_커밋은_시험_데이터베이스를_준비하지_않는다() -> None:
+    """좁힌 시험 넷은 데이터베이스를 쓰지 않아, Docker 가 없어도 문서 커밋을 할 수 있다."""
+    assert not needs_test_database({}, ["docs/PRD.md"])
+
+
+@pytest.mark.parametrize("staged", [None, [], ["src/rag_engine/main.py"]])
+def test_그_밖의_커밋은_시험_데이터베이스를_준비한다(staged: list[str] | None) -> None:
+    assert needs_test_database({}, staged)
+
+
+def test_SKIP_pytest_면_시험_데이터베이스를_준비하지_않는다() -> None:
+    assert not needs_test_database({"SKIP": "pytest"}, ["src/rag_engine/main.py"])
+
+
+def test_남길_문서_시험은_파일과_시험_이름이_실제로_있다() -> None:
+    """이름을 바꾸거나 지우면 좁힌 pytest 가 '시험이 없다'로 빨개지기 전에 여기서 먼저 빨개진다."""
+    assert len(DOC_STATE_TESTS) == 4
+    for item in DOC_STATE_TESTS:
+        path, _, name = item.partition("::")
+        text = (ROOT / path).read_text(encoding="utf-8")
+        assert not name or f"def {name}(" in text, item
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+        cwd=repo,
+        capture_output=True,
+        check=True,
+        timeout=30,
+    )
+
+
+def _저장소(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    (repo / "base.md").write_text("처음\n", encoding="utf-8")
+    _git(repo, "add", "base.md")
+    _git(repo, "commit", "-q", "-m", "base")
+    return repo
+
+
+def test_스테이징한_경로를_읽는다(tmp_path: Path) -> None:
+    repo = _저장소(tmp_path)
+    (repo / "docs").mkdir()
+    (repo / "docs" / "한글 문서.md").write_text("글\n", encoding="utf-8")
+    (repo / "code.py").write_text("x = 1\n", encoding="utf-8")
+    (repo / "unstaged.md").write_text("안 올림\n", encoding="utf-8")
+    _git(repo, "add", "docs/한글 문서.md", "code.py")
+
+    assert sorted(staged_paths(repo) or []) == ["code.py", "docs/한글 문서.md"]
+
+
+def test_이름을_바꾼_파일은_옛_경로와_새_경로를_모두_읽는다(tmp_path: Path) -> None:
+    """코드 파일을 문서 경로로 옮기는 커밋이 새 경로만 보여 문서만 바꾼 커밋으로 읽히지 않게
+    한다."""
+    repo = _저장소(tmp_path)
+    (repo / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    _git(repo, "add", "mod.py")
+    _git(repo, "commit", "-q", "-m", "code")
+    (repo / "docs").mkdir()
+    _git(repo, "mv", "mod.py", "docs/mod.md")
+
+    paths = staged_paths(repo)
+
+    assert paths is not None
+    assert sorted(paths) == ["docs/mod.md", "mod.py"]
+    assert not docs_only(paths)
+
+
+def test_지운_파일도_스테이징한_경로로_읽는다(tmp_path: Path) -> None:
+    repo = _저장소(tmp_path)
+    (repo / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    _git(repo, "add", "mod.py")
+    _git(repo, "commit", "-q", "-m", "code")
+    _git(repo, "rm", "-q", "mod.py")
+
+    assert staged_paths(repo) == ["mod.py"]
+
+
+def test_코드를_커밋한_뒤_문서만_스테이징하면_문서만으로_읽힌다(tmp_path: Path) -> None:
+    """`git commit --amend` 의 한계를 고정한다. `--cached` 는 옛 HEAD 와 색인의 차이만 읽어서,
+    코드가 든 커밋을 고치며 문서만 스테이징하면 완성되는 커밋에 코드가 있어도 문서만으로 읽힌다."""
+    repo = _저장소(tmp_path)
+    (repo / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    _git(repo, "add", "mod.py")
+    _git(repo, "commit", "-q", "-m", "code")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "note.md").write_text("글\n", encoding="utf-8")
+    _git(repo, "add", "docs/note.md")
+
+    assert docs_only(staged_paths(repo))
+
+
+def test_스테이징한_것이_없으면_빈_목록이다(tmp_path: Path) -> None:
+    assert staged_paths(_저장소(tmp_path)) == []
+
+
+def test_저장소가_아니면_읽지_못한다고_None_이다(tmp_path: Path) -> None:
+    """읽지 못하면 전체 pytest 로 간다. 좁히는 쪽으로 틀리지 않는다."""
+    assert staged_paths(tmp_path) is None
+
+
+def test_git_이_없으면_읽지_못한다고_None_이다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _저장소(tmp_path)
+    monkeypatch.setenv("PATH", str(tmp_path))
+
+    assert staged_paths(repo) is None
+
+
+def test_git_이_시간을_넘기면_읽지_못한다고_None_이다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _저장소(tmp_path)
+
+    def 시간을_넘긴다(*_: object, **__: object) -> NoReturn:
+        raise subprocess.TimeoutExpired("git", 30)
+
+    monkeypatch.setattr(run_checks.subprocess, "run", 시간을_넘긴다)
+
+    assert staged_paths(repo) is None
+
+
+def test_읽지_못한_목록은_문서만_바꾼_커밋이_아니다() -> None:
+    assert not docs_only(None)
+
+
+def _main_을_돌린다(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    staged: list[str] | None,
+    skip: str = "",
+) -> tuple[tuple[Check, ...], list[str], str]:
+    """검사는 띄우지 않고 main 의 배관만 지난다. 러너가 받은 검사 목록, 데이터베이스를 준비한 횟수,
+    찍은 글을 돌려준다."""
+    prepared: list[str] = []
+    ran: list[tuple[Check, ...]] = []
+
+    def 스테이징한_경로(_: Path) -> list[str] | None:
+        return staged
+
+    def 데이터베이스를_준비한다(*_: object) -> str:
+        prepared.append("준비")
+        return "postgresql://ready/x"
+
+    def 검사를_기록한다(checks: Sequence[Check], *_: object) -> int:
+        ran.append(tuple(checks))
+        return 0
+
+    monkeypatch.setenv("SKIP", skip)
+    monkeypatch.setenv("RAG_TEST_DATABASE_URL", "postgresql://before/x")
+    monkeypatch.setattr(run_checks, "staged_paths", 스테이징한_경로)
+    monkeypatch.setattr(run_checks, "prepare_test_database", 데이터베이스를_준비한다)
+    monkeypatch.setattr(run_checks, "run", 검사를_기록한다)
+
+    assert run_checks.main() == 0
+    return ran[0], prepared, capsys.readouterr().out
+
+
+def test_main_은_문서만_바꾼_커밋에서_좁힌_검사를_돌리고_데이터베이스를_준비하지_않는다(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ran, prepared, out = _main_을_돌린다(monkeypatch, capsys, ["docs/PRD.md"])
+
+    assert ran == checks_for(["docs/PRD.md"])
+    assert prepared == []
+    assert "docs-only" in out
+
+
+@pytest.mark.parametrize("staged", [None, ["src/rag_engine/main.py"]], ids=["읽지_못함", "코드"])
+def test_main_은_문서만_바꾼_커밋이_아니면_전체_검사를_돌리고_데이터베이스를_준비한다(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    staged: list[str] | None,
+) -> None:
+    ran, prepared, out = _main_을_돌린다(monkeypatch, capsys, staged)
+
+    assert ran == CHECKS
+    assert prepared == ["준비"]
+    assert "docs-only" not in out
+
+
+def test_main_은_SKIP_pytest_면_문서만_바꾼_커밋이어도_좁혔다고_찍지_않는다(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _, prepared, out = _main_을_돌린다(monkeypatch, capsys, ["docs/PRD.md"], skip="pytest")
+
+    assert prepared == []
+    assert "docs-only" not in out
