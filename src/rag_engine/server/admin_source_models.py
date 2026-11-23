@@ -21,6 +21,10 @@ from rag_engine.server.source_name import SourceName
 MAX_EXCLUDE_PATTERNS: Final = 50
 MAX_EXCLUDE_PATTERN_LENGTH: Final = 200
 _CONFIG: Final = TypeAdapter(dict[str, JsonValue])
+_SCHEDULE_DESCRIPTION: Final = (
+    "일정. 분, 시, 일, 월, 요일 다섯 칸의 cron 표현식(예: `0 2 * * *`). 시각은 서버 설정의 "
+    "시간대(`RAG_SCHEDULE_TIMEZONE`)로 읽는다"
+)
 
 
 def _check_exclude_patterns(patterns: list[str]) -> list[str]:
@@ -41,7 +45,7 @@ class CreatePushSourceRequest(BaseModel):
 
 
 class CreatePullSourceRequest(BaseModel):
-    """가져오는 원천을 만드는 본문. `schedule`은 일정을 여는 티켓이 더하므로 그 전에는 422다."""
+    """가져오는 원천을 만드는 본문. `schedule`은 다섯 칸 cron 표현식이고 적지 않으면 일정이 없다."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -57,6 +61,7 @@ class CreatePullSourceRequest(BaseModel):
     exclude_patterns: list[str] = Field(
         default_factory=list, description="이 패턴에 맞는 키는 동기화에서 거른다"
     )
+    schedule: str | None = Field(default=None, description=_SCHEDULE_DESCRIPTION)
 
     @field_validator("exclude_patterns")
     @classmethod
@@ -70,7 +75,8 @@ CreateSourceRequest = Annotated[
 
 
 class UpdateSourceRequest(BaseModel):
-    """가져오는 원천을 고치는 본문. 적은 칸만 고친다. 이름, 갈래, 커넥터, 그룹은 받지 않는다."""
+    """가져오는 원천을 고치는 본문. 적은 칸만 고친다. 이름, 갈래, 커넥터, 그룹은 받지 않는다.
+    `schedule`은 적지 않으면 그대로 두고, `null`로 적으면 일정을 없앤다(`schedule_given`)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -78,6 +84,15 @@ class UpdateSourceRequest(BaseModel):
         default=None, description="새 커넥터 설정. 만들 때와 같은 확인을 다시 한다"
     )
     exclude_patterns: list[str] | None = Field(default=None, description="새 제외 패턴 목록")
+    schedule: str | None = Field(
+        default=None,
+        description=_SCHEDULE_DESCRIPTION + " `null`로 적으면 일정을 없앤다. 적지 않으면 그대로다.",
+    )
+
+    @property
+    def schedule_given(self) -> bool:
+        """요청에 `schedule` 칸이 있었는지. 없는 것(그대로 둔다)과 `null`(없앤다)을 가른다."""
+        return "schedule" in self.model_fields_set
 
     @field_validator("exclude_patterns")
     @classmethod

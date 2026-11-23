@@ -8,6 +8,7 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
+from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import FastAPI, Request
@@ -27,6 +28,7 @@ from rag_engine.adapters.postgres.index_maintenance import PostgresIndexMaintena
 from rag_engine.adapters.postgres.token_store import PostgresTokenStore
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.adapters.release_number import release_number
+from rag_engine.adapters.schedule import CronsimScheduleCalculator
 from rag_engine.adapters.settings import Settings
 from rag_engine.adapters.tei import TeiEmbedderPool, TeiRerankerPool
 from rag_engine.app.pull_sources import PullSources
@@ -177,6 +179,7 @@ def create_app(
     pull_sources = PullSources(
         unit_of_work,
         connector_registry if connector_registry is not None else EntryPointConnectorRegistry(),
+        CronsimScheduleCalculator(ZoneInfo(settings.schedule_timezone)),
     )
     admin_source_router = build_admin_source_router(unit_of_work, pull_sources)
     app.include_router(admin_query_router)

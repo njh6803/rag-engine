@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.records import NOW
 from tests.support.fake_connectors import create_fake
+from tests.support.schedule_sources import SEOUL_CALCULATOR
 
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
 from rag_engine.app.pull_sources import PullSources
@@ -108,6 +109,7 @@ async def _create(server: PullSources, name: str, folder: str) -> None:
         config={"folder": folder},
         group=GROUP,
         exclude_patterns=(),
+        schedule=None,
         now=NOW,
     )
 
@@ -123,7 +125,7 @@ async def test_글자가_달라도_같은_폴더를_가리키면_겹침이다(en
     )
 
     with pytest.raises(RequestError) as raised:
-        await _create(PullSources(unit_of_work, registry), "new", "Docs")
+        await _create(PullSources(unit_of_work, registry, SEOUL_CALCULATOR), "new", "Docs")
 
     assert raised.value.code is ErrorCode.SOURCE_FOLDER_OVERLAP
 
@@ -140,7 +142,7 @@ async def test_답하는_원천은_글자가_겹쳐_보여도_다른_폴더면_�
         answering=frozenset({"old"}),
     )
 
-    await _create(PullSources(unit_of_work, registry), "new", "docs/a")
+    await _create(PullSources(unit_of_work, registry, SEOUL_CALCULATOR), "new", "docs/a")
 
     async with unit_of_work.begin() as transaction:
         names = {source.name for source in await transaction.catalog.list_sources()}
@@ -158,7 +160,7 @@ async def test_답하지_않는_원천과는_저장된_글자를_NFC로_맞춰_�
     )
 
     with pytest.raises(RequestError) as raised:
-        await _create(PullSources(unit_of_work, registry), "new", composed)
+        await _create(PullSources(unit_of_work, registry, SEOUL_CALCULATOR), "new", composed)
 
     assert raised.value.code is ErrorCode.SOURCE_FOLDER_OVERLAP
 
@@ -171,7 +173,7 @@ async def test_답하지_않는_원천과는_토막_단위로_견주어_이름�
         {"docs2": FolderLocation("docs2", _chain(1, 5))}, answering=frozenset()
     )
 
-    await _create(PullSources(unit_of_work, registry), "new", "docs2")
+    await _create(PullSources(unit_of_work, registry, SEOUL_CALCULATOR), "new", "docs2")
 
     async with unit_of_work.begin() as transaction:
         names = {source.name for source in await transaction.catalog.list_sources()}

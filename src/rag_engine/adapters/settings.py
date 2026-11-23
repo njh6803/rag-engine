@@ -11,6 +11,7 @@
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Final, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -66,6 +67,9 @@ class Settings(BaseSettings):
     max_upload_mb: int = Field(default=100, gt=0)
     worker_concurrency: int = Field(default=2, gt=0)
     worker_poll_seconds: int = Field(default=5, gt=0)
+    # 일정 표현식의 시각을 읽는 시간대(IANA 이름). 설치 전체에 하나이고 서버와 작업자가 같은 값을
+    # 읽는다. 모르는 이름이면 기동을 거부한다(source-sync 명세 "설정"). 저장하는 시각은 모두 UTC다.
+    schedule_timezone: str = "Asia/Seoul"
     job_lease_seconds: int = Field(default=600, gt=0)
     # 작업자가 커넥터 호출 하나(목록의 다음 항목 하나, 파일 하나 읽기)를 기다리는 한도(source-sync
     # 명세 "설정"). 작업 담당 기록의 기한과 따로 둔다.
@@ -104,6 +108,16 @@ class Settings(BaseSettings):
         if not hosts:
             raise ValueError("RAG_ALLOWED_HOSTS가 비어 있다. 하나 이상 적어야 기동한다(ADR 0014)")
         return hosts
+
+    @field_validator("schedule_timezone")
+    @classmethod
+    def _require_known_timezone(cls, name: str) -> str:
+        try:
+            ZoneInfo(name)
+        except (ZoneInfoNotFoundError, ValueError, OSError):
+            # 입력 값을 메시지에 싣지 않는다(원칙 V. `load_settings`가 칸 이름과 종류만 싣는다).
+            raise ValueError("모르는 시간대 이름이다. IANA 이름을 적어야 한다") from None
+        return name
 
     @field_validator("default_reranker_url", "default_min_score", mode="before")
     @classmethod

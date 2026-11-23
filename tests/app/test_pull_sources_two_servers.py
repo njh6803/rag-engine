@@ -15,6 +15,7 @@ from uuid import UUID
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.records import NOW
+from tests.support.schedule_sources import SEOUL_CALCULATOR
 
 from rag_engine.adapters.connectors.registry import EntryPointConnectorRegistry
 from rag_engine.adapters.postgres.catalog import PostgresCatalog
@@ -35,6 +36,7 @@ async def _create(server: PullSources, name: str, folder: str) -> None:
         config={"folder": folder},
         group=GROUP,
         exclude_patterns=(),
+        schedule=None,
         now=NOW,
     )
 
@@ -60,8 +62,8 @@ async def test_서버_둘이_겹치는_폴더를_동시에_만들면_하나만_�
 
     monkeypatch.setattr(PostgresCatalog, "create_source", create_source)
     registry = EntryPointConnectorRegistry()
-    first_server = PullSources(unit_of_work, registry)
-    second_server = PullSources(unit_of_work, registry)
+    first_server = PullSources(unit_of_work, registry, SEOUL_CALCULATOR)
+    second_server = PullSources(unit_of_work, registry, SEOUL_CALCULATOR)
 
     first = asyncio.create_task(_create(first_server, "first", "a"))
     await asyncio.wait_for(entered.wait(), WAIT_SECONDS)
@@ -92,8 +94,8 @@ async def test_서버_둘에서_폴더를_고치는_요청과_겹치는_폴더�
     async with unit_of_work.begin() as transaction:
         await transaction.catalog.add_group(Group(new_id(), GROUP, ""))
     registry = EntryPointConnectorRegistry()
-    first_server = PullSources(unit_of_work, registry)
-    second_server = PullSources(unit_of_work, registry)
+    first_server = PullSources(unit_of_work, registry, SEOUL_CALCULATOR)
+    second_server = PullSources(unit_of_work, registry, SEOUL_CALCULATOR)
     await _create(first_server, "first", "a")
     entered = asyncio.Event()
     release = asyncio.Event()
@@ -113,7 +115,9 @@ async def test_서버_둘에서_폴더를_고치는_요청과_겹치는_폴더�
     monkeypatch.setattr(PostgresCatalog, "update_pull_source", update_pull_source)
 
     first = asyncio.create_task(
-        first_server.update("first", config={"folder": "x/y"}, exclude_patterns=None)
+        first_server.update(
+            "first", config={"folder": "x/y"}, exclude_patterns=None, schedule=None, now=NOW
+        )
     )
     await asyncio.wait_for(entered.wait(), WAIT_SECONDS)
     second = asyncio.create_task(_create(second_server, "second", "x"))
