@@ -202,6 +202,11 @@ class Catalog(Protocol):
         전에 `lock_source`로 잠근다."""
         ...
 
+    async def mark_source_restored(self, source_id: UUID, next_run_at: datetime | None) -> None:
+        """원천 행의 지움 표시를 걷고 다음 실행 시각을 `next_run_at`으로 쓴다. 다른 칸은 건드리지
+        않는다. 부르기 전에 `lock_source`로 잠근다."""
+        ...
+
     async def lock_due_sources(self, now: datetime) -> list[Source]:
         """다음 실행 시각이 `now` 이전이거나 같고 일시 중지도 지움 표시도 없는 가져오는 원천의 행을
         `FOR NO KEY UPDATE SKIP LOCKED`로 잠가 낸다. 다른 연결이 잡은 행은 기다리지 않고
@@ -314,15 +319,31 @@ class DocumentStore(Protocol):
         """그 원천의, 지워지지 않은 문서를 문서 상태로 센다."""
         ...
 
-    async def list_live_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
-        """그 원천의, 지워지지 않은 문서의 키마다 문서 ID를 낸다. 동기화가 삭제 반영 대상을 고르는
-        데 쓴다."""
-        ...
-
     async def list_undeleted_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
         """그 원천의, 지워지지 않은 문서(삭제 기록 행이 아닌 것)의 ID를 ID 순으로 `limit`개까지
         낸다. 원천 삭제 작업이 묶음을 고르는 데 쓴다. 지운 문서는 다음에 부를 때 빠지므로 되풀이해
         부르면 끝에 이른다."""
+        ...
+
+    async def list_held_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
+        """그 원천의, 지워지지 않은 문서와 원천과 함께 지워졌다는 표시가 남은 문서(원천 되살리기
+        작업이 아직 되살리지 않은 문서)의 키마다 문서 ID를 낸다. 동기화가 삭제 반영 대상을 고르는 데
+        쓴다. 표시가 남은 문서도 원천 폴더에 파일이 없으면 따로 지운 문서가 되어야 하기 때문이다."""
+        ...
+
+    async def list_ids_deleted_with_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        """그 원천의, 원천과 함께 지워졌다는 표시가 남은 문서(삭제 기록 행이 아닌 것)의 ID를 ID
+        순으로 `limit`개까지 낸다. 원천 되살리기 작업이 묶음을 고르는 데 쓴다. 되살린 문서는 다음에
+        부를 때 빠지므로 되풀이해 부르면 끝에 이른다."""
+        ...
+
+    async def list_stalled_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        """그 원천의, 지워지지 않은 문서 가운데 색인이 멈춘 문서의 ID를 ID 순으로 `limit`개까지
+        낸다. 색인이 멈춘 문서는 대상 판(그룹이 든 지식베이스의 현재 판과 건설 중인 판) 가운데 그
+        문서의 지금 내용으로 색인되지 않은 판이 있는데 그 문서의 색인 작업이 대기 중도 실행 중도
+        아닌 문서다. 지금 내용으로 색인되지 않은 판은 색인 상태가 `pending`이거나 상태 행이 없거나,
+        `indexed`인데 만든 내용 해시가 문서의 내용 해시와 다른 판이다. `failed`는 정착한 것으로
+        본다. 색인 작업을 넣으면 다음에 부를 때 빠진다."""
         ...
 
     async def has_documents_held_by_source(self, source_id: UUID) -> bool:
@@ -488,6 +509,11 @@ class JobQueue(Protocol):
 
     async def has_active_job(self, document_id: UUID) -> bool:
         """그 문서에 대기(`queued`)나 실행 중(`running`)인 작업이 있는지 본다."""
+        ...
+
+    async def has_active_source_job(self, source_id: UUID, kinds: Sequence[JobKind]) -> bool:
+        """그 원천에 `kinds` 가운데 한 종류의 작업이 대기(`queued`)나 실행 중(`running`)인지
+        본다. 원천을 지우거나 되살리는 요청이 앞의 작업이 끝났는지 볼 때 쓴다."""
         ...
 
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:

@@ -28,6 +28,9 @@ from rag_engine.domain.entities import (
     DocumentQuery,
     DocumentState,
     DocumentStatus,
+    IndexStateStatus,
+    IndexVersionStatus,
+    JobStatus,
     SkipReason,
 )
 from rag_engine.domain.errors import DocumentAlreadyExistsError, ErrorCode
@@ -249,20 +252,85 @@ class PostgresDocumentStore:
         rows = (await self._connection.execute(statement)).mappings().all()
         return [_document(row) for row in rows]
 
-    async def list_live_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
-        documents = tables.documents
-        rows = await self._connection.execute(
-            sa.select(documents.c.key, documents.c.id).where(
-                documents.c.source_id == source_id, documents.c.deleted_at.is_(None)
-            )
-        )
-        return {row.key: row.id for row in rows}
-
     async def list_undeleted_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
         documents = tables.documents
         rows = await self._connection.scalars(
             sa.select(documents.c.id)
             .where(documents.c.source_id == source_id, documents.c.deleted_at.is_(None))
+            .order_by(documents.c.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def list_held_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
+        documents = tables.documents
+        rows = await self._connection.execute(
+            sa.select(documents.c.key, documents.c.id).where(
+                documents.c.source_id == source_id,
+                documents.c.purged_at.is_(None),
+                sa.or_(documents.c.deleted_at.is_(None), documents.c.deleted_with_source.is_(True)),
+            )
+        )
+        return {row.key: row.id for row in rows}
+
+    async def list_ids_deleted_with_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        documents = tables.documents
+        rows = await self._connection.scalars(
+            sa.select(documents.c.id)
+            .where(
+                documents.c.source_id == source_id,
+                documents.c.purged_at.is_(None),
+                documents.c.deleted_with_source.is_(True),
+            )
+            .order_by(documents.c.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def list_stalled_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        documents = tables.documents
+        versions = tables.index_versions
+        member = tables.knowledge_base_groups
+        states = tables.document_index_states
+        settled = (
+            sa.exists()
+            .where(
+                states.c.document_id == documents.c.id,
+                states.c.index_version_id == versions.c.id,
+                sa.or_(
+                    states.c.status == IndexStateStatus.FAILED.value,
+                    sa.and_(
+                        states.c.status == IndexStateStatus.INDEXED.value,
+                        states.c.built_content_hash == documents.c.content_hash,
+                    ),
+                ),
+            )
+            .correlate(documents, versions)
+        )
+        unsettled_version = (
+            sa.exists()
+            .where(
+                member.c.group_id == documents.c.group_id,
+                versions.c.knowledge_base_id == member.c.knowledge_base_id,
+                versions.c.status.in_(
+                    [IndexVersionStatus.CURRENT.value, IndexVersionStatus.BUILDING.value]
+                ),
+                ~settled,
+            )
+            .correlate(documents)
+        )
+        working = sa.exists().where(
+            tables.jobs.c.document_id == documents.c.id,
+            tables.jobs.c.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
+        )
+        rows = await self._connection.scalars(
+            sa.select(documents.c.id)
+            .where(
+                documents.c.source_id == source_id,
+                documents.c.deleted_at.is_(None),
+                unsettled_version,
+                ~working,
+            )
             .order_by(documents.c.id)
             .limit(limit)
         )

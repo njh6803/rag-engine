@@ -162,8 +162,8 @@ class _InterruptedDocumentStore(PostgresDocumentStore):
         super().__init__(connection)
         self._interloper = interloper
 
-    async def list_live_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
-        keys = await super().list_live_keys_of_source(source_id)
+    async def list_held_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
+        keys = await super().list_held_keys_of_source(source_id)
         interloper, self._interloper = self._interloper, _nothing
         await interloper()
         return keys

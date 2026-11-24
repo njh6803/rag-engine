@@ -46,6 +46,7 @@ from rag_engine.app.index_document import (
     index_document,
 )
 from rag_engine.app.job_failure import exhaust, settle_transient_failure
+from rag_engine.app.restore_source import restore_source_documents
 from rag_engine.app.retire_cleanup import clean_retired_versions
 from rag_engine.app.sync_source import (
     SyncCounts,
@@ -216,8 +217,8 @@ async def _dispatch(
     deps: IndexDocumentDeps, job: Job, timer: IndexTimer, lease_seconds: float | None
 ) -> IndexResult:
     """작업의 종류로 유스케이스를 고른다. 색인 작업은 `index_document`, 동기화 작업은
-    `sync_source`, 원천 삭제 작업은 `delete_source_documents`다. 나머지 종류(원천 되살리기, 정리)는
-    뒤의 티켓이 더한다."""
+    `sync_source`, 원천 삭제 작업은 `delete_source_documents`, 원천 되살리기 작업은
+    `restore_source_documents`다. 나머지 종류(정리)는 뒤의 티켓이 더한다."""
     if job.kind is JobKind.INDEX_DOCUMENT:
         return await _leased(deps, job, lease_seconds, lambda: index_document(deps, job, timer))
     if job.kind is JobKind.SYNC_SOURCE:
@@ -237,6 +238,14 @@ async def _dispatch(
             job,
             lease_seconds,
             lambda: delete_source_documents(deps.unit_of_work, job),
+        )
+        return IndexResult(outcome=outcome, timings=timer.timings())
+    if job.kind is JobKind.RESTORE_SOURCE:
+        outcome = await _leased(
+            deps,
+            job,
+            lease_seconds,
+            lambda: restore_source_documents(deps.unit_of_work, job, deps.now),
         )
         return IndexResult(outcome=outcome, timings=timer.timings())
     raise RuntimeError("이 작업자가 처리하지 못하는 종류의 작업이다")

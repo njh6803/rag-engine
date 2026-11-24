@@ -9,8 +9,16 @@
 
 `DELETE /sources/{name}`은 지움 표시를 쓰고 원천 삭제 작업을 넣어 202와 그 작업의 식별자로
 답한다. 문서를 옮기는 일은 작업자가 뒤에서 한다. `default`와 `upload`는 409 `source_protected`다.
-지운 원천은 보기와 동기화 기록 보기만 받고, 고치기, 지우기, 연결 확인, 지금 동기화, 일시 중지, 다시
-시작은 409 `source_deleted`다.
+원천 삭제나 되살리기 작업이 끝나지 않았으면 409 `source_change_in_progress`다. 지운 원천은 보기,
+되살리기, 동기화 기록 보기만 받고, 고치기, 지우기, 연결 확인, 지금 동기화, 일시 중지, 다시 시작은
+409 `source_deleted`다.
+
+`POST /sources/{name}/restore`는 보관 기간(`RAG_DELETED_RETENTION_DAYS`) 안의 지운 원천을 되살린다.
+지움 표시를 걷고 원천 되살리기 작업을 넣어 202와 그 작업의 식별자로 답한다. 가져오는 원천은
+되살린 직후의 연결 확인(`connection_check`)도 함께 낸다. 지운 원천이 아니면 409
+`source_not_deleted`, 보관 기간이 지났으면 409 `source_retention_expired`, 원천 삭제나 되살리기
+작업이 끝나지 않았으면 409 `source_change_in_progress`, 서버 경로 원천의 폴더가 그사이 다른
+원천과 겹치게 됐으면 409 `source_folder_overlap`이다.
 
 `PATCH /sources/{name}`, `POST /sources/{name}/check`, `/sync`, `/pause`, `/resume`은 가져오는
 원천에만 통한다. 밀어 넣는 원천에는 409 `wrong_source_kind`다. 연결 확인은 원천을 읽지 못해도
@@ -40,7 +48,9 @@ from rag_engine.app.admin_sources import (
 )
 from rag_engine.app.delete_source import request_source_deletion
 from rag_engine.app.pull_sources import PullSources, ScheduleChange
+from rag_engine.app.restore_source import request_source_restoration, source_kind_of
 from rag_engine.app.sync_requests import get_sync_record, list_sync_records, request_sync
+from rag_engine.domain.entities import SourceKind
 from rag_engine.domain.ports import UnitOfWork
 from rag_engine.server.admin_api import DEFAULT_LIMIT, After, Limit
 from rag_engine.server.admin_source_models import (
@@ -50,6 +60,7 @@ from rag_engine.server.admin_source_models import (
     SourceDeletionResponse,
     SourceListResponse,
     SourceResponse,
+    SourceRestorationResponse,
     UpdateSourceRequest,
 )
 from rag_engine.server.admin_sync_models import (
@@ -101,7 +112,19 @@ _DELETE_PROBLEMS: dict[int | str, dict[str, object]] = {
         "model": ProblemDetails,
         "description": (
             "`default`와 `upload`는 지울 수 없다(`source_protected`). 이미 지운 원천이다"
-            "(`source_deleted`)"
+            "(`source_deleted`). 원천을 지우거나 되살리는 작업이 아직 끝나지 않았다"
+            "(`source_change_in_progress`)"
+        ),
+    },
+}
+_RESTORE_PROBLEMS: dict[int | str, dict[str, object]] = {
+    **_NOT_FOUND,
+    409: {
+        "model": ProblemDetails,
+        "description": (
+            "지운 원천이 아니다(`source_not_deleted`)거나 보관 기간이 지났다"
+            "(`source_retention_expired`)거나 원천을 지우거나 되살리는 작업이 아직 끝나지 않았다"
+            "(`source_change_in_progress`)거나 폴더가 다른 원천과 겹친다(`source_folder_overlap`)"
         ),
     },
 }
@@ -116,7 +139,9 @@ _RECORD_NOT_FOUND: dict[int | str, dict[str, object]] = {
 }
 
 
-def build_admin_source_router(unit_of_work: UnitOfWork, pull_sources: PullSources) -> APIRouter:
+def build_admin_source_router(
+    unit_of_work: UnitOfWork, pull_sources: PullSources, retention_days: int
+) -> APIRouter:
     router = APIRouter(prefix=f"/api/{API_VERSION}/admin")
 
     @router.post("/sources", status_code=201, responses=_CREATE_PROBLEMS)
@@ -151,6 +176,20 @@ def build_admin_source_router(unit_of_work: UnitOfWork, pull_sources: PullSource
             unit_of_work, name, request_id=request_id_of(request.scope), now=datetime.now(UTC)
         )
         return SourceDeletionResponse.of(requested)
+
+    @router.post("/sources/{name}/restore", status_code=202, responses=_RESTORE_PROBLEMS)
+    async def restore(name: str, request: Request) -> SourceRestorationResponse:
+        request_id = request_id_of(request.scope)
+        now = datetime.now(UTC)
+        if await source_kind_of(unit_of_work, name) is SourceKind.PULL:
+            restored = await pull_sources.restore(
+                name, request_id=request_id, now=now, retention_days=retention_days
+            )
+            return SourceRestorationResponse.of_pull(restored)
+        requested = await request_source_restoration(
+            unit_of_work, name, request_id=request_id, now=now, retention_days=retention_days
+        )
+        return SourceRestorationResponse.of_push(requested)
 
     @router.patch("/sources/{name}", responses=_PULL_ONLY_PROBLEMS)
     async def update(name: str, body: UpdateSourceRequest) -> SourceResponse:

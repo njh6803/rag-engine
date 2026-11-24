@@ -5,7 +5,7 @@
 from uuid import UUID
 
 from rag_engine.app.default_records import DEFAULT_NAME
-from rag_engine.domain.entities import Source, SourceKind
+from rag_engine.domain.entities import JobKind, Source, SourceKind
 from rag_engine.domain.errors import ErrorCode, RequestError
 from rag_engine.domain.ports import Transaction
 
@@ -43,6 +43,20 @@ async def require_pull_source(transaction: Transaction, name: str) -> Source:
     if source.kind is not SourceKind.PULL:
         raise RequestError(ErrorCode.WRONG_SOURCE_KIND, "가져오는 원천이 아니다")
     return source
+
+
+async def ensure_no_change_in_progress(transaction: Transaction, source_id: UUID) -> None:
+    """원천 삭제 작업이나 원천 되살리기 작업이 대기 중이거나 실행 중이면 409
+    `source_change_in_progress`다. 지우는 요청과 되살리는 요청이 원천 행을 잠근 뒤에 부른다. 두
+    작업이 같은 원천의 문서를 서로 반대쪽으로 옮기지 못하게 한다."""
+    busy = await transaction.jobs.has_active_source_job(
+        source_id, (JobKind.DELETE_SOURCE, JobKind.RESTORE_SOURCE)
+    )
+    if busy:
+        raise RequestError(
+            ErrorCode.SOURCE_CHANGE_IN_PROGRESS,
+            "원천을 지우거나 되살리는 작업이 아직 끝나지 않았다",
+        )
 
 
 async def lock_live_source(transaction: Transaction, source_id: UUID) -> Source:

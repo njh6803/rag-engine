@@ -37,15 +37,12 @@ from uuid import UUID
 from rag_engine.app.default_records import DEFAULT_NAME
 from rag_engine.app.document_outcome import index_failure_code
 from rag_engine.app.job_attempt import hold_attempt
-from rag_engine.app.live_versions import live_index_versions
+from rag_engine.app.restore_chunks import restore_chunks
 from rag_engine.app.source_lookup import lock_live_source, require_push_source
 from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import (
     Document,
     DocumentStatus,
-    IndexState,
-    IndexStateStatus,
-    IndexVersion,
     IndexVersionStatus,
     IngestAction,
     Job,
@@ -468,7 +465,7 @@ async def _restore(
     어느 지식베이스에서도 빠질 것이 없다. 그래서 되살린 문서를 처음부터 요청의 그룹에 든 것으로 두고
     지식베이스 행의 잠금과 조각의 복사 칸을 다룬다. 내용이 다르면 보관 조각을 지우고 갱신으로
     간다(`restored`에 작업 ID)."""
-    revived = replace(deleted, deleted_at=None, group_id=upload.group_id)
+    revived = replace(deleted, deleted_at=None, deleted_with_source=False, group_id=upload.group_id)
     if deleted.content_hash != upload.content_hash:
         await transaction.index.delete_archived_chunks(deleted.id)
         return await _update_content(
@@ -484,69 +481,16 @@ async def _restore_chunks(
     request_id: UUID,
     now: datetime,
 ) -> _Recorded:
-    """내용이 같은 되살림이다. 대상 판은 요청의 그룹이 든 지식베이스의 살아 있는 판이다. 만든 내용
-    해시가 같은 보관 조각을 대상 판의 검색 표로 되돌리고 그 판에 `indexed`를 쓴다. 보관 조각은
-    되돌렸든 아니든 모두 지운다. 되돌릴 조각이 없는 대상 판이 있으면 작업을 넣고, 그 판이 건설 중인
-    판이 아니면 `pending`을 쓴다(건설 중인 판에 `pending`을 쓰면 그 문서의 작업이 끝날 때까지 판이
-    전환되지 않을 수 있다. 명세 "재색인 시작" 항목). 건설 중인 판에 `indexed`를 써도 전환 검사를
-    부르지 않는다. 그 판에 색인 상태가 없던 문서의 `indexed` 한 행은 전환 조건(모든 색인 상태가
-    `indexed`나 `failed`)을 새로 채우지 못하고, 검사는 지식베이스 행을 `FOR UPDATE`로 올려 잠가야
-    해서 같은 지식베이스의 되살림끼리 서로를 기다릴 수 있다. 조각이 하나라도 돌아오면 그 조각은 같은
-    해시의 내용을 파싱해 만든 것이므로 문서 상태를 `parsed`로 쓴다(갱신이 `received`로 쓴 뒤 색인
-    작업이 돌기 전에 지운 문서는 작업이 지워져 상태를 고칠 작업이 없다). 문서 행은 새 원본을
-    가리키지 않아 새 원본은 커밋 뒤에 지운다."""
+    """내용이 같은 되살림이다. 요청의 값(그룹, 제목, 메타데이터, 갱신일)을 문서 행에 반영하고 세대를
+    올린 뒤 되살림 본체(`restore_chunks`)에 맡긴다. 건설 중인 판이 전환되는 조건은 모든 색인 상태가
+    `indexed`나 `failed`인 것이고, 되살림이 그 판에 `indexed`를 써도 전환 검사를 부르지 않는 까닭은
+    `restore_chunks` 모듈 독스트링이 푼다. 문서 행은 새 원본을 가리키지 않아 새 원본은 커밋 뒤에
+    지운다."""
     document = replace(
         _refresh_metadata(revived, upload), generation=revived.generation + 1, modified_at=now
     )
-    await _lock_knowledge_bases(transaction, document.group_id, document.group_id)
-    versions = await live_index_versions(transaction, document.group_id)
-    restored = await transaction.index.restore_archived_chunks(
-        document, [version.id for version in versions]
-    )
-    if restored:
-        document = replace(document, status=DocumentStatus.PARSED, skip_reason=None)
-    await transaction.documents.update(document)
-    await transaction.index.delete_archived_chunks(document.id)
-    for version in versions:
-        if version.id in restored:
-            await transaction.index.save_state(
-                _restored_state(document, version, restored[version.id], now)
-            )
-    unrestored = [version for version in versions if version.id not in restored]
-    job_id: UUID | None = None
-    if unrestored:
-        for version in unrestored:
-            if version.status is not IndexVersionStatus.BUILDING:
-                await transaction.index.save_state(_pending_state(document, version, now))
-        job_id = (await transaction.jobs.enqueue(document.id, request_id, now)).id
+    job_id = await restore_chunks(transaction, document, request_id, now)
     return _Recorded(IngestResult(IngestAction.RESTORED, document.id, job_id), upload.blob_key)
-
-
-def _restored_state(
-    document: Document, version: IndexVersion, chunk_count: int, now: datetime
-) -> IndexState:
-    """보관 조각이 돌아온 판의 색인 상태다. 돌아온 조각이 만든 내용 해시는 문서의 것과 같다."""
-    return IndexState(
-        document_id=document.id,
-        index_version_id=version.id,
-        status=IndexStateStatus.INDEXED,
-        chunk_count=chunk_count,
-        built_content_hash=document.content_hash,
-        error_code=None,
-        updated_at=now,
-    )
-
-
-def _pending_state(document: Document, version: IndexVersion, now: datetime) -> IndexState:
-    return IndexState(
-        document_id=document.id,
-        index_version_id=version.id,
-        status=IndexStateStatus.PENDING,
-        chunk_count=0,
-        built_content_hash=None,
-        error_code=None,
-        updated_at=now,
-    )
 
 
 async def _update_content(

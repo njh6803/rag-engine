@@ -12,7 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, field
 
 from rag_engine.app.admin_sources import SourceReport
 from rag_engine.app.delete_source import SourceDeletionRequested
-from rag_engine.app.pull_sources import ConnectionCheck
+from rag_engine.app.pull_sources import ConnectionCheck, PullRestoration
+from rag_engine.app.restore_source import SourceRestorationRequested
 from rag_engine.domain.connectors import ConnectionCheckCode
 from rag_engine.domain.entities import SourceKind
 from rag_engine.server.admin_models import UtcTime
@@ -185,3 +186,24 @@ class SourceDeletionResponse(BaseModel):
     @staticmethod
     def of(requested: SourceDeletionRequested) -> "SourceDeletionResponse":
         return SourceDeletionResponse(job_id=requested.job_id)
+
+
+class SourceRestorationResponse(BaseModel):
+    """원천 되살리기 요청의 응답(202). 문서를 되살리는 일은 뒤에서 이 작업이 한다."""
+
+    model_config = ConfigDict(frozen=True)
+
+    job_id: UUID = Field(description="대기열에 넣은 원천 되살리기 작업의 식별자")
+    connection_check: ConnectionCheckResponse | None = Field(
+        description="가져오는 원천은 되살린 직후의 연결 확인. 밀어 넣는 원천은 null"
+    )
+
+    @staticmethod
+    def of_push(requested: SourceRestorationRequested) -> "SourceRestorationResponse":
+        return SourceRestorationResponse(job_id=requested.job_id, connection_check=None)
+
+    @staticmethod
+    def of_pull(restored: PullRestoration) -> "SourceRestorationResponse":
+        return SourceRestorationResponse(
+            job_id=restored.job_id, connection_check=ConnectionCheckResponse.of(restored.connection)
+        )

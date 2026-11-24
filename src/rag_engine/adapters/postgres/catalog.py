@@ -230,6 +230,13 @@ class PostgresCatalog:
             .values(deleted_at=deleted_at, next_run_at=None)
         )
 
+    async def mark_source_restored(self, source_id: UUID, next_run_at: datetime | None) -> None:
+        await self._connection.execute(
+            sa.update(tables.sources)
+            .where(tables.sources.c.id == source_id)
+            .values(deleted_at=None, next_run_at=next_run_at)
+        )
+
     async def lock_due_sources(self, now: datetime) -> list[Source]:
         sources = tables.sources
         result = await self._connection.execute(

@@ -14,7 +14,7 @@ from tests.support.docx_files import docx_bytes
 from tests.support.pipeline import Pipeline
 
 from rag_engine.app import delete_document as delete_module
-from rag_engine.app import ingest as ingest_module
+from rag_engine.app import restore_chunks as restore_module
 from rag_engine.app.index_document import index_document
 from rag_engine.domain.entities import (
     Document,
@@ -200,6 +200,7 @@ async def test_건설_중인_판에_보관_조각이_돌아오면_indexed를_쓰
     pipeline: Pipeline, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     building = await pipeline.add_building_version()
+    await pipeline.keep_pending(building)
     ingested = await pipeline.ingest(휴가)
     await _work(pipeline)
     await pipeline.delete()
@@ -208,7 +209,10 @@ async def test_건설_중인_판에_보관_조각이_돌아오면_indexed를_쓰
     async def record(transaction: Transaction, version: IndexVersion) -> None:
         checked.append(version)
 
-    monkeypatch.setattr(ingest_module, "check_version_switch", record)
+    # 되살림 본체(restore_chunks)는 전환 검사를 가져오지 않으므로 그 이름이 모듈에 없다. 누군가
+    # 가져와 부르면 이 가짜가 불린 판을 기록한다. 그래서 없는 이름도 붙일 수 있게(raising=False)
+    # 한다.
+    monkeypatch.setattr(restore_module, "check_version_switch", record, raising=False)
 
     restored = await pipeline.ingest(휴가)
 
