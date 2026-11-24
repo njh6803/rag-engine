@@ -68,6 +68,13 @@ source-sync 티켓 11을 병합한 세션이 낸 지시문으로 연 세션의 �
   - **고친 것(Major).** `admin_document_api.py`의 주석 "다시 지우면 이 읽기가 404일 수 있다"는 틀렸다. `get_document_report`는 `documents.get`으로 읽고 `deleted_at`을 거르지 않아, 되살린 뒤 다시 지워져도 응답은 404가 아니라 `deleted_at`이 찬 문서로 온다. 404는 행이 없을 때만 난다. 주석을 "응답의 문서가 이미 다시 지워진 모양일 수 있다"로 고쳤다. 내가 근거를 열지 않고 쓴 문장이다(`code-review` 6단계 1의 "고치며 새로 쓰는 사실 문장" 사건).
   - **고친 것(Minor, Nit).** `restore_document.py`의 "정리 작업은 문서 하나를 … 작업 단위 하나에서 지운다"는 티켓 14가 50건씩 묶어 한 작업 단위에서 문서 행을 잠근다는 것과 달랐다. "문서 행을 잠근 작업 단위에서 지운다(50건씩 묶는다)"로 고치고, 행이 이미 사라진 뒤에 만나는 경우는 티켓 14가 맡는다고 한 줄을 더했다. 명세 296줄에도 같은 느슨한 문장("문서 하나는 … 작업 단위 하나에서 지우므로")이 있다. 명세는 이 PR이 고치지 않고, 티켓 14의 수용 기준이 정확한 모양을 적는다.
 
+## PR 봇 회차
+
+- **CodeRabbit 첫 회차(커밋 `fc0eb34`).** Minor 하나. `restore_chunks`가 그룹의 지식베이스를 나열해 잠근 뒤 `live_index_versions`로 그룹의 지식베이스를 다시 읽어, 그 사이에 그룹에 붙은 지식베이스의 판(잠기지 않았다)이 대상에 들 수 있다는 지적이다. 맞다. 같은 모양이 `dev`의 옛 `ingest._restore_chunks`에도 있었다(회귀는 아니다). `job_failure._lock_knowledge_bases`는 잠근 행에서 판을 읽는다. 고쳤다: `lock_knowledge_bases`가 낸 행마다 `list_live_index_versions`로 판을 읽고, 더 쓰지 않는 `live_index_versions` import를 지웠다.
+  - 시험을 먼저 썼다(`test_잠근_뒤에_그룹에_붙은_지식베이스의_판에는_상태도_작업도_쓰지_않는다`). `PostgresCatalog.lock_knowledge_bases`를 바꿔 치는 시험으로, 진짜 잠금이 끝난 바로 뒤에 새 지식베이스를 그룹에 붙인다. 고치기 전에는 작업이 들어가(`job_id`가 `None`이 아니다) 빨갰고, 고친 뒤 초록이다.
+  - 변이 12번을 더했다(잠근 행이 아니라 그룹 연결에서 읽는다). 빨강이다. 변이 16번은 import 줄이 사라져 원문의 기준 줄을 `from rag_engine.domain.ports import LockMode, Transaction`으로 옮겼고 다시 돌려 기대대로 빨갰다.
+  - `claude-review`는 지적이 없었다.
+
 ## 검증
 
 - 손으로 치는 것: `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`, `uv run lint-imports`, `uv run python tools/check_type_escapes.py`가 모두 0으로 끝났다(셀프 리뷰 반영 뒤 다시 돌렸다).
@@ -75,7 +82,8 @@ source-sync 티켓 11을 병합한 세션이 낸 지시문으로 연 세션의 �
 - 첫 커밋 시도의 pre-commit 러너: pytest가 5781개 통과, 2개 실패(19분 51초)였다. 실패는 앞선 전체 검사에서 본 시간 상한 단언(`test_admin_pull_source_stuck_calls.py`, 앞 실행과 다른 시험 하나)과 계약 시험의 연결 예외 하나다. 둘 다 부하에서만 빨간 종류로 보인다. 시간 시험 파일은 앞 실행 뒤 단독으로 13개가, 계약 시험 파일은 단독으로 5개가 통과했다. 커밋은 이 실패가 아니라 변이 표 검사에서 막혔다. 고친 변이 표의 번호 13, 15, 16을 단독으로 돌려 모두 기대한 시험에서 기대한 까닭으로 빨개졌다.
 - 둘째 커밋 시도는 pytest가 5782개 통과, 1개 실패(14분 1초)였다. 같은 파일 `test_admin_pull_source_stuck_calls.py`의 시간 상한 단언이다(`assert 1.42 < 1.0`). 같은 시험의 단독 실행은 요청 하나가 42ms였다. 셋째 시도에서 pre-commit이 모두 통과해 커밋 `3c4705f`이 만들어졌다(pytest 947초). 전체 pytest를 돌린 네 번(러너 한 번, 커밋 시도 셋) 가운데 셋이 빨갰고, 빨간 시험은 이 변경이 닿지 않은 것이며 병렬로 도는 다른 세션의 시험과 부하가 겹친 것으로 보인다(재 보지는 않았다).
 - 변이(`.scratch/source-sync/probes/restore_document_mutations.toml`, 열한 개)가 모두 기대한 시험에서 기대한 까닭으로 빨개졌다. 처음 아홉은 구현 직후에, 4번(잠금만 뺀다)과 5번(정리됐는지 다시 보지 않는다)은 셀프 리뷰 반영 뒤에 각각 단독으로 돌려 확인했다. 아홉은 반영 전의 소스에서 돌렸고, 반영이 닿은 것은 독스트링과 주석, 시험 하나, 변이 표뿐이다.
-- 새 시험: 앱 시험 15개, 서버 왕복 7개. 테스트 PostgreSQL은 `compose.test.yml`의 컨테이너로 돌렸다.
+- 봇 회차 반영 뒤: 변이 열두 개(12번 추가)와 다른 표의 16번이 기대대로 빨갰고, 앱 시험 `test_restore_document.py`와 `test_delete_restore.py` 28개가 초록이며, `ruff check`와 `pyright`가 0이다. 봇 회차 커밋의 첫 pre-commit 시도는 pytest가 5778개 통과, 6개 실패(18분 27초)였다. 실패는 모두 이 변경이 닿지 않는 시험이다: `test_admin_pull_source_stuck_calls.py` 넷, `test_admin_pull_source_locking.py` 하나(시간 상한), `test_serve_command.py` 하나(`serve가 30초 안에 뜨지 않았다`). 셋 파일을 단독으로 돌리면 19개가 모두 통과했다(74초). 앞 시도들과 같은 부하 종류로 보여 사례로만 적고 다시 커밋했다. 둘째 시도는 pytest가 5777개 통과, 7개 실패(26분 34초)였다. `test_admin_pull_source_stuck_calls.py` 다섯(시간 상한, 1.17~2.48초가 1.0초 상한을 넘었다)과 `tests/contract/test_search_complete.py` 둘(`httpx2.ReadTimeout`)이고, 두 파일을 단독으로 돌리면 32개가 모두 통과했다(218초). 다시 커밋한다.
+- 새 시험: 앱 시험 16개(봇 회차에서 하나 더했다), 서버 왕복 7개. 테스트 PostgreSQL은 `compose.test.yml`의 컨테이너로 돌렸다.
 
 ## 회고
 

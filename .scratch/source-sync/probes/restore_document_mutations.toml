@@ -1,7 +1,7 @@
 # source-sync 13(문서 되살리기)의 시험이 되살림의 자리마다 빨개지는지 본다. 거절 둘(종류, 지워지지
 # 않은 문서), 원천 행의 공유 잠금과 지움 표시 확인(둘을 함께 빼는 변이 하나, 잠금만 빼는 변이 하나),
 # 원천과 함께 지워졌다는 표시 풀기, 세대, 건너뜀 갈래, 건설 중인 판의 `pending`, 보관 조각 지우기,
-# 응답의 작업 식별자를 하나씩 깨뜨린다.
+# 응답의 작업 식별자, 잠근 뒤에 그룹에 붙은 지식베이스의 판을 하나씩 깨뜨린다.
 # 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/source-sync/probes/restore_document_mutations.toml
 
 [[mutation]]
@@ -154,3 +154,16 @@ expect_output = ["assert None is not None"]
 file = "src/rag_engine/server/admin_document_api.py"
 old = '''document=DocumentResponse.of(report), job_id=restored.job_id'''
 new = '''document=DocumentResponse.of(report), job_id=None'''
+
+[[mutation]]
+name = "판을 잠근 행이 아니라 잠근 뒤의 그룹 연결에서 읽는다"
+tests = ["tests/app/test_restore_document.py"]
+expect = "red"
+expect_output = ["assert UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/restore_chunks.py"
+old = '''    for knowledge_base in locked:
+        versions.extend(await transaction.catalog.list_live_index_versions(knowledge_base.id))'''
+new = '''    for knowledge_base in await transaction.catalog.list_knowledge_bases_of_group(document.group_id):
+        versions.extend(await transaction.catalog.list_live_index_versions(knowledge_base.id))'''

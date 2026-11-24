@@ -6,6 +6,7 @@
 """
 
 import asyncio
+from collections.abc import Sequence
 from dataclasses import replace
 from uuid import UUID
 
@@ -15,18 +16,22 @@ from tests.records import NOW, make_document
 from tests.support.docx_files import docx_bytes
 from tests.support.pipeline import Pipeline
 
+from rag_engine.adapters.postgres.catalog import PostgresCatalog
 from rag_engine.app.index_document import index_document
 from rag_engine.app.restore_document import DocumentRestored, restore_document
 from rag_engine.domain.entities import (
     Document,
     DocumentStatus,
     IndexStateStatus,
+    IndexVersion,
     IngestAction,
+    KnowledgeBase,
     Source,
     SourceKind,
 )
 from rag_engine.domain.errors import ErrorCode, RequestError
 from rag_engine.domain.identifiers import new_id
+from rag_engine.domain.ports import LockMode
 
 휴가 = docx_bytes("제1조 휴가", "연차휴가는 입사 일 년 뒤부터 발생한다.")
 EMBEDDINGS = "/v1/embeddings"
@@ -139,6 +144,35 @@ async def test_지운_뒤에_생긴_판에는_되돌릴_조각이_없어_작업�
     assert building.id not in states
     assert await pipeline.job_statuses(document_id) == ["running", "queued"]
     assert await pipeline.chunk_texts(document_id) != []
+
+
+async def test_잠근_뒤에_그룹에_붙은_지식베이스의_판에는_상태도_작업도_쓰지_않는다(
+    pipeline: Pipeline, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    document_id = await _indexed_and_deleted(pipeline)
+    attached: list[IndexVersion] = []
+    real_lock = PostgresCatalog.lock_knowledge_bases
+
+    async def lock_then_attach(
+        self: PostgresCatalog, knowledge_base_ids: Sequence[UUID], mode: LockMode
+    ) -> list[KnowledgeBase]:
+        locked = await real_lock(self, knowledge_base_ids, mode)
+        if not attached:
+            # 지식베이스 행을 잠근 바로 뒤에 다른 요청이 새 지식베이스를 이 그룹에 붙인다.
+            _, version = await pipeline.add_knowledge_base("뒤에 붙음", pipeline.group)
+            attached.append(version)
+        return locked
+
+    monkeypatch.setattr(PostgresCatalog, "lock_knowledge_bases", lock_then_attach)
+
+    restored = await _restore(pipeline, document_id)
+
+    assert attached
+    assert restored.job_id is None
+    states = await pipeline.states(document_id)
+    assert attached[0].id not in states
+    assert pipeline.version.id in states
+    assert "queued" not in await pipeline.job_statuses(document_id)
 
 
 async def test_내용이_색인되기_전에_지운_문서는_현재_판에도_pending이_들어가고_작업이_색인한다(
