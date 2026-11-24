@@ -27,7 +27,8 @@ from uuid import UUID
 
 from rag_engine.app.admin_sources import SourceReport, source_report
 from rag_engine.app.default_records import DEFAULT_NAME
-from rag_engine.app.source_lookup import ensure_not_deleted, require_pull_source
+from rag_engine.app.restore_source import apply_restoration, lock_restorable_source
+from rag_engine.app.source_lookup import ensure_not_deleted, require_pull_source, require_source
 from rag_engine.domain.connectors import (
     SERVER_PATH_CONNECTOR,
     ConnectionCheckCode,
@@ -78,6 +79,15 @@ class ConnectionCheck:
 
 
 @dataclass(frozen=True, slots=True)
+class PullRestoration:
+    """가져오는 원천 되살리기 요청의 결과. 문서를 되살리는 작업의 식별자와 되살린 직후의 연결
+    확인이다."""
+
+    job_id: UUID
+    connection: ConnectionCheck
+
+
+@dataclass(frozen=True, slots=True)
 class ScheduleChange:
     """일정을 고치라는 요청. `expression`이 `None`이면 일정을 없앤다. 요청에 일정 칸이 없으면 이
     값 자체를 만들지 않고 `None`을 넘긴다(고치지 않는다)."""
@@ -99,6 +109,16 @@ def _text_overlaps(first: str, second: str) -> bool:
 def _folder_of(config: Mapping[str, JsonValue] | None) -> str | None:
     folder = None if config is None else config.get("folder")
     return folder if isinstance(folder, str) else None
+
+
+def _connection_of(source: Source) -> tuple[str, Mapping[str, JsonValue]]:
+    """가져오는 원천의 커넥터 이름과 저장해 둔 설정. 가져오는 원천이 아니면 409
+    `wrong_source_kind`다."""
+    if source.kind is not SourceKind.PULL:
+        raise RequestError(ErrorCode.WRONG_SOURCE_KIND, "가져오는 원천이 아니다")
+    if source.connector is None or source.config is None:
+        raise RuntimeError("가져오는 원천에 커넥터나 설정이 없다")
+    return source.connector, source.config
 
 
 def _invalid_config() -> InvalidInput:
@@ -247,6 +267,53 @@ class PullSources:
                 await catalog.set_next_run_at(current.id, self._next_due(locked.schedule, now))
             return await _report_after_write(transaction, name)
 
+    async def restore(
+        self, name: str, *, request_id: UUID, now: datetime, retention_days: int
+    ) -> PullRestoration:
+        """지운 가져오는 원천을 되살린다. 서버 경로 원천이면 되살리기 전에 폴더가 다른 원천과 겹치지
+        않는지 다시 보고(그사이 다른 원천이 그 폴더를 가졌을 수 있다), 겹치면 409
+        `source_folder_overlap`이다. 지움 표시를 걷고 다음 실행 시각을 일정대로 다시 채우고 원천
+        되살리기 작업을 넣은 뒤 연결을 확인해 결과를 함께 답한다."""
+        async with self._unit_of_work.begin() as transaction:
+            current = await require_source(transaction, name)
+        connector, config = _connection_of(current)
+        shares_folders = connector == SERVER_PATH_CONNECTOR
+        # 자기 폴더를 살피는 일은 차례 앞에서 한다. 답하지 않는 폴더가 차례를 막지 않게 한다.
+        location = (
+            await self._survey_own_folder(name, connector, config) if shares_folders else None
+        )
+        turn = self._folder_turn if shares_folders else nullcontext()
+        async with turn, self._unit_of_work.begin() as transaction:
+            catalog = transaction.catalog
+            if shares_folders:
+                await catalog.lock_source_folders()
+            locked = await lock_restorable_source(
+                transaction, name, now=now, retention_days=retention_days
+            )
+            locked_config = _connection_of(locked)[1]
+            if locked_config != config:
+                # 폴더를 살피는 사이 같은 원천의 설정이 바뀌고 지워졌다. 살핀 위치는 옛 폴더의
+                # 것이다.
+                config, location = locked_config, None
+            if shares_folders:
+                await self._reject_overlap(catalog, config, location, own=locked.id)
+            requested = await apply_restoration(
+                transaction,
+                locked,
+                next_run_at=self._next_due(locked.schedule, now, paused=locked.paused),
+                request_id=request_id,
+                now=now,
+            )
+        code = await self._check_code(connector, config, name)
+        return PullRestoration(requested.job_id, ConnectionCheck(ok=code is None, code=code))
+
+    async def _survey_own_folder(
+        self, name: str, connector: str, config: Mapping[str, JsonValue]
+    ) -> FolderLocation | None:
+        """되살릴 원천 자신의 폴더를 실제로 찾는다. 없거나 읽지 못하거나 답이 느리면 `None`이다."""
+        found = await self._registry.survey_folders([FolderTarget(name, connector, config)])
+        return found[0] if found else None
+
     async def _change_schedule(
         self, catalog: Catalog, source: Source, change: ScheduleChange, now: datetime
     ) -> None:
@@ -345,12 +412,13 @@ class PullSources:
         self,
         catalog: Catalog,
         folder_config: Mapping[str, JsonValue],
-        location: FolderLocation,
+        location: FolderLocation | None,
         *,
         own: UUID | None,
     ) -> None:
         """다른 원천의 폴더와 같거나 그 안에 있거나 그것을 품으면 409다. 실제 폴더로 가르고, 폴더가
-        지금 없거나 답하지 않는 원천과는 저장해 둔 경로의 글자로 견준다."""
+        지금 없거나 답하지 않는 원천(`location`이 `None`인 되살리는 원천 자신도 같다)과는 저장해 둔
+        경로의 글자로 견준다."""
         folder = _folder_of(folder_config)
         others = [
             source
@@ -369,7 +437,7 @@ class PullSources:
         found = await self._registry.survey_folders(targets)
         for other, other_location in zip(others, found, strict=True):
             other_folder = _folder_of(other.config)
-            if other_location is not None:
+            if other_location is not None and location is not None:
                 overlaps = (
                     location.final in other_location.chain or other_location.final in location.chain
                 )

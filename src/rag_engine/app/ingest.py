@@ -466,7 +466,7 @@ async def _restore(
     어느 지식베이스에서도 빠질 것이 없다. 그래서 되살린 문서를 처음부터 요청의 그룹에 든 것으로 두고
     지식베이스 행의 잠금과 조각의 복사 칸을 다룬다. 내용이 다르면 보관 조각을 지우고 갱신으로
     간다(`restored`에 작업 ID)."""
-    revived = replace(deleted, deleted_at=None, group_id=upload.group_id)
+    revived = replace(deleted, deleted_at=None, deleted_with_source=False, group_id=upload.group_id)
     if deleted.content_hash != upload.content_hash:
         await transaction.index.delete_archived_chunks(deleted.id)
         return await _update_content(
@@ -482,9 +482,11 @@ async def _restore_chunks(
     request_id: UUID,
     now: datetime,
 ) -> _Recorded:
-    """내용이 같은 되살림이다. 문서 행에 요청의 제목, 메타데이터, 갱신일을 반영하고 세대를 올린 뒤
-    조각을 되돌리는 단계(`restore_chunks`)를 부른다. 문서 행은 새 원본을 가리키지 않아 새 원본은
-    커밋 뒤에 지운다."""
+    """내용이 같은 되살림이다. 요청의 값(그룹, 제목, 메타데이터, 갱신일)을 문서 행에 반영하고 세대를
+    올린 뒤 되살림 본체(`restore_chunks`)에 맡긴다. 건설 중인 판이 전환되는 조건은 모든 색인 상태가
+    `indexed`나 `failed`인 것이고, 되살림이 그 판에 `indexed`를 써도 전환 검사를 부르지 않는 까닭은
+    `restore_chunks` 모듈 독스트링이 푼다. 문서 행은 새 원본을 가리키지 않아 새 원본은 커밋 뒤에
+    지운다."""
     document = replace(
         _refresh_metadata(revived, upload), generation=revived.generation + 1, modified_at=now
     )

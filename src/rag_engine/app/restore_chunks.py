@@ -1,10 +1,11 @@
-"""내용이 같은 되살림(명세 "삭제, 되살림, 묘비", source-sync 명세 "문서 되살리기")이 조각을 되돌리는
-단계. 수집 API의 같은 키 되살림(`ingest`)과 관리 API의 문서 되살리기(`restore_document`)가 함께
-쓴다.
+"""내용이 같은 되살림(명세 "삭제, 되살림, 묘비", source-sync 명세 "문서 되살리기", "원천 삭제와
+되살리기")이 조각을 되돌리는 단계. 수집 API의 같은 키 되살림(`ingest`), 관리 API의 문서 되살리기
+(`restore_document`), 원천 되살리기 작업(`restore_source`)이 함께 쓴다.
 
-부르는 쪽이 문서 행을 먼저 잠그고(밀어 넣는 원천이면 그 앞에 원천 행을 공유 잠금으로 잡는다), 되살릴
+부르는 쪽이 문서 행을 먼저 잠그고(원천이 걸린 길이면 그 앞에 원천 행을 공유 잠금으로 잡는다), 되살릴
 문서(`deleted_at`을 비우고 세대와 수정 시각을 올린 것)를 준다. 이 단계가 지식베이스 행을
 `FOR SHARE`로 잠그고 문서 행을 쓴다. 잠금 순서는 원천 행, 문서 행, 지식베이스 행, 작업 행이다.
+`restore_locked_document`는 이미 잠근 지운 문서를 문서 행의 그룹과 내용 그대로 되살리는 겉껍질이다.
 """
 
 from dataclasses import replace
@@ -74,6 +75,21 @@ async def restore_chunks(
         if version.status is not IndexVersionStatus.BUILDING:
             await transaction.index.save_state(_pending_state(document, version, now))
     return (await transaction.jobs.enqueue(document.id, request_id, now)).id
+
+
+async def restore_locked_document(
+    transaction: Transaction, deleted: Document, request_id: UUID, now: datetime
+) -> UUID | None:
+    """이미 잠근, 지운 문서를 문서 행의 그룹과 내용 그대로 되살린다. 지운 시각과 원천과 함께
+    지워졌다는 표시를 비우고 세대를 올린 뒤 `restore_chunks`에 맡긴다."""
+    revived = replace(
+        deleted,
+        deleted_at=None,
+        deleted_with_source=False,
+        generation=deleted.generation + 1,
+        modified_at=now,
+    )
+    return await restore_chunks(transaction, revived, request_id, now)
 
 
 def _restored_state(

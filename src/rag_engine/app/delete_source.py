@@ -9,10 +9,11 @@
 문서를 실제로 옮기는 일은 작업자가 하는 원천 삭제 작업(`delete_source_documents`)이다. 지워지지
 않은 문서를 `BATCH_SIZE`건씩 묶어 묶음마다 작업 단위 하나에서 문서 삭제와 같은 일을 한다. 묶음마다
 맨 먼저 원천 행을 공유 잠금으로 잡고 지움 표시를 다시 본다. 표시가 걷혀 있으면(작업을 대기열에 직접
-넣었거나 원천을 되살렸다) 아무것도 옮기지 않고 성공으로 끝난다. 작업 단위의 잠금 순서는 원천 행,
-문서 행(ID 순), 지식베이스 행(ID 순), 작업 행이다. 묶음 안의 문서와 지식베이스 행을 문서마다 차례로
-잠그면 다른 작업 단위(색인 작업)와 서로의 행을 기다릴 수 있어서, 문서 행을 모두 잠근 뒤 지식베이스
-행을 한꺼번에 잠근다.
+넣었다. 지우는 요청과 되살리는 요청은 서로의 작업이 끝나기 전에는 거절되므로 그 밖의 길로는
+걷히지 않지만 묶음마다 다시 본다) 아무것도 옮기지 않고 성공으로 끝난다. 작업 단위의 잠금 순서는 원천
+행, 문서 행(ID 순), 지식베이스 행(ID 순), 작업 행이다. 묶음 안의 문서와 지식베이스 행을 문서마다
+차례로 잠그면 다른 작업 단위(색인 작업)와 서로의 행을 기다릴 수 있어서, 문서 행을 모두 잠근 뒤
+지식베이스 행을 한꺼번에 잠근다.
 """
 
 from collections.abc import Sequence
@@ -24,7 +25,11 @@ from uuid import UUID
 from rag_engine.app.default_records import DEFAULT_NAME, UPLOAD_NAME
 from rag_engine.app.delete_document import delete_locked_document
 from rag_engine.app.job_attempt import hold_attempt
-from rag_engine.app.source_lookup import ensure_not_deleted, require_source
+from rag_engine.app.source_lookup import (
+    ensure_no_change_in_progress,
+    ensure_not_deleted,
+    require_source,
+)
 from rag_engine.app.sync_source import fail_record
 from rag_engine.domain.entities import Document, Job, JobKind, JobStatus
 from rag_engine.domain.errors import ErrorCode, RequestError
@@ -48,7 +53,8 @@ async def request_source_deletion(
     unit_of_work: UnitOfWork, name: str, *, request_id: UUID, now: datetime
 ) -> SourceDeletionRequested:
     """원천에 지움 표시를 쓰고 원천 삭제 작업을 넣는다. `default`와 `upload`는 409
-    `source_protected`이고, 이미 지운 원천은 409 `source_deleted`다."""
+    `source_protected`이고, 이미 지운 원천은 409 `source_deleted`이고, 원천 삭제 작업이나 원천
+    되살리기 작업이 끝나지 않았으면 409 `source_change_in_progress`다."""
     async with unit_of_work.begin() as transaction:
         source = await require_source(transaction, name)
         if source.name in PROTECTED_SOURCE_NAMES:
@@ -58,6 +64,7 @@ async def request_source_deletion(
         if locked is None:
             raise RuntimeError("원천 행이 잠그는 사이에 사라졌다")
         ensure_not_deleted(locked)
+        await ensure_no_change_in_progress(transaction, source.id)
         await transaction.catalog.mark_source_deleted(source.id, now)
         await _drop_queued_sync(transaction, source.id, now)
         job = await transaction.jobs.enqueue_source_job(

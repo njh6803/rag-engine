@@ -448,8 +448,12 @@ expect_output = ["At index 0 diff: <SyncRecordStatus.SUCCEEDED: 'succeeded'> != 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/postgres/document_store.py"
 old = '''            sa.or_(documents.c.deleted_at.is_(None), documents.c.deleted_with_source.is_(True)),
+        )
+        return bool(await self._connection.scalar(sa.select(sa.exists().where(held))))
 '''
 new = '''            documents.c.deleted_at.is_(None),
+        )
+        return bool(await self._connection.scalar(sa.select(sa.exists().where(held))))
 '''
 
 # source-sync 09(실패한 문서 다시 시도와 모두 다시 읽기)의 변이. 어떤 상태의 문서를 다시 넣을지,

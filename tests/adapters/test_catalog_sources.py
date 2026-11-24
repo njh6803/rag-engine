@@ -166,27 +166,33 @@ async def test_문서_수는_지워지지_않은_문서를_문서_상태로_센�
     assert other_counts == DocumentCounts(total=1, failed=0, skipped=0)
 
 
-async def test_지워지지_않은_문서의_키는_원천마다_따로_문서_ID와_함께_나온다(
+async def test_삭제_반영_대상의_키는_살아_있는_문서와_원천과_함께_지운_문서만_원천마다_나온다(
     engine: AsyncEngine, empty_database_url: str
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
     source, group = await seed_source_and_group(unit_of_work)
     other = _source("other")
     live = make_document(source, group, "살아 있음")
+    with_source = make_document(source, group, "원천과 함께 지움")
     async with unit_of_work.begin() as transaction:
         await transaction.catalog.create_source(other)
         await transaction.documents.add(live)
-        await transaction.documents.add(make_document(source, group, "지움"))
+        await transaction.documents.add(make_document(source, group, "따로 지움"))
+        await transaction.documents.add(with_source)
         await transaction.documents.add(make_document(other, group, "다른 원천"))
     with psycopg.connect(empty_database_url, autocommit=True) as connection:
-        connection.execute("UPDATE documents SET deleted_at = now() WHERE key = '지움'")
+        connection.execute("UPDATE documents SET deleted_at = now() WHERE key = '따로 지움'")
+        connection.execute(
+            "UPDATE documents SET deleted_at = now(), deleted_with_source = true "
+            "WHERE key = '원천과 함께 지움'"
+        )
 
     async with unit_of_work.begin() as transaction:
-        mine = await transaction.documents.list_live_keys_of_source(source.id)
-        theirs = await transaction.documents.list_live_keys_of_source(other.id)
-        nothing = await transaction.documents.list_live_keys_of_source(new_id())
+        mine = await transaction.documents.list_held_keys_of_source(source.id)
+        theirs = await transaction.documents.list_held_keys_of_source(other.id)
+        nothing = await transaction.documents.list_held_keys_of_source(new_id())
 
-    assert mine == {"살아 있음": live.id}
+    assert mine == {"살아 있음": live.id, "원천과 함께 지움": with_source.id}
     assert list(theirs) == ["다른 원천"]
     assert nothing == {}
 

@@ -182,7 +182,9 @@ def create_app(
         connector_registry if connector_registry is not None else EntryPointConnectorRegistry(),
         CronsimScheduleCalculator(ZoneInfo(settings.schedule_timezone)),
     )
-    admin_source_router = build_admin_source_router(unit_of_work, pull_sources)
+    admin_source_router = build_admin_source_router(
+        unit_of_work, pull_sources, settings.deleted_retention_days
+    )
     admin_document_router = build_admin_document_router(unit_of_work)
     app.include_router(admin_query_router)
     app.include_router(admin_document_router)

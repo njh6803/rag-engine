@@ -76,6 +76,8 @@ expect_output = ['generation: 3 != 2']
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
 old = '''        if document.deleted_at is not None:
+            if holds_source_deletion_mark(document):
+                await detach_from_source_deletion(transaction, document, now)
             return
 '''
 new = ''
@@ -232,10 +234,12 @@ from rag_engine.app.version_switch import check_version_switch
 
 [[mutation.edit]]
 file = "src/rag_engine/app/restore_chunks.py"
-old = '''                _restored_state(document, version, restored[version.id], now)
+old = '''            await transaction.index.save_state(
+                _restored_state(document, version, restored[version.id], now)
             )
 '''
-new = '''                _restored_state(document, version, restored[version.id], now)
+new = '''            await transaction.index.save_state(
+                _restored_state(document, version, restored[version.id], now)
             )
             if version.status is IndexVersionStatus.BUILDING:
                 await check_version_switch(transaction, version)

@@ -71,6 +71,9 @@ SPEC_PROBLEM_CODES = {
     "sync_record_not_found",
     "source_deleted",
     "source_protected",
+    "source_not_deleted",
+    "source_change_in_progress",
+    "source_retention_expired",
     "document_not_deleted",
 }
 
@@ -88,7 +91,7 @@ def test_작업_코드_스물하나가_모두_정의되어_있다() -> None:
     assert {code.value for code in JOB_ERROR_CODES} == SPEC_JOB_CODES
 
 
-def test_HTTP_코드_스물셋이_모두_정의되어_있다() -> None:
+def test_HTTP_코드_스물여섯이_모두_정의되어_있다() -> None:
     assert {code.value for code in PROBLEM_ERROR_CODES} == SPEC_PROBLEM_CODES
 
 

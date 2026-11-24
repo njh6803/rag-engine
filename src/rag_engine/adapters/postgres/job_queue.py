@@ -215,6 +215,14 @@ class PostgresJobQueue:
         )
         return bool(await self._connection.scalar(sa.select(active.exists())))
 
+    async def has_active_source_job(self, source_id: UUID, kinds: Sequence[JobKind]) -> bool:
+        active = sa.select(tables.jobs.c.id).where(
+            tables.jobs.c.source_id == source_id,
+            tables.jobs.c.kind.in_([kind.value for kind in kinds]),
+            tables.jobs.c.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
+        )
+        return bool(await self._connection.scalar(sa.select(active.exists())))
+
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:
         # 색인 작업이 아닌 작업을 먼저 묻는다. 대기 중인 색인 작업이 10만 건 쌓여 있을 때 프로브
         # `schedule-once`의 F는 그 종류만 묻는 질의(`kind`가 색인 작업이 아님)가 1.6ms로 끝났고

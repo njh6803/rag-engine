@@ -46,7 +46,11 @@ from pathlib import PurePosixPath
 from typing import Final
 from uuid import UUID
 
-from rag_engine.app.delete_document import delete_locked_document
+from rag_engine.app.delete_document import (
+    delete_locked_document,
+    detach_from_source_deletion,
+    holds_source_deletion_mark,
+)
 from rag_engine.app.document_outcome import index_failure_code
 from rag_engine.app.ingest import (
     IngestResult,
@@ -388,10 +392,11 @@ def _applies_empty(job: Job) -> bool:
     return job.options.get("apply_empty") is True
 
 
-async def _live_keys(deps: SyncDeps, source: Source) -> dict[str, UUID]:
-    """그 원천의, 지워지지 않은 문서의 키마다 문서 ID."""
+async def _held_keys(deps: SyncDeps, source: Source) -> dict[str, UUID]:
+    """그 원천의, 지워지지 않은 문서와 원천과 함께 지워졌다는 표시가 남은 문서(원천 되살리기
+    작업이 아직 되살리지 않았다)의 키마다 문서 ID."""
     async with deps.unit_of_work.begin() as transaction:
-        return await transaction.documents.list_live_keys_of_source(source.id)
+        return await transaction.documents.list_held_keys_of_source(source.id)
 
 
 async def _apply_deletions(
@@ -399,20 +404,26 @@ async def _apply_deletions(
 ) -> None:
     """후보에 키가 없는 문서를 문서마다 작업 단위 하나에서 임시 삭제한다. 읽지 못해 실패로 센
     파일은 후보에 있으므로 지우지 않고, 읽다가 `too_large`가 난 파일은 후보에서 빠졌으므로 그 키의
-    문서를 지운다. 넣은 문서의 색인이 끝나기를 기다리지 않는다."""
-    for key, document_id in (await _live_keys(deps, source)).items():
+    문서를 지운다. 되살린 원천의 문서를 되살리는 작업이 아직 끝나지 않았으면 표시가 남은 문서도
+    대상이다. 원천 폴더에 파일이 없는 그 문서는 되살리지 않고 따로 지운 문서로 만든다. 넣은 문서의
+    색인이 끝나기를 기다리지 않는다."""
+    for key, document_id in (await _held_keys(deps, source)).items():
         if key not in kept:
             await _delete_one(deps, job, document_id, counts)
 
 
 async def _delete_one(deps: SyncDeps, job: Job, document_id: UUID, counts: SyncCounts) -> None:
-    """문서 하나를 지운다. 잠그고 보니 이미 지워졌으면 아무것도 하지 않고 세지도 않는다. 잠금
+    """문서 하나를 지운다. 잠그고 보니 이미 지워졌으면 아무것도 하지 않고 세지도 않는다. 원천과
+    함께 지워졌다는 표시가 남은 문서는 표시를 걷어 따로 지운 문서로 만들고 지운 것으로 센다. 잠금
     순서는 문서 행, 지식베이스 행, 작업 행이다."""
     async with deps.unit_of_work.begin() as transaction:
         await _hold_live_source(transaction, job)
         document = await transaction.documents.lock(document_id)
         if document is not None and _is_live(document):
             await delete_locked_document(transaction, document, deps.now())
+            counts.deleted += 1
+        elif document is not None and holds_source_deletion_mark(document):
+            await detach_from_source_deletion(transaction, document, deps.now())
             counts.deleted += 1
         await hold_attempt(transaction, job)
 

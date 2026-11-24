@@ -258,7 +258,7 @@ expect_output = ["DID NOT RAISE RequestError"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/pull_sources.py"
-old = '''            if other_location is not None:
+old = '''            if other_location is not None and location is not None:
 '''
 new = '''            if False:
 '''
