@@ -6,6 +6,7 @@
 코드만 싣는다(원칙 V).
 """
 
+from datetime import datetime
 from uuid import UUID
 
 import sqlalchemy as sa
@@ -103,6 +104,34 @@ class PostgresSyncRecordStore:
     async def latest_for_source(self, source_id: UUID) -> SyncRecord | None:
         rows = await self.list_for_source(source_id, 1, None)
         return rows[0] if rows else None
+
+    async def delete_of_source(self, source_id: UUID) -> None:
+        await self._connection.execute(
+            sa.delete(tables.sync_records).where(tables.sync_records.c.source_id == source_id)
+        )
+
+    async def delete_finished_before(self, cutoff: datetime, limit: int) -> int:
+        records = tables.sync_records
+        # 원천마다 ID가 가장 큰 기록이 가장 최근 기록이다(`latest_for_source`와 같은 기준). 같은
+        # 원천에 더 큰 ID의 기록이 있으면 가장 최근 기록이 아니다.
+        newer = tables.sync_records.alias("newer")
+        has_newer = sa.exists().where(
+            newer.c.source_id == records.c.source_id, newer.c.id > records.c.id
+        )
+        doomed = (
+            sa.select(records.c.id)
+            .where(
+                records.c.finished_at.is_not(None),
+                records.c.finished_at <= cutoff,
+                has_newer,
+            )
+            .order_by(records.c.id)
+            .limit(limit)
+        )
+        deleted = await self._connection.execute(
+            sa.delete(records).where(records.c.id.in_(doomed)).returning(records.c.id)
+        )
+        return len(deleted.all())
 
     async def _select_one(self, *conditions: sa.ColumnElement[bool]) -> SyncRecord | None:
         row = (

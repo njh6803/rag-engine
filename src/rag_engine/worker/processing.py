@@ -37,6 +37,7 @@ from typing import Final
 from uuid import UUID
 
 from rag_engine.adapters.log_format import log_event, log_event_fields
+from rag_engine.app.cleanup import CleanupCounts, CleanupDeps, run_cleanup
 from rag_engine.app.delete_source import delete_source_documents
 from rag_engine.app.index_document import (
     IndexDocumentDeps,
@@ -218,7 +219,7 @@ async def _dispatch(
 ) -> IndexResult:
     """작업의 종류로 유스케이스를 고른다. 색인 작업은 `index_document`, 동기화 작업은
     `sync_source`, 원천 삭제 작업은 `delete_source_documents`, 원천 되살리기 작업은
-    `restore_source_documents`다. 나머지 종류(정리)는 뒤의 티켓이 더한다."""
+    `restore_source_documents`, 정리 작업은 `run_cleanup`이다."""
     if job.kind is JobKind.INDEX_DOCUMENT:
         return await _leased(deps, job, lease_seconds, lambda: index_document(deps, job, timer))
     if job.kind is JobKind.SYNC_SOURCE:
@@ -248,7 +249,38 @@ async def _dispatch(
             lambda: restore_source_documents(deps.unit_of_work, job, deps.now),
         )
         return IndexResult(outcome=outcome, timings=timer.timings())
+    if job.kind is JobKind.CLEANUP:
+        counts = await _leased(
+            deps, job, lease_seconds, lambda: run_cleanup(_cleanup_deps(deps), job)
+        )
+        _log_cleanup(job, counts)
+        return IndexResult(JobOutcome(JobStatus.SUCCEEDED, None), timer.timings())
     raise RuntimeError("이 작업자가 처리하지 못하는 종류의 작업이다")
+
+
+def _cleanup_deps(deps: IndexDocumentDeps) -> CleanupDeps:
+    return CleanupDeps(
+        unit_of_work=deps.unit_of_work,
+        blob_store=deps.blob_store,
+        now=deps.now,
+        deleted_retention_days=deps.deleted_retention_days,
+        sync_record_retention_days=deps.sync_record_retention_days,
+    )
+
+
+def _log_cleanup(job: Job, counts: CleanupCounts) -> None:
+    """정리 작업이 끝에 남기는 한 줄. 개수만 싣고 문서의 키와 원천의 이름은 싣지 않는다(원칙 V)."""
+    log_event(
+        logger,
+        "cleanup_finished",
+        request_id=job.request_id,
+        job_id=str(job.id),
+        documents_purged=counts.documents_purged,
+        sources_purged=counts.sources_purged,
+        blobs_removed=counts.blobs_removed,
+        sync_records_deleted=counts.sync_records_deleted,
+        jobs_requeued=counts.jobs_requeued,
+    )
 
 
 def _sync_deps(deps: IndexDocumentDeps) -> SyncDeps:

@@ -21,6 +21,7 @@ REQUIRED = {
 OPTIONAL_SETTINGS = [
     ("RAG_LOG_FORMAT", "text", "log_format", "text"),
     ("RAG_DELETED_RETENTION_DAYS", "7", "deleted_retention_days", 7),
+    ("RAG_SYNC_RECORD_RETENTION_DAYS", "14", "sync_record_retention_days", 14),
     ("RAG_MCP_STATELESS", "false", "mcp_stateless", False),
     ("RAG_MCP_JSON_RESPONSE", "true", "mcp_json_response", True),
     ("RAG_DEFAULT_EMBEDDING_URL", "http://emb:80", "default_embedding_url", "http://emb:80"),
@@ -75,6 +76,7 @@ def test_필수_셋만_주면_나머지는_명세의_기본값이다(required_en
     assert settings.allowed_hosts == ["rag.example.org"]
     assert settings.log_format == "json"
     assert settings.deleted_retention_days == 30
+    assert settings.sync_record_retention_days == 90
     assert settings.mcp_stateless is True
     assert settings.mcp_json_response is False
     assert settings.default_embedding_url is None

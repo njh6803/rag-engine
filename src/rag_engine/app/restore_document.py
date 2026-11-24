@@ -12,7 +12,10 @@
 지났는지는 보지 않는다. 명세는 정리 작업(티켓 14)이 문서 행을 잠근 작업 단위에서 문서를 지우도록
 정한다(50건씩 묶는다). 그러면 문서 하나를 지우는 도중에 끼어들 틈이 없고, 둘이 겹치면 먼저 잠근
 쪽대로 정해진다. 이 문서 행 잠금과 `deleted_at`, `purged_at` 재확인이 그 약속의 이쪽 절반이다. 문서
-행이나 원천 행이 이미 사라진 뒤에 만나는 경우는 티켓 14가 맡는다.
+행이나 원천 행이 이미 사라진 뒤에 만나는 경우(정리 작업이 원천과 그 문서를 지우는 사이에 끼어든
+요청)는 원천 행을 잠그는 자리에서 사라진 원천을 보고 `document_not_found`로 끝낸다. 문서 행을
+잠글 때 사라진 것을 만나는 경우는 원천 행 잠금이 막는다(정리 작업은 원천 행을 잠근 채 문서를
+지운다).
 """
 
 from dataclasses import dataclass, replace
@@ -20,7 +23,7 @@ from datetime import datetime
 from uuid import UUID
 
 from rag_engine.app.restore_chunks import restore_chunks
-from rag_engine.app.source_lookup import lock_live_source
+from rag_engine.app.source_lookup import ensure_not_deleted
 from rag_engine.domain.entities import SourceKind
 from rag_engine.domain.errors import ErrorCode, RequestError
 from rag_engine.domain.ports import UnitOfWork
@@ -42,7 +45,11 @@ async def restore_document(
         found = await transaction.documents.get(document_id)
         if found is None or found.purged_at is not None:
             raise RequestError(ErrorCode.DOCUMENT_NOT_FOUND, "문서를 찾을 수 없다")
-        source = await lock_live_source(transaction, found.source_id)
+        source = await transaction.catalog.lock_source_shared(found.source_id)
+        if source is None:
+            # 문서를 읽은 뒤 잠그기 전에 정리 작업이 원천과 그 문서를 함께 지웠다.
+            raise RequestError(ErrorCode.DOCUMENT_NOT_FOUND, "문서를 찾을 수 없다")
+        ensure_not_deleted(source)
         if source.kind is not SourceKind.PUSH:
             raise RequestError(ErrorCode.WRONG_SOURCE_KIND, "밀어 넣는 원천의 문서가 아니다")
         document = await transaction.documents.lock(found.id)

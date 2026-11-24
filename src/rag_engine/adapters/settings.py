@@ -46,6 +46,9 @@ class Settings(BaseSettings):
 
     log_format: Literal["json", "text"] = "json"
     deleted_retention_days: int = Field(default=30, gt=0)
+    # 끝난 동기화 기록을 남기는 날수. 지나면 정리 작업이 지운다. 원천마다 가장 최근 기록 하나는
+    # 남긴다(source-sync 명세 "설정").
+    sync_record_retention_days: int = Field(default=90, gt=0)
     mcp_stateless: bool = True
     mcp_json_response: bool = False
 

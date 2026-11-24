@@ -38,7 +38,11 @@ expect_output = ["Failed: DID NOT RAISE"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/restore_document.py"
-old = '''        source = await lock_live_source(transaction, found.source_id)
+old = '''        source = await transaction.catalog.lock_source_shared(found.source_id)
+        if source is None:
+            # 문서를 읽은 뒤 잠그기 전에 정리 작업이 원천과 그 문서를 함께 지웠다.
+            raise RequestError(ErrorCode.DOCUMENT_NOT_FOUND, "문서를 찾을 수 없다")
+        ensure_not_deleted(source)
 '''
 new = '''        source = await transaction.catalog.get_source_by_id(found.source_id)
         if source is None:
@@ -53,13 +57,16 @@ expect_output = ["Failed: DID NOT RAISE"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/restore_document.py"
-old = '''        source = await lock_live_source(transaction, found.source_id)
+old = '''        source = await transaction.catalog.lock_source_shared(found.source_id)
+        if source is None:
+            # 문서를 읽은 뒤 잠그기 전에 정리 작업이 원천과 그 문서를 함께 지웠다.
+            raise RequestError(ErrorCode.DOCUMENT_NOT_FOUND, "문서를 찾을 수 없다")
+        ensure_not_deleted(source)
 '''
 new = '''        source = await transaction.catalog.get_source_by_id(found.source_id)
         if source is None:
             raise RuntimeError("원천이 없다")
-        if source.deleted_at is not None:
-            raise RequestError(ErrorCode.SOURCE_DELETED, "지운 원천이다")
+        ensure_not_deleted(source)
 '''
 
 [[mutation]]

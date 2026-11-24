@@ -8,6 +8,9 @@
 파싱 결과(문서마다 한 행)는 `save_content`가 덮어쓰고 `get_content`가 읽는다.
 """
 
+from collections.abc import Sequence
+from dataclasses import replace
+from datetime import datetime
 from typing import Final
 from uuid import UUID
 
@@ -60,6 +63,8 @@ class _BlockJson(BaseModel):
 
 
 _BLOCK_LIST: Final = TypeAdapter(list[_BlockJson])
+# 한 문장의 `IN` 목록에 싣는 원본 경로의 수. psycopg는 바인드 파라미터를 65535개까지만 받는다.
+_PATH_BATCH: Final = 10_000
 
 
 def _document(row: sa.RowMapping) -> Document:
@@ -344,6 +349,73 @@ class PostgresDocumentStore:
             sa.or_(documents.c.deleted_at.is_(None), documents.c.deleted_with_source.is_(True)),
         )
         return bool(await self._connection.scalar(sa.select(sa.exists().where(held))))
+
+    async def has_documents_deleted_with_source(self, source_id: UUID) -> bool:
+        documents = tables.documents
+        marked = sa.and_(
+            documents.c.source_id == source_id,
+            documents.c.purged_at.is_(None),
+            documents.c.deleted_with_source.is_(True),
+        )
+        return bool(await self._connection.scalar(sa.select(sa.exists().where(marked))))
+
+    async def has_undeleted_documents(self, source_id: UUID) -> bool:
+        documents = tables.documents
+        alive = sa.and_(documents.c.source_id == source_id, documents.c.deleted_at.is_(None))
+        return bool(await self._connection.scalar(sa.select(sa.exists().where(alive))))
+
+    async def list_purgeable_ids(self, deleted_before: datetime, limit: int) -> list[UUID]:
+        documents = tables.documents
+        rows = await self._connection.scalars(
+            sa.select(documents.c.id)
+            .where(
+                documents.c.deleted_at.is_not(None),
+                documents.c.deleted_at <= deleted_before,
+                documents.c.purged_at.is_(None),
+                documents.c.deleted_with_source.is_(False),
+            )
+            .order_by(documents.c.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def purge(self, document: Document, purged_at: datetime) -> None:
+        contents = tables.document_contents
+        await self._connection.execute(
+            sa.delete(contents).where(contents.c.document_id == document.id)
+        )
+        await self.update(replace(document, blob_path=None, purged_at=purged_at))
+
+    async def list_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        documents = tables.documents
+        rows = await self._connection.scalars(
+            sa.select(documents.c.id)
+            .where(documents.c.source_id == source_id)
+            .order_by(documents.c.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def delete_documents(self, document_ids: Sequence[UUID]) -> None:
+        contents = tables.document_contents
+        await self._connection.execute(
+            sa.delete(contents).where(contents.c.document_id.in_(document_ids))
+        )
+        await self._connection.execute(
+            sa.delete(tables.documents).where(tables.documents.c.id.in_(document_ids))
+        )
+
+    async def referenced_blob_paths(self, paths: Sequence[str]) -> set[str]:
+        documents = tables.documents
+        found: set[str] = set()
+        for start in range(0, len(paths), _PATH_BATCH):
+            rows = await self._connection.scalars(
+                sa.select(documents.c.blob_path).where(
+                    documents.c.blob_path.in_(paths[start : start + _PATH_BATCH])
+                )
+            )
+            found.update(path for path in rows if path is not None)
+        return found
 
     async def count_documents_of_source(self, source_id: UUID) -> DocumentCounts:
         documents = tables.documents

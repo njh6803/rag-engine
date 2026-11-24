@@ -136,6 +136,8 @@ async def _assembled(
         connectors=EntryPointConnectorRegistry(),
         source_read_timeout_seconds=float(settings.source_read_timeout_seconds),
         max_upload_bytes=settings.max_upload_mb * _BYTES_PER_MB,
+        deleted_retention_days=settings.deleted_retention_days,
+        sync_record_retention_days=settings.sync_record_retention_days,
     )
     try:
         yield deps

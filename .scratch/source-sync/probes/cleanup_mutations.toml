@@ -1,0 +1,276 @@
+# source-sync 14(하루에 한 번 도는 정리 작업)의 시험 가운데 구현 뒤에 쓴 것의 변이.
+# 문서와 원천을 완전히 지우는 규칙, 원본 정리, 동기화 기록 정리, 멈춘 작업 다시 넣기, 일정 확인이
+# 정리 작업을 넣는 때, 되살리기와의 겹침마다 그 규칙을 깨는 변이를 넣어 시험이 빨개지는지 본다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/source-sync/probes/cleanup_mutations.toml
+
+[[mutation]]
+name = "원천과 함께 지워졌다는 표시가 있는 문서도 보관 기간이 지나면 지운다"
+tests = ["tests/app/test_cleanup.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup.py::test_원천과_함께_지운_표시가_남은_문서는_보관_기간이_지나도_지우지_않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/document_store.py"
+old = '''                documents.c.deleted_with_source.is_(False),
+'''
+new = ''''''
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''        and not document.deleted_with_source
+'''
+new = ''''''
+
+[[mutation]]
+name = "보관 기간이 꼭 찬 문서를 아직 지우지 않는다"
+tests = ["tests/app/test_cleanup.py::test_지운_시각에서_보관_일수가_꼭_지난_문서부터_지운다"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup.py::test_지운_시각에서_보관_일수가_꼭_지난_문서부터_지운다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/document_store.py"
+old = '''                documents.c.deleted_at <= deleted_before,
+'''
+new = '''                documents.c.deleted_at < deleted_before,
+'''
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''        and document.deleted_at <= cutoff
+'''
+new = '''        and document.deleted_at < cutoff
+'''
+
+[[mutation]]
+name = "완전히 지운 문서의 원본 파일을 지우지 않는다"
+tests = ["tests/app/test_cleanup.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup.py::test_보관_기간이_지난_지운_문서는_삭제_기록만_남기고_지운다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''        paths = _blob_paths(documents)
+    await _remove_blobs(deps.blob_store, paths)
+    return len(documents)'''
+new = '''    return len(documents)'''
+
+[[mutation]]
+name = "지운 원천의 문서 원본 파일을 지우지 않는다"
+tests = ["tests/app/test_cleanup.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup.py::test_보관_기간이_지난_지운_원천은_딸린_것을_모두_지우고_이름을_다시_쓸_수_있다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''    await _remove_blobs(deps.blob_store, paths)
+    return _Batch.DONE if last else _Batch.MORE'''
+new = '''    return _Batch.DONE if last else _Batch.MORE'''
+
+[[mutation]]
+name = "문서를 완전히 지우는 작업 단위가 작업 담당 기록을 잃었는지 보지 않는다"
+tests = ["tests/app/test_cleanup.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup.py::test_작업_담당_기록을_잃은_정리_작업은_아무것도_지우지_않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''        await hold_attempt(transaction, job)
+        paths = _blob_paths(documents)
+    await _remove_blobs(deps.blob_store, paths)
+    return len(documents)'''
+new = '''        paths = _blob_paths(documents)
+    await _remove_blobs(deps.blob_store, paths)
+    return len(documents)'''
+
+[[mutation]]
+name = "원천 행을 마지막 문서 묶음과 다른 작업 단위에서 지운다"
+tests = ["tests/app/test_cleanup_resume.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_문서_되살리기는_500이_아니라_404로_끝난다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''        last = len(ids) < BATCH_SIZE'''
+new = '''        last = len(ids) == 0'''
+
+[[mutation]]
+name = "옮기지 못한 문서의 색인 상태가 사라져도 건설 중인 판의 전환 검사를 하지 않는다"
+tests = ["tests/app/test_cleanup.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup.py::test_옮기지_못한_문서의_색인_상태가_사라지면_건설_중인_판이_전환된다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''        await check_building_versions(transaction, knowledge_bases)
+'''
+new = ''''''
+
+[[mutation]]
+name = "방금 쓴 주인 없는 원본도 치운다"
+tests = ["tests/app/test_cleanup.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup.py::test_하루_넘게_묵은_주인_없는_원본만_치운다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''_ORPHAN_GRACE: Final = timedelta(hours=24)'''
+new = '''_ORPHAN_GRACE: Final = timedelta(0)'''
+
+[[mutation]]
+name = "문서 행이 가리키는 원본도 묵었으면 치운다"
+tests = ["tests/app/test_cleanup.py::test_하루_넘게_묵은_주인_없는_원본만_치운다"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup.py::test_하루_넘게_묵은_주인_없는_원본만_치운다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''        if path not in referenced and await _remove_blob(deps.blob_store, path):'''
+new = '''        if await _remove_blob(deps.blob_store, path):'''
+
+[[mutation]]
+name = "원본 열거가 원본 폴더 밖의 파일도 낸다"
+tests = ["tests/adapters/test_blob_store.py"]
+expect = "red"
+expect_output = ["tests/adapters/test_blob_store.py::test_쓴_지_기준_시각보다_오래된_원본만_키로_열거한다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/blob_store.py"
+old = '''blob_root.glob("*/*")'''
+new = '''self._root.glob("*/*")'''
+
+[[mutation]]
+name = "원천마다 가장 최근 동기화 기록도 지운다"
+tests = ["tests/app/test_cleanup.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup.py::test_오래된_동기화_기록은_지우되_원천마다_가장_최근_기록_하나는_남긴다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/sync_record_store.py"
+old = '''                has_newer,
+'''
+new = ''''''
+
+[[mutation]]
+name = "문서를 모두 되살린 뒤 실패로 끝난 되살리기 작업을 다시 넣지 않는다"
+tests = ["tests/app/test_cleanup_resume.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup_resume.py::test_문서를_모두_되살린_뒤_실패로_끝난_되살리기_작업도_다시_넣는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''            stalled = await transaction.documents.has_documents_deleted_with_source(
+                source.id
+            ) or await _last_job_failed(transaction, source.id, kind)'''
+new = '''            stalled = await transaction.documents.has_documents_deleted_with_source(
+                source.id
+            )'''
+
+[[mutation]]
+name = "지움 표시가 선 원천은 문서가 다 옮겨졌어도 원천 삭제 작업을 다시 넣는다"
+tests = ["tests/app/test_cleanup_resume.py::test_멈추지_않은_원천에는_작업을_넣지_않는다"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup_resume.py::test_멈추지_않은_원천에는_작업을_넣지_않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''            stalled = await transaction.documents.has_undeleted_documents(source.id)'''
+new = '''            stalled = True'''
+
+[[mutation]]
+name = "가장 나중 작업이 성공으로 끝났어도 되살리기 작업을 다시 넣는다"
+tests = ["tests/app/test_cleanup_resume.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup_resume.py::test_재시도를_다_쓰고_멈춘_원천_되살리기_작업을_다시_넣어_문서를_모두_되살린다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/cleanup.py"
+old = '''    return latest is not None and latest.status is JobStatus.FAILED'''
+new = '''    return latest is not None'''
+
+[[mutation]]
+name = "새벽 3시 정각의 확인은 그 3시 이전으로 본다"
+tests = ["tests/app/test_schedule_check_cleanup.py"]
+expect = "red"
+expect_output = ["tests/app/test_schedule_check_cleanup.py::test_다음_새벽_3시_전의_확인은_넣지_않고_3시_뒤의_첫_확인은_넣는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/schedule_check.py"
+old = '''    while (following := calculator.next_run(CLEANUP_SCHEDULE, latest)) <= now:'''
+new = '''    while (following := calculator.next_run(CLEANUP_SCHEDULE, latest)) < now:'''
+
+[[mutation]]
+name = "정리 작업이 끝나도 한 줄의 로그를 남기지 않는다"
+tests = ["tests/app/test_cleanup_resume.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup_resume.py::test_정리_작업은_끝에_종류별_개수를_한_줄로_남긴다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/worker/processing.py"
+old = '''        _log_cleanup(job, counts)
+'''
+new = ''''''
+
+[[mutation]]
+name = "문서 되살리기가 사라진 원천을 만나면 500을 낸다"
+tests = ["tests/app/test_cleanup_resume.py"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_문서_되살리기는_500이_아니라_404로_끝난다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/restore_document.py"
+old = '''            # 문서를 읽은 뒤 잠그기 전에 정리 작업이 원천과 그 문서를 함께 지웠다.
+            raise RequestError(ErrorCode.DOCUMENT_NOT_FOUND, "문서를 찾을 수 없다")
+'''
+new = '''            raise RuntimeError("문서가 가리키는 원천이 없다")
+'''
+
+[[mutation]]
+name = "기준 시각 뒤에 넣은 정리 작업이 있어도 또 넣는다"
+tests = ["tests/adapters/test_job_queue_cleanup.py"]
+expect = "red"
+expect_output = ["tests/adapters/test_job_queue_cleanup.py::test_기준_시각_뒤에_넣은_정리_작업이_있으면_끝났어도_넣지_않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/job_queue.py"
+old = '''jobs.c.kind == JobKind.CLEANUP.value, jobs.c.created_at >= since)'''
+new = '''jobs.c.kind == JobKind.CLEANUP.value, jobs.c.created_at > since)'''
+
+[[mutation]]
+name = "원천 되살리기가 사라진 원천을 만나면 500을 낸다"
+tests = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_원천_되살리기는_500이_아니라_404로_끝난다"]
+expect = "red"
+expect_output = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_원천_되살리기는_500이_아니라_404로_끝난다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/restore_source.py"
+old = '''        raise RequestError(ErrorCode.SOURCE_NOT_FOUND, "그 이름의 원천이 없다")
+    if locked.deleted_at is None:'''
+new = '''        raise RuntimeError("원천 행이 잠그는 사이에 사라졌다")
+    if locked.deleted_at is None:'''
+
+[[mutation]]
+name = "원본 훑기가 폴더 링크 아래의 파일도 열거한다"
+tests = ["tests/adapters/test_blob_store.py::test_폴더_링크_아래의_파일은_열거하지_않는다"]
+expect = "red"
+expect_output = ["tests/adapters/test_blob_store.py::test_폴더_링크_아래의_파일은_열거하지_않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/blob_store.py"
+old = '''                    path.parent.is_symlink()
+                    or path.is_symlink()
+'''
+new = '''                    path.is_symlink()
+'''
+
+[[mutation]]
+name = "원본 폴더 자체가 링크여도 훑는다"
+tests = ["tests/adapters/test_blob_store.py::test_원본_폴더_자체가_링크이면_열거하지_않는다"]
+expect = "red"
+expect_output = ["tests/adapters/test_blob_store.py::test_원본_폴더_자체가_링크이면_열거하지_않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/blob_store.py"
+old = '''        if blob_root.is_symlink():
+            return []
+'''
+new = ''''''

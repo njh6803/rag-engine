@@ -83,11 +83,14 @@ async def _until(condition: Callable[[], Awaitable[bool]]) -> None:
 
 
 def _events(caplog: pytest.LogCaptureFixture) -> list[dict[str, object]]:
-    return [
+    """원천의 일정 로그. 정리 작업을 넣는 로그(첫 확인이 한 번 남긴다)는 따로 본다
+    (`test_schedule_check_cleanup.py`)."""
+    parsed = [
         json.loads(JsonLinesFormatter().format(record))
         for record in caplog.records
         if record.name == LOGGER
     ]
+    return [event for event in parsed if event["event"] != "schedule_cleanup_enqueued"]
 
 
 def _names(caplog: pytest.LogCaptureFixture) -> list[str]:

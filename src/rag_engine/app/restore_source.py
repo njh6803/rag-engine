@@ -80,11 +80,12 @@ async def lock_restorable_source(
 ) -> Source:
     """원천 행을 잠그고 되살릴 수 있는지 본다. 잠근 뒤의 원천을 낸다. 지워지지 않았으면 409
     `source_not_deleted`, 보관 기간이 지났으면 409 `source_retention_expired`, 원천 삭제 작업이나
-    원천 되살리기 작업이 끝나지 않았으면 409 `source_change_in_progress`다."""
+    원천 되살리기 작업이 끝나지 않았으면 409 `source_change_in_progress`다. 이름으로 읽은 뒤 잠그기
+    전에 정리 작업이 그 원천을 지웠으면 404 `source_not_found`다."""
     source = await require_source(transaction, name)
     locked = await transaction.catalog.lock_source(source.id)
     if locked is None:
-        raise RuntimeError("원천 행이 잠그는 사이에 사라졌다")
+        raise RequestError(ErrorCode.SOURCE_NOT_FOUND, "그 이름의 원천이 없다")
     if locked.deleted_at is None:
         raise RequestError(ErrorCode.SOURCE_NOT_DELETED, "지워지지 않은 원천이다")
     if locked.deleted_at + timedelta(days=retention_days) <= now:
