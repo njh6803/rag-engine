@@ -226,9 +226,9 @@ expect_output = ['Left contains one more item: IndexVersion(']
 
 [[mutation.edit]]
 file = "src/rag_engine/app/restore_chunks.py"
-old = '''from rag_engine.app.live_versions import live_index_versions
+old = '''from rag_engine.domain.ports import LockMode, Transaction
 '''
-new = '''from rag_engine.app.live_versions import live_index_versions
+new = '''from rag_engine.domain.ports import LockMode, Transaction
 from rag_engine.app.version_switch import check_version_switch
 '''
 

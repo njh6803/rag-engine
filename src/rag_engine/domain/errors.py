@@ -69,6 +69,8 @@ class ErrorCode(StrEnum):
     SOURCE_NOT_DELETED = "source_not_deleted"
     SOURCE_CHANGE_IN_PROGRESS = "source_change_in_progress"
     SOURCE_RETENTION_EXPIRED = "source_retention_expired"
+    # 문서 되살리기가 지워지지 않은 문서를 거절하는 코드. Problem Details에만 쓰인다.
+    DOCUMENT_NOT_DELETED = "document_not_deleted"
     # 관련성 판정기(ADR 0019). 평가 도구만 쓰고 작업 행과 응답에는 나가지 않는다.
     JUDGE_UNAVAILABLE = "judge_unavailable"
     JUDGE_REJECTED = "judge_rejected"
@@ -140,7 +142,7 @@ TOOL_ERROR_CODES = frozenset(
     }
 )
 
-# Problem Details 의 `code`로 낼 수 있는 값 스물다섯.
+# Problem Details 의 `code`로 낼 수 있는 값 스물여섯.
 PROBLEM_ERROR_CODES = frozenset(
     {
         ErrorCode.UNAUTHENTICATED,
@@ -168,6 +170,7 @@ PROBLEM_ERROR_CODES = frozenset(
         ErrorCode.SOURCE_NOT_DELETED,
         ErrorCode.SOURCE_CHANGE_IN_PROGRESS,
         ErrorCode.SOURCE_RETENTION_EXPIRED,
+        ErrorCode.DOCUMENT_NOT_DELETED,
     }
 )
 

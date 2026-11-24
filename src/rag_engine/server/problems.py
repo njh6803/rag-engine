@@ -42,6 +42,7 @@ ERROR_STATUS: Final[Mapping[ErrorCode, int]] = {
     ErrorCode.SOURCE_NOT_DELETED: 409,
     ErrorCode.SOURCE_CHANGE_IN_PROGRESS: 409,
     ErrorCode.SOURCE_RETENTION_EXPIRED: 409,
+    ErrorCode.DOCUMENT_NOT_DELETED: 409,
     ErrorCode.SEARCH_UNAVAILABLE: 503,
     ErrorCode.INTERNAL_ERROR: 500,
 }
@@ -73,6 +74,7 @@ ERROR_TITLE: Final[Mapping[ErrorCode, str]] = {
     ErrorCode.SOURCE_NOT_DELETED: "지워지지 않은 원천이다",
     ErrorCode.SOURCE_CHANGE_IN_PROGRESS: "원천을 지우거나 되살리는 작업이 끝나지 않았다",
     ErrorCode.SOURCE_RETENTION_EXPIRED: "보관 기간이 지나 되살릴 수 없다",
+    ErrorCode.DOCUMENT_NOT_DELETED: "지워지지 않은 문서다",
     ErrorCode.SEARCH_UNAVAILABLE: "검색을 쓸 수 없다",
     ErrorCode.INTERNAL_ERROR: "서버 내부 오류",
 }

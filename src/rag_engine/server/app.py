@@ -36,6 +36,7 @@ from rag_engine.app.search import SearchDeps
 from rag_engine.domain.errors import ErrorCode, InvalidInput, RequestError
 from rag_engine.domain.ports import ConnectorRegistry
 from rag_engine.server.admin_api import build_admin_query_router
+from rag_engine.server.admin_document_api import build_admin_document_router
 from rag_engine.server.admin_knowledge_base_api import build_admin_knowledge_base_router
 from rag_engine.server.admin_source_api import build_admin_source_router
 from rag_engine.server.auth import AuthMiddleware
@@ -184,7 +185,9 @@ def create_app(
     admin_source_router = build_admin_source_router(
         unit_of_work, pull_sources, settings.deleted_retention_days
     )
+    admin_document_router = build_admin_document_router(unit_of_work)
     app.include_router(admin_query_router)
+    app.include_router(admin_document_router)
     app.include_router(admin_source_router)
     app.include_router(knowledge_base_router)
     app.include_router(ingest_router)
@@ -198,6 +201,7 @@ def create_app(
             *app.routes,
             *token_router.routes,
             *admin_query_router.routes,
+            *admin_document_router.routes,
             *admin_source_router.routes,
             *knowledge_base_router.routes,
             *ingest_router.routes,

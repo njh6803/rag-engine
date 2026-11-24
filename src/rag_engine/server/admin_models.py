@@ -109,6 +109,16 @@ class DocumentListResponse(BaseModel):
     documents: list[DocumentResponse]
 
 
+class DocumentRestoredResponse(BaseModel):
+    """문서 되살리기의 응답. 되살린 뒤의 문서와, 되돌릴 조각이 없는 판이 있어 색인 작업을 넣었으면
+    그 작업의 식별자다(`GET /jobs/{id}`로 본다)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    document: DocumentResponse
+    job_id: UUID | None = Field(description="넣은 색인 작업의 ID. 넣지 않았으면 null")
+
+
 class JobResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
