@@ -56,33 +56,38 @@ pytest 작업 프로세스 여덟이 일을 받지 못한 채 약 11시간 남�
   이름이 있는 것은 세션마다 이름이 달라야 한다(core 03).
 - 서버가 답하는지는 TCP 연결이 아니라 PostgreSQL 의 SSL 요청(8바이트)에 한 글자로 답하는지로 본다.
   Docker 의 포트 전달은 안쪽 서버가 준비되기 전에도 연결을 받는다.
-- 문서만 바뀐 커밋은 pytest 를 문서를 읽는 시험 넷(`DOC_STATE_TESTS`)으로 좁힌다(하네스 티켓
-  docs-only-commit-narrow-pytest). core 01 은 문서만 고친 커밋도 pytest 를 건너뛰지 않기로 했다.
+- 문서만 바뀐 커밋은 pytest 를 문서를 읽는 시험 여섯(`DOC_STATE_TESTS`)으로 좁힌다(하네스 티켓
+  docs-only-commit-narrow-pytest 가 넷으로 좁혔고, docs-only-six-state-tests 가 감사로 찾은 둘을
+  더해 여섯이 됐다). core 01 은 문서만 고친 커밋도 pytest 를 건너뛰지 않기로 했다.
   문서를 읽는 저장소 상태 시험(`tests/test_plan_status.py` 등)을 문서 커밋이 깰 수 있어서였고, 그
   까닭은 지금도 맞다. 그래서 건너뛰지 않고 그 시험만 남긴다. 전체 pytest 는 문서만 바꾼 커밋도
   434초에서 1292초(약 7분에서 21분) 걸렸다(대기열 docs-only-commit-full-pytest 열두 회차의 기록).
-  남긴 넷은 `uv run pytest -q <넷>` 으로 손으로 돌려 105건이 24초에서 165초였다(다섯 번 쟀고 값은
-  24, 32, 49, 148, 165초다. 다른 세션이 함께 돌수록 느렸다). 문서만 바꾼 커밋은 스테이징한 경로가
+  처음 남긴 넷은 `uv run pytest -q <넷>` 으로 손으로 돌려 105건이 24초에서 165초였다(다섯 번 쟀고
+  값은 24, 32, 49, 148, 165초다. 다른 세션이 함께 돌수록 느렸다). 뒤에 더한 둘은 `uv run pytest -q
+  <둘>` 으로 손으로 돌려 pytest 가 0.35초로 찍었다(한 번. uv 시작은 빠졌다). 여섯을 함께 돌린
+  값은 pytest 가 13~15초로 찍었다(티켓 `## Comments`). 문서만 바꾼 커밋은 스테이징한 경로가
   비지 않고 전부 `is_doc_path` 인 커밋이다. 경로는 러너가 git 에서 읽는다(`staged_paths`. 이름을
   바꾼 파일은 옛 경로와 새 경로를 모두 센다). 하나라도 문서가 아니거나, 목록이 비었거나, git 이
   읽히지 않거나 시간을 넘기면 전체 pytest 로 간다. 좁히는 쪽으로 틀리지 않는다. 좁힌 길은 나눠
-  돌리지 않고(`-n` 없음), 시험 데이터베이스도 준비하지 않는다. 넷이 데이터베이스를 쓰지 않아, Docker
-  가 없어도 문서 커밋을 할 수 있다(next-session 결정표의 Docker 갈래는 문서가 아닌 파일을 섞은
-  커밋에만 닿는다). 나머지 문서 검사(지침, 커밋, 노트, 표, 줄 구분 문자, 인용)는 러너와 pre-commit
-  이 따로 돌아 남기지 않는다. CI 는 어차피 전체를 돌아, 이 범위가 놓친 시험은 PR 에서 빨개진다.
-  `SKIP=pytest` 우회는 막지 않는다. 판정은 CI 의 `verify` 가 하고, 이 우회로 난 사고를 일지와 대기열
-  항목에서 찾지 못했으며(`SKIP=pytest` 를 grep 했다) 막는 훅은 교정 루프(CLAUDE.md)의 추가 기준 횟수
-  전이다.
-- 좁힌 길이 못 보는 것. (1) 문서 범위(`is_doc_path`)의 파일을 읽는 시험은 남긴 넷만이 아니다.
-  파일을 연 경로를 기록하는 감사 훅을 붙여 전체 pytest 를 한 번 돌려 봤더니(2026-11-24, 테스트
-  데이터베이스 없이 돌아 오류 480건이 났고 데이터베이스를 쓰는 시험은 보지 못했다), 따로 도는 검사가
-  있는 시험(줄 구분 문자, 표, 인용 명령줄 둘, 지침 검사)과 둘이 더 나왔다. 둘은
+  돌리지 않고(`-n` 없음), 시험 데이터베이스도 준비하지 않는다. 여섯이 데이터베이스를 쓰지 않아,
+  Docker 가 없어도 문서 커밋을 할 수 있다(next-session 결정표의 Docker 갈래는 문서가 아닌 파일을
+  섞은 커밋에만 닿는다). 나머지 문서 검사(지침, 커밋, 노트, 표, 줄 구분 문자, 인용)는 러너와
+  pre-commit 이 따로 돌아 남기지 않는다. CI 는 어차피 전체를 돌아, 이 범위가 놓친 시험은 PR 에서
+  빨개진다. `SKIP=pytest` 우회는 막지 않는다. 판정은 CI 의 `verify` 가 하고, 이 우회로 난 사고를
+  일지와 대기열 항목에서 찾지 못했으며(`SKIP=pytest` 를 grep 했다) 막는 훅은 교정 루프(CLAUDE.md)의
+  추가 기준 횟수 전이다.
+- 좁힌 길이 못 보는 것. (1) 문서 범위(`is_doc_path`)의 파일을 읽는 시험을 여섯으로 빠짐없이
+  찾았는지는 모른다. 처음에는 `tests/` 를 grep 해 넷을 골랐고, 파일을 연 경로를 기록하는 감사 훅을
+  붙여 전체 pytest 를 한 번 돌려 보니(2026-11-24, 테스트 데이터베이스 없이 돌아 오류 480건이 났고
+  데이터베이스를 쓰는 시험은 보지 못했다), 따로 도는 검사가 있는 시험(줄 구분 문자, 표, 인용 명령줄
+  둘, 지침 검사)과 둘이 더 나와 그 새 시험 둘을 더했다. 새 시험 둘은
   `tests/tools/test_hook_prompt_directive.py::test_알림의_규약_낱말은_원천_문서에_있다`
   (`docs/agents/issue-tracker.md` 를 연다)와
   `tests/tools/test_hook_grill_design_check.py::test_알림이_드는_용어집은_이_저장소의_용어집이다`
-  (`docs/agents/domain.md` 를 연다)다. 이 둘은 좁힌 길에서 돌지 않고 CI 에서야 빨개진다. 감사 훅은
-  시험 프로세스 안의 파일 열기만 적어서, 시험이 띄운 자식 프로세스가 문서를 읽는 길은 보지
-  못했다(리뷰가 그런 자식을 찾지는 못했다). (2) 부분
+  (`docs/agents/domain.md` 를 연다)다. 감사 훅은 시험 프로세스 안의 파일 열기만 적어서, 시험이 띄운
+  자식 프로세스가 문서를 읽는 길은 보지 못했다(리뷰가 그런 자식을 찾지는 못했다). 데이터베이스를
+  쓰는 시험 가운데 문서를 읽는 것이 있어도 보지 못했다. 그런 시험이 있으면 문서 커밋에서는 CI 에서야
+  빨개진다. (2) 부분
   커밋(`git commit <파일>`)은 git 이 훅에 준 임시 색인(`GIT_INDEX_FILE`)을 러너가 그대로 물려받아
   `git diff --cached` 가 그 색인을 읽는다. 시험으로 고정한 것은 보통의 색인뿐이고, 임시 색인의 길은
   실제 커밋으로 봐야 한다(티켓 `## Comments`). `git commit --amend` 는 `--cached` 가 옛 HEAD 와
@@ -229,9 +234,11 @@ DOC_STATE_TESTS: tuple[str, ...] = (
     "tests/tools/test_check_adr_pointers.py",
     "tests/tools/test_queue_open_rows.py",
     "tests/tools/test_check_quotes.py::test_이_저장소_전체를_돌려도_끝난다",
+    "tests/tools/test_hook_prompt_directive.py::test_알림의_규약_낱말은_원천_문서에_있다",
+    "tests/tools/test_hook_grill_design_check.py::test_알림이_드는_용어집은_이_저장소의_용어집이다",
 )
-# 넷을 손으로 돌려 가장 느렸던 것이 165초였다. 그 다섯 배 반쯤 되는 값이다. 넘기면 검사가 실패로
-# 끝나고 커밋이 막힌다(전체 pytest 로 넘어가지 않는다).
+# 앞의 넷을 손으로 돌려 가장 느렸던 것이 165초였다. 그 다섯 배 반쯤 되는 값이다(뒤의 둘은 합쳐 1초가
+# 안 걸렸다). 넘기면 검사가 실패로 끝나고 커밋이 막힌다(전체 pytest 로 넘어가지 않는다).
 DOC_PYTEST_TIMEOUT_SECONDS = 900
 _DOC_ROOT_FILES = frozenset({"CLAUDE.md", "GLOSSARY.md", "CODING_STANDARDS.md", "README.md"})
 _SCRATCH_DIR = ".scratch/"
@@ -287,7 +294,7 @@ def staged_paths(cwd: Path) -> list[str] | None:
 
 
 def checks_for(staged: Sequence[str] | None) -> tuple[Check, ...]:
-    """문서만 바꾼 커밋이면 pytest 검사를 문서 시험 넷으로 바꾼다. 아니면 `CHECKS` 그대로다.
+    """문서만 바꾼 커밋이면 pytest 검사를 문서 시험 여섯으로 바꾼다. 아니면 `CHECKS` 그대로다.
     `staged` 가 None 이면(읽지 못했다) 좁히지 않는다."""
     if not docs_only(staged):
         return CHECKS
@@ -599,7 +606,7 @@ def main() -> int:
     prepared = True
     staged = staged_paths(ROOT)
     if docs_only(staged) and "pytest" not in skipped_ids(os.environ):
-        out.write(status_line("docs-only", "pytest 를 문서 시험 넷으로 좁혔다"))
+        out.write(status_line("docs-only", "pytest 를 문서 시험 여섯으로 좁혔다"))
     if needs_test_database(os.environ, staged):
         start = time.monotonic()
         problem = ""
