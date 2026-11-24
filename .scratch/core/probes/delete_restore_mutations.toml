@@ -181,7 +181,7 @@ expect = "red"
 expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 뒤부터 발생한다.'"]
 
 [[mutation.edit]]
-file = "src/rag_engine/app/ingest.py"
+file = "src/rag_engine/app/restore_chunks.py"
 old = '''    await transaction.index.delete_archived_chunks(document.id)
     for version in versions:
 '''
@@ -208,12 +208,12 @@ expect = "red"
 expect_output = ['_hash=None, error_code=None, updated_at=datetime.datetime(2026, 11, 11, 9']
 
 [[mutation.edit]]
-file = "src/rag_engine/app/ingest.py"
-old = '''            if version.status is not IndexVersionStatus.BUILDING:
-                await transaction.index.save_state(_pending_state(document, version, now))
+file = "src/rag_engine/app/restore_chunks.py"
+old = '''        if version.status is not IndexVersionStatus.BUILDING:
+            await transaction.index.save_state(_pending_state(document, version, now))
 '''
-new = '''            if True:
-                await transaction.index.save_state(_pending_state(document, version, now))
+new = '''        if True:
+            await transaction.index.save_state(_pending_state(document, version, now))
 '''
 
 [[mutation]]
@@ -223,7 +223,15 @@ expect = "red"
 expect_output = ['Left contains one more item: IndexVersion(']
 
 [[mutation.edit]]
-file = "src/rag_engine/app/ingest.py"
+file = "src/rag_engine/app/restore_chunks.py"
+old = '''from rag_engine.domain.ports import LockMode, Transaction
+'''
+new = '''from rag_engine.domain.ports import LockMode, Transaction
+from rag_engine.app.version_switch import check_version_switch
+'''
+
+[[mutation.edit]]
+file = "src/rag_engine/app/restore_chunks.py"
 old = '''                _restored_state(document, version, restored[version.id], now)
             )
 '''
