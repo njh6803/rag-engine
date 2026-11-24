@@ -438,7 +438,8 @@ def test_pytest_밖의_검사는_문서만_바꾼_커밋에서도_그대로다()
 
 
 def test_좁힌_pytest_는_전체_pytest_보다_짧은_시간_제한을_둔다() -> None:
-    """넷을 손으로 돌려 24~165초였다. 멈추면 전체 pytest 의 시간 제한을 기다리지 않는다."""
+    """처음 남긴 넷을 손으로 돌려 24~165초였고 뒤에 더한 둘은 1초가 안 걸렸다. 멈추면 전체 pytest 의
+    시간 제한을 기다리지 않는다."""
     assert _pytest_검사(checks_for(["docs/PRD.md"])).timeout < _pytest_검사(CHECKS).timeout
 
 
@@ -452,7 +453,7 @@ def test_문서만_바꾼_커밋이_아니면_전체_pytest_를_돈다(staged: l
 
 
 def test_문서만_바꾼_커밋은_시험_데이터베이스를_준비하지_않는다() -> None:
-    """좁힌 시험 넷은 데이터베이스를 쓰지 않아, Docker 가 없어도 문서 커밋을 할 수 있다."""
+    """좁힌 시험 여섯은 데이터베이스를 쓰지 않아, Docker 가 없어도 문서 커밋을 할 수 있다."""
     assert not needs_test_database({}, ["docs/PRD.md"])
 
 
@@ -467,7 +468,7 @@ def test_SKIP_pytest_면_시험_데이터베이스를_준비하지_않는다() -
 
 def test_남길_문서_시험은_파일과_시험_이름이_실제로_있다() -> None:
     """이름을 바꾸거나 지우면 좁힌 pytest 가 '시험이 없다'로 빨개지기 전에 여기서 먼저 빨개진다."""
-    assert len(DOC_STATE_TESTS) == 4
+    assert len(DOC_STATE_TESTS) == 6
     for item in DOC_STATE_TESTS:
         path, _, name = item.partition("::")
         text = (ROOT / path).read_text(encoding="utf-8")
