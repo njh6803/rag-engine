@@ -42,8 +42,33 @@ CodeRabbit CLI는 앞선 세션에서 권한 분류기가 거절했으므로 이
 - 부하가 31%로 내려간 뒤 같은 커밋을 다시 쳤다(둘째 시도). 이번에는 pytest가 1085.92초 걸려 5761건 가운데 5건이 빨갰고(`tests/contract/test_search_complete.py`의 네 시험과 `test_search_tool.py`의 한 시험), 모두 `httpx2.ReadTimeout`이었다. 시험 중 CPU 사용률은 다시 100%였고 다른 세션의 pytest 프로세스가 13개 돌았다(커밋이 끝난 뒤 손으로 봤다). 첫 시도와 진 시험이 달라 같은 시험이 두 번 연속 진 것이 아니므로 diagnosing-bugs로 넘기지 않았다. 원인은 이 PC의 부하로 보는 어림이고, 부하 없는 때 같은 시험이 통과한 것은 이 세션에서 보지 못했다.
 - 셋째 시도: 대기 작업이 60분을 기다려도 한가해지지 않아(마지막 부하 79%), 다른 pytest 프로세스는 `13-first-judge-run` 워크트리의 `pytest -n 8`이 12:00부터 돌고 있는 것 하나였고 CPU를 거의 쓰지 않았다(10초 동안 잰 프로세스별 사용률 최대 4.7%, 시스템 부하는 60~80%로 읽혔고 어느 프로세스가 쓰는지는 찾지 못했다). 그 상태로 같은 커밋을 다시 쳤더니 pytest가 1170.64초 걸려 5761건 가운데 7건이 빨갰다. 4건은 `test_admin_pull_source_stuck_calls.py`의 `elapsed < PROMPT_SECONDS` 단언이 1.44~1.55초로 진 것이고, 3건은 `tests/contract`의 `search_complete` 둘과 `search_min_score` 하나이며 `ReadTimeout`이 로그에 여섯 번 찍혔다. 첫 시도와 둘째 시도에 이어 세 번 모두 이 변경이 닿지 않는 시간 의존 시험이 졌고, 시험은 원칙 I대로 고치지 않았다. 커밋은 만들어지지 않았다.
 - 둘째 시도의 인용 대조 경고 넷은 원문이 아닌 말에 따옴표를 씌운 것이라 따옴표를 떼어 고쳤다.
-
 - 넷째 시도: 사용자에게 세 번 막힌 사정(이 변경과 무관한 시간 의존 시험, 시험은 고치지 않음)을 보이고 `SKIP=pytest` 우회를 물었고, 사용자가 건너뛰고 커밋하기를 골랐다. `SKIP=pytest git commit`으로 pytest 훅만 건너뛰어 커밋 `7740555`가 만들어졌다. 그때 나머지 훅(ruff 둘, 검사 러너의 CHECKS, check-notes, zizmor, check-ticket, lint-imports, check-instructions, check-type-escapes, pyright 둘, run-hooks, 표·줄 구분자·변이 표·인용 대조, 커밋 메시지)은 모두 통과했다. 전체 pytest의 판정은 CI의 `verify`가 한다. 이 변경에서 전체 pytest가 초록이었던 적은 없다(세 번 모두 시간 의존 시험 1건·5건·7건이 빨갰다).
 - 이 일지를 더하는 커밋은 문서만 바꾼 커밋이라 우회 없이 새 여섯 시험으로 도는 길을 밟는다. 그 결과는 PR 본문에 적는다.
 
-다시 돌린 명령: `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`, `uv run lint-imports`, `uv run python tools/check_instructions.py`가 모두 종료 0이었다(문구를 고치기 전). 고친 뒤와 전체 `uv run pytest`는 커밋의 pre-commit이 돌아 결과를 아래에 이어 적는다.
+다시 돌린 명령: `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`, `uv run lint-imports`, `uv run python tools/check_instructions.py`가 모두 종료 0이었다(문구를 고치기 전). 고친 뒤의 이 다섯과 나머지 훅은 두 커밋의 pre-commit이 돌아 모두 통과했다. 전체 `uv run pytest`는 위 "커밋 시도"와 아래 "PR과 CI"대로 이 브랜치에서 초록이었던 적이 없다.
+
+## PR과 CI
+
+- PR 114(base dev). 푸시한 머리 `1b20d53`에서 `claude-review`는 "지적 없음"이었고 CodeRabbit은 한도에 걸려 리뷰가 없었다(`Review rate limited`. 통과 줄에 적히는 값이다).
+- CI의 `python` 잡이 처음에는 5759건 가운데 1건이 빨갰다(305.11초). `tests/tools/test_hook_push_behind_main.py::test_dev의_유무를_조회하다_시간을_넘기면_재지_않는다`가 "dev 조회가 시간을 넘긴 뒤 고른 기준: dev"로 졌다. 이 브랜치는 그 훅과 시험을 건드리지 않았다(`git diff origin/dev`가 비었다). 원인은 일지 `2026-11-14-2016-search-eval-07-inference-records.md`가 코드를 읽고 스크래치 스크립트로 재현해 밝힌 것과 같은 시험이다(제한 0.0001초가 걸리려면 `git`이 끝나기 전에 부모가 `communicate`에 들어가야 하는데 부하에서 부모가 멈추면 그렇지 못하다). 이 PR의 첫 실패라 같은 시험이 연속으로 진 것이 아니므로 diagnosing-bugs로 넘기지 않았고, 시험은 고치지 않고 실패한 잡만 다시 돌렸다(`gh run rerun --failed`). 다시 돌린 `python`과 `verify`가 초록이었다. 이번 실패가 같은 원인인지는 CI 로그로 재현하지 않았고 앞선 일지와 같은 시험이라는 점으로 본 어림이다.
+
+## 회고
+
+후보 셋, 승인 하나(회차 하나), 기각 둘, 넘김 없음. 읽은 것: 이 일지, 대기열 항목(`tools/queue_open_rows.py --search`로 찾아 같은 일로 보이는 `load-time-assertion-margins`와 `mutate-usage-dump`를 열었다), 메모리의 부하 시간 시험 결정. 만료할 항목은 없었다(`origin/dev` 기준으로도 같았다).
+
+**승인**
+- **`run_checks.py --help`가 검사 전체를 띄웠다 → `run-checks-ignores-args` 1회차(새 항목).** 사건은 위 "한 것"의 실수다. 조건: 사건(있음), 층(도구가 인자를 거르는 것이 지침보다 높다. 사용법 안내를 도구에 둔다), 되돌림(PR 하나). 더하는 것이라 반영은 다섯 번째이거나 손상이 났을 때다. 띄운 검사를 멈췄고 남은 프로세스가 없어 손상이 아니다. 같은 꼴(인자를 잘못 준 도구의 반응이 크다)이 `mutate-usage-dump`에 있으나 대상 도구와 반응(독스트링 300줄 출력과 검사 전체 실행)이 달라 두 항목이 서로를 가리키게 두었다.
+
+**기각**
+- 부하에서만 빨간 시간 시험: 이 세션의 로컬 pre-commit 세 번(1건 772초, 5건 1085.92초, 7건 1170.64초)과 CI의 `test_dev의_유무를_조회하다…` 1건이 모두 같은 종류다. 이 종류는 닫힌 항목 `token-expiry-test-load-margin`이 위험을 받아들이며 닫았고, 사용자가 2026-11-15에 다시 열지 않기로 했다. 받아들여 닫은 종류의 새 사례는 항목에 잇지 않고 일지에만 적는다(retro 4단계 "여러 곳에서 나는 같은 결함"). 비용은 이번에 가장 컸다. 커밋 시도 세 번(합쳐 약 50분)과 한가해지기를 기다린 60분 뒤에, 사용자 승인을 받아 `SKIP=pytest`로 커밋했다. 다시 열지는 사용자가 정한다.
+- 한가해지기를 60분 기다렸으나 오지 않았다: 위 종류의 같은 비용이다. 열린 `load-time-assertion-margins`가 30분씩 두 번 기다려도 오지 않은 일을 이미 적고 있다.
+
+**대기열 처리**
+- 이 세션이 닫은 것: 없음(PR 109가 `docs-only-commit-full-pytest`를 닫았고 이 PR은 그 위험 한 줄을 닫는다).
+- 새 항목: `run-checks-ignores-args`.
+
+## 다음
+
+- 이 PR의 병합은 요청 범위(PR과 병합까지)에 들어 있다. 병합한 뒤 원격 브랜치 정리를 보고한다.
+- 병합 뒤 주 체크아웃은 뒤처진 채이고(이 워크트리 세션은 당기지 않는다), 앞 워크트리 `docs-only-commit-narrow-pytest`와 이 워크트리가 남는다. 주 체크아웃 세션에서 `/tidy-checkouts`가 필요하다.
+- 다음 작업은 `next-session` 결정표가 고른다. 이 일은 기능이 아닌 하네스 chore라 그 PR이 든 주제는 남지 않았다(앞선 PR 109의 남은 위험 "목록 밖의 시험 둘"을 이 PR이 닫았다). 그 줄이 `.scratch/plan.md`의 프론티어에서 기능을 고른다.
