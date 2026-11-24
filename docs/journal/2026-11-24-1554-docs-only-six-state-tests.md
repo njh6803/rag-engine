@@ -43,4 +43,7 @@ CodeRabbit CLI는 앞선 세션에서 권한 분류기가 거절했으므로 이
 - 셋째 시도: 대기 작업이 60분을 기다려도 한가해지지 않아(마지막 부하 79%), 다른 pytest 프로세스는 `13-first-judge-run` 워크트리의 `pytest -n 8`이 12:00부터 돌고 있는 것 하나였고 CPU를 거의 쓰지 않았다(10초 동안 잰 프로세스별 사용률 최대 4.7%, 시스템 부하는 60~80%로 읽혔고 어느 프로세스가 쓰는지는 찾지 못했다). 그 상태로 같은 커밋을 다시 쳤더니 pytest가 1170.64초 걸려 5761건 가운데 7건이 빨갰다. 4건은 `test_admin_pull_source_stuck_calls.py`의 `elapsed < PROMPT_SECONDS` 단언이 1.44~1.55초로 진 것이고, 3건은 `tests/contract`의 `search_complete` 둘과 `search_min_score` 하나이며 `ReadTimeout`이 로그에 여섯 번 찍혔다. 첫 시도와 둘째 시도에 이어 세 번 모두 이 변경이 닿지 않는 시간 의존 시험이 졌고, 시험은 원칙 I대로 고치지 않았다. 커밋은 만들어지지 않았다.
 - 둘째 시도의 인용 대조 경고 넷은 원문이 아닌 말에 따옴표를 씌운 것이라 따옴표를 떼어 고쳤다.
 
+- 넷째 시도: 사용자에게 세 번 막힌 사정(이 변경과 무관한 시간 의존 시험, 시험은 고치지 않음)을 보이고 `SKIP=pytest` 우회를 물었고, 사용자가 건너뛰고 커밋하기를 골랐다. `SKIP=pytest git commit`으로 pytest 훅만 건너뛰어 커밋 `7740555`가 만들어졌다. 그때 나머지 훅(ruff 둘, 검사 러너의 CHECKS, check-notes, zizmor, check-ticket, lint-imports, check-instructions, check-type-escapes, pyright 둘, run-hooks, 표·줄 구분자·변이 표·인용 대조, 커밋 메시지)은 모두 통과했다. 전체 pytest의 판정은 CI의 `verify`가 한다. 이 변경에서 전체 pytest가 초록이었던 적은 없다(세 번 모두 시간 의존 시험 1건·5건·7건이 빨갰다).
+- 이 일지를 더하는 커밋은 문서만 바꾼 커밋이라 우회 없이 새 여섯 시험으로 도는 길을 밟는다. 그 결과는 PR 본문에 적는다.
+
 다시 돌린 명령: `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`, `uv run lint-imports`, `uv run python tools/check_instructions.py`가 모두 종료 0이었다(문구를 고치기 전). 고친 뒤와 전체 `uv run pytest`는 커밋의 pre-commit이 돌아 결과를 아래에 이어 적는다.
