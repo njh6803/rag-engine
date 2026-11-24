@@ -89,6 +89,43 @@ async def test_쓴_지_기준_시각보다_오래된_원본만_키로_열거한�
     assert found == [old_key]
 
 
+async def test_폴더_링크_아래의_파일은_열거하지_않는다(tmp_path: Path) -> None:
+    store = LocalBlobStore(tmp_path / "data")
+    now = datetime.now(UTC)
+    old_stamp = (now - timedelta(hours=25)).timestamp()
+    await store.write(KEY, b"x")
+    os.utime(tmp_path / "data" / KEY, (old_stamp, old_stamp))
+    # 링크 대상은 데이터 폴더 밖과 안 둘이다. 밖은 지울 수 없는 키가 되고, 안은 같은 파일의 별칭
+    # 키가 되어 진짜 원본을 주인 없는 것으로 오판하게 한다.
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret").write_bytes(b"z")
+    os.utime(outside / "secret", (old_stamp, old_stamp))
+    (tmp_path / "data" / "blobs" / "link-out").symlink_to(outside, target_is_directory=True)
+    (tmp_path / "data" / "blobs" / "link-in").symlink_to(
+        (tmp_path / "data" / KEY).parent, target_is_directory=True
+    )
+
+    found = await store.list_written_before(now - timedelta(hours=24))
+
+    assert found == [KEY]
+
+
+async def test_원본_폴더_자체가_링크이면_열거하지_않는다(tmp_path: Path) -> None:
+    now = datetime.now(UTC)
+    old_stamp = (now - timedelta(hours=25)).timestamp()
+    outside = tmp_path / "outside" / "doc"
+    outside.mkdir(parents=True)
+    (outside / "secret").write_bytes(b"z")
+    os.utime(outside / "secret", (old_stamp, old_stamp))
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "blobs").symlink_to(tmp_path / "outside", target_is_directory=True)
+
+    found = await LocalBlobStore(tmp_path / "data").list_written_before(now - timedelta(hours=24))
+
+    assert found == []
+
+
 async def test_원본_폴더가_아직_없으면_빈_목록이다(tmp_path: Path) -> None:
     assert await LocalBlobStore(tmp_path).list_written_before(datetime.now(UTC)) == []
 

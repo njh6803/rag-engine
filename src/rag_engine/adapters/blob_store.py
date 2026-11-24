@@ -56,11 +56,22 @@ class LocalBlobStore:
 
     def _list_written_before(self, cutoff: float) -> list[str]:
         """`blobs/<문서 UUID>/<원본 UUID>` 모양의 파일만 훑는다. 훑는 도중에 지워진 파일은 건너뛴다.
-        링크는 따라가지 않는다."""
+        링크는 따라가지 않는다. `blobs/`와 그 아래 문서 폴더가 링크이면 그 아래 파일은 훑지 않는다.
+        `glob`이 폴더 링크를 따라 들어가므로 파일 쪽 링크만 보면 링크 아래 파일이 열거되고, 그
+        키는 `delete`가 실제 경로로 풀어 데이터 폴더 밖이라 거부하거나 별칭이라 주인 없는 원본으로
+        오판한다."""
+        blob_root = self._root / BLOB_FOLDER
+        if blob_root.is_symlink():
+            return []
         found: list[str] = []
-        for path in sorted((self._root / BLOB_FOLDER).glob("*/*")):
+        for path in sorted(blob_root.glob("*/*")):
             try:
-                if path.is_symlink() or not path.is_file() or path.stat().st_mtime >= cutoff:
+                if (
+                    path.parent.is_symlink()
+                    or path.is_symlink()
+                    or not path.is_file()
+                    or path.stat().st_mtime >= cutoff
+                ):
                     continue
             except FileNotFoundError:
                 continue

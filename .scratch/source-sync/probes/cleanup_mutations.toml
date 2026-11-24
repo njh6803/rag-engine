@@ -135,7 +135,7 @@ expect_output = ["tests/adapters/test_blob_store.py::test_쓴_지_기준_시각�
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/blob_store.py"
-old = '''(self._root / BLOB_FOLDER).glob("*/*")'''
+old = '''blob_root.glob("*/*")'''
 new = '''self._root.glob("*/*")'''
 
 [[mutation]]
@@ -247,3 +247,30 @@ old = '''        raise RequestError(ErrorCode.SOURCE_NOT_FOUND, "그 이름의 �
     if locked.deleted_at is None:'''
 new = '''        raise RuntimeError("원천 행이 잠그는 사이에 사라졌다")
     if locked.deleted_at is None:'''
+
+[[mutation]]
+name = "원본 훑기가 폴더 링크 아래의 파일도 열거한다"
+tests = ["tests/adapters/test_blob_store.py::test_폴더_링크_아래의_파일은_열거하지_않는다"]
+expect = "red"
+expect_output = ["tests/adapters/test_blob_store.py::test_폴더_링크_아래의_파일은_열거하지_않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/blob_store.py"
+old = '''                    path.parent.is_symlink()
+                    or path.is_symlink()
+'''
+new = '''                    path.is_symlink()
+'''
+
+[[mutation]]
+name = "원본 폴더 자체가 링크여도 훑는다"
+tests = ["tests/adapters/test_blob_store.py::test_원본_폴더_자체가_링크이면_열거하지_않는다"]
+expect = "red"
+expect_output = ["tests/adapters/test_blob_store.py::test_원본_폴더_자체가_링크이면_열거하지_않는다"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/blob_store.py"
+old = '''        if blob_root.is_symlink():
+            return []
+'''
+new = ''''''

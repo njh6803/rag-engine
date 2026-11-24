@@ -38,7 +38,7 @@ source-sync 티켓 12와 13을 병합한 세션이 낸 지시문으로 연 세�
 
 ## 검증
 
-- **변이 표.** `.scratch/source-sync/probes/cleanup_mutations.toml`의 19개가 모두 기대한 시험에서 기대한 이유로 빨갛다(`RAG_TEST_DATABASE_URL`을 준 실행. 처음 돌릴 때 접속값이 없어 기준선이 `errors`였다). 변이 2, 9, 13은 시험 하나만 걸었다. 변이 3, 4는 `make_recent`를 더하기 전에는 초록이었다(위 "겪은 것").
+- **변이 표.** `.scratch/source-sync/probes/cleanup_mutations.toml`의 19개가 모두 기대한 시험에서 기대한 이유로 빨갛다. PR 직전 리뷰의 반영으로 변이 20, 21(폴더 링크 열거)을 더해 21개가 됐고 둘도 기대대로 빨갛다(`RAG_TEST_DATABASE_URL`을 준 실행. 처음 돌릴 때 접속값이 없어 기준선이 `errors`였다). 변이 2, 9, 13은 시험 하나만 걸었다. 변이 3, 4는 `make_recent`를 더하기 전에는 초록이었다(위 "겪은 것").
 - **검사 러너 전체(`tools/run_checks.py`).** 5843개 통과, 3개 실패였다. 실패는 서버를 띄우는 시험과 시간 제한을 재는 시험(`test_admin_pull_source_stuck_calls.py` 둘, `test_serve_command.py` 하나)이고, 같은 때 리뷰 서브에이전트와 변이 실행이 이 PC에서 겹쳐 돌았다. 그 셋만 홀로 돌리면 16개 모두 통과했다(202초).
 - **커밋 시도 네 번이 모두 pytest 훅에서 막혔다(한 번에 20~27분).** 실패한 시험은 매번 달랐다. 1번째 2개(`test_admin_pull_source_stuck_calls.py`의 1.0초 한도에 1.55초, `test_ingest_source.py`의 MCP 읽기 시간 초과), 2번째 3개(같은 파일의 1.08초와 `test_restore_source_round_trip.py` 둘의 검색 오류와 읽기 시간 초과), 3번째 1개(`test_restore_source_round_trip.py`의 `_seed` 검색), 4번째 2개(같은 파일의 1.08초와 1.30초). 셋째 시도의 실패는 `_seed`의 검색 호출에서 나 이 변경의 코드에 닿기 전이다. `POST /sources` 경로는 이 변경이 건드리지 않았다(`catalog.py`에는 메서드 둘을 더했다). 이 PC에는 2026-11-21에 시험이 남긴 `git-receive-pack` 찌꺼기 `sh`(pid 27972)가 한 코어를 계속 쓰고 있었다(손대지 않았다). 실패한 시험을 홀로 돌리면 모두 통과했다(16개, 22개, 22개). 이 종류는 닫힌 항목 `token-expiry-test-load-margin`이 받아들인 것이라 일지에만 적는다. 네 번째 뒤에 사용자에게 물었고 사용자가 `SKIP=pytest`로 pytest 훅만 건너뛰고 커밋하기를 골랐다. 나머지 훅은 모두 통과한 채로 돈다. 전체 시험의 판정은 CI의 `verify`가 한다. 첫 시도에서는 변이 표 검사(`check-mutations`)도 막았다. 다른 표 둘의 원문이 이 커밋이 바꾼 줄을 가리켰기 때문이다: `.scratch/core/probes/delete_restore_mutations.toml`의 `_check_building_versions`(이 티켓이 공개 이름 `check_building_versions`로 바꿨다)와 `.scratch/source-sync/probes/restore_document_mutations.toml`의 `lock_live_source` 둘(`restore_document`가 `lock_source_shared`와 `ensure_not_deleted`를 쓰게 바뀌었다). 원문을 새 코드에 맞추고 그 변이를 다시 돌렸다.
 - **리뷰 반영 뒤.** `test_cleanup`·`test_cleanup_resume`·`test_worker_schedule_loop`·`test_delete_restore`·`test_schedule_check_cleanup`·`test_cleanup_round_trip` 49개와 `test_restore_source`·`test_restore_source_round_trip`·`test_restore_pull_source` 20개가 통과했다. ruff(포맷·린트)와 pyright strict, import-linter, `check_type_escapes`는 반영 뒤에 다시 돈다(아래 커밋 직전 단계).
@@ -68,9 +68,29 @@ source-sync 티켓 12와 13을 병합한 세션이 낸 지시문으로 연 세�
 - `cleanup.py` 머리 독스트링 5: "지운 원천은 지워지지 않은 문서가 남았을 때, 지우지 않은 원천은 원천과 함께 지워졌다는 표시가 남은 문서가 있거나 가장 나중 원천 되살리기 작업이 실패로 끝났을 때다. 대기 중이거나 실행 중인 작업이 있으면 넣지 않는다."
 - 일지의 "`jobs`에서 끝난 정리 작업을 찾는 질의에 쓸 색인이 없다": 끝난 작업이 담기는 색인은 없다(`tables.py`의 `jobs` 색인 넷은 모두 `queued`·`running` 작업만 담는 부분 색인이다). EXPLAIN으로 재지는 않았고 정의를 읽은 것이다.
 
+## PR 직전 리뷰(`coderabbit-review`, `origin/dev` 대비 커밋 e113ccf, 파일 32개)
+
+CodeRabbit CLI 0.7.5가 `--base origin/dev --committed`로 끝까지 돌았다(종료 코드 0, `review_completed`, 지적 5건). `Plan: Free`, `Seat: not assigned`였고 리뷰는 도중에 거절되지 않았다. 그래서 대체 둘(`/security-review`, `bug-perf-review`)은 돌리지 않았다. 서브에이전트가 지적 5건에 Minor 하나를 더 보태 유효 2, 보류 1, 오탐 2로 가렸고(보고의 요약 줄은 5건에 자기 몫 1건을 포함해 센다), 같은 보고가 경계 입력으로 `RAG_SOURCES_DIR` 밖 파일이 지워지는 길을 찾지 못했다고 적었다.
+
+**고친 것**
+- Major. `blob_store.py`의 `_list_written_before`가 폴더 링크 아래 파일도 열거했다. `glob("*/*")`가 폴더 링크를 따라 들어가는데 `is_symlink()`는 마지막 토막(파일)만 보았다. 서브에이전트가 `blobs/link -> 데이터 폴더 밖`을 만들어 `['blobs/link/secret']`이 열거되는 것을 재현했다. 밖을 가리키면 `delete`가 `ValueError`를 내고 `_remove_blob`은 `TransientFailure`만 잡아 정리 작업이 `internal_error`로 끝나, 그날 넷째와 다섯째 단계가 돌지 않는다. 안을 가리키면 별칭 키가 주인 없는 원본으로 판정돼 진짜 원본이 지워질 수 있다(코드를 읽은 추론이고 재현하지 않았다). `blobs/` 자체가 링크이거나 문서 폴더가 링크이면 그 아래를 훑지 않게 고쳤다. 시험 둘(`test_폴더_링크_아래의_파일은_열거하지_않는다`, `test_원본_폴더_자체가_링크이면_열거하지_않는다`)과 변이 20, 21을 더했고 둘 다 기대대로 빨갛다. 시험은 `symlink_to`를 쓰므로 윈도의 이 PC에서는 개발자 모드 권한이 있어 통과했다. CI의 리눅스에서는 권한이 필요 없다.
+- Minor. 원천을 지우는 마지막 묶음이 작업 행(`delete_jobs_of_source`)을 동기화 기록(`sync_records.delete_of_source`)보다 먼저 지웠다. 동기화 작업은 기록 행을 먼저 잠그고 작업 행을 마지막에 잠그므로, 작업 행을 먼저 지우면 기록의 `job_id`를 비우며 기록 행 잠금을 뒤에 잡아 순서가 거꾸로다. 같은 원천의 동기화가 그때 돌고 있으면 교착이 날 수 있다(PostgreSQL이 감지해 한쪽을 끝낸다). 기록을 먼저 지우도록 순서를 바꿨다. 교착은 시험으로 재현하지 않았고 순서 바꿈만 했다.
+- Minor. `test_cleanup_resume.py`의 끼어드는 요청 시험이 중간 단언이 실패하면 정리 작업이 커밋 직전에 잠금과 연결을 쥔 채 남았다. 작업을 만든 직후부터 `try/finally`로 감싸 `release`를 서게 하고 두 작업을 취소하고 기다린다.
+
+**남긴 것과 이유**
+- Minor 보류. 같은 시험의 `sleep(0.3)` 뒤 `assert not crossing.done()`은 요청이 원천 행 잠금을 기다리는 것을 시간 가정으로 본다. 결과(404 코드)는 따로 단언해 검증되고 제품 동작과 무관한 시험 안정성의 문제다. `pg_locks`로 대기를 확인하는 고침은 시험 도우미가 필요해 이 PR에서 하지 않았다.
+- 오탐 둘. `referenced_blob_paths`의 IN 목록이 바인드 한도를 넘는다는 지적은 `document_store.py`가 `_PATH_BATCH = 10_000`씩 나눠 조회해 성립하지 않는다. 원본 경로 재사용으로 참조된 원본을 지울 수 있다는 질문은 `ingest.py`가 저장마다 새 UUID 경로를 만들고 24시간 유예가 있어 성립하지 않는다.
+- 서브에이전트가 일지의 밀 주장 셋(`lock_restorable_source` 독스트링, `cleanup.py` 머리 다섯째 항목, 작업 표 색인 문장)을 코드와 대 보고 모두 일치한다고 보고했다. 색인 문장은 정의를 읽은 것이고 EXPLAIN은 돌리지 않았다.
+
+**다시 돌린 것.** `test_blob_store`·`test_cleanup_resume`·`test_cleanup` 34개 통과, ruff 포맷·린트, pyright, import-linter, `check_type_escapes` 깨끗(명령줄 기준).
+
+**다음 리뷰에 밀 주장(이 반영으로 새로 쓴 문장)**
+- `blob_store.py` `_list_written_before` 독스트링: "`glob`이 폴더 링크를 따라 들어가므로 파일 쪽 링크만 보면 링크 아래 파일이 열거되고, 그 키는 `delete`가 실제 경로로 풀어 데이터 폴더 밖이라 거부하거나 별칭이라 주인 없는 원본으로 오판한다."
+- `cleanup.py`의 순서 주석: "동기화 작업은 기록 행을 먼저 잠그고 작업 행을 마지막에 잠그므로 같은 순서로 지운다. 작업 행을 먼저 지우면 기록의 `job_id`가 비워지며 기록 행 잠금을 뒤에 잡는다."
+
 ## 회고
 
-후보 6개, 승인 0, 기각 6, 넘김 0. 대기열에서 같은 사건을 다룬 항목을 `tools/queue_open_rows.py --search`로 찾았다(`mutate`, `expect_output`, `RAG_TEST_DATABASE_URL`, `utime`, `시계`). 맞은 항목은 변이 도구나 시간 시험에 관한 것이고 이 세션의 사건과 처방이 달라 회차를 더하지 않았다. 만료할 항목은 없었다.
+후보 7개, 승인 0, 기각 7, 넘김 0. 대기열에서 같은 사건을 다룬 항목을 `tools/queue_open_rows.py --search`로 찾았다(`mutate`, `expect_output`, `RAG_TEST_DATABASE_URL`, `utime`, `시계`). 맞은 항목은 변이 도구나 시간 시험에 관한 것이고 이 세션의 사건과 처방이 달라 회차를 더하지 않았다. 만료할 항목은 없었다.
 
 - **변이 표의 표지를 시험 이름으로 적어 도구가 표를 거부했다.** 기각. 이미 있는 검사가 아무 파일도 쓰기 전에 그 자리에서 알렸고(`mutate-marker-discovery`가 닫힌 처방이 이 검사다), 고치는 데 한 바퀴가 들었을 뿐이다.
 - **`RAG_TEST_DATABASE_URL` 없이 변이 표를 돌려 기준선이 `errors`로 빨갰다.** 기각. 도구가 기준선 빨강을 알렸고 변이는 하나도 돌지 않아 잃은 것이 없다. 접속값은 `CLAUDE.md`의 검증 명령 절과 `compose.test.yml` 머리 주석에 이미 적혀 있다.
@@ -78,6 +98,7 @@ source-sync 티켓 12와 13을 병합한 세션이 낸 지시문으로 연 세�
 - **작업자가 첫 일정 확인에서 정리 작업을 넣어, 작업 행의 개수와 `job_finished` 로그를 세던 기존 시험 셋이 빨개졌다.** 기각. 전체 시험이 그 자리에서 잡았고 시험이 보려던 작업 종류만 고르게 고쳤다.
 - **서버를 띄우는 시험과 시간 제한을 재는 시험 셋이 전체 실행에서 빨갰다(리뷰 서브에이전트와 변이 실행이 같이 돌던 때).** 기각. 부하에서 빨개지는 시간 시험은 사용자가 2026-11-15에 닫힌 채 두기로 한 종류라 새 사례를 일지에만 적는다(위 검증 절). 그 셋을 홀로 돌리면 모두 통과했다.
 - **셀프 리뷰가 독스트링의 틀린 서술과 원천 되살리기의 경쟁을 잡았다.** 기각. 리뷰가 제 몫을 한 것이라 회차로 세지 않는다. 경쟁은 이 세션에서 시험과 함께 고쳤다.
+- **PR 직전 리뷰가 원본 훑기의 폴더 링크 열거를 잡았다.** 기각. 파이프라인에 이미 있는 PR 직전 리뷰가 제 몫을 한 것이다. 셀프 리뷰는 파일 쪽 링크 확인이 있다고 보고 폴더 링크를 따로 밟지 않았다. 이 사건 하나라 회차를 세는 항목을 만들지 않는다. 시험과 변이 둘을 더해 이 반영 안에서 닫았다.
 
 ## 다음
 

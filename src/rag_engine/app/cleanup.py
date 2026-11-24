@@ -188,8 +188,10 @@ async def _purge_source_batch(
         if last:
             # 마지막 묶음과 같은 작업 단위에서 원천 행까지 지운다. 문서 행이 커밋 전까지 보이는
             # 동안 끼어든 요청은 원천 행 잠금에서 기다리다 사라진 원천을 본다.
-            await transaction.jobs.delete_jobs_of_source(source_id)
+            # 동기화 작업은 기록 행을 먼저 잠그고 작업 행을 마지막에 잠그므로 같은 순서로 지운다.
+            # 작업 행을 먼저 지우면 기록의 `job_id`가 비워지며 기록 행 잠금을 뒤에 잡는다.
             await transaction.sync_records.delete_of_source(source_id)
+            await transaction.jobs.delete_jobs_of_source(source_id)
             await transaction.catalog.delete_source(source_id)
         await hold_attempt(transaction, job)
         paths = _blob_paths(documents)

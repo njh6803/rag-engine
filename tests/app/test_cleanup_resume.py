@@ -278,18 +278,28 @@ async def _purge_source_with_crossing_request(
     pausing = PauseWhenSourceGone(pipeline.unit_of_work, source.id)
     cleaning = asyncio.create_task(run_cleanup(cleanup_deps(pipeline, unit_of_work=pausing), job))
 
-    async with asyncio.timeout(DEADLINE_SECONDS):
-        await pausing.paused.wait()
-    # 정리 작업이 원천 행을 지운 채 커밋을 기다린다. 이때 온 요청은 문서나 원천을 읽은 뒤 원천
-    # 행을 기다린다.
-    crossing = asyncio.create_task(refused(pipeline, document_id))
-    await asyncio.sleep(0.3)
-    assert not crossing.done()
-    pausing.release.set()
+    crossing: asyncio.Task[ErrorCode] | None = None
+    try:
+        async with asyncio.timeout(DEADLINE_SECONDS):
+            await pausing.paused.wait()
+        # 정리 작업이 원천 행을 지운 채 커밋을 기다린다. 이때 온 요청은 문서나 원천을 읽은 뒤
+        # 원천 행을 기다린다.
+        crossing = asyncio.create_task(refused(pipeline, document_id))
+        await asyncio.sleep(0.3)
+        assert not crossing.done()
+        pausing.release.set()
 
-    async with asyncio.timeout(DEADLINE_SECONDS):
-        await cleaning
-        code = await crossing
+        async with asyncio.timeout(DEADLINE_SECONDS):
+            await cleaning
+            code = await crossing
+    finally:
+        # 중간 단언이 실패해도 정리 작업이 커밋 직전에 잠금과 연결을 쥔 채 남지 않게 한다.
+        pausing.release.set()
+        cleaning.cancel()
+        await asyncio.gather(cleaning, return_exceptions=True)
+        if crossing is not None:
+            crossing.cancel()
+            await asyncio.gather(crossing, return_exceptions=True)
     async with pipeline.unit_of_work.begin() as transaction:
         await transaction.jobs.finish(job, JobOutcome(JobStatus.SUCCEEDED, None), pipeline.clock[0])
     assert await scalar(pipeline, "SELECT count(*) FROM sources WHERE name = '위키'") == 0
