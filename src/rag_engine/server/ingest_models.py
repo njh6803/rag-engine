@@ -111,7 +111,8 @@ class IngestFields(BaseModel):
 class IngestResponse(BaseModel):
     """수집 응답. `job_id`는 작업이 없으면 null이다.
 
-    작업이 없는 경우는 `unchanged`와, 보관 조각이 대상 판을 모두 채운 `restored`다.
+    작업이 없는 경우는 `unchanged`와, 보관 조각이 대상 판을 모두 채운 `restored`와, 조각이 없는
+    건너뜀 문서의 `restored`다.
     """
 
     model_config = ConfigDict(frozen=True)
