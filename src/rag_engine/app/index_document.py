@@ -112,6 +112,9 @@ class IndexDocumentDeps:
     source_read_timeout_seconds: float
     # 동기화가 읽은 파일의 크기 상한. 수집 API와 같은 값이다.
     max_upload_bytes: int
+    # 정리 작업이 쓰는 보관 기간(날수). 지운 문서와 원천, 끝난 동기화 기록에 각각 적용한다.
+    deleted_retention_days: int
+    sync_record_retention_days: int
 
 
 @dataclass(frozen=True, slots=True)

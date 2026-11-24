@@ -4,6 +4,8 @@
 `blob_store_error`다.
 """
 
+import os
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -64,6 +66,31 @@ async def test_쓰기가_입출력_오류로_실패하면_일시_실패_blob_sto
 
     assert raised.value.code is ErrorCode.BLOB_STORE_ERROR
     assert str(tmp_path) not in str(raised.value)
+
+
+async def test_쓴_지_기준_시각보다_오래된_원본만_키로_열거한다(tmp_path: Path) -> None:
+    store = LocalBlobStore(tmp_path)
+    now = datetime.now(UTC)
+    old_key = KEY
+    fresh_key = KEY.rsplit("/", 1)[0] + "/fresh"
+    await store.write(old_key, b"x")
+    await store.write(fresh_key, b"y")
+    old_stamp = (now - timedelta(hours=25)).timestamp()
+    os.utime(tmp_path / old_key, (old_stamp, old_stamp))
+    # 원본 폴더 밖의 파일은 아무리 묵어도 열거하지 않는다(서버 폴더, 데이터 폴더의 다른 파일).
+    for outside in ("sources/규정.pdf", "memo.txt"):
+        path = tmp_path / outside
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"z")
+        os.utime(path, (old_stamp, old_stamp))
+
+    found = await store.list_written_before(now - timedelta(hours=24))
+
+    assert found == [old_key]
+
+
+async def test_원본_폴더가_아직_없으면_빈_목록이다(tmp_path: Path) -> None:
+    assert await LocalBlobStore(tmp_path).list_written_before(datetime.now(UTC)) == []
 
 
 @pytest.mark.parametrize("key", ["../escape", "blobs/../../escape", "/abs/path"])

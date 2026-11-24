@@ -50,7 +50,7 @@ expect_output = ['Right contains one more item: UUID(']
 
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
-old = '''    await _check_building_versions(transaction, knowledge_bases)
+old = '''    await check_building_versions(transaction, knowledge_bases)
 '''
 new = ''
 

@@ -16,10 +16,12 @@
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Final
 from uuid import UUID
 
 from rag_engine.domain.entities import (
+    Job,
     JobKind,
     Source,
     SyncRecord,
@@ -29,6 +31,13 @@ from rag_engine.domain.entities import (
 from rag_engine.domain.errors import ErrorCode
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.ports import ScheduleCalculator, Transaction, UnitOfWork
+
+# 정리 작업을 넣는 때. 일정 시간대로 매일 새벽 3시다(명세 "정리 작업"). 원천의 일정이 아니라 이
+# 저장소가 정한 값이라 설정으로 열지 않는다.
+CLEANUP_SCHEDULE: Final = "0 3 * * *"
+# 가장 최근의 새벽 3시를 찾으려고 지금에서 거슬러 오르는 폭. 새벽 3시는 하루 간격(서머타임이 있는
+# 시간대에서도 스물세 시간에서 스물다섯 시간)이라 이틀이면 한 번은 든다.
+_CLEANUP_LOOKBACK: Final = timedelta(days=2)
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +66,26 @@ async def check_schedules(
             if result is not None:
                 handled.append(result)
         return handled
+
+
+async def check_cleanup(
+    unit_of_work: UnitOfWork, calculator: ScheduleCalculator, *, now: datetime
+) -> Job | None:
+    """일정 시간대로 가장 최근의 새벽 3시 뒤에 넣은 정리 작업이 없으면 하나 넣고 낸다. 이미 있으면
+    `None`이다. 정리 작업을 넣은 적이 없는 설치에서는 첫 확인이 넣는다. 작업자가 며칠 꺼져 있었어도
+    다시 켠 뒤의 첫 확인이 한 번만 넣는다. 대기 중이거나 실행 중인 정리 작업이 있어도 넣지 않는다.
+    여러 작업자가 함께 확인해도 하나만 들어가는 것은 `enqueue_cleanup`이 맡는다."""
+    since = _latest_cleanup_time(calculator, now)
+    async with unit_of_work.begin() as transaction:
+        return await transaction.jobs.enqueue_cleanup(since, new_id(), now)
+
+
+def _latest_cleanup_time(calculator: ScheduleCalculator, now: datetime) -> datetime:
+    """`now` 이전이거나 같은 가장 최근의 새벽 3시."""
+    latest = calculator.next_run(CLEANUP_SCHEDULE, now - _CLEANUP_LOOKBACK)
+    while (following := calculator.next_run(CLEANUP_SCHEDULE, latest)) <= now:
+        latest = following
+    return latest
 
 
 async def _start(

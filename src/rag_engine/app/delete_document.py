@@ -85,13 +85,14 @@ async def delete_locked_document(
     await transaction.index.archive_chunks(document.id, now)
     await transaction.index.delete_states(document.id)
     await transaction.jobs.delete_queued(document.id)
-    await _check_building_versions(transaction, knowledge_bases)
+    await check_building_versions(transaction, knowledge_bases)
 
 
-async def _check_building_versions(
+async def check_building_versions(
     transaction: Transaction, knowledge_bases: Sequence[KnowledgeBase]
 ) -> None:
-    """색인 상태가 사라진 건설 중인 판마다 전환 검사를 부른다. 지식베이스 행은 잠긴 채다."""
+    """색인 상태가 사라진 건설 중인 판마다 전환 검사를 부른다. 지식베이스 행은 잠긴 채다. 문서를
+    지우는 작업 단위(삭제, 정리 작업의 원천 지우기)가 함께 쓴다."""
     for knowledge_base in knowledge_bases:
         for version in await transaction.catalog.list_live_index_versions(knowledge_base.id):
             if version.status is IndexVersionStatus.BUILDING:

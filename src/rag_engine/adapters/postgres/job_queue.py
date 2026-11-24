@@ -32,6 +32,9 @@ _LOCK_BATCH: Final = 10_000
 _QUEUED: Final[sa.ColumnClause[str]] = sa.literal_column(
     f"'{JobStatus.QUEUED.value}'", type_=sa.String()
 )
+_CLEANUP: Final[sa.ColumnClause[str]] = sa.literal_column(
+    f"'{JobKind.CLEANUP.value}'", type_=sa.String()
+)
 # 원천 단위 작업의 부분 유일 색인(`uq_jobs_source_id_kind_active`)의 술어. 같은 까닭으로 글자로
 # 적는다. 바인드 값으로 적은 문장은 같은 연결에서 되풀이하다 `42P10`으로 실패했다(명세 "작업
 # 대기열").
@@ -127,6 +130,60 @@ class PostgresJobQueue:
             return None
         await self._connection.execute(sa.select(sa.func.pg_notify(NOTIFY_CHANNEL, "")))
         return _job(row)
+
+    async def enqueue_cleanup(self, since: datetime, request_id: UUID, now: datetime) -> Job | None:
+        jobs = tables.jobs
+        recent = sa.exists().where(jobs.c.kind == JobKind.CLEANUP.value, jobs.c.created_at >= since)
+        # 상수와 값은 칸의 형으로 적어 서버가 자리 표시 값의 형을 따로 추론하지 않게 한다.
+        candidate = sa.select(
+            sa.literal(new_id(), type_=jobs.c.id.type),
+            _CLEANUP,
+            _QUEUED,
+            sa.literal(now, type_=jobs.c.run_after.type),
+            sa.literal(request_id, type_=jobs.c.request_id.type),
+            sa.literal(now, type_=jobs.c.created_at.type),
+        ).where(~recent)
+        statement = (
+            insert(jobs)
+            .from_select(
+                ["id", "kind", "status", "run_after", "request_id", "created_at"], candidate
+            )
+            .on_conflict_do_nothing(
+                index_elements=[jobs.c.source_id, jobs.c.kind], index_where=_SOURCE_JOB_ACTIVE
+            )
+            .returning(jobs)
+        )
+        row = (await self._connection.execute(statement)).mappings().one_or_none()
+        if row is None:
+            return None
+        await self._connection.execute(sa.select(sa.func.pg_notify(NOTIFY_CHANNEL, "")))
+        return _job(row)
+
+    async def latest_source_job(self, source_id: UUID, kind: JobKind) -> Job | None:
+        jobs = tables.jobs
+        row = (
+            (
+                await self._connection.execute(
+                    sa.select(jobs)
+                    .where(jobs.c.source_id == source_id, jobs.c.kind == kind.value)
+                    .order_by(jobs.c.id.desc())
+                    .limit(1)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        return None if row is None else _job(row)
+
+    async def delete_jobs_of_documents(self, document_ids: Sequence[UUID]) -> None:
+        await self._connection.execute(
+            sa.delete(tables.jobs).where(tables.jobs.c.document_id.in_(document_ids))
+        )
+
+    async def delete_jobs_of_source(self, source_id: UUID) -> None:
+        await self._connection.execute(
+            sa.delete(tables.jobs).where(tables.jobs.c.source_id == source_id)
+        )
 
     async def delete_queued(self, document_id: UUID) -> None:
         await self._connection.execute(

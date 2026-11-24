@@ -148,7 +148,10 @@ def _wait_for_job_status(database_url: str, status: str) -> None:
     deadline = time.monotonic() + PROCESSING_TIMEOUT_SECONDS
     while True:
         with psycopg.connect(database_url, autocommit=True) as connection:
-            rows = connection.execute("SELECT status FROM jobs").fetchall()
+            # 작업자가 첫 일정 확인에서 넣는 정리 작업은 이 시험이 보는 작업이 아니다.
+            rows = connection.execute(
+                "SELECT status FROM jobs WHERE kind = 'index_document'"
+            ).fetchall()
         if [row[0] for row in rows] == [status]:
             return
         if time.monotonic() > deadline:
@@ -188,4 +191,6 @@ async def test_worker가_알림으로_깨어나_작업을_처리하고_종료_�
         names.index("worker_started") < names.index("job_finished") < names.index("worker_stopped")
     )
     finished = [each for each in events if each["event"] == "job_finished"]
-    assert [(each["result"], each["error_code"]) for each in finished] == [("succeeded", None)]
+    # 정리 작업의 끝 로그는 이 시험이 보는 것이 아니다.
+    indexed = [each for each in finished if each["kind"] == "index_document"]
+    assert [(each["result"], each["error_code"]) for each in indexed] == [("succeeded", None)]

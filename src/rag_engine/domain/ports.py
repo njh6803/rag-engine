@@ -138,6 +138,12 @@ class BlobStore(Protocol):
 
     async def delete(self, key: str) -> None: ...
 
+    async def list_written_before(self, cutoff: datetime) -> list[str]:
+        """원본의 키(`blobs/…`) 가운데 쓴 시각이 `cutoff`보다 앞서는 것을 낸다. 원본 폴더 밖의
+        파일(서버 폴더와 데이터 폴더의 다른 파일)은 열거하지 않는다. 정리 작업이 어느 문서도
+        가리키지 않는 원본을 찾는 데 쓴다."""
+        ...
+
 
 class Catalog(Protocol):
     """원천, 그룹, 지식베이스(그룹과의 다대다 포함), 색인 판 레코드. 작업 단위 안에서 얻는다."""
@@ -275,6 +281,17 @@ class Catalog(Protocol):
         """현재 판 참조를 새 판으로 바꾸고 새 판을 `current`, 옛 판을 `retired`로 쓴다."""
         ...
 
+    async def list_purgeable_source_ids(self, deleted_before: datetime, limit: int) -> list[UUID]:
+        """지움 표시의 시각이 `deleted_before` 이전이거나 같은 원천의 ID를 ID 순으로 `limit`개까지
+        낸다. 정리 작업이 보관 기간이 지난 원천을 고르는 데 쓴다. 원천을 지우면 다음에 부를 때
+        빠지므로 되풀이해 부르면 끝에 이른다."""
+        ...
+
+    async def delete_source(self, source_id: UUID) -> None:
+        """원천 행을 지운다. 그 원천을 가리키는 문서, 작업, 동기화 기록은 먼저 지워 둔다. 부르기
+        전에 `lock_source`로 잠근다."""
+        ...
+
 
 class DocumentStore(Protocol):
     """문서와 최신 파싱 결과. 작업 단위 안에서 얻는다."""
@@ -350,6 +367,42 @@ class DocumentStore(Protocol):
         """그 원천에 빈 목록 판정이 있는 문서로 셀 문서가 하나라도 있는가. 지워지지 않은 문서와,
         원천과 함께 지워졌다는 표시가 남은 문서(원천 되살리기 작업이 아직 되살리지 않은 문서)를
         센다. 완전히 지워져 삭제 기록 행만 남은 문서는 세지 않는다."""
+        ...
+
+    async def has_documents_deleted_with_source(self, source_id: UUID) -> bool:
+        """그 원천에 원천과 함께 지워졌다는 표시가 남은 문서(삭제 기록 행이 아닌 것)가 있는가.
+        정리 작업이 멈춘 원천 되살리기 작업을 찾는 데 쓴다."""
+        ...
+
+    async def has_undeleted_documents(self, source_id: UUID) -> bool:
+        """그 원천에 지워지지 않은 문서가 하나라도 있는가. 정리 작업이 멈춘 원천 삭제 작업을 찾는 데
+        쓴다."""
+        ...
+
+    async def list_purgeable_ids(self, deleted_before: datetime, limit: int) -> list[UUID]:
+        """보관 기간이 지난 임시 삭제 문서의 ID를 ID 순으로 `limit`개까지 낸다. 지운 시각이
+        `deleted_before` 이전이거나 같고, 완전히 지우지 않았고, 원천과 함께 지워졌다는 표시가 없는
+        문서다. 표시가 있는 문서는 원천을 완전히 지울 때 함께 지우거나 원천 되살리기 작업이
+        되살린다. 문서를 지우면 다음에 부를 때 빠지므로 되풀이해 부르면 끝에 이른다."""
+        ...
+
+    async def purge(self, document: Document, purged_at: datetime) -> None:
+        """잠근 문서를 삭제 기록으로 바꾼다. 파싱 결과를 지우고 원본 경로를 비우고 완전히 지운
+        시각을 적는다. 조각과 삭제 보관함의 조각은 `VectorIndex`가 지운다."""
+        ...
+
+    async def list_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        """그 원천의 문서(삭제 기록 행까지 모두)의 ID를 ID 순으로 `limit`개까지 낸다. 정리 작업이
+        원천을 지울 때 쓴다. 문서를 지우면 다음에 부를 때 빠지므로 되풀이해 부르면 끝에 이른다."""
+        ...
+
+    async def delete_documents(self, document_ids: Sequence[UUID]) -> None:
+        """문서 행과 파싱 결과를 지운다. 그 문서를 가리키는 조각, 삭제 보관함의 조각, 색인 상태,
+        작업은 먼저 지워 둔다."""
+        ...
+
+    async def referenced_blob_paths(self, paths: Sequence[str]) -> set[str]:
+        """`paths` 가운데 어느 문서 행이 원본 경로로 가리키는 것을 낸다."""
         ...
 
 
@@ -475,6 +528,30 @@ class JobQueue(Protocol):
         일과 넣는 일이 한 문장(`INSERT … ON CONFLICT DO NOTHING`)이어야 같은 원천에 동시에 넣어도
         하나만 들어가므로 조회와 변경을 나누지 않고 `Job`이나 `None`을
         돌려준다(`CODING_STANDARDS.md`의 CQS에 대한 의도한 예외다)."""
+        ...
+
+    async def enqueue_cleanup(self, since: datetime, request_id: UUID, now: datetime) -> Job | None:
+        """정리 작업(`cleanup`)을 넣는다. `since` 이후에 넣은 정리 작업이 있거나(끝났어도 그렇다),
+        대기 중이거나 실행 중인 정리 작업이 있으면 아무것도 넣지 않고 `None`을 낸다. 있는지 보는
+        일과 넣는 일이 한 문장(`INSERT … SELECT … WHERE NOT EXISTS … ON CONFLICT DO NOTHING`)이어야
+        일정 확인이 겹쳐 돌아도 하나만 들어가므로 조회와 변경을 나누지 않고 `Job`이나 `None`을
+        돌려준다(`CODING_STANDARDS.md`의 CQS에 대한 의도한 예외다)."""
+        ...
+
+    async def latest_source_job(self, source_id: UUID, kind: JobKind) -> Job | None:
+        """그 원천의 그 종류 작업 가운데 가장 나중에 만든 것(ID의 내림차순 첫째). 없으면
+        `None`이다."""
+        ...
+
+    async def delete_jobs_of_documents(self, document_ids: Sequence[UUID]) -> None:
+        """그 문서들을 가리키는 작업 행을 상태와 상관없이 모두 지운다. 작업 표가 문서를 가리키는
+        외래 키에는 지울 때의 동작이 없어, 문서 행을 지우기 전에 부른다. 그 작업을 가리키던 동기화
+        기록은 작업 참조만 비고 남는다."""
+        ...
+
+    async def delete_jobs_of_source(self, source_id: UUID) -> None:
+        """그 원천을 가리키는 작업 행(동기화, 원천 삭제, 원천 되살리기)을 상태와 상관없이 모두
+        지운다. 원천 행을 지우기 전에 부른다."""
         ...
 
     async def delete_queued(self, document_id: UUID) -> None:
@@ -694,6 +771,16 @@ class SyncRecordStore(Protocol):
 
     async def latest_for_source(self, source_id: UUID) -> SyncRecord | None:
         """그 원천의 가장 최근 기록. 없으면 `None`이다."""
+        ...
+
+    async def delete_of_source(self, source_id: UUID) -> None:
+        """그 원천의 동기화 기록을 모두 지운다. 원천 행을 지우기 전에 정리 작업이 부른다."""
+        ...
+
+    async def delete_finished_before(self, cutoff: datetime, limit: int) -> int:
+        """끝난 시각이 `cutoff` 이전이거나 같은 기록을 `limit`건까지 지우고 지운 수를 낸다. 끝나지
+        않은 기록과, 원천마다 가장 최근 기록(ID가 가장 큰 것) 하나는 지우지 않는다. 지운 수가
+        `limit`보다 적으면 더 지울 기록이 없다."""
         ...
 
 

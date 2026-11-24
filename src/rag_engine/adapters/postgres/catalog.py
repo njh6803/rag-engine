@@ -266,6 +266,21 @@ class PostgresCatalog:
         )
         return [_source(row) for row in result.mappings().all()]
 
+    async def list_purgeable_source_ids(self, deleted_before: datetime, limit: int) -> list[UUID]:
+        sources = tables.sources
+        rows = await self._connection.scalars(
+            sa.select(sources.c.id)
+            .where(sources.c.deleted_at.is_not(None), sources.c.deleted_at <= deleted_before)
+            .order_by(sources.c.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def delete_source(self, source_id: UUID) -> None:
+        await self._connection.execute(
+            sa.delete(tables.sources).where(tables.sources.c.id == source_id)
+        )
+
     async def add_group(self, group: Group) -> None:
         await self._connection.execute(
             insert(tables.groups)

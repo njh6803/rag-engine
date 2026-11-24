@@ -7,9 +7,14 @@
 
 import asyncio
 import contextlib
+from datetime import datetime
 from pathlib import Path
+from typing import Final
 
 from rag_engine.domain.errors import ErrorCode, TransientFailure
+
+# 원본 키의 첫 토막. 정리 작업이 데이터 폴더의 다른 파일을 건드리지 않게 이 아래만 훑는다.
+BLOB_FOLDER: Final = "blobs"
 
 
 class LocalBlobStore:
@@ -42,6 +47,25 @@ class LocalBlobStore:
             await asyncio.to_thread(self._delete, path)
         except OSError:
             raise TransientFailure(ErrorCode.BLOB_STORE_ERROR, "원본을 지우지 못했다") from None
+
+    async def list_written_before(self, cutoff: datetime) -> list[str]:
+        try:
+            return await asyncio.to_thread(self._list_written_before, cutoff.timestamp())
+        except OSError:
+            raise TransientFailure(ErrorCode.BLOB_STORE_ERROR, "원본을 훑지 못했다") from None
+
+    def _list_written_before(self, cutoff: float) -> list[str]:
+        """`blobs/<문서 UUID>/<원본 UUID>` 모양의 파일만 훑는다. 훑는 도중에 지워진 파일은 건너뛴다.
+        링크는 따라가지 않는다."""
+        found: list[str] = []
+        for path in sorted((self._root / BLOB_FOLDER).glob("*/*")):
+            try:
+                if path.is_symlink() or not path.is_file() or path.stat().st_mtime >= cutoff:
+                    continue
+            except FileNotFoundError:
+                continue
+            found.append(path.relative_to(self._root).as_posix())
+        return found
 
     @staticmethod
     def _write(path: Path, data: bytes) -> None:

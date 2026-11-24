@@ -1,7 +1,8 @@
 """삭제, 되살림, 삭제 기록(명세 "삭제, 되살림, 묘비", 티켓 11).
 
 실제 테스트 PostgreSQL, 실제 DOCX 파서 자식 프로세스, 실제 청커와 Kiwi 위에서 돈다. 임베딩 서버만
-`TeiStub`이다. 정리 작업은 core에 없어 삭제 기록 행은 시험이 데이터베이스에 직접 만든다.
+`TeiStub`이다. 삭제 기록 행은 시험이 데이터베이스에 직접 만든다(정리 작업이 만드는 것은
+`test_cleanup.py`가 본다).
 """
 
 from datetime import timedelta

@@ -93,11 +93,15 @@ class Pipeline:
         connectors: ConnectorRegistry | None = None,
         source_read_timeout_seconds: float = 600.0,
         max_upload_bytes: int = 100 * 1024 * 1024,
+        deleted_retention_days: int = 30,
+        sync_record_retention_days: int = 90,
     ) -> IndexDocumentDeps:
         return IndexDocumentDeps(
             connectors=connectors or EntryPointConnectorRegistry(lambda: []),
             source_read_timeout_seconds=source_read_timeout_seconds,
             max_upload_bytes=max_upload_bytes,
+            deleted_retention_days=deleted_retention_days,
+            sync_record_retention_days=sync_record_retention_days,
             retry=retry,
             unit_of_work=unit_of_work or self.unit_of_work,
             blob_store=self.blob_store,
