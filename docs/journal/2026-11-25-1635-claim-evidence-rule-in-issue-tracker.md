@@ -68,5 +68,28 @@ next-session 지시문으로 연 새 세션이다. 요청 범위는 PR과 병합
 
 **남긴 것과 이유.**
 - `.claude/skills/to-tickets/SKILL.md` 113행의 "명세가 고칠 자리로 정하지 않은 구현 파일의 경로는 적지 않는다"가 이 티켓 PR이 명세에서 푼 어긋남과 같은 꼴로 티켓에 남아 있다(Minor). 티켓은 이 티켓이 바꾸지 않는 곳으로 정했고(티켓의 "이번에 바꾸지 않는 것") `.claude/` 아래를 고치면 이 PR의 병합이 전체 시험 통과 한 번을 더 요구하므로, 뒤의 일로 남기고 PR 본문과 다음 지시문의 "이어받을 상태"에 적는다.
-- `.claude/agents/spec-reviewer.md` 31행이 Further Notes를 "명세가 정하지 않고 둔 것"의 자리로 읽어, 코드를 읽은 근거 파일 목록이 들어가면 두 용도가 섞일 수 있다(Minor). 같은 이유로 남기고 같은 자리에 적는다.
+- `.claude/agents/spec-reviewer.md` 31행이 Further Notes를 명세가 정하지 않고 둔 것의 자리로 읽어, 코드를 읽은 근거 파일 목록이 들어가면 두 용도가 섞일 수 있다(Minor). 같은 이유로 남기고 같은 자리에 적는다.
 - 티켓이 대상으로 든 `library-choice-unmeasured-to-consumer`의 처방이 `issue-tracker.md`를 고치는 것이 아니라는 지적(Nit). 그 항목을 이 티켓이 닫지 않는다고 적은 문장은 그대로 맞다.
+
+## PR 봇 회차
+
+PR #124를 연 뒤 `@coderabbitai review`로 CodeRabbit을 불렀다. 헤드 `8c0361b`에서 `wait_ci`가 CodeRabbit(Finished), claude-review, eval-fast, eval-full, image, python, standalone, ticket, title, verify가 모두 통과했다고 냈다. CodeRabbit은 실행 가능한 코멘트가 없었고, claude-review는 지적 없음으로 바뀐 파일 여섯과 제목 접두를 확인했다고 적었다. 첫 회차에 반영할 지적이 없어 푸시를 더하지 않았다.
+
+## 회고
+
+후보 다섯 가운데 승인 하나, 기각 넷이다. 넘긴 것은 없다.
+
+- **승인: `to-tickets`와 `spec-reviewer`가 새 근거 규칙과 어긋난다**(Minor, 이 PR의 PR 직전 리뷰가 낸 것). 사건은 `to-tickets/SKILL.md` 113행이 명세가 고칠 자리로 정하지 않은 구현 파일의 경로를 적지 않게 하고, 새 규칙은 코드를 읽은 근거 파일을 적게 하는 어긋남이다. 층은 지침의 고침이고 자동 검사로 옮길 수 없다. 되돌림은 PR 하나다. 이 세션에서는 반영하지 않았다. `.claude/` 아래는 문서로 세지 않아 고치면 전체 pytest를 한 번 더 통과해야 하고, 이 PR은 그 시험이 여섯 시도에서 실패한 끝에 통과했기 때문이다. 대기열 `to-tickets-path-rule-vs-evidence-file`로 적었다(`to-spec-path-rule-vs-evidence-citation`의 18회차이고 고침이라 사건 하나로 반영한다).
+- **기각: 커밋 제목 103자가 느린 검사를 모두 돈 뒤에야 막혔다.** 이미 대기열 `commit-msg-after-slow-checks`가 다룬 일이고, 그 처방(`hook_bash_commit_msg`가 `-m`까지 본다)이 PR #123으로 dev에 들어왔다. 이 브랜치는 #123 이전의 dev에서 땄고 병합으로 이제야 받았으므로 새 사건이 아니다.
+- **기각: 일지에서 손으로 본 값에 "쟀다"를 썼다.** 이 PR이 더하는 규칙의 사건이다. 규칙이 아직 병합되지 않아 실리지 않았고, PR 직전 리뷰가 잡아 이 일지에서 고쳤다. 같은 꼴이 규칙이 실린 뒤에도 나면 닫힌 `measured-claim-outside-to-spec`을 잇는다.
+- **기각: 전체 pytest가 부하에서 시도마다 다른 시간 단언 시험을 흔들었다.** 부하에서만 빨개지는 시간 시험은 사용자가 2026-11-15에 닫은 종류라 새 사례는 일지에만 적는다(위 "커밋 전 검사"). 부하를 줄인 뒤 재시도하는 스크립트를 2시간 돌린 것도 같은 종류의 비용이다.
+- **기각: 따옴표 인용 경고 3건.** `check-quotes`가 그 자리에서 알렸고 따옴표를 떼어 풀었다. 이미 있는 검사가 잡은 것이다.
+
+대기열에서 만료할 항목은 없었다(`tools/queue_open_rows.py`).
+
+## 다음
+
+이 PR을 병합한 뒤 남은 일이다. 이 티켓이 맡은 일은 끝났고, 병합 뒤 다음 세션은 `next-session` 결정표대로 정한다.
+
+- 대기열 `to-tickets-path-rule-vs-evidence-file`(열림, 18회차)이 `.claude/skills/to-tickets/SKILL.md` 113행과 `.claude/agents/spec-reviewer.md` 31행을 고친다. 이 PR이 새 근거 규칙을 더한 뒤라 두 문장이 어긋난다. `.claude/` 아래를 고치므로 전체 pytest가 돈다.
+- 전체 pytest는 이 PC의 부하에서 막힘 시험 파일과 계약 시험 몇 개의 시간 단언이 흔들려 커밋이 여러 번 막혔다(일지 "커밋 전 검사"). `.claude/` 아래를 고치는 다음 티켓도 같은 비용을 치를 수 있다.
