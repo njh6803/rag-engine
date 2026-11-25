@@ -71,6 +71,13 @@ next-session 지시문으로 연 새 세션의 기록이다(Sonnet 5.5). 시작 
 
 **다시 돌린 것.** 이 수정은 `CLAUDE.md`와 일지만 바꾸므로 커밋의 pre-commit이 pytest를 문서를 읽는 시험 여섯으로 좁혀 돈다(`tools/run_checks.py`의 `docs_only`). 결과는 커밋 뒤 PR 본문에 적는다.
 
+## PR 봇 첫 회차(PR 120, 머리 `532b75d`)
+
+검사는 모두 통과했다(`python`, `verify`, `ticket`, `title` 포함. CI의 `python` 잡이 전체 pytest를 돌아 통과해, 첫 커밋에서 건너뛴 pytest가 병합 전에 채워졌다). claude-review는 지적 없음이고, CodeRabbit은 Minor 하나를 냈다.
+
+**고친 것**
+- Minor(CodeRabbit, `CLAUDE.md` 41행). 명령의 `.`과 제외 경로가 작업 폴더 기준이라 하위 폴더에서 치면 루트의 문서가 빠진다. 규약 4에 저장소 루트에서 친다는 말과 까닭을 더했다(`git -C docs grep -l -F '첫 티켓' -- .`을 손으로 쳐 `docs/` 아래의 파일만 나오는 것을 봤다).
+
 ## 회고
 
 후보 둘을 냈고 판정은 승인 0, 기각 2, 넘김 0이다.
