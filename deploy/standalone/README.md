@@ -191,7 +191,9 @@ chmod -R a+rX sources
 sudo mkdir -p sources/regulations
 ```
 
-공유 폴더(NFS, SMB)는 서버 기계에서 원천 폴더 아래의 하위 폴더 자리(예: `sources/regulations`)에 붙입니다. 서버를 띄우기 전에 붙이십시오. 서버를 띄운 뒤에 붙였거나 떼었다 다시 붙였으면 컨테이너에는 새로 붙인 폴더가 보이지 않고 떼기 전의 내용이 그대로 보입니다(Docker Desktop의 리눅스 위에서 메모리 파일 시스템으로 공유 폴더를 흉내 내어 쟀고, 배포판 리눅스 서버와 실제 NFS·SMB 공유 폴더에서는 재지 않았습니다). 이때는 서버와 작업자를 다시 띄웁니다.
+이 폴더는 root 소유이므로 문서를 복사할 때도 `sudo cp <문서 파일들> sources/regulations/`처럼 `sudo`가 필요합니다. 컨테이너는 읽기만 하므로 이 폴더에 더 줄 권한은 없습니다.
+
+공유 폴더(NFS, SMB)는 서버 기계에서 원천 폴더 아래의 하위 폴더 자리(예: `sources/regulations`)에 붙입니다. 서버를 띄우기 전에 붙이십시오. 서버 기계에서 공유 폴더를 읽기 전용(`ro` 옵션)으로 붙이면, 컨테이너 설정과 상관없이 그 폴더에는 쓰지 못합니다. 서버를 띄운 뒤에 붙였거나 떼었다 다시 붙였으면 컨테이너에는 새로 붙인 폴더가 보이지 않고 떼기 전의 내용이 그대로 보입니다(Docker Desktop의 리눅스 위에서 메모리 파일 시스템으로 공유 폴더를 흉내 내어 쟀고, 배포판 리눅스 서버와 실제 NFS·SMB 공유 폴더에서는 재지 않았습니다). 이때는 서버와 작업자를 다시 띄웁니다.
 
 ```bash
 docker compose restart server worker
@@ -221,7 +223,7 @@ curl -sS -X POST https://rag.example.com/api/v1/admin/sources/regulations/sync \
   -H "Authorization: Bearer <토큰>"
 ```
 
-동기화 기록은 최근 것부터 보입니다. `status`가 `succeeded`이면 동기화가 끝난 것이고, `failed`이면 `failure_code`가 까닭입니다. `listed`는 폴더에서 받은 파일 수이고 `added`, `updated`, `deleted`는 문서를 더하고 고치고 지운 개수, `unchanged`는 내용이 그대로여서 건드리지 않은 파일 수입니다. 동기화가 끝나도 문서의 색인은 작업자가 뒤에서 이어 하므로, 검색에 나오기까지는 잠시 더 걸립니다. 색인 상태는 `/api/v1/admin/documents?source=regulations`로 봅니다.
+동기화 기록은 최근 것부터 보입니다. `status`가 `succeeded`이면 동기화가 끝난 것이고, `failed`이면 `failure_code`가 까닭입니다. `listed`는 폴더에서 받은 파일 수이고 `added`, `updated`, `deleted`는 문서를 더하고 고치고 지운 개수, `unchanged`는 수정 시각과 크기가 지난번과 같아서 읽지 않고 넘어간 파일 수입니다. 내용만 바뀌고 두 값이 같은 파일도 여기에 들어가므로, 그런 변경까지 따라가려면 `reread`로 모두 다시 읽게 합니다. 동기화가 끝나도 문서의 색인은 작업자가 뒤에서 이어 하므로, 검색에 나오기까지는 잠시 더 걸립니다. 색인 상태는 `/api/v1/admin/documents?source=regulations`로 봅니다.
 
 ```bash
 curl -sS https://rag.example.com/api/v1/admin/sources/regulations/sync-records \

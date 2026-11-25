@@ -236,12 +236,15 @@ def write_env(directory: Path, namespace: str, version: str, password: str) -> N
 
 def clean_environment() -> dict[str, str]:
     """compose가 자기 `.env`가 아니라 이 셸에서 값을 받지 않게 한다. 이 시험이 보는 값 넷과
-    `COMPOSE_`로 시작하는 변수를 벗긴다."""
+    `COMPOSE_`로 시작하는 변수를 벗긴다. 원천 폴더(`RAG_ENGINE_SOURCES_DIR`)도 벗긴다. 셸에 그
+    값이 있으면 compose가 `.env`보다 먼저 써서, 시험이 만든 표본 폴더가 아니라 다른 폴더를
+    읽는다."""
     return {
         name: value
         for name, value in os.environ.items()
         if name not in REQUIRED_VALUES
         and name != "RAG_ENGINE_SERVER_TMP_SIZE"
+        and name != "RAG_ENGINE_SOURCES_DIR"
         and not name.startswith("COMPOSE_")
     }
 

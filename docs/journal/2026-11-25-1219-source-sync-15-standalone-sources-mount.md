@@ -44,7 +44,7 @@ source-sync 티켓 14를 병합한 세션이 낸 지시문으로 연 세션의 �
 - Major. `.env.example`의 네 설정(시간대, 보관 기간 둘, 읽기 한도)이 "비우면 기본값"이라고 적었으나, 값을 빈 채로 두면 `load_settings`가 `ConfigurationError`로 기동을 거부했다(네 변수를 하나씩 `RAG_*=""`로 쳐서 확인했다). "적지 않으면"으로 고쳤다. `RAG_ENGINE_SOURCES_DIR`은 compose의 `:-`가 빈 값을 받아 "비우면"이 맞다.
 - Major. README의 공유 폴더 측정 문단이 명세의 조건을 뺐다. "읽기를 맡은 별도 스레드만 막힌 컨테이너(서버와 작업자가 쓰는 모양)", "끊고 10초에 멈췄을 때", "읽기가 이미 돌아와 있던 경우도 센 수", `hard` SMB 두 경우를 재지 못한 단서, 서버가 응답만 멈춘 지 200초쯤 뒤에는 강제 종료로도 8초 안에 끝나지 않았다는 반례를 더했다.
 - 정합 시험이 `.env.example` 예시 줄 다섯을 모두 잠그게 넓히고, 네 기본값이 `Settings`와 같은지 보게 했다. 변이 다섯을 더했다.
-- README: 느린 공유 폴더 절에 작업자 로그 `connector_call_timed_out` 한 줄과 "어느 파일에서 걸렸는지는 기록에 남지 않는다"를 더했다(명세 195행이 안내가 적는다고 한 것). SMB 절에 soft로 붙일 때 치르는 값 둘(미리 열어 둔 파일의 읽기가 돌아오지 않는다, 목록을 받은 뒤 끊기면 동기화가 오래 돈다)을 더했다. 원천 이름 규칙에 "소문자나 숫자로 시작"을, `unchanged`의 뜻(내용이 그대로여서 건드리지 않은 파일 수)을, 숨김 파일 제외가 숨김 폴더 안의 파일까지라는 것을, 겹치는 폴더의 409 `source_folder_overlap`을 더했다. 떼었다 붙인 폴더가 그대로 보인다는 서술에는 잰 환경의 한계(메모리 파일 시스템으로 흉내 냄)를 달았다. 6절에서 "원천 폴더"와 "하위 폴더"를 한 번 정의했다. `ingest` 이관의 삭제 요청은 `curl -G --data-urlencode`로 바꿨다.
+- README: 느린 공유 폴더 절에 작업자 로그 `connector_call_timed_out` 한 줄과 "어느 파일에서 걸렸는지는 기록에 남지 않는다"를 더했다(명세 195행이 안내가 적는다고 한 것). SMB 절에 soft로 붙일 때 치르는 값 둘(미리 열어 둔 파일의 읽기가 돌아오지 않는다, 목록을 받은 뒤 끊기면 동기화가 오래 돈다)을 더했다. 원천 이름 규칙에 "소문자나 숫자로 시작"을, `unchanged`의 뜻(처음 쓴 것은 틀려서 아래 "PR 봇 첫 회차"에서 고쳤다)을, 숨김 파일 제외가 숨김 폴더 안의 파일까지라는 것을, 겹치는 폴더의 409 `source_folder_overlap`을 더했다. 떼었다 붙인 폴더가 그대로 보인다는 서술에는 잰 환경의 한계(메모리 파일 시스템으로 흉내 냄)를 달았다. 6절에서 "원천 폴더"와 "하위 폴더"를 한 번 정의했다. `ingest` 이관의 삭제 요청은 `curl -G --data-urlencode`로 바꿨다.
 - `.env.example`: `RAG_ENGINE_SOURCES_DIR`에 `data/src`처럼 `./`나 `/`로 시작하지 않는 값은 compose가 이름 붙은 볼륨으로 읽어 `undefined volume` 오류로 멈춘다는 주의를 더했다(`docker compose config`로 그 오류를 확인했다).
 - compose 머리 주석의 "운영자가 고치는 것"에 `sources/`를 더했다.
 - 시험: 쓰는 곳이 없던 `search(stack, query)`의 `query` 인자를 걷었다. 기다리는 상한 두 개(120초, 600초)에 근거 주석을 달았다.
@@ -58,7 +58,7 @@ source-sync 티켓 14를 병합한 세션이 낸 지시문으로 연 세션의 �
 - README 느린 공유 폴더 절: "한도를 넘기면 작업자 로그에 `connector_call_timed_out` 한 줄이 남습니다. 어느 파일에서 걸렸는지는 동기화 기록에도 로그에도 남지 않으므로, 가장 큰 파일을 의심하십시오." 코드로 본 것은 `guard.py`가 그 이벤트를 `source`, `kind`, `outstanding`만 실어 낸다는 것이다.
 - README: "숨김 파일과 숨김 폴더 안의 파일(경로의 어느 이름이든 `.`으로 시작하는 것)과 오피스 임시 파일(`~$`로 시작하는 파일 이름)은 늘 뺍니다." `ingest_policy._is_default_excluded`를 읽은 것이다.
 - README: "원천의 이름은 영문 소문자나 숫자로 시작하고, 영문 소문자와 숫자, `-`, `_`만 쓰며, 63자까지입니다." `SOURCE_NAME_PATTERN`을 읽은 것이다.
-- README: "`unchanged`는 내용이 그대로여서 건드리지 않은 파일 수입니다." 임시 스택의 `reread` 기록(`listed` 1, `unchanged` 1)으로 본 것이다.
+- README: `unchanged`의 뜻. 처음에는 내용이 그대로여서 건드리지 않은 파일 수라고 적었으나 PR 봇 첫 회차가 틀렸다고 지적했고, 코드가 수정 시각과 크기의 쌍(`server_path.py`의 `change_marker`)이 같으면 읽지 않는 것이라 아래 "PR 봇 첫 회차"에서 고쳤다.
 - `.env.example`: "data/src 처럼 적으면 ... compose 가 undefined volume 오류로 멈춘다." `docker compose config`가 `service "server" refers to undefined volume data/src: invalid compose project`로 끝났다.
 - `.env.example`: "적지 않으면 Asia/Seoul·30·90·600." `settings.py`의 기본값과 정합 시험이 같다.
 
@@ -76,6 +76,20 @@ CLI가 끝까지 돌았다(`Plan: Free`, 좌석 없음이어도 막히지 않았
 **남긴 것.** 없다.
 
 **다시 돌린 것.** 정합 시험(`tests/tools/test_deploy_guide.py`)은 README 수정 뒤 14개가 통과했다(종료 코드 0, 1.08초. `test_standalone_env.py`는 README를 읽지 않아 다시 돌리지 않았다). 문구만 바꿨고 `compose.yaml`과 코드는 그대로라서 단독 compose 시험의 대상은 바뀌지 않았다.
+
+## PR 봇 첫 회차(PR 117, 머리 `ae38c35`)
+
+claude-review는 지적이 없었다. CodeRabbit은 Minor 4건을 냈고 첫 회차라 지적마다 판단해 모두 고쳤다.
+
+**고친 것**
+- README `unchanged`의 뜻. 내용이 그대로인 파일이 아니라 수정 시각과 크기가 지난번과 같아 읽지 않고 넘어간 파일이다. 내용만 바뀌고 두 값이 같으면 여기에 들고, `reread`로 모두 다시 읽게 하라고 적었다. 처음 문장은 이 세션이 임시 스택에서 `reread`를 쳐 본 한 번의 기록으로만 쓴 것이고, 코드(`server_path.py`의 `change_marker`는 `수정 시각(ns):크기`)를 끝까지 열지 않았다.
+- README `sudo mkdir` 뒤의 복사. 만든 폴더가 root 소유라 일반 `cp`가 `Permission denied`로 실패하므로 `sudo cp`를 적었다. 이 명령은 이 세션이 치지 못한 것에 든다.
+- README 공유 폴더. 서버 기계에서 `ro`로 붙이면 컨테이너 설정과 상관없이 쓰지 못한다는 한 문장을 더했다. 지적이 든 커널 5.12 미만에서 하위 마운트가 쓰기 가능해진다는 주장은 이 세션이 재지 않았고 문서에도 옮기지 않았다.
+- 단독 compose 시험의 `clean_environment`가 셸의 `RAG_ENGINE_SOURCES_DIR`을 자식 환경으로 넘기던 것을 벗겼다. 셸 값은 `.env`보다 먼저 쓰여 시험이 만든 표본 폴더를 읽지 못한다.
+
+**남긴 것.** 없다.
+
+**CI.** `python` 잡이 `tests/tools/test_hook_push_behind_main.py::test_dev의_유무를_조회하다_시간을_넘기면_재지_않는다` 하나로 빨갰다(5846개 중 1개 실패). 시간 제한을 0.0001초로 줄여 조회가 시간을 넘기게 하는 시간 시험이고 이 PR이 건드리지 않는 파일이다. dev의 최근 CI 8번은 모두 초록이고 같은 머리에서 실패한 잡만 다시 돌리니 초록이었다. 부하 시간 시험 종류라 새 사례는 이 줄에만 적는다.
 
 ## 회고
 
