@@ -52,6 +52,25 @@ next-session 지시문으로 연 새 세션의 기록이다(Sonnet 5.5). 시작 
 
 **다시 돌린 것.** `uv run python tools/check_instructions.py`와 `uv run python tools/queue_open_rows.py --search decision-word-residue`가 반영 뒤에 통과했다(두 명령 모두 오류 없이 끝났고 후자는 닫힌 항목 1개를 냈다). 나머지 검증 명령은 지침 파일 둘과 마크다운만 바꾼 이 PR에서 커밋이 부르는 pre-commit의 검사 러너가 돈다.
 
+## 검증
+
+- 첫 커밋 시도(커밋 `2e24734` 전)의 pre-commit 검사 러너: pytest가 2598.1초 돌고 17건이 실패했다. 실패는 응답 시간 초과(`httpx.ReadTimeout`)와 시험 저장소의 `git fetch`가 낸 `bad pack header` 오류였고, 이 PR이 바꾼 문서를 읽는 시험은 없었다. 그때 이 PC에는 검사 프로세스가 14개 돌고 있었고(손으로 `Get-CimInstance`로 셌다) 가상 메모리 여유는 26.2GB였다. 같은 부하의 선례는 대기열 항목 `concurrent-checks-exhaust-memory`다(그 항목의 회차를 이 사건으로 세지는 않았다. 이 세션은 메모리 부족 오류 자체를 보지 못했다).
+- 사용자가 이번 커밋만 pytest를 건너뛰기로 골라 `SKIP=pytest`로 커밋했다. 나머지 검사(`check-ticket`, `check-notes`, `lint-imports`, `zizmor`, `check-instructions`, `check-type-escapes`, `run-hooks`, `pyright`, `pyright-linux`)는 통과했다. 첫 시도에서 pytest 밖의 검사도 모두 통과했다.
+- 커밋 메시지 검사가 제목 86자를 72자 한도로 막아 제목을 줄였다.
+- PR을 열면 CI의 `python` 잡이 같은 pytest를 다시 돈다.
+
+## PR 직전 리뷰(`coderabbit-review`, CodeRabbit CLI 0.7.5, 커밋 `2e24734`과 커밋하지 않은 일지 수정)
+
+`review_completed`로 끝났고(좌석은 `Seat: not assigned`) CLI 지적 3건을 서브에이전트가 트리아지해 유효 1(Minor), 오탐 1, 중복 1로 가렸다. 서브에이전트가 밀 주장 셋을 직접 쟀고 모두 참이었다(규약 4의 네 경로가 있고 명령이 일지와 대기열 경로를 빼는 것, 이 워크트리에 추적하지 않는 새 파일이 없어 `--untracked`는 재현하지 못한 것, adr.md의 `paths`).
+
+**고친 것**
+- Minor. 규약 4의 명령이 `.scratch/retro-queue` 전체와 일지 전체를 빼는데, 열린 대기열 항목과 최신 일지의 다음 절은 앞으로의 지시를 담는다. 규약 4에 그 둘은 옛 말이 남았는지 따로 훑는다는 문장을 더했다.
+
+**남긴 것과 이유**
+- 오탐. 티켓 29행의 `grilling` 문단이 합의 요약 뒤에 실행될 수 있다는 지적(CLI는 Major). 문단이 합의 요약을 올리기 전에 찾게 하고 "고칠 곳"을 요약에 올려 승인받게 하므로 순서가 정해져 있다.
+
+**다시 돌린 것.** 이 수정은 `CLAUDE.md`와 일지만 바꾸므로 커밋의 pre-commit이 pytest를 문서를 읽는 시험 여섯으로 좁혀 돈다(`tools/run_checks.py`의 `docs_only`). 결과는 커밋 뒤 PR 본문에 적는다.
+
 ## 회고
 
 후보 둘을 냈고 판정은 승인 0, 기각 2, 넘김 0이다.
