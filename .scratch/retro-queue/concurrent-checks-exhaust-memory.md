@@ -2,7 +2,7 @@
 
 **상태:** 열림
 **어디로:** `tools/run_checks.py`(pytest를 띄우기 전에 여유 가상 메모리와 돌고 있는 다른 검사 프로세스의 수를 읽어, 모자라면 실패가 기계의 부하 탓일 수 있다는 한 줄을 먼저 찍는다. 막지 않는다. 세션 사이에 잠금을 둘지는 반영하는 chore가 그 독스트링이 잠금을 두지 않은 까닭을 읽고 정한다)
-**승인:** 자체 승인 2026-11-21, 2회차(더하는 것이라 다섯 번째에 반영한다. 커밋이 만들어지지 않았을 뿐 잃은 작업이 없어 손상이 아니다. 둘째는 2026-11-22 source-sync 03의 첫 커밋 시도에서 pyright 둘이 노드의 메모리 부족으로, pytest가 작업자의 `MemoryError`로 빨갰다), 일지 2026-11-20-2034-source-sync-design.md, 2026-11-22-0844-source-sync-03-push-sources-and-ingest-source-name.md, ADR 필요 여부는 반영할 때 정한다
+**승인:** 자체 승인 2026-11-21, 3회차(더하는 것이라 다섯 번째에 반영한다. 커밋이 만들어지지 않았을 뿐 잃은 작업이 없어 손상이 아니다. 둘째는 2026-11-22 source-sync 03의 첫 커밋 시도에서 pyright 둘이 노드의 메모리 부족으로, pytest가 작업자의 `MemoryError`로 빨갰다), 일지 2026-11-20-2034-source-sync-design.md, 2026-11-22-0844-source-sync-03-push-sources-and-ingest-source-name.md, 2026-11-25-1632-review-report-to-journal-on-receipt.md(3회차: 커밋 전 전체 시험을 두 번 돌렸으나 형제 세션들의 전체 시험이 같은 시각에 도는 중이라 `WinError 1455`와 `MemoryError`로 서로 다른 시험이 빨갰다. 실패한 시험은 단독으로 돌리면 통과했다. 커밋이 만들어지지 않았을 뿐 잃은 작업이 없어 손상이 아니다), ADR 필요 여부는 반영할 때 정한다
 
 source-sync 설계 PR의 첫 커밋 시도에서 pre-commit의 pytest가 `5 failed, 4927 passed, 2 errors in 1291.93s`로 끝났다. 실패한 일곱 가운데 둘은 시간 한도에 걸린 것이고, 다섯은 프로세스를 띄우지 못한 것이다. 그 가운데 둘은 운영체제의 오류를 그대로 냈다(`OSError: [WinError 1455]`, `VirtualProtect failed with code 0x5af`). 그때 이 PC에서는 다른 워크트리 세션 여럿이 검사를 돌리고 있었고, 가상 메모리 한도 127.9GB 가운데 여유가 6~16GB였다(손으로 본 값이다. 일지의 "검증" 절). 40분쯤 기다려도 풀리지 않아 사용자가 `SKIP=pytest`로 커밋하게 했고, CI의 `python` 잡은 그 커밋에서 통과했다.
 
