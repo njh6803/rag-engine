@@ -572,6 +572,18 @@ def test_필요한_네_종류_밖의_줄은_읽자마자_버리고_줄_번호는
     assert broken == 0
 
 
+def test_type이_리스트나_객체인_줄은_터지지_않고_읽지_못한_줄로_센다(tmp_path: Path) -> None:
+    qs = [_question("가", ["x", "y"])]
+    path = _write(
+        tmp_path / "s.jsonl",
+        [_ask_use("t1", qs), {"type": []}, {"type": {}}, {"type": 3}, {"no": "type"}],
+    )
+    records, broken = ea.read_records(path)
+    numbers = [number for number, _ in records]
+    assert numbers == [1], f"남긴 줄 번호가 {numbers}이다"
+    assert broken == 2, f"읽지 못한 줄을 {broken}개로 센다"
+
+
 def test_main은_인자가_틀리면_까닭을_적고_2로_끝난다(capsys: pytest.CaptureFixture[str]) -> None:
     assert ea.main(["모르는명령", "x"]) == 2
     assert "invalid choice: '모르는명령'" in capsys.readouterr().err

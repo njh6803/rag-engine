@@ -175,7 +175,8 @@ def one_line(text: str) -> str:
 
 
 def read_records(path: Path) -> tuple[list[tuple[int, Record]], int]:
-    """(줄 번호, 줄)과 읽지 못한 줄 수. 줄 번호는 1부터다. `KEPT_TYPES` 밖의 줄은 버린다."""
+    """(줄 번호, 줄)과 읽지 못한 줄 수. 줄 번호는 1부터다. `KEPT_TYPES` 밖의 줄은 버린다.
+    `type`이 리스트나 객체인 줄은 집합 조회가 `TypeError`를 내므로 읽지 못한 줄로 센다."""
     records: list[tuple[int, Record]] = []
     broken = 0
     with path.open(encoding="utf-8-sig", errors="replace") as handle:
@@ -188,6 +189,8 @@ def read_records(path: Path) -> tuple[list[tuple[int, Record]], int]:
                 broken += 1
                 continue
             if not isinstance(parsed, dict):
+                broken += 1
+            elif isinstance(parsed.get("type"), (list, dict)):
                 broken += 1
             elif parsed.get("type") in KEPT_TYPES:
                 records.append((number, parsed))

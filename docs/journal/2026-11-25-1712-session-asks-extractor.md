@@ -180,3 +180,10 @@ Critical·Major 없음. 위반 Minor 셋, 주장 검증 Minor 여럿, 판단 항
 - `uv run python -X utf8 tools/mutate.py .scratch/harness/probes/extract_asks_mutations.toml --check`: 변이 20개 모두 원문이 한 번씩 있다.
 - `PYTHONUTF8=1 uv run python tools/mutate.py .scratch/harness/probes/extract_asks_mutations.toml`: 기준선 20개 초록, 변이 20개 모두 기대대로 빨강. 커밋하지 않은 변경이 있다는 알림(막지 않는다)이 떴고, 이 실행은 PR 직전 리뷰를 반영한 뒤의 확인이다. 전체 실행은 커밋 뒤에 한 번 더 돈다.
 - 나머지 검증 명령(전체 `pytest`, `lint-imports`, 하네스 검사)은 커밋이 부르는 pre-commit의 결과로 갈음한다. 결과는 커밋 뒤 이 일지와 PR 본문에 적는다.
+
+## PR 봇 회차
+
+### CodeRabbit 첫 회차(PR 121, 머리 `1d1b7a5`)
+- 검사는 모두 통과했고 claude-review는 지적이 없었다(`지적 없음`). CodeRabbit이 인라인 코멘트 한 건을 남겼다.
+- **고친 것.** Minor, `read_records`의 `parsed.get("type") in KEPT_TYPES`: `type`이 리스트나 객체인 줄(`{"type": []}`)이면 집합 조회가 `TypeError`를 내고 `main`이 잡지 않아 앞에서 읽은 질문도 못 낸다. 지적이 유효하다고 보고 고쳤다. `type`이 리스트나 객체인 줄은 읽지 못한 줄로 센다. JSON에서 해시할 수 없는 값은 이 둘뿐이라 그 둘만 건드렸다. `type`이 수이거나 없는 줄은 지금처럼 `KEPT_TYPES` 밖이라 조용히 버린다(제안은 문자열이 아니면 모두 읽지 못한 줄로 세자는 것이었으나, 수와 빠진 칸은 기록 모양을 모르는 줄이지 깨진 줄이 아니라고 보아 따르지 않았다). 시험 `test_type이_리스트나_객체인_줄은_터지지_않고_읽지_못한_줄로_센다`와 변이 하나를 더했다.
+- **다시 돌린 명령.** `uv run pytest -q -p no:cacheprovider -n 0 tests/tools/test_extract_asks.py` 통과, `ruff format`·`ruff check`·`pyright`(두 파일) 통과, `tools/mutate.py … --check`로 변이 21개 원문 확인, 변이 표 전체 실행은 21개 모두 기대대로 빨강(새 변이는 20번이고, 집합 조회가 `unhashable type: 'list'`로 터지는 것을 시험이 잡는다). 전체 pytest 등은 커밋의 pre-commit 결과로 갈음한다.

@@ -220,6 +220,17 @@ old = '''    return record.get("toolUseResult") if len(results) == 1 else None''
 new = '''    return record.get("toolUseResult")'''
 
 [[mutation]]
+name = "type이 리스트나 객체인 줄에서 집합 조회가 터진다"
+tests = ["tests/tools/test_extract_asks.py::test_type이_리스트나_객체인_줄은_터지지_않고_읽지_못한_줄로_센다"]
+expect = "red"
+expect_output = ["unhashable type: 'list'"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''            elif isinstance(parsed.get("type"), (list, dict)):'''
+new = '''            elif False:'''
+
+[[mutation]]
 name = "한 줄에 결과가 둘이어도 줄의 에이전트 id를 붙인다"
 tests = ["tests/tools/test_extract_asks.py::test_한_줄에_tool_result가_둘이면_에이전트_id를_어느_쪽에도_붙이지_않는다"]
 expect = "red"
