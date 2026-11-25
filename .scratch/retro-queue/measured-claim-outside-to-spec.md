@@ -1,6 +1,6 @@
 # measured-claim-outside-to-spec: 실측을 옮긴 ADR·명세·계획·일지의 문장이 첫 실행의 값, 출력에 없는 보편 주장, 흉내 낸 조건의 값을 그대로 적어 셀프 리뷰와 PR 직전 리뷰가 잡았다
 
-**상태:** 열림
+**상태:** 닫힘 (.scratch/harness/issues/claim-evidence-rule-in-issue-tracker.md, 2026-11-25, `docs/agents/issue-tracker.md` 프로브와 근거 절에 글머리 셋을 더했다. 쟀다고 적기 전에 출력 파일에서 값을 글자로 찾는 확인을 근거 문장이 서는 모든 자리(ADR, 일지, 기능 계획, 프로브 README, 독스트링, 티켓 Comments)에 닿게 하고, 같은 프로브를 다시 돌렸으면 판정할 실행의 값만 쓰며, 흉내 낸 조건으로 잰 값은 그 조건을 붙이고 출력이 덮은 범위를 넘기지 않는다. `to-spec` 3단계는 규칙의 원문을 옮기지 않고 그 절을 가리키는 문단으로 줄였다. 새 훅은 더하지 않았다. 지침 뒤에도 어겨지면 훅 후보로 올린다)
 **어디로:** `docs/agents/issue-tracker.md` 프로브와 근거 절(`.claude/skills/to-spec/SKILL.md` 3단계에 둔 확인(명세에 쟀다고 적기 전에 그 값을 프로브의 커밋한 출력 파일에서 글자로 찾아본다)을 모든 근거 문장의 자리(ADR, 일지, 기능 계획, 프로브 README, 독스트링)에 닿게 이 절로 옮기고, 같은 프로브를 다시 돌렸으면 판정할 실행을 정해 그 실행의 값만 쓰며, 흉내 낸 조건으로 잰 값이면 그 조건을 문장에 붙인다는 갈래를 더한다)
 **승인:** 자체 승인 2026-11-22, 18회차(measured-claim-beyond-probe의 18회차. 닫힌 그 항목이 "그 자리들에서 또 나면 17회차로 세고 넓힐지는 그때 retro가 정한다"고 적었고, 17회차는 처방이 다른 `to-spec-path-rule-vs-evidence-citation`이 이었다. 처방을 넓히는 것이라 그 항목에 더하지 않고 새로 쓴다. 더하는 것이고 5회차를 넘어 chore 배치 조건이다), 일지 2026-11-21-2139-source-sync-stuck-calls-design.md, ADR 불필요
 

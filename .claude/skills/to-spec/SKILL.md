@@ -4,7 +4,7 @@ description: "Turn the current conversation into a spec and publish it to the pr
 disable-model-invocation: true
 ---
 
-<!-- 프로젝트 사본. agent-os가 덧댄 버전을 2026-11-09 킥오프에서 옮겼고, 이 주석과 본문의 괄호 속 대기열 번호는 agent-os의 기록이다. 원본(mattpocock/skills)에 여섯을 더했다. 첫머리의 새 세션 맥락(대기열 103), 3단계의 측정 규칙(대기열 38, 측정이 가는 범위는 61, "쟀다"고 적기 전의 출력 확인은 이 저장소 대기열의 measured-claim-beyond-probe)과 명세를 쓴 뒤의 차례(대기열 105·126·207), Implementation Decisions 의 경로 규칙을 저장소 관행에 맞춘 것(대기열 30), Out of Scope 의 받는 쪽 확인(대기열 3), 1단계의 쉬운 말 문장(이 저장소의 harness 티켓 `plain-words-in-written-artifacts`). 이 주석이 `tools/check_instructions.py`의 센티널이라 지우면 검사가 빨강이 된다. -->
+<!-- 프로젝트 사본. agent-os가 덧댄 버전을 2026-11-09 킥오프에서 옮겼고, 이 주석과 본문의 괄호 속 대기열 번호는 agent-os의 기록이다. 원본(mattpocock/skills)에 여섯을 더했다. 첫머리의 새 세션 맥락(대기열 103), 3단계의 측정 규칙(대기열 38, 측정이 가는 범위는 61, "쟀다"고 적기 전의 출력 확인은 이 저장소 대기열의 measured-claim-beyond-probe가 더했고, measured-claim-outside-to-spec이 규칙의 원문을 `docs/agents/issue-tracker.md`의 프로브와 근거 절로 옮겨 3단계는 그 절을 가리키기만 한다)과 명세를 쓴 뒤의 차례(대기열 105·126·207), Implementation Decisions 의 경로 규칙을 저장소 관행에 맞추고 코드를 읽은 근거 파일은 Further Notes에 모으게 한 것(대기열 30, 뒤의 말은 이 저장소 대기열 to-spec-path-rule-vs-evidence-citation. 한 항목의 두 절이다), Out of Scope 의 받는 쪽 확인(대기열 3), 1단계의 쉬운 말 문장(이 저장소의 harness 티켓 `plain-words-in-written-artifacts`). 이 주석이 `tools/check_instructions.py`의 센티널이라 지우면 검사가 빨강이 된다. -->
 
 This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user; just synthesize what you already know.
 
@@ -24,7 +24,7 @@ Check with the user that these seams match their expectations.
 
    명세가 측정을 다음 단계에 넘기려 하면("구현 티켓이 잰다", "실패한다면 무엇을 할지는 이력으로 제안한다") 그 결과가 새 결정을 낳을 수 있는지 먼저 본다. 낳을 수 있으면 그 자리에서 잰다. 설계의 ADR이 넘긴 측정도 명세가 받는 자리에서 잰다. 넘기면 티켓이 구현 도중 ADR 승인을 기다리며 멈춘다(대기열 38, 두 번 다 명세 검토가 재고서야 ADR 이력이 됐다). 명세가 재거나 설계에서 받아 쓰는 측정은 명세의 범위까지 간다. 그것을 쓰는 코드가 타입 검사와 실행을 지나는 데까지, 명세가 받을 입력 전부(상류를 IPv4와 `::1`로 받으면 둘 다)까지, 설치할 버전으로 잰다. 설계의 측정이 그만큼 가지 않았으면 그 자리에서 다시 잰다(대기열 61). 프로브를 두는 자리와 근거 문장의 종류(쟀다, 손으로 봤다, 코드를 읽었다, 어림, 웹 요약)는 `docs/agents/issue-tracker.md`의 프로브와 근거 절이다.
 
-   명세에 "쟀다"("실측"도 같다)고 적기 전에, 적으려는 값을 그 프로브의 커밋한 출력 파일에서 Grep으로 글자로 찾아보고, 그 값이 적으려는 사실을 보이는 줄에 있는지도 본다. 글자로 있을 때만 그렇게 적는다. 평균이나 비율처럼 출력의 값으로 계산한 값은 계산에 쓴 값들을 찾고 계산을 함께 적는다. 찾지 못하거나 대응하는 프로브가 없으면 프로브를 새로 두거나 고쳐 다시 돌려 그 출력을 커밋한 뒤 그 파일에서 찾거나, 손으로 봤다면 그 명령과, 코드를 읽었다면 파일과 버전과 함께 적고, 재지 않은 값은 어림이라고 적는다. 기억에 기댄 수와, 출력이 가르지 못하는 해석(타입이 보존되는지 보려고 `__name__`만 찍은 프로브)은 값이 출력에 있어도 이 확인에 걸린다. 규칙의 원천은 위 `docs/agents/issue-tracker.md`의 프로브와 근거 절이다(대기열 measured-claim-beyond-probe).
+   명세에 "쟀다"("실측"도 같다)고 적기 전에는 `docs/agents/issue-tracker.md`의 프로브와 근거 절을 따라 그 값을 프로브의 커밋한 출력 파일에서 글자로 찾아본다. 이 규칙은 명세만이 아니라 근거 문장이 서는 모든 자리에 걸리므로 원문을 여기에 옮겨 쓰지 않고 그 절 한 곳에 둔다(대기열 measured-claim-beyond-probe, measured-claim-outside-to-spec).
 
    명세를 쓴 뒤의 차례는 셀프 리뷰(`/code-review`) 반영, 서두의 수 세기, ADR 초안·이력의 승인, 커밋이다. 서두에 적은 수(넘겨받은 것, 사용자가 고른 것, 정한 것, 이력, 거절의 수)는 병합 전에 본문을 고치는 반영마다 본문의 표시를 다시 세어 고친다. 셀프 리뷰 반영만이 아니라 PR 직전 리뷰(`docs/constitution/operations.md` 리뷰 파이프라인 2)와 PR 봇 회차(같은 절 3)의 반영도 그 반영이다. 리뷰가 본문을 고쳐 서두와 어긋난 일이 두 명세에서 되풀이됐고, 묶음 표시("상한 묶음의 하나")는 기계가 세지 못한다(대기열 105). 셀프 리뷰 뒤에만 다시 센 명세에서는 PR 직전 리뷰의 반영이 표시를 늘려 PR 봇이 어긋남을 짚었다(대기열 207). ADR 초안의 승인은 `CLAUDE.md` 작업 규약 5다. 승인을 셀프 리뷰 반영 뒤에 두는 것은 agent-os에서 먼저 묻자 리뷰가 승인받은 글을 고쳤기 때문이다(대기열 126).
 
@@ -62,7 +62,7 @@ A list of implementation decisions that were made. This can include:
 - API contracts
 - Specific interactions
 
-구현 파일의 경로와 코드 조각은 적지 않는다. 금방 낡는다. 규칙 문서(`.claude/rules/*.md`)·ADR·테스트 선례의 경로는 적는다 — agent-os의 명세 셋이 모두 그렇게 했고, 원본 문언대로 리뷰하면 매번 오탐이었다(대기열 30).
+구현 파일의 경로와 코드 조각은 적지 않는다. 금방 낡는다. 규칙 문서(`.claude/rules/*.md`)·ADR·테스트 선례의 경로는 적는다 — agent-os의 명세 셋이 모두 그렇게 했고, 원본 문언대로 리뷰하면 매번 오탐이었다(대기열 30). 다만 본문에서 코드를 읽었다고 적은 사실은 근거가 된 파일을 Further Notes에 읽은 커밋과 함께 모아 적는다. 파일 없이 "코드를 읽었다"만 적으면 근거를 댄 것이 아니다(규칙은 `docs/agents/issue-tracker.md`의 프로브와 근거 절, 대기열 to-spec-path-rule-vs-evidence-citation).
 
 Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it within the relevant decision and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
 
