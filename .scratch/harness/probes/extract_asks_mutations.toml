@@ -1,0 +1,154 @@
+# session-asks-extractor(`tools/extract_asks.py`)가 새 파일이라 시험이 구현과 함께 났다. 판정 하나씩을 깨어 빨강을 본다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/harness/probes/extract_asks_mutations.toml
+# 변이마다 그 판정을 고정한 시험 하나만 돈다. 표지(expect_output)는 그 시험이 빨개질 때 찍는 값이다.
+
+[[mutation]]
+name = "같은 호출 id를 걸러 내지 않는다"
+tests = ["tests/tools/test_extract_asks.py::test_같은_호출_id가_assistant_줄에_두_번_나와도_한_번만_센다"]
+expect = "red"
+expect_output = ["호출을 2개로 센다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''                if tool_id is None or tool_id in by_id:'''
+new = '''                if tool_id is None:'''
+
+[[mutation]]
+name = "직접 친 답을 버린다"
+tests = ["tests/tools/test_extract_asks.py::test_직접_친_답은_선택지에_없는_원문으로_가른다"]
+expect = "red"
+expect_output = ["직접 친 글이 None로 읽힌다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''    return Answer([], text or None)'''
+new = '''    return Answer([], None)'''
+
+[[mutation]]
+name = "답을 질문 글이 아니라 첫 답으로 붙인다"
+tests = ["tests/tools/test_extract_asks.py::test_직접_친_답이_같은_호출의_다른_질문_답으로_붙지_않는다"]
+expect = "red"
+expect_output = ["assert ([], 'x')"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''        raws = [answers.get(question.text) for question in questions]'''
+new = '''        raws = [next(iter(answers.values()), None) for question in questions]'''
+
+[[mutation]]
+name = "거부한 호출을 거부로 읽지 않는다"
+tests = ["tests/tools/test_extract_asks.py::test_거부한_호출은_거부됨으로_적는다"]
+expect = "red"
+expect_output = ["'error' == 'rejected'"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''    if outcome == REJECTED:'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "거부가 아닌 오류 결과를 오류로 읽지 않는다"
+tests = ["tests/tools/test_extract_asks.py::test_거부가_아닌_오류_결과는_오류로_적고_결과_글을_붙인다"]
+expect = "red"
+expect_output = ["'unstructured' == 'error'"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''    if part.get("is_error") is True or isinstance(outcome, str):'''
+new = '''    if False:'''
+
+[[mutation]]
+name = "assistant가 아닌 줄의 호출도 센다"
+tests = ["tests/tools/test_extract_asks.py::test_assistant가_아닌_줄의_호출은_id가_달라도_세지_않는다"]
+expect = "red"
+expect_output = ["센 호출 id가 ['t1', 't2']이다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''        if kind == "assistant":
+            for part in _parts(record):
+                tool_id = _str(part.get("id"))'''
+new = '''        if kind in ("assistant", "api-request-blob"):
+            for part in _parts(record):
+                tool_id = _str(part.get("id"))'''
+
+[[mutation]]
+name = "여러 개 고르기에서 짧은 라벨을 먼저 벗긴다"
+tests = ["tests/tools/test_extract_asks.py::test_여러_개_고르기는_다른_라벨의_앞부분인_라벨보다_긴_라벨을_먼저_고른다"]
+expect = "red"
+expect_output = ["고른 라벨이 ['가']이다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''    ordered = sorted((label for label in labels if label), key=len, reverse=True)'''
+new = '''    ordered = [label for label in labels if label]'''
+
+[[mutation]]
+name = "보고의 두 칸 들여쓰기를 걷지 않는다"
+tests = ["tests/tools/test_extract_asks.py::test_보고의_머리_문단과_두_칸_들여쓰기를_걷는다"]
+expect = "red"
+expect_output = ["  첫 줄"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''"\n".join(line.removeprefix("  ") for line in body.split("\n"))'''
+new = '''"\n".join(line for line in body.split("\n"))'''
+
+[[mutation]]
+name = "되풀이된 보고를 걸러 내지 않는다"
+tests = ["tests/tools/test_extract_asks.py::test_같은_보고가_여러_줄에_되풀이돼도_한_번만_낸다"]
+expect = "red"
+expect_output = ["'보고 본문입니다.', '보고 본문입니다.'"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''        if body not in run.reports:'''
+new = '''        if True:'''
+
+[[mutation]]
+name = "이름으로 온 보고를 브리프와 짝짓지 않는다"
+tests = ["tests/tools/test_extract_asks.py::test_이름을_붙여_띄운_에이전트의_보고는_이름으로_브리프와_짝짓는다"]
+expect = "red"
+expect_output = ["에이전트를 2개로 센다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''                    by_address[run.name] = run  # 이름을 붙여 띄우면 보고가 그 이름으로 돌아온다'''
+new = '''                    pass'''
+
+[[mutation]]
+name = "범위 밖 호출 번호를 지나친다"
+tests = ["tests/tools/test_extract_asks.py::test_main은_범위_밖_번호면_1로_끝난다"]
+expect = "red"
+expect_output = ["종료 코드가 0이다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''        if only is not None and not 1 <= only <= len(calls):'''
+new = '''        if False:'''
+
+[[mutation]]
+name = "객체가 아닌 줄을 읽지 못한 줄로 세지 않는다"
+tests = ["tests/tools/test_extract_asks.py::test_읽지_못한_줄은_세어_끝에_적고_나머지는_읽는다"]
+expect = "red"
+expect_output = ["(읽지 못한 줄 1)"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''            else:
+                broken += 1
+    return records, broken'''
+new = '''            else:
+                pass
+    return records, broken'''
+
+[[mutation]]
+name = "표준출력을 UTF-8로 맞추지 않는다"
+tests = ["tests/tools/test_extract_asks.py::test_main을_스크립트로_실제로_불러_한글이_깨지지_않게_낸다"]
+expect = "red"
+expect_output = ["UnicodeDecodeError"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''            stream.reconfigure(encoding="utf-8")'''
+new = '''            pass'''
