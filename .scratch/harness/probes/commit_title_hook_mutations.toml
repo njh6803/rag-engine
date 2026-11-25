@@ -1,0 +1,316 @@
+# commit-title-check-before-slow-checks(harness 티켓)가 `tools/hook_bash_commit_msg.py` 에 더한 길(`-m`,
+# `cd` 복합 명령, `-F -` heredoc, `-m "$(cat <<'EOF' …)"`)의 시험이 무엇을 재는지 보는 변이.
+# 시험을 먼저 쓰고 구현했으므로 구현 전부터 초록인 가드가 아니라는 것은 첫 실행으로 본다. 새 갈래를 깨어
+# 빨강을 본다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/harness/probes/commit_title_hook_mutations.toml
+# 변이마다 그 갈래를 고정한 시험 하나만 돈다.
+
+[[mutation]]
+name = "cd 가 || 뒤의 커밋도 같은 폴더로 읽는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_이동한_곳을_알_수_없으면_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='sub'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''_SEQUENTIAL = frozenset({"", "&&", ";"})'''
+new = '''_SEQUENTIAL = frozenset({"", "&&", ";", "||", "|", "&"})'''
+
+[[mutation]]
+name = "줄바꿈이 낀 연결을 순차로 읽지 않는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_앞에_cd_가_있으면_그_폴더에서_푼다"]
+expect = "red"
+expect_output = ["Right contains one more item: CommitMessage(directory='a/b'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''    return operators.replace("\n", "") in _SEQUENTIAL'''
+new = '''    return operators in _SEQUENTIAL'''
+
+[[mutation]]
+name = "알 수 없는 이동 뒤에도 커밋을 본다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_이동한_곳을_알_수_없으면_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='', file='msg.txt'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''        if message is None or workdir is None:
+            continue'''
+new = '''        if message is None:
+            continue
+        workdir = workdir or ""'''
+
+[[mutation]]
+name = "절대 경로 이동이 알 수 없는 이동을 다시 정하지 못한다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_알_수_없는_이동은_절대_경로_이동이_다시_정한다"]
+expect = "red"
+expect_output = ["Right contains one more item: CommitMessage(directory='/abs'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''    if _is_absolute_directory(target):
+        return target
+    return None if workdir is None else _join_dir(workdir, target)'''
+new = '''    return None if workdir is None else _join_dir(workdir, target)'''
+
+[[mutation]]
+name = "-m 이 여럿이면 줄바꿈 하나로 잇는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_dash_m_이_여럿이면_git_처럼_빈_줄로_잇는다"]
+expect = "red"
+expect_output = ["At index 0 diff: 'chore: x\\n본문' != 'chore: x\\n\\n본문'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''    text = "\n\n".join(parts)'''
+new = '''    text = "\n".join(parts)'''
+
+[[mutation]]
+name = "--message 를 메시지로 읽지 않는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_dash_m_의_메시지를_찾는다"]
+expect = "red"
+expect_output = ["Right contains one more item: 'chore: x'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''            if name in ("--file", "--message"):'''
+new = '''            if name in ("--file",):'''
+
+[[mutation]]
+name = "-m 과 -F 를 함께 써도 본다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_메시지가_그대로_쓰이지_않거나_훅을_건너뛰는_dash_m_은_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='', file=None, text='x')"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''    if scan is None or scan.reuses or (scan.values and scan.file is not None):'''
+new = '''    if scan is None or scan.reuses:'''
+
+[[mutation]]
+name = "-C 로 다른 커밋의 메시지를 쓰는 커밋도 -m 으로 본다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_메시지가_그대로_쓰이지_않거나_훅을_건너뛰는_dash_m_은_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='', file=None, text='x')"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''    if scan is None or scan.reuses or (scan.values and scan.file is not None):'''
+new = '''    if scan is None or (scan.values and scan.file is not None):'''
+
+[[mutation]]
+name = "변수가 든 -m 값을 그대로 판정한다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_변수와_치환이_든_dash_m_은_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: 'chore: $TITLE'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''        if _EXPANDS.search(value) is None:
+            parts.append(value)
+            continue'''
+new = '''        if True:
+            parts.append(value)
+            continue'''
+
+[[mutation]]
+name = "따옴표 없는 heredoc 의 치환 본문도 본다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_따옴표_없는_구분자의_heredoc_치환은_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: 'chore: x'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''        if _CAT_HEREDOC.match(value) is None or len(docs) != 1 or not docs[0].literal:'''
+new = '''        if _CAT_HEREDOC.match(value) is None or len(docs) != 1:'''
+
+[[mutation]]
+name = "본문이 풀리는 표준 입력 heredoc 도 본다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_못_보는_표준_입력은_찾지_않는다"]
+expect = "red"
+expect_output = ["text='chore: $X\\n'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''    if not doc.literal and _HEREDOC_EXPANDS.search(doc.body):
+        return None
+    return doc.body'''
+new = '''    return doc.body'''
+
+[[mutation]]
+name = "같은 줄에 heredoc 이 둘이어도 첫 것을 메시지로 읽는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_못_보는_표준_입력은_찾지_않는다"]
+expect = "red"
+expect_output = ["text='chore: x\\n')"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''    if len(docs) != 1:
+        return None
+    doc = docs[0]'''
+new = '''    if not docs:
+        return None
+    doc = docs[0]'''
+
+[[mutation]]
+name = "<<- 의 본문 앞 탭을 벗기지 않는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_표준_입력_heredoc_의_메시지를_찾는다"]
+expect = "red"
+expect_output = ["At index 0 diff: '\\tchore: x\\n' != 'chore: x\\n'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''                body.append(text.lstrip("\t") if strips_tabs else text)'''
+new = '''                body.append(text)'''
+
+[[mutation]]
+name = "커밋 줄이 아니라 첫 줄의 heredoc 을 고른다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_여러_줄_명령에서도_커밋이_있는_줄의_heredoc_을_고른다"]
+expect = "red"
+expect_output = ["At index 0 diff: '앞 줄의 본문\\n' != 'chore: x\\n'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''        text = _stdin_text(bodies.get(scan.file_line, []))'''
+new = '''        text = _stdin_text(bodies.get(0, []))'''
+
+[[mutation]]
+name = "낱말의 줄 번호를 세지 않는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_여러_줄_명령에서도_커밋이_있는_줄의_heredoc_을_고른다"]
+expect = "red"
+expect_output = ["At index 0 diff: '앞 줄의 본문\\n' != 'chore: x\\n'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''        line += token.count("\n")'''
+new = '''        line += 0'''
+
+[[mutation]]
+name = "명령에서 읽은 글을 판정 스크립트에 비워서 넘긴다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_맞는_제목의_dash_m_과_표준_입력은_지나간다"]
+expect = "red"
+expect_output = ["제목이 '<타입>: <제목>' 형식이 아니다: ''"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''            written.write(text.encode("utf-8"))'''
+new = '''            written.write(b"")'''
+
+[[mutation]]
+name = "이동한 폴더를 파일 경로를 풀 폴더로 쓰지 않는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_cd_복합_명령의_커밋을_막고_이동한_폴더에서_파일을_푼다"]
+expect = "red"
+expect_output = ["&& git commit -F msg.txt' 막히지 않았다"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''        found.append(message._replace(directory=_join_dir(workdir, message.directory)))'''
+new = '''        found.append(message)'''
+
+[[mutation]]
+name = "긴 옵션의 줄임을 건너뛰는 옵션으로 읽지 않는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_메시지가_그대로_쓰이지_않거나_훅을_건너뛰는_dash_m_은_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='', file=None, text='x')"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''    return len(name) > 2 and any(full.startswith(name) for full in _LONG_UNJUDGED)'''
+new = '''    return name in _LONG_UNJUDGED'''
+
+[[mutation]]
+name = "--config-env=core.hooksPath=… 를 훅을 바꾸는 옵션으로 읽지 않는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_메시지가_그대로_쓰이지_않거나_훅을_건너뛰는_dash_m_은_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='', file=None, text='x')"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''        elif option.lower().startswith("--config-env=core.hookspath="):'''
+new = '''        elif False and option.lower().startswith("--config-env=core.hookspath="):'''
+
+[[mutation]]
+name = "--config-env core.hooksPath=… (낱말 둘)를 훅을 바꾸는 옵션으로 읽지 않는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_메시지가_그대로_쓰이지_않거나_훅을_건너뛰는_dash_m_은_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='', file=None, text='x')"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''            if option in ("-c", "--config-env") and words[index].lower().startswith('''
+new = '''            if option in ("-c",) and words[index].lower().startswith('''
+
+[[mutation]]
+name = "예약어 바로 뒤의 cd 를 이동으로 모른 채 판정한다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_이동한_곳을_알_수_없으면_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='', file='msg.txt', text=None)"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''            simple.words[0] in _SHELL_KEYWORDS
+            and simple.words[1:2]'''
+new = '''            False
+            and simple.words[1:2]'''
+
+[[mutation]]
+name = "cd ~user 를 알 수 있는 이동으로 읽는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_이동한_곳을_알_수_없으면_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='~nobody/x'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''    if target.startswith(("-", "+")) or _UNRESOLVABLE.search(target) or _is_other_home(target):'''
+new = '''    if target.startswith(("-", "+")) or _UNRESOLVABLE.search(target):'''
+
+[[mutation]]
+name = "pushd +1 을 알 수 있는 이동으로 읽는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_이동한_곳을_알_수_없으면_보지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='+1'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''    if target.startswith(("-", "+")) or _UNRESOLVABLE.search(target) or _is_other_home(target):'''
+new = '''    if target.startswith("-") or _UNRESOLVABLE.search(target) or _is_other_home(target):'''
+
+[[mutation]]
+name = "-F - 의 입력이 파일(<)이어도 다음 heredoc 을 메시지로 읽는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_못_보는_표준_입력은_찾지_않는다"]
+expect = "red"
+expect_output = ["Left contains one more item: CommitMessage(directory='', file=None, text='chore: x\\n')"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''        if following.replace("\n", "") == "<":'''
+new = '''        if False:'''
+
+[[mutation]]
+name = "heredoc 본문 줄도 줄 끝 역슬래시로 잇는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_heredoc_본문_줄_끝의_역슬래시는_줄을_잇지_않는다"]
+expect = "red"
+expect_output = ["At index 0 diff: 'chore: a  \\nbody\\n'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''                text = lines[index]
+                index += 1
+                if (text.lstrip("\t") if strips_tabs else text) == terminator:'''
+new = '''                text = lines[index]
+                index += 1
+                while text.endswith("\\") and index < len(lines):
+                    text = f"{text[:-1]} {lines[index]}"
+                    index += 1
+                if (text.lstrip("\t") if strips_tabs else text) == terminator:'''
+
+[[mutation]]
+name = "명령 줄의 줄 끝 역슬래시를 잇지 않는다"
+tests = ["tests/tools/test_hook_bash_commit_msg.py::test_줄_끝_역슬래시로_이은_경로도_찾는다"]
+expect = "red"
+expect_output = ["Right contains one more item: 'msg.txt'"]
+
+[[mutation.edit]]
+file = "tools/hook_bash_commit_msg.py"
+old = '''        while line.endswith("\\") and index < len(lines):'''
+new = '''        while False and line.endswith("\\") and index < len(lines):'''
