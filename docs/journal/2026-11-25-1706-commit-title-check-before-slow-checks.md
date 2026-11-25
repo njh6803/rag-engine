@@ -48,6 +48,13 @@
 - `echo … | git commit -F -`처럼 다른 명령이 만든 메시지, 변수·치환이 든 `-m` 값, `GIT_DIR` 등으로 다른 저장소에 하는 커밋은 훅의 못 보는 것에 남았다(독스트링).
 - 커밋 시도에서 pre-commit이 두 번 다른 까닭으로 막았다. 첫 시도는 변이 표 검사(`mutate.py --staged`)가 `where None = deny_reason(` 표지를 단언 풀이 줄이라며 거절해, 그 시험에 단언 메시지(`f"{command!r} 막히지 않았다"`)를 달고 표지를 그 메시지로 바꿨다(이때 pytest는 737초에 초록이었다). 이어 두 시도에서는 pytest가 시간 단언만 빨개졌다: 둘째 시도(1330초)는 `test_되살린_원천의_문서는_문서_조회에_다시_읽힌다`(MCP 읽기 시간 초과)와 `test_serve가_뜨면_…`(30초 안에 안 뜸), 셋째 시도(1990초)는 `test_admin_pull_source_stuck_calls.py`의 `elapsed < 1.0` 둘(1.81초, 1.17초). 이 파일들은 이 변경이 닿지 않고(변경은 `tools/`와 `tests/tools/`뿐), 따로 돌리면 앞의 둘은 통과했고(3분 21초로 느렸다) 뒤의 파일은 13개 중 11개가 통과하고 다른 시험 둘이 같은 `elapsed < 1.0` 단언에서 빨개졌다(378초). 그때 CPU가 99~100%였고 다른 세션 셋이 전체 검사를 같이 돌고 있었다. 부하 시간 시험 종류는 닫힌 채 두기로 한 것(2026-11-15)에 따라 새 사례로 여기에만 적는다.
 - **pytest 검사를 사용자의 지시로 건너뛰고 커밋했다.** 위 둘 뒤에도 두 번 더 시도했고(1504초에 5924개 중 1개 실패, 1149초에 4개 실패) 모두 `test_admin_pull_source_stuck_calls.py`나 `test_restore_source_round_trip.py`의 시간 단언이었다. 그때도 CPU가 93%이고 다른 세션의 pytest가 여섯 개 돌았다. 사용자가 "pytest 건너뜀"을 골라 `SKIP=pytest git commit`으로 커밋했다(건너뛴 것은 `pytest` 검사 하나이고, 나머지 `parallel-checks`의 검사와 변이 표·인용 같은 훅은 돌아 통과했다). 전체 pytest가 이 커밋의 내용으로 통과한 것은 변이 표 표지를 고치기 전의 첫 시도(737초) 한 번뿐이고, 그 뒤 고친 것은 시험의 단언 메시지 한 줄과 표지 문구다. 판정은 CI의 `verify`가 한다.
+- **PR 직전 리뷰(`coderabbit-review`, CLI 축).** `Seat: not assigned`(Free, 0.7.5)에서도 `coderabbit review --agent --include-untracked --base origin/dev`가 `review_completed`로 끝났다(파일 9개). Critical·Major는 없고 Minor 셋과, 서브에이전트가 손으로 재현한 Minor 셋을 받았다. 첫 회차라 지적마다 판단했고 모두 지나가는 쪽으로 틀리거나 일부러 하는 우회에서만 닿아서 이 PR에서는 고치지 않고 남긴다(고치면 코드 커밋이 하나 더 들고, 전체 pytest를 부하 아래서 또 돌려야 한다).
+  - 줄 끝 역슬래시를 공백으로 바꿔 낱말 안쪽 줄 이음(`cho\<줄바꿈>re: x`)을 `cho re: x`로 읽는다(올바른 제목을 막는 거짓 양성). 작은따옴표 안의 `\<줄바꿈>`도 이어 읽는다. 따옴표 상태를 따라 지워야 한다.
+  - 커밋보다 앞의 명령에 `-F` 파일과 같은 이름이 나오면 그 커밋을 판정하지 않는 견줌(`tools/hook_bash_commit_msg.py`의 `_same_path`)이 각 명령의 작업 폴더를 풀지 않고 철자로만 견준다(`cd a && echo x > m.txt; cd b && git commit -F m.txt`를 건너뛰는 거짓 음성).
+  - `SKIP` 값을 `,`로만 쪼개고 `strip()`하지 않는다. pre-commit은 조각마다 `strip()`하므로(`SKIP="ruff-check, commit-msg"`) 건너뛰는 커밋을 판정하는 거짓 양성이다.
+  - 짝 없는 서로게이트 문자가 든 명령 글은 `UnicodeEncodeError`로 훅이 종료 코드 1로 끝나 지나간다(fail-open). 임시 파일은 `finally`에서 지워진다.
+  - 판정 하나의 제한 10초와 훅 등록의 제한 20초가 달라 `git commit`이 둘 이상이고 판정이 멈추면 훅이 통째로 잘린다. 시험의 임시 저장소 경로를 `shlex.quote` 없이 명령에 넣는다(지금 경로에는 공백이 없다).
+  - 이 여섯은 회고 후보로 넘긴다. 명령 주입과 임시 파일 처리는 문제 없음으로 판정받았다(판정 스크립트는 리스트 호출이고 명령 글은 인자로 가지 않는다. `mkstemp`와 `finally`의 `unlink`).
 - `-m`과 heredoc 길의 훅 시간은 재지 않았다. `.claude/rules/tools.md`에 `-F <파일>`과 같은 정도로 어림했다고 적었다.
 
 ## 다시 돌린 명령
