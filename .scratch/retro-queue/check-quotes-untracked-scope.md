@@ -1,6 +1,6 @@
 # check-quotes-untracked-scope: `check_quotes.py --all-lines`를 인자 없이 치면 추적되지 않은 .md를 조용히 건너뛰어 미추적 일지의 경고 둘이 0으로 보였다
 
-**상태:** 열림
+**상태:** 만료 2026-11-25
 **어디로:** `tools/check_quotes.py`(인자 없는 호출의 대상에 `git ls-files --others --exclude-standard`의 .md를 더하거나, 독스트링의 못 보는 것에 "추적되지 않은 파일" 항목을 적고 `tests/tools/`의 시험으로 고정한다. `.claude/rules/tools.md`의 못 보는 것 항목)
 **승인:** 자체 승인 2026-11-10, 1회차(고침이라 추가 기준 횟수를 보지 않고 반영한다), 일지 2026-11-10-0118-core-spec.md, ADR 불필요
 
