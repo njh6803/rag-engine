@@ -39,6 +39,7 @@ cd rag-engine-<번호>
 - `proxy/`: 프록시 설정입니다(`nginx.conf`, `site.conf`). 처음에는 고치지 않습니다.
 - `tls/`: 인증서와 키를 두는 폴더입니다. 안의 `README.txt`가 파일 이름과 권한을 적습니다.
 - `models/`: 모델 폴더를 두는 자리입니다. 안의 `README.txt`가 내려받기와 옮기는 법을 적습니다.
+- `sources/`: 서버 폴더의 문서를 가져오는 원천 폴더입니다. 안의 `README.txt`가 쓰는 법을 적습니다(6절).
 - `README.md`: 이 문서입니다.
 
 ## 3. 채우기
@@ -61,7 +62,7 @@ openssl rand -hex 24
 
 두 칸이 비어 있으면 컨테이너를 하나도 띄우지 않고 무엇이 없는지 적은 문구로 멈춥니다. `RAG_ENGINE_NAMESPACE`와 `RAG_ENGINE_VERSION`은 묶음을 만든 릴리스의 값이 이미 적혀 있으므로 고치지 않습니다. 번호는 업그레이드할 때만 바꿉니다(14절).
 
-서버 설정(`RAG_`로 시작하는 환경 변수)을 바꾸려면 compose를 고치지 않고 `.env`에 줄을 더합니다. 서버, 작업자, 마이그레이션 컨테이너가 `.env`를 통째로 받습니다. 다만 `RAG_DATABASE_URL`, `RAG_DATA_DIR`, `RAG_DEFAULT_EMBEDDING_URL`은 compose가 정하므로 `.env`에 적어도 compose의 값이 이깁니다.
+서버 설정(`RAG_`로 시작하는 환경 변수)을 바꾸려면 compose를 고치지 않고 `.env`에 줄을 더합니다. 서버, 작업자, 마이그레이션 컨테이너가 `.env`를 통째로 받습니다. 다만 `RAG_DATABASE_URL`, `RAG_DATA_DIR`, `RAG_DEFAULT_EMBEDDING_URL`, `RAG_SOURCES_DIR`은 compose가 정하므로 `.env`에 적어도 compose의 값이 이깁니다. 서버 폴더를 바꾸려면 `RAG_SOURCES_DIR`이 아니라 `RAG_ENGINE_SOURCES_DIR`을 적습니다(6절).
 
 올리는 파일의 크기 상한(`RAG_MAX_UPLOAD_MB`, 기본 100)을 올리는 설치는 `.env`의 `RAG_ENGINE_SERVER_TMP_SIZE`도 함께 올립니다. 서버는 1MiB를 넘는 파일을 받는 동안 임시 파일을 `/tmp`에 두는데, 그 자리의 크기가 기본 1GiB로 막혀 있기 때문입니다. 이 자리는 메모리에 잡히므로 올린 만큼 서버 메모리를 더 씁니다. `.env.example`에 주석 처리한 예시 줄이 있습니다. compose 파일을 고쳐서 올리지 마십시오. 업그레이드 때 새 `compose.yaml`로 바꾸면 그 고침이 사라집니다.
 
@@ -153,7 +154,170 @@ docker compose exec server rag-engine bootstrap-token
 docker compose run --rm -v <폴더>:/import:ro worker rag-engine ingest /import --wait
 ```
 
-폴더는 읽기 전용으로 붙고, `--wait`는 색인이 끝날 때까지 기다립니다.
+폴더는 읽기 전용으로 붙고, `--wait`는 색인이 끝날 때까지 기다립니다. 이 명령은 폴더를 한 번 넣고 끝납니다. 서버 폴더를 계속 따라가게 하려면 아래 "서버 폴더의 문서 가져오기"를 씁니다.
+
+### 서버 폴더의 문서 가져오기
+
+이 안내는 서버 기계에서 `/sources`에 붙는 폴더 하나를 "원천 폴더"라 하고, 그 아래에 원천마다 만드는 폴더를 "하위 폴더"라 부릅니다. 하위 폴더를 원천(문서를 가져오는 곳)으로 만들면, 서버가 그 폴더를 읽어 색인하고 일정에 따라 다시 읽어 바뀐 것을 따라갑니다. 폴더에서 지운 파일의 문서는 다음 동기화 뒤 검색에서 빠집니다. 읽는 파일은 PDF, DOCX, HWPX입니다. 심볼릭 링크는 따라가지 않고 목록에 넣지 않습니다.
+
+#### 원천 폴더 만들기
+
+서버 기계의 폴더 하나(원천 폴더)가 서버와 작업자 컨테이너의 `/sources`에 읽기 전용으로 붙습니다. 기본은 설치 폴더의 `sources/`입니다. 다른 폴더를 쓰려면 `.env`에 줄을 더하고 `docker compose up -d`로 서버와 작업자를 다시 만듭니다.
+
+```bash
+RAG_ENGINE_SOURCES_DIR=/srv/rag-sources
+```
+
+서버는 이 폴더를 읽기만 합니다. 쓰거나 지우지 않으므로 컨테이너가 이 폴더의 파일을 바꾸는 일은 없습니다. 원천마다 이 폴더 아래에 하위 폴더를 하나씩 만들고 그 안에 문서를 둡니다. 하위 폴더 안에 폴더를 더 두어도 됩니다. 다른 원천의 폴더와 겹치는 폴더로는 원천을 만들 수 없고, 409 `source_folder_overlap`으로 거절됩니다. 원천 폴더 바로 아래에 놓인 파일(`sources/README.txt` 같은 것)은 어느 원천에도 들지 않습니다.
+
+아래 명령은 기본 폴더(설치 폴더의 `sources/`)를 쓴다고 보고 적었습니다. `RAG_ENGINE_SOURCES_DIR`로 다른 폴더를 골랐다면 명령 속 `sources`를 그 폴더로 바꿔 읽으십시오. 이 아래의 `chmod`와 `sudo mkdir`도 같습니다.
+
+```bash
+mkdir -p sources/regulations
+cp <문서 파일들> sources/regulations/
+```
+
+서버와 작업자는 이미지가 정한 사용자(uid 10001)로 돕니다. 폴더는 그 사용자가 들어갈 수 있고(`755`) 파일은 읽을 수 있어야(`644`) 합니다. 읽지 못하면 연결 확인과 동기화가 `source_unreadable`로 끝납니다. 폴더를 만든 사용자가 아닌 다른 사용자의 파일이라면 모두 읽히게 엽니다.
+
+```bash
+chmod -R a+rX sources
+```
+
+이 명령은 서버 기계의 다른 계정도 그 문서를 읽을 수 있게 엽니다. 다른 계정이 있고 문서를 보여서는 안 되는 기계라면, uid 10001에게만 읽기 권한을 주도록 그룹이나 ACL로 정하십시오.
+
+`sources/`가 없는 설치 폴더에서 이 기능이 없던 묶음으로 올라오면, Docker가 `sources/`를 root의 폴더로 만들어 둡니다. 그 아래에 하위 폴더를 만들 때 관리자 권한이 필요합니다.
+
+```bash
+sudo mkdir -p sources/regulations
+```
+
+이 폴더는 root 소유이므로 문서를 복사할 때도 `sudo cp <문서 파일들> sources/regulations/`처럼 `sudo`가 필요합니다. 컨테이너는 읽기만 하므로 이 폴더에 더 줄 권한은 없습니다.
+
+공유 폴더(NFS, SMB)는 서버 기계에서 원천 폴더 아래의 하위 폴더 자리(예: `sources/regulations`)에 붙입니다. 서버를 띄우기 전에 붙이십시오. 서버 기계에서 공유 폴더를 읽기 전용(`ro` 옵션)으로 붙이면, 컨테이너 설정과 상관없이 그 폴더에는 쓰지 못합니다. 서버를 띄운 뒤에 붙였거나 떼었다 다시 붙였으면 컨테이너에는 새로 붙인 폴더가 보이지 않고 떼기 전의 내용이 그대로 보입니다(Docker Desktop의 리눅스 위에서 메모리 파일 시스템으로 공유 폴더를 흉내 내어 쟀고, 배포판 리눅스 서버와 실제 NFS·SMB 공유 폴더에서는 재지 않았습니다). 이때는 서버와 작업자를 다시 띄웁니다.
+
+```bash
+docker compose restart server worker
+```
+
+공유 폴더를 붙이는 자리에는 문서 파일을 두지 마십시오. 공유 폴더가 붙지 않은 동안 그 자리의 문서 파일이 목록의 전부가 되어, 나머지 문서가 목록에 없다는 이유로 다음 동기화에서 검색에서 빠집니다.
+
+SMB 공유 폴더는 `hard` 옵션 없이 기본값(soft)으로 붙이십시오. 연결이 끊긴 `hard` 공유 폴더가 서버 기계의 커널을 오래 붙잡아 Docker 명령 일부가 멈춘 일이 한 번 있었습니다(원인이 `hard`인지 가르지 못했고 다시 일으켜 보지 않았습니다). 기본값에서는 막힌 읽기가 대부분 몇 분 안에 오류로 돌아왔습니다. 그 대신 치르는 값이 둘 있습니다. 기본값에서도 서버가 멈추기 전에 이미 열어 둔 파일의 읽기는 서버가 얼어 있는 동안 돌아오지 않았습니다. 목록을 받은 뒤에 연결이 끊기면, 바뀐 파일마다 읽기가 오류로 돌아올 때까지(재 보니 10초에서 4분 남짓) 기다린 뒤 그 파일을 실패로 세고 다음 파일로 가므로, 바뀐 파일이 많으면 그 동기화가 오래 돕니다. NFS는 기본값 그대로 붙입니다.
+
+#### 원천을 만들고 동기화하기
+
+원천의 이름은 영문 소문자나 숫자로 시작하고, 영문 소문자와 숫자, `-`, `_`만 쓰며, 63자까지입니다. `folder`는 원천 폴더 기준의 하위 폴더 이름입니다. 폴더가 없으면 422로 거절됩니다. `schedule`은 일정이고 다섯 칸의 cron 표현식입니다(`0 2 * * *`는 매일 02:00). 일정의 시각은 `.env`의 `RAG_SCHEDULE_TIMEZONE`(기본 `Asia/Seoul`)의 시간대로 읽습니다. 일정을 적지 않으면 "지금 동기화"로만 돕니다. `<토큰>`은 5절에서 받은 토큰이고, 스스로 서명한 인증서를 시험 삼아 쓸 때만 `-k`를 붙입니다.
+
+```bash
+curl -sS https://rag.example.com/api/v1/admin/sources \
+  -H "Authorization: Bearer <토큰>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"regulations","kind":"pull","connector":"server_path","config":{"folder":"regulations"},"schedule":"0 2 * * *"}'
+```
+
+폴더를 읽을 수 있는지 먼저 확인하고, 지금 동기화합니다. 확인이 `{"ok":true,...}`이면 읽을 수 있습니다. 동기화는 202로 답하고 동기화 기록의 식별자(`sync_record_id`)를 줍니다.
+
+```bash
+curl -sS -X POST https://rag.example.com/api/v1/admin/sources/regulations/check \
+  -H "Authorization: Bearer <토큰>"
+curl -sS -X POST https://rag.example.com/api/v1/admin/sources/regulations/sync \
+  -H "Authorization: Bearer <토큰>"
+```
+
+동기화 기록은 최근 것부터 보입니다. `status`가 `succeeded`이면 동기화가 끝난 것이고, `failed`이면 `failure_code`가 까닭입니다. `listed`는 폴더에서 받은 파일 수이고 `added`, `updated`, `deleted`는 문서를 더하고 고치고 지운 개수, `unchanged`는 수정 시각과 크기가 지난번과 같아서 읽지 않고 넘어간 파일 수입니다. 내용만 바뀌고 두 값이 같은 파일도 여기에 들어가므로, 그런 변경까지 따라가려면 `reread`로 모두 다시 읽게 합니다. 동기화가 끝나도 문서의 색인은 작업자가 뒤에서 이어 하므로, 검색에 나오기까지는 잠시 더 걸립니다. 색인 상태는 `/api/v1/admin/documents?source=regulations`로 봅니다.
+
+```bash
+curl -sS https://rag.example.com/api/v1/admin/sources/regulations/sync-records \
+  -H "Authorization: Bearer <토큰>"
+```
+
+일정을 바꾸거나 없애려면 `PATCH`로 `schedule`을 고칩니다(`null`이면 일정이 없어집니다). 제외 패턴(`exclude_patterns`)으로 받지 않을 파일을 정합니다. 패턴이 `*_초안.docx`이면 어느 폴더에 있든 그 이름의 파일을 뺍니다. 숨김 파일과 숨김 폴더 안의 파일(경로의 어느 이름이든 `.`으로 시작하는 것)과 오피스 임시 파일(`~$`로 시작하는 파일 이름)은 늘 뺍니다.
+
+```bash
+curl -sS -X PATCH https://rag.example.com/api/v1/admin/sources/regulations \
+  -H "Authorization: Bearer <토큰>" \
+  -H "Content-Type: application/json" \
+  -d '{"schedule":"0 3 * * *","exclude_patterns":["*_초안.docx"]}'
+```
+
+#### 동기화가 문서를 지우지 않는 경우
+
+그 원천에 문서가 이미 있는데 폴더가 비었거나, 폴더는 읽혔는데 문서가 될 파일이 하나도 없으면 동기화는 아무것도 지우지 않고 실패로 끝납니다. 공유 폴더가 붙지 않은 채 동기화가 돌아 폴더가 비어 보일 때도 같습니다. 폴더에 파일이 하나도 없으면 `failure_code`가 `source_unreadable`이고, 파일은 있는데 모두 받지 않는 형식이거나 제외 패턴이나 크기 상한에 걸렸으면 `nothing_accepted`입니다. 폴더가 사라졌거나 읽을 수 없으면 문서가 있든 없든 `source_unreadable`입니다. 이미 색인된 문서는 그대로 검색됩니다. 문서가 아직 없는 원천은 지울 문서가 없으므로 폴더가 비어 있어도 성공으로 끝납니다. 일부 파일만 사라진 경우는 다릅니다. 목록에 남은 파일대로 반영해서, 사라진 파일의 문서는 다음 동기화 뒤 검색에서 빠집니다.
+
+폴더를 정말로 비운 것이라면 "빈 목록도 반영"을 켜고 동기화합니다. 폴더를 읽었고 문서가 될 파일이 없을 때만 통하고, 폴더가 없거나 읽지 못하면 켜도 실패합니다. 켜고 돌리면 그 원천의 문서가 모두 검색에서 빠지므로, 켜기 전에 정말 비운 것인지 확인하십시오.
+
+```bash
+curl -sS -X POST https://rag.example.com/api/v1/admin/sources/regulations/sync \
+  -H "Authorization: Bearer <토큰>" \
+  -H "Content-Type: application/json" \
+  -d '{"apply_empty":true}'
+```
+
+폴더가 사라진 원천의 문서를 검색에서 빼려면 같은 자리에 빈 폴더를 만들어 두고 위 명령으로 동기화하거나, 원천을 지웁니다(아래 "원천을 지우고 되살리기"). 변경 확인값(수정 시각과 크기)이 같은데 내용만 바뀐 파일과 실패로 남은 문서를 다시 처리하려면 `{"reread":true}`로 동기화해 모두 다시 읽습니다.
+
+#### 느린 공유 폴더에서 동기화가 `source_unreadable`로 끝날 때
+
+큰 파일을 읽는 데 걸리는 시간이 읽기를 기다리는 한도(`RAG_SOURCE_READ_TIMEOUT_SECONDS`, 기본 600초)를 넘으면 동기화가 `source_unreadable`로 끝납니다. 기본값에서는 크기 상한(100MB)에 가까운 파일을 초당 170KB쯤보다 느리게 읽는 공유 폴더가 그렇습니다(상한을 한도로 나눈 값이고 재지 않았습니다). 한도를 넘기면 작업자 로그에 `connector_call_timed_out` 한 줄이 남습니다. 어느 파일에서 걸렸는지는 동기화 기록에도 로그에도 남지 않으므로, 가장 큰 파일을 의심하십시오. 한도를 늘리는 길을 먼저 쓰십시오. `.env`에 줄을 더하고 `docker compose up -d`로 서버와 작업자를 다시 만듭니다.
+
+```bash
+RAG_SOURCE_READ_TIMEOUT_SECONDS=1800
+```
+
+크기 상한(`RAG_MAX_UPLOAD_MB`)을 낮추는 길도 있지만, 올리는 파일의 상한과 같은 값이라 그쪽도 함께 낮아집니다. 새 상한을 넘는 다른 파일의 문서도 다음 동기화에서 검색에서 빠집니다. 걸린 파일을 짐작할 수 있으면(보통 가장 큰 파일) 제외 패턴으로 뺄 수도 있습니다. 제외 패턴으로 뺀 파일의 문서가 이미 있으면 그 문서도 다음 동기화에서 검색에서 빠집니다. 크기 상한을 낮추거나 제외 패턴을 더한 뒤 문서가 될 파일이 하나도 남지 않으면 그 동기화는 `nothing_accepted`로 실패하고 아무것도 지우지 않습니다.
+
+#### 끊긴 공유 폴더 때문에 원천이 계속 `source_unreadable`일 때
+
+아래 차례로 합니다.
+
+1. 공유 폴더를 되살립니다(파일 서버나 네트워크를 고칩니다). 막혀 있던 읽기가 이것으로 돌아오고, 다음 동기화가 다시 읽습니다.
+2. 되살릴 수 없거나, 되살린 뒤에도 그 원천이 계속 `source_unreadable`이면 서버와 작업자를 함께 다시 띄웁니다. 어느 컨테이너가 먼저 그 폴더를 보다 막혔는지 알 수 없어서 둘을 함께 띄웁니다.
+
+   ```bash
+   docker compose restart server worker
+   ```
+
+3. 그 명령이 컨테이너를 멈추지 못했다는 오류로 실패하면, 공유 폴더를 되살린 뒤 다시 칩니다. 되살릴 수 없으면 서버 기계(또는 Docker)를 다시 띄웁니다.
+
+함께 알아 둘 것이 셋 있습니다.
+
+- 공유 폴더를 떼었다 다시 붙였거나 서버 기계를 다시 띄웠으면, 공유 폴더를 붙인 뒤에 서버와 작업자를 다시 띄워야 새로 붙인 폴더가 컨테이너에 보입니다.
+- 위 2에서 다시 띄운 작업자가 그 원천의 동기화에서 막힌 읽기를 기다리던 중이었으면, 작업자는 Docker의 유예 시간(기본 10초) 뒤에 강제로 끝납니다. 그 동기화는 작업의 기한(`RAG_JOB_LEASE_SECONDS`, 기본 600초)이 지날 때까지 도는 중으로 남고, 그동안 "지금 동기화"는 409 `sync_in_progress`로 시작하지 않습니다. 기한이 지나면 작업자가 처음부터 다시 돕니다. 이 기한 계산은 읽은 자료로 따진 어림이고 재지 않았습니다.
+- 공유 폴더가 끊긴 채 다시 띄우면 새 읽기가 다시 막히고 서버와 작업자가 같은 폴더를 함께 기다립니다. 그러면 다음에 다시 띄울 때 위 3의 실패가 또 날 수 있으므로, 끊긴 채 다시 띄우지 말고 공유 폴더를 먼저 되살리십시오.
+
+SMB와 NFS 공유 폴더를 붙여 잰 결과는 이렇습니다. 공유 폴더를 다시 잇자 막혀 있던 읽기는 4.2초 안에 돌아왔습니다(`hard`로 붙인 SMB에서 서버를 끊은 두 경우는 다시 잇는 명령이 돌아오지 않아 재지 못했습니다). 읽기를 맡은 별도 스레드만 막힌 컨테이너(서버와 작업자가 쓰는 모양)는 끊고 10초에 멈췄을 때 열한 번 모두 `docker stop`이 1.2초 안에 끝났고 `docker restart`로 다시 떴습니다(멈출 때 읽기가 이미 돌아와 있던 경우도 센 수입니다). 다만 SMB에서 다른 컨테이너가 같은 공유 폴더를 먼저 보다 막혀 있으면, 나중에 그 폴더를 본 컨테이너의 `docker stop`이 24초 뒤 위의 오류로 실패한 일이 있었습니다. 서버가 응답만 멈춘 지 200초쯤 뒤에는 막힌 프로세스가 강제 종료로도 8초 안에 끝나지 않았고, 그때 멈춘 컨테이너도 같은 오류로 실패했습니다. 서버와 작업자를 함께 다시 띄우면 이것이 풀리는지는 재지 않았습니다.
+
+#### 원천을 지우고 되살리기
+
+원천을 지우면 그 원천의 문서가 바로 검색에서 빠지고, 작업자가 문서를 삭제 보관함으로 옮깁니다. 202로 답하고 작업의 식별자를 줍니다. `default`와 `upload`는 지울 수 없습니다.
+
+```bash
+curl -sS -X DELETE https://rag.example.com/api/v1/admin/sources/regulations \
+  -H "Authorization: Bearer <토큰>"
+```
+
+보관 기간(`RAG_DELETED_RETENTION_DAYS`, 기본 30일) 안에는 되살릴 수 있습니다. 되살리면 원천과 함께 지워진 문서가 임베딩을 다시 만들지 않고 검색에 돌아옵니다. 기간이 지나면 하루에 한 번 도는 정리 작업이 완전히 지웁니다. 지운 원천의 이름은 그때까지 다시 쓸 수 없습니다.
+
+```bash
+curl -sS -X POST https://rag.example.com/api/v1/admin/sources/regulations/restore \
+  -H "Authorization: Bearer <토큰>"
+```
+
+끝나지 않는 동기화를 멈추려면 그 원천을 지웁니다. `sync-records`에서 그 동기화의 기록이 `failed`와 `source_deleted`로 닫힌 것을 본 뒤에 되살립니다. 기록이 닫히기 전에 되살려 그 동기화가 이어서 돌면 다시 지우고 기록이 닫히기를 기다립니다. 동기화 기록은 끝난 지 `RAG_SYNC_RECORD_RETENTION_DAYS`(기본 90일)가 지나면 정리 작업이 지웁니다. 원천마다 가장 최근 기록 하나는 남습니다.
+
+#### `ingest` 명령으로 넣어 둔 폴더를 원천으로 옮기기
+
+`ingest <경로>`는 문서를 `default` 원천에 넣습니다. 같은 폴더를 원천으로 만들면 같은 파일이 두 원천의 문서가 되어 검색 결과에 두 번 나옵니다. 서버는 이것을 막거나 합치지 않으므로 아래 차례로 옮깁니다.
+
+1. 그 폴더를 원천 폴더 아래로 옮기고(또는 같은 폴더를 `sources/` 아래에 붙이고) 원천을 만들어 동기화합니다.
+2. 동기화 기록이 `succeeded`인 것을 `sync-records`로 보고, 문서 목록을 `source=<새 원천>`으로 걸러 옮긴 문서마다 `indexes`의 `status`가 `indexed`인지 봅니다. 색인이 끝나기 전에 `default`의 문서를 지우면 그동안 그 문서가 검색에서 빠집니다.
+3. `default`에 넣었던 문서를 수집 API의 삭제 요청으로 하나씩 지웁니다. 지울 문서는 문서 목록을 `source=default`로 걸러 찾고, 문서의 `key`를 삭제 요청에 적습니다. `ingest`가 붙인 키는 넣은 폴더 기준의 상대 경로이므로, 원천에서도 같은 키가 됩니다.
+
+```bash
+curl -sS "https://rag.example.com/api/v1/admin/documents?source=default" \
+  -H "Authorization: Bearer <토큰>"
+curl -sS -G -X DELETE "https://rag.example.com/api/v1/ingest/documents" \
+  --data-urlencode "key=<문서의 키>" \
+  -H "Authorization: Bearer <토큰>"
+```
 
 ## 7. MCP 클라이언트로 접속하기
 
@@ -261,6 +425,7 @@ docker compose ps
 - `rag-engine_postgres`: 데이터베이스입니다.
 - `rag-engine_data`: 서버, 작업자, 관리 명령이 함께 쓰는 파일 저장소입니다. 문서의 원본이 들어 있습니다.
 - `models/` 폴더: 지우면 다음 시작이 모델을 다시 내려받습니다. 폐쇄망이면 받을 수 없으므로 지우지 마십시오.
+- `sources/` 폴더(또는 `.env`의 `RAG_ENGINE_SOURCES_DIR`이 가리키는 폴더): 서버 폴더의 문서를 가져오는 원천의 문서 파일이 든 곳입니다. 이 서버는 읽기만 하고 쓰거나 지우지 않습니다. 지우면 문서 파일이 사라지므로 다시 두어야 합니다(6절).
 
 `docker compose down`은 컨테이너만 지우고 볼륨은 남깁니다. `docker compose down -v`는 위 두 볼륨을 지우므로 치지 마십시오. 볼륨 이름이 폴더 이름과 상관없이 `rag-engine_`으로 시작하는 것은 `compose.yaml`이 프로젝트 이름을 `rag-engine`으로 정했기 때문입니다.
 
@@ -395,7 +560,7 @@ cp -r ../rag-engine-<새 번호>/proxy/. proxy/
 
 `proxy/` 안을 비우지 않고 덮어쓰기만 하면 새 릴리스가 지웠거나 이름을 바꾼 옛 파일이 남습니다(개발 PC에서 옛 묶음에만 있던 파일을 두고 쳐 보았고, 비운 뒤에는 그 파일이 사라졌습니다). 폴더째 지우고 새로 만들거나 다른 이름으로 바꿔 놓지 마십시오. 도는 프록시는 처음 얹은 폴더를 계속 읽기 때문에 새 폴더의 파일을 보지 못합니다.
 
-`.env`, `tls/`, `models/`, 12절이 만든 `compose.override.yaml`은 그대로 둡니다. 설치 폴더의 `README.md`와 `.env.example`은 옛 묶음의 것으로 남습니다. 새 안내는 `../rag-engine-<새 번호>/README.md`에서 읽으십시오. `proxy/`의 파일을 고쳐 쓰고 있었다면 옛 것과 새 것을 견주어 고친 값을 새 파일에 다시 넣습니다.
+`.env`, `tls/`, `models/`, `sources/`, 12절이 만든 `compose.override.yaml`은 그대로 둡니다. 설치 폴더의 `README.md`와 `.env.example`은 옛 묶음의 것으로 남습니다. 새 안내는 `../rag-engine-<새 번호>/README.md`에서 읽으십시오. `proxy/`의 파일을 고쳐 쓰고 있었다면 옛 것과 새 것을 견주어 고친 값을 새 파일에 다시 넣습니다.
 
 ```bash
 diff -r proxy.old proxy
