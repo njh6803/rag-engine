@@ -1,0 +1,6 @@
+Python 3.12.16 linux 6.18.58.1-microsoft-standard-WSL2
+A FIFO, O_RDONLY|O_NOFOLLOW: 3.00초 뒤 스레드 살아 있음=True, 연 것=0, 오류=[]
+B FIFO, O_RDONLY|O_NOFOLLOW|O_NONBLOCK: 0.00초에 돌아옴, fstat 종류=FIFO
+C 보통 파일, O_RDONLY|O_NOFOLLOW|O_NONBLOCK: 읽은 바이트 16000, 쓴 것과 같음=True
+D 심볼릭 링크, O_RDONLY|O_NOFOLLOW|O_NONBLOCK: OSError errno=40
+끝: 쓰기로 연 뒤 A의 스레드 살아 있음=False

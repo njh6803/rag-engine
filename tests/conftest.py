@@ -55,6 +55,7 @@ from rag_engine.adapters.postgres.bootstrap import issue_bootstrap_token, migrat
 from rag_engine.adapters.postgres.engine import create_engine
 from rag_engine.adapters.postgres.migrate import upgrade_to_head
 from rag_engine.adapters.settings import Settings
+from rag_engine.domain.ports import ConnectorRegistry
 from rag_engine.server import create_app
 from tools import run_hooks
 
@@ -282,7 +283,9 @@ def run_server(
     두 번 부르면) 발급이 없어 `assert`로 실패한다."""
     running: list[tuple[uvicorn.Server, threading.Thread]] = []
 
-    def start(**overrides: object) -> RunningServer:
+    def start(
+        *, connector_registry: ConnectorRegistry | None = None, **overrides: object
+    ) -> RunningServer:
         # 서버가 붙을 데이터베이스는 덮어쓸 수 있다. 토큰은 언제나 시드 데이터베이스에서 낸다.
         server_database_url = overrides.pop("database_url", seeded_database_url)
         assert isinstance(server_database_url, str)
@@ -297,7 +300,7 @@ def run_server(
         # uvicorn의 로그 설정은 로거를 자기 핸들러로 바꾸므로 끄고, `create_app`이 우리 포매터를
         # 단다.
         config = uvicorn.Config(
-            create_app(settings),
+            create_app(settings, connector_registry=connector_registry),
             log_config=None,
             access_log=False,
             loop="asyncio:SelectorEventLoop",

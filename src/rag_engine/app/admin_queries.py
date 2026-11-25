@@ -10,7 +10,7 @@
 범위를 보지 않는다. 관리 API는 `admin` 토큰의 몫이다.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from uuid import UUID
 
 from rag_engine.domain.entities import (
@@ -53,8 +53,17 @@ class JobReport:
     (이 작업 자신이 아직 그렇다면 참이다)."""
 
     job: Job
-    document: DocumentReport
+    document: DocumentReport | None  # 원천 단위 작업(동기화 등)은 문서가 없다
     active_jobs_remain: bool
+    source: str | None = None  # 원천 단위 작업이 가리키는 원천의 이름
+
+
+@dataclass(frozen=True, slots=True)
+class JobItem:
+    """작업 목록의 항목. 원천 단위 작업은 그 원천의 이름(`source`)을 함께 낸다."""
+
+    job: Job
+    source: str | None
 
 
 async def get_job_report(unit_of_work: UnitOfWork, job_id: UUID) -> JobReport:
@@ -62,6 +71,13 @@ async def get_job_report(unit_of_work: UnitOfWork, job_id: UUID) -> JobReport:
         job = await transaction.jobs.get(job_id)
         if job is None:
             raise RequestError(ErrorCode.JOB_NOT_FOUND, "작업을 찾을 수 없다")
+        if job.document_id is None:
+            return JobReport(
+                job=job,
+                document=None,
+                active_jobs_remain=False,
+                source=await _source_name(transaction, job),
+            )
         document = await transaction.documents.get(job.document_id)
         if document is None:
             raise RuntimeError("작업이 가리키는 문서가 없다")
@@ -74,9 +90,18 @@ async def get_job_report(unit_of_work: UnitOfWork, job_id: UUID) -> JobReport:
 
 async def list_jobs(
     unit_of_work: UnitOfWork, *, status: JobStatus | None, limit: int, after: UUID | None
-) -> list[Job]:
+) -> list[JobItem]:
     async with unit_of_work.begin() as transaction:
-        return await transaction.jobs.list_jobs(status, limit, after)
+        jobs = await transaction.jobs.list_jobs(status, limit, after)
+        return [JobItem(job, await _source_name(transaction, job)) for job in jobs]
+
+
+async def _source_name(transaction: Transaction, job: Job) -> str | None:
+    """원천 단위 작업이 가리키는 원천의 이름. 원천을 가리키지 않는 작업은 `None`이다."""
+    if job.source_id is None:
+        return None
+    source = await transaction.catalog.get_source_by_id(job.source_id)
+    return None if source is None else source.name
 
 
 async def get_document_report(unit_of_work: UnitOfWork, document_id: UUID) -> DocumentReport:
@@ -92,11 +117,13 @@ async def list_document_reports(
     *,
     state: DocumentState | None,
     group: str | None,
+    source: str | None,
     key: str | None,
     limit: int,
     after: UUID | None,
 ) -> list[DocumentReport]:
-    """없는 그룹 이름은 오류가 아니라 맞는 문서가 없는 것이다(검색의 그룹 필터와 같다)."""
+    """없는 그룹 이름과 없는 원천 이름은 오류가 아니라 맞는 문서가 없는 것이다(검색의 그룹 필터와
+    같다). `source`를 적지 않고 `key`만 적으면 모든 원천에서 그 키의 문서를 찾는다."""
     async with unit_of_work.begin() as transaction:
         group_id: UUID | None = None
         if group is not None:
@@ -104,8 +131,21 @@ async def list_document_reports(
             if found is None:
                 return []
             group_id = found.id
+        source_id: UUID | None = None
+        if source is not None:
+            found_source = await transaction.catalog.get_source(source)
+            if found_source is None:
+                return []
+            source_id = found_source.id
         documents = await transaction.documents.list_documents(
-            DocumentQuery(state=state, group_id=group_id, key=key, limit=limit, after=after)
+            DocumentQuery(
+                state=state,
+                group_id=group_id,
+                key=key,
+                limit=limit,
+                after=after,
+                source_id=source_id,
+            )
         )
         return [await _report(transaction, document) for document in documents]
 
@@ -115,6 +155,9 @@ async def _report(transaction: Transaction, document: Document) -> DocumentRepor
     group = await transaction.catalog.get_group_by_id(document.group_id)
     if source is None or group is None:
         raise RuntimeError("문서가 가리키는 원천이나 그룹이 없다")
+    if source.deleted_at is not None and document.deleted_at is None:
+        # 지움 표시가 선 원천의 문서는 작업자가 옮기기 전에도 지워진 문서로 보인다.
+        document = replace(document, deleted_at=source.deleted_at)
     indexes = () if document.deleted_at is not None else await _indexes(transaction, document)
     return DocumentReport(document=document, source=source.name, group=group.name, indexes=indexes)
 

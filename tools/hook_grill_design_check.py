@@ -17,7 +17,7 @@
 모양: `{"skill": "grill-with-docs", "args": "…"}`, 2026-10-15 손으로 봤다). 앞의 `/`는 벗겨
 비교한다. 이름이 그대로 `grill-with-docs`이거나, `.claude`로 시작하는 경로 접두에
 `:grill-with-docs`가 붙은 것이다. 워크트리 세션은 이 저장소의 스킬을 뒤의 꼴
-(`.claude/worktrees/<이름>:grill-with-docs`)로도 부른다. 첫 판은 앞의 꼴만 봐 뒤의 꼴을
+(`.claude/worktrees/<이름>:grill-with-docs`)로도 부른다. 첫 버전은 앞의 꼴만 봐 뒤의 꼴을
 놓친다(대기열 284). `grill-with-docs`를 뒤의 꼴로 부른 사건은 아직 없다. 그 꼴이 흔하다는 근거는
 다른 스킬의 수다. 인계 훅 명세(`.scratch/token-usage/spec.md`의 "인계 훅", 2026-10-16)가 그날까지
 7일의 메인 세션에서 `code-review`를 뒤의 꼴로 부른 것을 21회로 셌고(스크래치 스크립트로 손으로

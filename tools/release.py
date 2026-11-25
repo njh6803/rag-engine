@@ -15,12 +15,12 @@
   stderr 에 적고 1 로 끝난다.
 - `notes --number N --contract-versions PATH [--repo DIR] [--head REV] [--grype NAME=PATH]...`:
   릴리스 노트의 글을 stdout 에 낸다. `--grype` 는 이미지마다의 Grype 결과(거르지 않은 JSON)이고
-  이미지마다 한 번씩 거듭 쓴다. `--contract-versions` 는 "계약의 판" 절에 실을 글의 파일이다.
+  이미지마다 한 번씩 거듭 쓴다. `--contract-versions` 는 "계약 버전" 절에 실을 글의 파일이다.
   릴리스 워크플로가 지은 서버 이미지에서 `rag-engine --version` 을 돌려, 첫 줄을 뺀 둘째 줄부터를
   이 파일에 그대로 담아 넘긴다(필수다. 없으면 노트를 짓지 않는다). 도구는 앞뒤의 빈 줄을 덜고
   줄바꿈 꼴(CRLF 등)만 LF 로 맞춘 줄을 코드 울타리(백틱 셋으로 연 `text` 블록) 안에 실어 줄바꿈이
   노트에서 접히지 않게 한다. 파일이 없거나 읽지 못하거나 공백이 아닌 문자가 든 줄이 하나도 없거나
-  백틱 셋으로 시작하는 줄이 있으면 노트를 짓지 않고 실패한다. 계약의 판이 빠진 노트가
+  백틱 셋으로 시작하는 줄이 있으면 노트를 짓지 않고 실패한다. 계약 버전이 빠진 노트가
   나가면 운영자가 자기 클라이언트와 맞는 릴리스인지 알 길이 없다(명세 "릴리스 노트").
 - `bundle --number N --namespace NS [--source DIR] [--out DIR]`: `rag-engine-<N>.tar.gz` 를 짓고
   그 경로를 낸다.
@@ -67,7 +67,7 @@
   보지 않았다. 조회 실패의 종료 코드와 `: not found` 꼴도 같은 저장소의 프로브 기록을 옮긴 것이다.
 - 묶음은 파일만 담는다. 틀의 빈 하위 폴더는 담지 않고, 파일 권한은 모두 0644 라 실행 권한이 필요한
   파일은 지원하지 않는다.
-- "계약의 판" 절은 받은 줄이 `rag-engine --version` 의 둘째 줄부터인지 보지 않는다. 첫 줄까지 담아
+- "계약 버전" 절은 받은 줄이 `rag-engine --version` 의 둘째 줄부터인지 보지 않는다. 첫 줄까지 담아
   넘겨도 그대로 싣는다.
 """
 
@@ -519,7 +519,7 @@ def _section(heading: str, body: Sequence[str], *, joiner: str) -> str | None:
 
 
 def _contract_section(contract: str) -> str:
-    """ "계약의 판" 절. 받은 줄의 앞뒤 빈 줄을 덜고 줄바꿈 꼴만 맞춰 코드 울타리 안에 싣는다."""
+    """ "계약 버전" 절. 받은 줄의 앞뒤 빈 줄을 덜고 줄바꿈 꼴만 맞춰 코드 울타리 안에 싣는다."""
     lines = contract.splitlines()
     while lines and not lines[0].strip():
         lines.pop(0)
@@ -527,11 +527,11 @@ def _contract_section(contract: str) -> str:
         lines.pop()
     if not lines:
         raise ReleaseError(
-            "계약의 판 줄이 비었다. `rag-engine --version` 의 둘째 줄부터를 받아야 노트를 짓는다"
+            "계약 버전 줄이 비었다. `rag-engine --version` 의 둘째 줄부터를 받아야 노트를 짓는다"
         )
     if any(line.strip().startswith(FENCE) for line in lines):
-        raise ReleaseError(f"계약의 판 줄에 코드 울타리({FENCE})가 들어 있어 노트 꼴이 깨진다")
-    return "## 계약의 판\n\n" + f"{FENCE}text\n" + "\n".join(lines) + f"\n{FENCE}"
+        raise ReleaseError(f"계약 버전 줄에 코드 울타리({FENCE})가 들어 있어 노트 꼴이 깨진다")
+    return "## 계약 버전\n\n" + f"{FENCE}text\n" + "\n".join(lines) + f"\n{FENCE}"
 
 
 def render_notes(
@@ -762,7 +762,7 @@ def _parser() -> argparse.ArgumentParser:
     notes.add_argument("--grype", action="append", default=[], help="이미지 이름=Grype JSON 경로")
     notes.add_argument(
         "--contract-versions",
-        help="필수. `rag-engine --version` 의 둘째 줄부터를 담은 파일(계약의 판 절에 싣는다)",
+        help="필수. `rag-engine --version` 의 둘째 줄부터를 담은 파일(계약 버전 절에 싣는다)",
     )
     bundle = commands.add_parser("bundle", help="배포 파일 묶음을 짓는다")
     bundle.add_argument("--number", required=True)
@@ -789,11 +789,11 @@ def _grype_reports(specs: Sequence[str]) -> dict[str, str]:
 
 def _contract_text(path: str | None) -> str:
     if path is None:
-        raise ReleaseError("--contract-versions 가 없다. 계약의 판 줄을 받아야 노트를 짓는다")
+        raise ReleaseError("--contract-versions 가 없다. 계약 버전 줄을 받아야 노트를 짓는다")
     try:
         return Path(path).read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as error:
-        raise ReleaseError(f"계약의 판 줄의 파일을 읽지 못했다: {error}") from error
+        raise ReleaseError(f"계약 버전 줄의 파일을 읽지 못했다: {error}") from error
 
 
 def _number_command(repo: Path, head: str) -> int:

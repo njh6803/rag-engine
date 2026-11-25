@@ -48,6 +48,22 @@ def test_허용_호스트가_비면_종료_코드_1과_칸_이름을_내고_뜨�
     assert seeded_command_environment not in output_text.err + output_text.out
 
 
+def test_모르는_시간대_이름이면_종료_코드_1과_칸_이름을_내고_뜨지_않는다(
+    seeded_command_environment: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("RAG_SCHEDULE_TIMEZONE", "Asia/Seol")
+
+    with pytest.raises(SystemExit) as caught:
+        main(["worker"])
+
+    output_text = capsys.readouterr()
+    assert caught.value.code == 1
+    assert "RAG_SCHEDULE_TIMEZONE" in output_text.err
+    assert "Asia/Seol" not in output_text.err + output_text.out
+
+
 class _Output:
     """하위 프로세스의 stdout을 다른 스레드에서 줄 단위로 모은다. 파이프를 읽지 않으면 가득 차
     자식이 멈춘다."""
@@ -132,7 +148,10 @@ def _wait_for_job_status(database_url: str, status: str) -> None:
     deadline = time.monotonic() + PROCESSING_TIMEOUT_SECONDS
     while True:
         with psycopg.connect(database_url, autocommit=True) as connection:
-            rows = connection.execute("SELECT status FROM jobs").fetchall()
+            # 작업자가 첫 일정 확인에서 넣는 정리 작업은 이 시험이 보는 작업이 아니다.
+            rows = connection.execute(
+                "SELECT status FROM jobs WHERE kind = 'index_document'"
+            ).fetchall()
         if [row[0] for row in rows] == [status]:
             return
         if time.monotonic() > deadline:
@@ -172,4 +191,6 @@ async def test_worker가_알림으로_깨어나_작업을_처리하고_종료_�
         names.index("worker_started") < names.index("job_finished") < names.index("worker_stopped")
     )
     finished = [each for each in events if each["event"] == "job_finished"]
-    assert [(each["result"], each["error_code"]) for each in finished] == [("succeeded", None)]
+    # 정리 작업의 끝 로그는 이 시험이 보는 것이 아니다.
+    indexed = [each for each in finished if each["kind"] == "index_document"]
+    assert [(each["result"], each["error_code"]) for each in indexed] == [("succeeded", None)]

@@ -4,9 +4,9 @@
 작업(`index_document`)의 색인 상태 쓰기, 파싱과 임베딩의 영구 실패와 재시도 소진(셋 다
 `index_failure.mark_version_failed`를 거친다), 그룹을 바꾸는 수집(`ingest`)의 색인 상태 지우기,
 삭제(`delete_document`)의 색인 상태 지우기, 재색인 시작(문서가 하나도 없는 지식베이스)이다. 같은
-내용의 되살림(`ingest._restore_chunks`)은 건설 중인 판에 `indexed`를 써도 부르지 않는다. 그 판에
-색인 상태가 없던 문서의 `indexed` 한 행은 전환 조건을 새로 채우지 못하고, 되살림은 지식베이스 행을
-`FOR SHARE`로 잠그므로 `FOR UPDATE`로 올리다 같은 지식베이스의 되살림끼리 교착할 수 있어서다.
+내용의 되살림(`restore_chunks.restore_chunks`)은 건설 중인 판에 `indexed`를 써도 부르지 않는다. 그
+판에 색인 상태가 없던 문서의 `indexed` 한 행은 전환 조건을 새로 채우지 못하고, 되살림은 지식베이스
+행을 `FOR SHARE`로 잠그므로 `FOR UPDATE`로 올리다 같은 지식베이스의 되살림끼리 교착할 수 있어서다.
 """
 
 from rag_engine.domain.entities import IndexStateStatus, IndexVersion, IndexVersionStatus

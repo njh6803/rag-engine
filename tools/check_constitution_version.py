@@ -8,7 +8,7 @@
       (`tools.sibling_overlap` 을 import 해서 `-m` 으로 띄운다. 루트를 주지 않으면 이 도구의
       체크아웃)
 
-판정. 커밋에 들 판(색인)의 헌법 파일(`principles.md`·`tech.md`·`operations.md`) 가운데 이 가지가
+판정. 커밋에 들 내용(색인)의 헌법 파일(`principles.md`·`tech.md`·`operations.md`) 가운데 이 가지가
 고친 것이 있으면, 색인의 헌법 README(`docs/constitution/README.md`)의 버전이 기준 ref 의 버전과도
 merge-base 의 버전과도 달라야 한다. 기준 ref 는 `tools/base_rule.py` 의 기준 브랜치 규칙이 고른다
 (`hotfix/*` 는 `origin/main`, 그 밖은 `origin/dev` 가 있으면 그것, 없으면 `origin/main`). 이 가지가

@@ -10,10 +10,10 @@ Docker 없이 그 정합이 깨지지 않는지만 잠근다. 안내의 명령�
 agent-os의 `tests/tools/test_deploy_guide.py`(기점 `b74a8adf2`)를 옮기며 뺀 것은 이 저장소에 없는
 것들이다. 위젯 테스트 페이지의 개인 키와 설정(`portal/`), 사이트 파일(`site/`), 관리 화면에 닿는 SSH
 포트 포워딩, 플러그인·기록 볼륨과 `npx`, `calc` 에이전트, IPv4 레코드(A, AAAA)와 `userland-proxy`의
-말, 80번 포트, Engine의 루프백 포트 경고 둘(`DOCKER_INSECURE_NO_IPTABLES_RAW`, 28.0.0 이전 판)이다.
-이 저장소의 단독 compose는 루프백에만 여는 포트가 없고 밖에 여는 포트가 프록시의 443 하나다. 더한
-것은 모델 폴더(소유와 리비전), 리랭커 켜기, 서버 `/tmp` 크기, 프록시 설정을 고친 뒤의 두 명령이다.
-안내의 띄우는 명령, 인증서를 만드는 명령, 모델 폴더의 명령이 단독 compose
+말, 80번 포트, Engine의 루프백 포트 경고 둘(`DOCKER_INSECURE_NO_IPTABLES_RAW`, 28.0.0 이전
+버전)이다. 이 저장소의 단독 compose는 루프백에만 여는 포트가 없고 밖에 여는 포트가 프록시의 443
+하나다. 더한 것은 모델 폴더(소유와 리비전), 리랭커 켜기, 서버 `/tmp` 크기, 프록시 설정을 고친 뒤의
+두 명령이다. 안내의 띄우는 명령, 인증서를 만드는 명령, 모델 폴더의 명령이 단독 compose
 시험(`tests/standalone/test_standalone_compose.py`)이 치는 것과 같은지도 본다(시험은 안내대로
 밟는다고 정했으므로 둘을 대는 검사가 없으면 한쪽만 고친 PR이 지난다).
 """
@@ -30,21 +30,24 @@ from typing import NamedTuple
 
 from tools.release import build_bundle
 
+from rag_engine.adapters.settings import Settings
+
 REPO = Path(__file__).resolve().parents[2]
 STANDALONE = REPO / "deploy" / "standalone"
 GUIDE = STANDALONE / "README.md"
 TLS_NOTE = STANDALONE / "tls" / "README.txt"
 MODELS_NOTE = STANDALONE / "models" / "README.txt"
+SOURCES_NOTE = STANDALONE / "sources" / "README.txt"
 STANDALONE_TEST = REPO / "tests" / "standalone" / "test_standalone_compose.py"
 
 # 명세 "설치 안내"와 03의 일지가 넘긴 문장에서 안내가 반드시 가져야 할 낱말. 낱말마다 그 낱말이
 # 지키는 항목을 적는다.
 REQUIRED: dict[str, str] = {
-    "28.3.3": "지원하는 Docker Engine의 최소 판",
-    "2.20.2": "지원하는 Docker Compose의 최소 판",
-    "29.9.2": "잰 Docker Engine의 판",
-    "5.6.1": "잰 Docker Compose의 판",
-    "재지 않았": "최소 판에서는 재지 않았다는 말",
+    "28.3.3": "지원하는 Docker Engine의 최소 버전",
+    "2.20.2": "지원하는 Docker Compose의 최소 버전",
+    "29.9.2": "잰 Docker Engine의 버전",
+    "5.6.1": "잰 Docker Compose의 버전",
+    "재지 않았": "최소 버전에서는 재지 않았다는 말",
     "Podman": "보증하는 환경 밖",
     "ARM": "보증하는 환경 밖",
     "GPU": "GPU 이미지로 바꾸는 설치는 다루지 않는다는 말",
@@ -91,7 +94,7 @@ REQUIRED: dict[str, str] = {
     "100회": "Docker Hub의 받는 횟수 제한(로그인하지 않은 때)",
     "200회": "Docker Hub의 받는 횟수 제한(무료 개인 계정)",
     "docker login": "받는 횟수 제한에 걸렸을 때 할 일",
-    "업그레이드할 때 할 일": "판을 바꾸기 전에 릴리스 노트의 그 절을 먼저 본다는 것",
+    "업그레이드할 때 할 일": "버전을 바꾸기 전에 릴리스 노트의 그 절을 먼저 본다는 것",
     "find proxy -mindepth 1 -delete": "업그레이드가 proxy 폴더 안을 비우는 명령",
     "docker compose stop server worker": "업그레이드가 옛 서버와 작업자를 먼저 멈추는 명령",
     "--remove-orphans": "스키마 단계가 실패했을 때 되돌리는 명령",
@@ -103,6 +106,22 @@ REQUIRED: dict[str, str] = {
     "compose.override.yaml.old": "폐쇄망 설치의 되돌리기가 옛 이름을 복원하게 하는 백업",
     "--numeric-owner": "받는 기계와 싣는 기계의 이름이 달라도 소유가 번호로 남게 하는 tar 옵션",
     "1GiB": "서버 /tmp의 기본 상한",
+    "RAG_ENGINE_SOURCES_DIR": "서버 기계의 원천 폴더를 정하는 칸",
+    "RAG_SOURCES_DIR": "compose가 정하는 컨테이너 안의 원천 폴더 경로",
+    "sudo mkdir -p sources/": "원천 폴더를 만드는 명령",
+    "/api/v1/admin/sources": "원천을 만들고 동기화하는 관리 API의 경로",
+    "sync-records": "동기화 기록을 보는 경로",
+    "RAG_SCHEDULE_TIMEZONE": "일정의 시간대",
+    "RAG_DELETED_RETENTION_DAYS": "지운 문서와 원천의 보관 기간",
+    "RAG_SYNC_RECORD_RETENTION_DAYS": "동기화 기록의 보관 기간",
+    "RAG_SOURCE_READ_TIMEOUT_SECONDS": "느린 공유 폴더에서 읽기를 기다리는 한도",
+    "docker compose restart server worker": "공유 폴더를 붙인 뒤나 끊겼을 때 다시 띄우는 명령",
+    "source_unreadable": "폴더가 비었거나 사라졌거나 끊겼을 때 동기화가 실패하는 사유",
+    "nothing_accepted": "문서가 될 파일이 하나도 없을 때 동기화가 실패하는 사유",
+    "apply_empty": "빈 목록도 반영하는 옵션",
+    "reread": "모두 다시 읽는 옵션",
+    "source_deleted": "원천을 지운 뒤 끝나지 않는 동기화의 기록이 닫히는 사유",
+    "`hard`": "SMB 공유 폴더를 hard 옵션 없이 붙이라는 말",
 }
 
 # 운영자는 쓰지 않는 저장소 안의 말. 안내와 두 폴더의 설명에 새면 운영자가 뜻을 알 수 없다.
@@ -302,7 +321,7 @@ def test_필수_낱말_하나가_빠진_안내를_잡는다() -> None:
 
 
 def test_이_저장소의_설치_안내와_두_폴더의_설명은_저장소_안의_말을_쓰지_않는다() -> None:
-    for path in (GUIDE, TLS_NOTE, MODELS_NOTE):
+    for path in (GUIDE, TLS_NOTE, MODELS_NOTE, SOURCES_NOTE):
         leaked = 샌_안의_말(path.read_text(encoding="utf-8"))
         assert leaked == [], f"{path.relative_to(REPO)} 에 샌 저장소 안의 말: {leaked}"
 
@@ -360,6 +379,7 @@ class 묶음_파일(NamedTuple):
     template: str
     tls_note: str
     models_note: str
+    sources_note: str
     bake: str
 
 
@@ -375,6 +395,7 @@ def 묶음_파일_읽기() -> 묶음_파일:
         template=read(STANDALONE / ".env.example"),
         tls_note=read(TLS_NOTE),
         models_note=read(MODELS_NOTE),
+        sources_note=read(SOURCES_NOTE),
         bake=read(REPO / "deploy" / "images" / "docker-bake.hcl"),
     )
 
@@ -507,6 +528,60 @@ def 대응표_어긋남(files: 묶음_파일) -> list[str]:
     return problems
 
 
+SOURCES_MOUNT = "${RAG_ENGINE_SOURCES_DIR:-./sources}:/sources:ro"
+SOURCES_ENVIRONMENT = "RAG_SOURCES_DIR: /sources"
+# `.env.example` 에 주석 처리한 예시 줄로 두는 원천 쪽 설정 다섯.
+SOURCE_EXAMPLE_NAMES = (
+    "RAG_ENGINE_SOURCES_DIR",
+    "RAG_SCHEDULE_TIMEZONE",
+    "RAG_DELETED_RETENTION_DAYS",
+    "RAG_SYNC_RECORD_RETENTION_DAYS",
+    "RAG_SOURCE_READ_TIMEOUT_SECONDS",
+)
+
+
+def compose의_서비스_블록(compose: str, service: str) -> str:
+    """compose 파일에서 서비스 하나의 들여쓴 줄 전부. 없으면 실패한다."""
+    block = re.search(rf"^  {service}:\n((?:    .*\n|\n)+)", compose, flags=re.MULTILINE)
+    assert block is not None, f"compose 에 서비스 {service} 가 없다"
+    return block.group(1)
+
+
+def 원천_폴더_어긋남(files: 묶음_파일) -> list[str]:
+    """서버 기계의 원천 폴더를 붙이는 compose 와 `.env.example`, 안내, 폴더 설명이 어긋난 곳."""
+    problems: list[str] = []
+    for service in ("server", "worker"):
+        if SOURCES_MOUNT not in compose의_서비스_블록(files.compose, service):
+            problems.append(f"{service} 가 원천 폴더를 읽기 전용으로 붙이지 않는다")
+    if "/sources" in compose의_서비스_블록(files.compose, "migrate"):
+        problems.append("마이그레이션 컨테이너에 원천 폴더를 붙였다")
+    if SOURCES_ENVIRONMENT not in files.compose:
+        problems.append("compose 가 컨테이너 안의 원천 폴더 경로를 정하지 않는다")
+    if "rslave" in files.compose or "propagation" in files.compose:
+        problems.append("compose 가 전파 설정을 넣었다. 안내가 다시 띄우라고 적는다")
+    for name in SOURCE_EXAMPLE_NAMES:
+        if f"# {name}=" not in files.template:
+            problems.append(f".env.example 에 {name} 의 예시 줄이 없다")
+    # 폴더 경로를 뺀 넷은 예시 값이 설정의 기본값이어야 "적지 않으면 이 값"이라는 주석이 맞는다.
+    for name in SOURCE_EXAMPLE_NAMES[1:]:
+        default = Settings.model_fields[name.removeprefix("RAG_").lower()].default
+        if f"# {name}={default}\n" not in files.template:
+            problems.append(f".env.example 의 {name} 예시 값이 설정의 기본값 {default} 과 다르다")
+    fixed_names = (
+        "RAG_DATABASE_URL",
+        "RAG_DATA_DIR",
+        "RAG_DEFAULT_EMBEDDING_URL",
+        "RAG_SOURCES_DIR",
+    )
+    for name in fixed_names:
+        if f"`{name}`" not in files.guide:
+            problems.append(f"안내가 compose 가 정하는 값으로 {name} 를 적지 않는다")
+    for word in ("하위 폴더", "README.md"):
+        if word not in files.sources_note:
+            problems.append(f"sources/README.txt 에 없는 낱말: {word}")
+    return problems
+
+
 REVISION = "5617a9f61b028005a4858fdac845db406aefb181"
 
 # 이름이 정합을 대는 쪽이고, 변이 시험이 같은 이름의 검사가 걸리는지 본다.
@@ -519,6 +594,7 @@ REVISION = "5617a9f61b028005a4858fdac845db406aefb181"
     "폴더 설명": 폴더_설명_어긋남,
     "고치지 말 것": 고치지_말_것_어긋남,
     "대응표": 대응표_어긋남,
+    "원천 폴더": 원천_폴더_어긋남,
 }
 
 # (걸려야 할 검사, 바꿀 칸, 바꿀 글, 바꾼 글). 칸마다 한 글자라도 어긋나면 그 검사가 걸린다.
@@ -541,6 +617,23 @@ REVISION = "5617a9f61b028005a4858fdac845db406aefb181"
         '      - "0.0.0.0:443:8443"\n      - "5432:5432"\n',
     ),
     ("대응표", "guide", "| `reranker` |", "| `rerank` |"),
+    ("원천 폴더", "compose", SOURCES_MOUNT, "${RAG_ENGINE_SOURCES_DIR:-./sources}:/sources"),
+    ("원천 폴더", "compose", SOURCES_MOUNT, "./sources:/sources:ro"),
+    ("원천 폴더", "compose", SOURCES_ENVIRONMENT, "RAG_SOURCES_DIR: /srv"),
+    (
+        "원천 폴더",
+        "compose",
+        '    command: ["rag-engine", "migrate"]\n',
+        '    command: ["rag-engine", "migrate"]\n    volumes:\n      - ./sources:/sources:ro\n',
+    ),
+    ("원천 폴더", "template", "# RAG_ENGINE_SOURCES_DIR=", "# SOURCES_DIR="),
+    ("원천 폴더", "template", "# RAG_DELETED_RETENTION_DAYS=30", "# RAG_DELETED_RETENTION_DAYS=31"),
+    ("원천 폴더", "template", "# RAG_SCHEDULE_TIMEZONE=", "# SCHEDULE_TIMEZONE="),
+    ("원천 폴더", "template", "# RAG_DELETED_RETENTION_DAYS=", "# DELETED_RETENTION_DAYS="),
+    ("원천 폴더", "template", "# RAG_SYNC_RECORD_RETENTION_DAYS=", "# SYNC_RETENTION_DAYS="),
+    ("원천 폴더", "template", "# RAG_SOURCE_READ_TIMEOUT_SECONDS=", "# READ_TIMEOUT_SECONDS="),
+    ("원천 폴더", "guide", "`RAG_SOURCES_DIR`", "`RAG_SOURCE_DIR`"),
+    ("원천 폴더", "sources_note", "하위 폴더", "폴더"),
 )
 
 
@@ -647,9 +740,11 @@ def test_배포_파일_묶음에_안내와_두_폴더의_설명이_든다(tmp_pa
             ("README.md", GUIDE),
             ("tls/README.txt", TLS_NOTE),
             ("models/README.txt", MODELS_NOTE),
+            ("sources/README.txt", SOURCES_NOTE),
         ):
             assert f"{root}/{relative}" in names, f"묶음에 {relative} 가 없다"
             member = archive.extractfile(f"{root}/{relative}")
             assert member is not None
             assert member.read().decode("utf-8") == source.read_text(encoding="utf-8")
         assert f"{root}/models/embedding" not in names
+        assert f"{root}/sources/regulations" not in names

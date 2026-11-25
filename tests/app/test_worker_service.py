@@ -112,7 +112,13 @@ async def start_worker(
             poll_seconds=poll_seconds,
         )
         task = asyncio.create_task(
-            serve(deps or pipeline.deps(), config, stop=stop, listener=listener)
+            serve(
+                deps or pipeline.deps(),
+                config,
+                stop=stop,
+                listener=listener,
+                schedules=pipeline.schedules(),
+            )
         )
         started = _Running(task, stop, listener)
         running.append(started)
@@ -142,7 +148,9 @@ def _serve_with(
         concurrency=1,
         poll_seconds=poll_seconds,
     )
-    task = asyncio.create_task(serve(pipeline.deps(), config, stop=stop, listener=listener))
+    task = asyncio.create_task(
+        serve(pipeline.deps(), config, stop=stop, listener=listener, schedules=pipeline.schedules())
+    )
     return task, stop
 
 

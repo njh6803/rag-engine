@@ -21,6 +21,7 @@ from pydantic import (
 )
 
 from rag_engine.domain.entities import IngestAction
+from rag_engine.server.source_name import SourceName
 
 _METADATA: Final = TypeAdapter(dict[str, JsonValue])
 _NUL: Final = "\x00"
@@ -68,6 +69,10 @@ class IngestFields(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     key: str | None = Field(default=None, description="원천 안의 문서 키. 없으면 파일 이름이다")
+    source: SourceName | None = Field(
+        default=None,
+        description="문서를 넣을 밀어 넣는 원천의 이름. 없으면 `default`다",
+    )
     group: str | None = Field(default=None, description="그룹 이름. 없으면 기본 그룹이다")
     metadata: dict[str, JsonValue] = Field(
         default_factory=dict, description="문서의 메타데이터(JSON 객체 문자열로 받는다)"
@@ -106,7 +111,8 @@ class IngestFields(BaseModel):
 class IngestResponse(BaseModel):
     """수집 응답. `job_id`는 작업이 없으면 null이다.
 
-    작업이 없는 경우는 `unchanged`와, 보관 조각이 대상 판을 모두 채운 `restored`다.
+    작업이 없는 경우는 `unchanged`와, 보관 조각이 대상 판을 모두 채운 `restored`와, 조각이 없는
+    건너뜀 문서의 `restored`다.
     """
 
     model_config = ConfigDict(frozen=True)

@@ -9,7 +9,7 @@ UPDATE` 한 문장으로 있는 행을 다시 쓴다. 있는지 보는 일과 �
 쓰지 않았음을 `finish`와 `extend_lease`는 `AttemptLostError`로, `reschedule`은 `False`로 알린다.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Final
 from uuid import UUID
@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from rag_engine.adapters.postgres import tables
-from rag_engine.domain.entities import Job, JobKind, JobStatus
+from rag_engine.domain.entities import NON_INDEX_JOB_KINDS, Job, JobKind, JobStatus, JsonValue
 from rag_engine.domain.errors import AttemptLostError, ErrorCode
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.ports import JobOutcome
@@ -32,6 +32,14 @@ _LOCK_BATCH: Final = 10_000
 _QUEUED: Final[sa.ColumnClause[str]] = sa.literal_column(
     f"'{JobStatus.QUEUED.value}'", type_=sa.String()
 )
+_CLEANUP: Final[sa.ColumnClause[str]] = sa.literal_column(
+    f"'{JobKind.CLEANUP.value}'", type_=sa.String()
+)
+# 원천 단위 작업의 부분 유일 색인(`uq_jobs_source_id_kind_active`)의 술어. 같은 까닭으로 글자로
+# 적는다. 바인드 값으로 적은 문장은 같은 연결에서 되풀이하다 `42P10`으로 실패했다(명세 "작업
+# 대기열").
+_SOURCE_JOB_ACTIVE: Final = sa.text("document_id IS NULL AND status IN ('queued', 'running')")
+_NON_INDEX_KINDS: Final = sorted(kind.value for kind in NON_INDEX_JOB_KINDS)
 
 
 def _job(row: sa.RowMapping) -> Job:
@@ -51,6 +59,8 @@ def _job(row: sa.RowMapping) -> Job:
         created_at=row["created_at"],
         started_at=row["started_at"],
         finished_at=row["finished_at"],
+        source_id=row["source_id"],
+        options=row["options"],
     )
 
 
@@ -89,11 +99,123 @@ class PostgresJobQueue:
         await self._connection.execute(sa.select(sa.func.pg_notify(NOTIFY_CHANNEL, "")))
         return _job(row)
 
+    async def enqueue_source_job(
+        self,
+        kind: JobKind,
+        source_id: UUID,
+        options: Mapping[str, JsonValue],
+        request_id: UUID,
+        now: datetime,
+    ) -> Job | None:
+        statement = (
+            insert(tables.jobs)
+            .values(
+                id=new_id(),
+                kind=kind.value,
+                source_id=source_id,
+                options=dict(options),
+                status=JobStatus.QUEUED.value,
+                run_after=now,
+                request_id=request_id,
+                created_at=now,
+            )
+            .on_conflict_do_nothing(
+                index_elements=[tables.jobs.c.source_id, tables.jobs.c.kind],
+                index_where=_SOURCE_JOB_ACTIVE,
+            )
+            .returning(tables.jobs)
+        )
+        row = (await self._connection.execute(statement)).mappings().one_or_none()
+        if row is None:
+            return None
+        await self._connection.execute(sa.select(sa.func.pg_notify(NOTIFY_CHANNEL, "")))
+        return _job(row)
+
+    async def enqueue_cleanup(self, since: datetime, request_id: UUID, now: datetime) -> Job | None:
+        jobs = tables.jobs
+        recent = sa.exists().where(jobs.c.kind == JobKind.CLEANUP.value, jobs.c.created_at >= since)
+        # 상수와 값은 칸의 형으로 적어 서버가 자리 표시 값의 형을 따로 추론하지 않게 한다.
+        candidate = sa.select(
+            sa.literal(new_id(), type_=jobs.c.id.type),
+            _CLEANUP,
+            _QUEUED,
+            sa.literal(now, type_=jobs.c.run_after.type),
+            sa.literal(request_id, type_=jobs.c.request_id.type),
+            sa.literal(now, type_=jobs.c.created_at.type),
+        ).where(~recent)
+        statement = (
+            insert(jobs)
+            .from_select(
+                ["id", "kind", "status", "run_after", "request_id", "created_at"], candidate
+            )
+            .on_conflict_do_nothing(
+                index_elements=[jobs.c.source_id, jobs.c.kind], index_where=_SOURCE_JOB_ACTIVE
+            )
+            .returning(jobs)
+        )
+        row = (await self._connection.execute(statement)).mappings().one_or_none()
+        if row is None:
+            return None
+        await self._connection.execute(sa.select(sa.func.pg_notify(NOTIFY_CHANNEL, "")))
+        return _job(row)
+
+    async def latest_source_job(self, source_id: UUID, kind: JobKind) -> Job | None:
+        jobs = tables.jobs
+        row = (
+            (
+                await self._connection.execute(
+                    sa.select(jobs)
+                    .where(jobs.c.source_id == source_id, jobs.c.kind == kind.value)
+                    .order_by(jobs.c.id.desc())
+                    .limit(1)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        return None if row is None else _job(row)
+
+    async def delete_jobs_of_documents(self, document_ids: Sequence[UUID]) -> None:
+        await self._connection.execute(
+            sa.delete(tables.jobs).where(tables.jobs.c.document_id.in_(document_ids))
+        )
+
+    async def delete_jobs_of_source(self, source_id: UUID) -> None:
+        await self._connection.execute(
+            sa.delete(tables.jobs).where(tables.jobs.c.source_id == source_id)
+        )
+
     async def delete_queued(self, document_id: UUID) -> None:
         await self._connection.execute(
             sa.delete(tables.jobs).where(
                 tables.jobs.c.document_id == document_id,
                 tables.jobs.c.status == JobStatus.QUEUED.value,
+            )
+        )
+
+    async def lock_queued_source_job(self, source_id: UUID, kind: JobKind) -> Job | None:
+        jobs = tables.jobs
+        row = (
+            (
+                await self._connection.execute(
+                    sa.select(jobs)
+                    .where(
+                        jobs.c.source_id == source_id,
+                        jobs.c.kind == kind.value,
+                        jobs.c.status == JobStatus.QUEUED.value,
+                    )
+                    .with_for_update()
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        return None if row is None else _job(row)
+
+    async def delete_queued_job(self, job_id: UUID) -> None:
+        await self._connection.execute(
+            sa.delete(tables.jobs).where(
+                tables.jobs.c.id == job_id, tables.jobs.c.status == JobStatus.QUEUED.value
             )
         )
 
@@ -150,15 +272,42 @@ class PostgresJobQueue:
         )
         return bool(await self._connection.scalar(sa.select(active.exists())))
 
+    async def has_active_source_job(self, source_id: UUID, kinds: Sequence[JobKind]) -> bool:
+        active = sa.select(tables.jobs.c.id).where(
+            tables.jobs.c.source_id == source_id,
+            tables.jobs.c.kind.in_([kind.value for kind in kinds]),
+            tables.jobs.c.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
+        )
+        return bool(await self._connection.scalar(sa.select(active.exists())))
+
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:
+        # 색인 작업이 아닌 작업을 먼저 묻는다. 대기 중인 색인 작업이 10만 건 쌓여 있을 때 프로브
+        # `schedule-once`의 F는 그 종류만 묻는 질의(`kind`가 색인 작업이 아님)가 1.6ms로 끝났고
+        # 종류로 가른 순서는 193ms였다. 여기 질의의 조건은 `kind IN (…)`이라 프로브의 것과 글자는
+        # 다르고, 그 질의가 같은 빠르기를 내는지는 이 저장소의 시험이 재지 않았다. 색인 작업이 아닌
+        # 작업이 없을 때만 색인 작업을 묻는다.
+        non_index = await self._claim(worker_id, now, lease_seconds, index_documents=False)
+        if non_index is not None:
+            return non_index
+        return await self._claim(worker_id, now, lease_seconds, index_documents=True)
+
+    async def _claim(
+        self, worker_id: str, now: datetime, lease_seconds: float, *, index_documents: bool
+    ) -> Job | None:
         jobs = tables.jobs
+        kind_condition = (
+            jobs.c.kind == JobKind.INDEX_DOCUMENT.value
+            if index_documents
+            else jobs.c.kind.in_(_NON_INDEX_KINDS)
+        )
         picked = (
             sa.select(jobs.c.id)
             .where(
+                kind_condition,
                 sa.or_(
                     sa.and_(jobs.c.status == JobStatus.QUEUED.value, jobs.c.run_after <= now),
                     sa.and_(jobs.c.status == JobStatus.RUNNING.value, jobs.c.leased_until <= now),
-                )
+                ),
             )
             .order_by(jobs.c.run_after, jobs.c.id)
             .limit(1)

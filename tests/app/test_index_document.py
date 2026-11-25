@@ -155,6 +155,22 @@ async def test_지워진_문서는_아무것도_쓰지_않고_성공으로_끝�
         assert await transaction.documents.get_content(ingested.document_id) is None
 
 
+async def test_지운_원천의_문서는_아무것도_쓰지_않고_성공으로_끝난다(pipeline: Pipeline) -> None:
+    ingested = await pipeline.ingest(휴가)
+    async with pipeline.unit_of_work.begin() as transaction:
+        await transaction.catalog.mark_source_deleted(pipeline.source.id, NOW)
+    before = await _generation(pipeline, ingested.document_id)
+
+    result = await index_document(pipeline.deps(), await pipeline.claim())
+
+    assert result.outcome == SUCCEEDED
+    assert [await _generation(pipeline, ingested.document_id)] == [before]
+    assert await pipeline.chunk_texts(ingested.document_id) == []
+    async with pipeline.unit_of_work.begin() as transaction:
+        assert await transaction.documents.get_content(ingested.document_id) is None
+    assert await pipeline.job_statuses(ingested.document_id) == ["running"]
+
+
 async def test_임베딩하는_사이_세대가_올라가면_조각을_쓰지_않고_성공으로_끝난다(
     pipeline: Pipeline,
 ) -> None:
@@ -288,21 +304,21 @@ async def test_파싱이_영구_실패하면_문서와_색인_상태를_failed�
 
     failure = await _fail_parsing(pipeline)
 
-    assert failure.code is ErrorCode.ENCRYPTED_DOCUMENT
+    assert failure.code is ErrorCode.PARSE_FAILED
     async with pipeline.unit_of_work.begin() as transaction:
         document = await transaction.documents.get(ingested.document_id)
         state = await transaction.index.get_state(ingested.document_id, pipeline.version.id)
     assert document is not None and state is not None
     assert (document.status, document.error_code) == (
         DocumentStatus.FAILED,
-        ErrorCode.ENCRYPTED_DOCUMENT,
+        ErrorCode.PARSE_FAILED,
     )
     assert await pipeline.chunk_texts(ingested.document_id) == []
     assert (state.status, state.chunk_count, state.built_content_hash, state.error_code) == (
         IndexStateStatus.FAILED,
         0,
         None,
-        ErrorCode.ENCRYPTED_DOCUMENT,
+        ErrorCode.PARSE_FAILED,
     )
 
 
@@ -348,7 +364,7 @@ async def test_파싱하는_사이_세대가_올라가면_문서도_조각도_�
 
     failure = await _fail_parsing(pipeline, FailingRunner(before_failing=bump_generation))
 
-    assert failure.code is ErrorCode.ENCRYPTED_DOCUMENT
+    assert failure.code is ErrorCode.PARSE_FAILED
     async with pipeline.unit_of_work.begin() as transaction:
         document = await transaction.documents.get(ingested.document_id)
         state = await transaction.index.get_state(ingested.document_id, pipeline.version.id)

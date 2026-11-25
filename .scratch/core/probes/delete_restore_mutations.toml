@@ -10,9 +10,12 @@ expect_output = ['At index 1 diff: 3 != 4']
 
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
-old = '''            replace(document, deleted_at=now, generation=document.generation + 1, modified_at=now)
+old = '''            generation=document.generation + 1,
+            modified_at=now,
+            deleted_with_source=with_source,
 '''
-new = '''            replace(document, deleted_at=now, modified_at=now)
+new = '''            modified_at=now,
+            deleted_with_source=with_source,
 '''
 
 [[mutation]]
@@ -23,7 +26,7 @@ expect_output = ["'queued' not in ['running', 'queued']"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
-old = '''        await transaction.jobs.delete_queued(document.id)
+old = '''    await transaction.jobs.delete_queued(document.id)
 '''
 new = ''
 
@@ -35,7 +38,7 @@ expect_output = ['error_code=None, updated_at=datetime.datetime(2026, 11, 11, 9'
 
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
-old = '''        await transaction.index.delete_states(document.id)
+old = '''    await transaction.index.delete_states(document.id)
 '''
 new = ''
 
@@ -47,7 +50,7 @@ expect_output = ['Right contains one more item: UUID(']
 
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
-old = '''        await _check_building_versions(transaction, knowledge_bases)
+old = '''    await check_building_versions(transaction, knowledge_bases)
 '''
 new = ''
 
@@ -73,6 +76,8 @@ expect_output = ['generation: 3 != 2']
 [[mutation.edit]]
 file = "src/rag_engine/app/delete_document.py"
 old = '''        if document.deleted_at is not None:
+            if holds_source_deletion_mark(document):
+                await detach_from_source_deletion(transaction, document, now)
             return
 '''
 new = ''
@@ -135,12 +140,12 @@ old = '''                tables.jobs.c.document_id == document_id,
             )
         )
 
-    async def lock_queued_documents('''
+    async def lock_queued_source_job('''
 new = '''                tables.jobs.c.document_id == document_id,
             )
         )
 
-    async def lock_queued_documents('''
+    async def lock_queued_source_job('''
 
 [[mutation]]
 name = "다른 내용의 되살림이 내용을 가리지 않는다"
@@ -178,7 +183,7 @@ expect = "red"
 expect_output = ["Left contains one more item: '연차휴가는 입사 일 년 뒤부터 발생한다.'"]
 
 [[mutation.edit]]
-file = "src/rag_engine/app/ingest.py"
+file = "src/rag_engine/app/restore_chunks.py"
 old = '''    await transaction.index.delete_archived_chunks(document.id)
     for version in versions:
 '''
@@ -205,12 +210,12 @@ expect = "red"
 expect_output = ['_hash=None, error_code=None, updated_at=datetime.datetime(2026, 11, 11, 9']
 
 [[mutation.edit]]
-file = "src/rag_engine/app/ingest.py"
-old = '''            if version.status is not IndexVersionStatus.BUILDING:
-                await transaction.index.save_state(_pending_state(document, version, now))
+file = "src/rag_engine/app/restore_chunks.py"
+old = '''        if version.status is not IndexVersionStatus.BUILDING:
+            await transaction.index.save_state(_pending_state(document, version, now))
 '''
-new = '''            if True:
-                await transaction.index.save_state(_pending_state(document, version, now))
+new = '''        if True:
+            await transaction.index.save_state(_pending_state(document, version, now))
 '''
 
 [[mutation]]
@@ -220,11 +225,21 @@ expect = "red"
 expect_output = ['Left contains one more item: IndexVersion(']
 
 [[mutation.edit]]
-file = "src/rag_engine/app/ingest.py"
-old = '''                _restored_state(document, version, restored[version.id], now)
+file = "src/rag_engine/app/restore_chunks.py"
+old = '''from rag_engine.domain.ports import LockMode, Transaction
+'''
+new = '''from rag_engine.domain.ports import LockMode, Transaction
+from rag_engine.app.version_switch import check_version_switch
+'''
+
+[[mutation.edit]]
+file = "src/rag_engine/app/restore_chunks.py"
+old = '''            await transaction.index.save_state(
+                _restored_state(document, version, restored[version.id], now)
             )
 '''
-new = '''                _restored_state(document, version, restored[version.id], now)
+new = '''            await transaction.index.save_state(
+                _restored_state(document, version, restored[version.id], now)
             )
             if version.status is IndexVersionStatus.BUILDING:
                 await check_version_switch(transaction, version)

@@ -8,6 +8,9 @@
 파싱 결과(문서마다 한 행)는 `save_content`가 덮어쓰고 `get_content`가 읽는다.
 """
 
+from collections.abc import Sequence
+from dataclasses import replace
+from datetime import datetime
 from typing import Final
 from uuid import UUID
 
@@ -24,9 +27,14 @@ from rag_engine.domain.entities import (
     BlockKind,
     Document,
     DocumentContent,
+    DocumentCounts,
     DocumentQuery,
     DocumentState,
     DocumentStatus,
+    IndexStateStatus,
+    IndexVersionStatus,
+    JobStatus,
+    SkipReason,
 )
 from rag_engine.domain.errors import DocumentAlreadyExistsError, ErrorCode
 
@@ -55,10 +63,13 @@ class _BlockJson(BaseModel):
 
 
 _BLOCK_LIST: Final = TypeAdapter(list[_BlockJson])
+# 한 문장의 `IN` 목록에 싣는 원본 경로의 수. psycopg는 바인드 파라미터를 65535개까지만 받는다.
+_PATH_BATCH: Final = 10_000
 
 
 def _document(row: sa.RowMapping) -> Document:
     error_code: str | None = row["error_code"]
+    skip_reason: str | None = row["skip_reason"]
     return Document(
         id=row["id"],
         source_id=row["source_id"],
@@ -80,6 +91,9 @@ def _document(row: sa.RowMapping) -> Document:
         purged_at=row["purged_at"],
         created_at=row["created_at"],
         modified_at=row["modified_at"],
+        skip_reason=None if skip_reason is None else SkipReason(skip_reason),
+        change_marker=row["change_marker"],
+        deleted_with_source=row["deleted_with_source"],
     )
 
 
@@ -98,10 +112,13 @@ def _mutable_values(document: Document) -> dict[str, object]:
         "access_groups": list(document.access_groups),
         "status": document.status.value,
         "error_code": None if document.error_code is None else document.error_code.value,
+        "skip_reason": None if document.skip_reason is None else document.skip_reason.value,
+        "change_marker": document.change_marker,
         "generation": document.generation,
         "deleted_at": document.deleted_at,
         "purged_at": document.purged_at,
         "modified_at": document.modified_at,
+        "deleted_with_source": document.deleted_with_source,
     }
 
 
@@ -215,20 +232,211 @@ class PostgresDocumentStore:
     async def list_documents(self, query: DocumentQuery) -> list[Document]:
         documents = tables.documents
         statement = sa.select(documents).order_by(documents.c.id.desc()).limit(query.limit)
+        # 지움 표시가 선 원천의 문서는 문서 행이 아직 그대로여도 지워진 문서로 읽힌다.
+        of_deleted_source = sa.exists().where(
+            tables.sources.c.id == documents.c.source_id, tables.sources.c.deleted_at.is_not(None)
+        )
         if query.state is DocumentState.DELETED:
-            statement = statement.where(documents.c.deleted_at.is_not(None))
+            statement = statement.where(
+                sa.or_(documents.c.deleted_at.is_not(None), of_deleted_source)
+            )
         elif query.state is not None:
             statement = statement.where(
-                documents.c.deleted_at.is_(None), documents.c.status == query.state.value
+                documents.c.deleted_at.is_(None),
+                ~of_deleted_source,
+                documents.c.status == query.state.value,
             )
         if query.group_id is not None:
             statement = statement.where(documents.c.group_id == query.group_id)
+        if query.source_id is not None:
+            statement = statement.where(documents.c.source_id == query.source_id)
         if query.key is not None:
             statement = statement.where(documents.c.key == query.key)
         if query.after is not None:
             statement = statement.where(documents.c.id < query.after)
         rows = (await self._connection.execute(statement)).mappings().all()
         return [_document(row) for row in rows]
+
+    async def list_undeleted_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        documents = tables.documents
+        rows = await self._connection.scalars(
+            sa.select(documents.c.id)
+            .where(documents.c.source_id == source_id, documents.c.deleted_at.is_(None))
+            .order_by(documents.c.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def list_held_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
+        documents = tables.documents
+        rows = await self._connection.execute(
+            sa.select(documents.c.key, documents.c.id).where(
+                documents.c.source_id == source_id,
+                documents.c.purged_at.is_(None),
+                sa.or_(documents.c.deleted_at.is_(None), documents.c.deleted_with_source.is_(True)),
+            )
+        )
+        return {row.key: row.id for row in rows}
+
+    async def list_ids_deleted_with_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        documents = tables.documents
+        rows = await self._connection.scalars(
+            sa.select(documents.c.id)
+            .where(
+                documents.c.source_id == source_id,
+                documents.c.purged_at.is_(None),
+                documents.c.deleted_with_source.is_(True),
+            )
+            .order_by(documents.c.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def list_stalled_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        documents = tables.documents
+        versions = tables.index_versions
+        member = tables.knowledge_base_groups
+        states = tables.document_index_states
+        settled = (
+            sa.exists()
+            .where(
+                states.c.document_id == documents.c.id,
+                states.c.index_version_id == versions.c.id,
+                sa.or_(
+                    states.c.status == IndexStateStatus.FAILED.value,
+                    sa.and_(
+                        states.c.status == IndexStateStatus.INDEXED.value,
+                        states.c.built_content_hash == documents.c.content_hash,
+                    ),
+                ),
+            )
+            .correlate(documents, versions)
+        )
+        unsettled_version = (
+            sa.exists()
+            .where(
+                member.c.group_id == documents.c.group_id,
+                versions.c.knowledge_base_id == member.c.knowledge_base_id,
+                versions.c.status.in_(
+                    [IndexVersionStatus.CURRENT.value, IndexVersionStatus.BUILDING.value]
+                ),
+                ~settled,
+            )
+            .correlate(documents)
+        )
+        working = sa.exists().where(
+            tables.jobs.c.document_id == documents.c.id,
+            tables.jobs.c.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
+        )
+        rows = await self._connection.scalars(
+            sa.select(documents.c.id)
+            .where(
+                documents.c.source_id == source_id,
+                documents.c.deleted_at.is_(None),
+                unsettled_version,
+                ~working,
+            )
+            .order_by(documents.c.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def has_documents_held_by_source(self, source_id: UUID) -> bool:
+        documents = tables.documents
+        held = sa.and_(
+            documents.c.source_id == source_id,
+            documents.c.purged_at.is_(None),
+            sa.or_(documents.c.deleted_at.is_(None), documents.c.deleted_with_source.is_(True)),
+        )
+        return bool(await self._connection.scalar(sa.select(sa.exists().where(held))))
+
+    async def has_documents_deleted_with_source(self, source_id: UUID) -> bool:
+        documents = tables.documents
+        marked = sa.and_(
+            documents.c.source_id == source_id,
+            documents.c.purged_at.is_(None),
+            documents.c.deleted_with_source.is_(True),
+        )
+        return bool(await self._connection.scalar(sa.select(sa.exists().where(marked))))
+
+    async def has_undeleted_documents(self, source_id: UUID) -> bool:
+        documents = tables.documents
+        alive = sa.and_(documents.c.source_id == source_id, documents.c.deleted_at.is_(None))
+        return bool(await self._connection.scalar(sa.select(sa.exists().where(alive))))
+
+    async def list_purgeable_ids(self, deleted_before: datetime, limit: int) -> list[UUID]:
+        documents = tables.documents
+        rows = await self._connection.scalars(
+            sa.select(documents.c.id)
+            .where(
+                documents.c.deleted_at.is_not(None),
+                documents.c.deleted_at <= deleted_before,
+                documents.c.purged_at.is_(None),
+                documents.c.deleted_with_source.is_(False),
+            )
+            .order_by(documents.c.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def purge(self, document: Document, purged_at: datetime) -> None:
+        contents = tables.document_contents
+        await self._connection.execute(
+            sa.delete(contents).where(contents.c.document_id == document.id)
+        )
+        await self.update(replace(document, blob_path=None, purged_at=purged_at))
+
+    async def list_ids_of_source(self, source_id: UUID, limit: int) -> list[UUID]:
+        documents = tables.documents
+        rows = await self._connection.scalars(
+            sa.select(documents.c.id)
+            .where(documents.c.source_id == source_id)
+            .order_by(documents.c.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def delete_documents(self, document_ids: Sequence[UUID]) -> None:
+        contents = tables.document_contents
+        await self._connection.execute(
+            sa.delete(contents).where(contents.c.document_id.in_(document_ids))
+        )
+        await self._connection.execute(
+            sa.delete(tables.documents).where(tables.documents.c.id.in_(document_ids))
+        )
+
+    async def referenced_blob_paths(self, paths: Sequence[str]) -> set[str]:
+        documents = tables.documents
+        found: set[str] = set()
+        for start in range(0, len(paths), _PATH_BATCH):
+            rows = await self._connection.scalars(
+                sa.select(documents.c.blob_path).where(
+                    documents.c.blob_path.in_(paths[start : start + _PATH_BATCH])
+                )
+            )
+            found.update(path for path in rows if path is not None)
+        return found
+
+    async def count_documents_of_source(self, source_id: UUID) -> DocumentCounts:
+        documents = tables.documents
+        row = (
+            (
+                await self._connection.execute(
+                    sa.select(
+                        sa.func.count().label("total"),
+                        sa.func.count()
+                        .filter(documents.c.status == DocumentState.FAILED.value)
+                        .label("failed"),
+                        sa.func.count()
+                        .filter(documents.c.status == DocumentState.SKIPPED.value)
+                        .label("skipped"),
+                    ).where(documents.c.source_id == source_id, documents.c.deleted_at.is_(None))
+                )
+            )
+            .mappings()
+            .one()
+        )
+        return DocumentCounts(total=row["total"], failed=row["failed"], skipped=row["skipped"])
 
     async def _select_one(
         self, *conditions: sa.ColumnElement[bool], lock: bool = False

@@ -5,7 +5,7 @@
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Final
@@ -20,9 +20,11 @@ MAX_EMBEDDING_DIMENSIONS: Final = 2000
 
 
 class SourceKind(StrEnum):
-    """원천의 종류. 첫 판은 밀어 넣기 하나다."""
+    """원천의 종류. 밀어 넣는 원천(`push`)은 클라이언트가 수집 API로 넣고, 가져오는 원천(`pull`)은
+    서버가 커넥터로 읽어 온다."""
 
     PUSH = "push"
+    PULL = "pull"
 
 
 class IngestAction(StrEnum):
@@ -44,18 +46,29 @@ class IndexVersionStatus(StrEnum):
 
 
 class DocumentStatus(StrEnum):
+    """문서 행의 상태. `skipped`는 색인할 것이 없어 건너뛴 문서이고 실패가 아니다(`SkipReason`)."""
+
     RECEIVED = "received"
     PARSED = "parsed"
     FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class SkipReason(StrEnum):
+    """문서를 건너뛴 까닭. 문서 상태가 `skipped`일 때만 있다(명세 "건너뜀")."""
+
+    ENCRYPTED = "encrypted"
+    NO_TEXT = "no_text"
 
 
 class DocumentState(StrEnum):
-    """관리 조회가 문서에 붙이는 상태 넷(스토리 8: 받음, 파싱됨, 실패, 삭제됨). 지운 문서는 행의
+    """관리 조회가 문서에 붙이는 상태 다섯(받음, 파싱됨, 실패, 건너뜀, 삭제됨). 지운 문서는 행의
     `status`와 상관없이 `deleted`다."""
 
     RECEIVED = "received"
     PARSED = "parsed"
     FAILED = "failed"
+    SKIPPED = "skipped"
     DELETED = "deleted"
 
 
@@ -66,7 +79,21 @@ class IndexStateStatus(StrEnum):
 
 
 class JobKind(StrEnum):
+    """작업의 종류 다섯. 색인 작업(`index_document`)만 문서를 가리키고 원천 단위 작업(`sync_source`,
+    `delete_source`, `restore_source`)은 원천을, 정리 작업(`cleanup`)은 둘 다 가리키지 않는다.
+    색인 작업이 아닌 넷은 `NON_INDEX_JOB_KINDS`다."""
+
     INDEX_DOCUMENT = "index_document"
+    SYNC_SOURCE = "sync_source"
+    DELETE_SOURCE = "delete_source"
+    RESTORE_SOURCE = "restore_source"
+    CLEANUP = "cleanup"
+
+
+# 작업자가 색인 작업보다 먼저 꺼내는 작업(명세 "작업 대기열").
+NON_INDEX_JOB_KINDS: Final = frozenset(
+    {JobKind.SYNC_SOURCE, JobKind.DELETE_SOURCE, JobKind.RESTORE_SOURCE, JobKind.CLEANUP}
+)
 
 
 class JobStatus(StrEnum):
@@ -74,6 +101,23 @@ class JobStatus(StrEnum):
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+
+
+class SyncTrigger(StrEnum):
+    """동기화를 시작시킨 것. 일정 확인이거나 운영자의 "지금 동기화"다."""
+
+    SCHEDULE = "schedule"
+    MANUAL = "manual"
+
+
+class SyncRecordStatus(StrEnum):
+    """동기화 기록의 상태. `not_started`는 앞 동기화가 돌고 있어 시작하지 않은 일정 회차다."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    NOT_STARTED = "not_started"
 
 
 class TokenRole(StrEnum):
@@ -90,9 +134,21 @@ class BlockKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Source:
+    """원천. `deleted_at`은 지움 표시이고 지우지 않은 원천에서는 `None`이다. 아래 일곱 칸은 가져오는
+    원천만 쓴다. 밀어 넣는 원천은 비운 값(`None`, `False`, 빈 튜플)이다."""
+
     id: UUID
     name: str
     kind: SourceKind
+    created_at: datetime
+    deleted_at: datetime | None = None
+    connector: str | None = None
+    config: Mapping[str, JsonValue] | None = None
+    group_id: UUID | None = None
+    schedule: str | None = None
+    next_run_at: datetime | None = None
+    paused: bool = False
+    exclude_patterns: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,7 +236,8 @@ class Document:
     mime: str
     size_bytes: int
     content_hash: str
-    blob_path: str
+    # 가져오는 원천의 문서는 원본을 파일 저장소에 복사하지 않고 이 칸을 비운다(ADR 0013).
+    blob_path: str | None
     metadata: Mapping[str, JsonValue]
     updated_at: datetime
     effective_date: date | None
@@ -192,6 +249,17 @@ class Document:
     purged_at: datetime | None
     created_at: datetime
     modified_at: datetime
+    # 행의 상태가 `skipped`일 때만 있다. 사유가 있는데 행의 상태가 `skipped`가 아닌 행은
+    # 데이터베이스의 CHECK 제약이 막는다. 반대(`skipped`인데 사유가 없는 행)는 쓰는 자리가
+    # `_record_skipped`와 0005 둘뿐이라 생기지 않는다. 지운 문서는 행의 상태가 그대로라 사유가 남고,
+    # `state`는 `deleted`다.
+    skip_reason: SkipReason | None = None
+    # 커넥터가 준 변경 확인값. 밀어 넣는 원천의 문서에서는 비어 있다. 색인 작업이 원천이 목록 뒤에
+    # 바뀐 것을 알아내면 비워서 다음 동기화가 그 파일을 다시 읽게 한다.
+    change_marker: str | None = None
+    # 원천을 지우는 작업이 이 문서를 지웠다. 따로 지운 문서와 갈라 원천을 되살릴 때 이 문서만
+    # 되살린다. 문서가 지워지지 않았거나 따로 지웠으면 거짓이다.
+    deleted_with_source: bool = False
 
     @property
     def state(self) -> DocumentState:
@@ -210,6 +278,17 @@ class DocumentQuery:
     key: str | None
     limit: int
     after: UUID | None
+    source_id: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentCounts:
+    """원천 하나의, 지워지지 않은 문서 수. `total`은 모두, `failed`와 `skipped`는 그 문서 상태의
+    문서다."""
+
+    total: int
+    failed: int
+    skipped: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -337,7 +416,7 @@ class Job:
 
     id: UUID
     kind: JobKind
-    document_id: UUID
+    document_id: UUID | None
     status: JobStatus
     attempts: int
     run_after: datetime
@@ -349,6 +428,50 @@ class Job:
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
+    # 원천 단위 작업이 가리키는 원천. 색인 작업과 정리 작업에서는 비어 있다.
+    source_id: UUID | None = None
+    # 원천 단위 작업의 옵션(지금 동기화의 `apply_empty`, `reread`). 다른 종류에서는 빈 객체다.
+    options: Mapping[str, JsonValue] = field(default_factory=lambda: dict[str, JsonValue]())
+
+    @property
+    def index_document_id(self) -> UUID:
+        """색인 작업이 가리키는 문서. 색인 작업이 아닌 작업에서 부르면 코드의 잘못이다."""
+        if self.document_id is None:
+            raise ValueError("문서를 가리키지 않는 작업이다")
+        return self.document_id
+
+    @property
+    def target_source_id(self) -> UUID:
+        """원천 단위 작업이 가리키는 원천. 원천을 가리키지 않는 작업에서 부르면 코드의 잘못이다."""
+        if self.source_id is None:
+            raise ValueError("원천을 가리키지 않는 작업이다")
+        return self.source_id
+
+
+@dataclass(frozen=True, slots=True)
+class SyncRecord:
+    """동기화 한 번의 기록(source-sync 명세 "동기화 기록"). 개수는 그 동기화가 파일과 문서를 본
+    순간의 분류다. `skipped`, `not_accepted`, `failed`는 사유를 키로 하는 개수이고, 실패 사유는 닫힌
+    코드만 싣는다(커넥터 예외의 글, 폴더 이름, 문서의 키와 제목은 싣지 않는다. 원칙 V)."""
+
+    id: UUID
+    source_id: UUID
+    job_id: UUID | None
+    trigger: SyncTrigger
+    options: Mapping[str, JsonValue]
+    status: SyncRecordStatus
+    failure_code: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    listed: int | None
+    added: int
+    updated: int
+    deleted: int
+    unchanged: int
+    skipped: Mapping[str, int]
+    not_accepted: Mapping[str, int]
+    failed: Mapping[str, int]
 
 
 @dataclass(frozen=True, slots=True)

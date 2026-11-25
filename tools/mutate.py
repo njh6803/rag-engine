@@ -19,26 +19,27 @@ LLM 테스트가 대상이면 `PYTHONUTF8=1 uv run --env-file .env python tools/
 고른 `--check` 와 변이를 돌리는 실행은 표지의 메아리(아래 표지 절)도 본다. 고른 `--check` 는 표지의
 품질(표지 없는 빨강, 단언 풀이 줄 표지, 호출 한 토막 표지)도 본다.
 
-`--staged` 는 커밋에 들 판(색인)에서 원문을 보고, pre-commit 이 커밋마다 띄운다. 이 커밋이 더하거나
-고친 표(`*_mutations.toml`)는 모든 원문을 보고, 그 표에서 어느 부모 판과도 다른 변이는 표지의
-메아리를 색인의 시험 파일로 보고 표지의 품질(표지 없는 빨강, 단언 풀이 줄 표지, 호출 한 토막
+`--staged` 는 커밋에 들 내용(색인)에서 원문을 보고, pre-commit 이 커밋마다 띄운다. 이 커밋이
+더하거나 고친 표(`*_mutations.toml`)는 모든 원문을 보고, 그 표에서 어느 부모 버전과도 다른 변이는
+표지의 메아리를 색인의 시험 파일로 보고 표지의 품질(표지 없는 빨강, 단언 풀이 줄 표지, 호출 한 토막
 표지)도 본다. 변이를
 돌린 뒤 `ruff format` 이 코드를 고쳐 커밋한 표의 원문이 사라진 일이 있었다(대기열 92). 커밋에 들지
-않은 표는 이 커밋이 고친 파일(지우거나 옮긴 것 포함)을 가리키는 변이만 보고, 부모 판에서 맞던 원문이
-색인에서 깨졌을 때 알린다. 표가 가리키는 코드만 바뀌고 표는 커밋에 들지 않아, 커밋에 든 표만 보던
-확인을 지나 원문이 0번인 표가 남았다(대기열 312). 부모 판에서도 맞지 않던 원문은 썩어도 되고(대기열
-73·92), 다시 돌리거나 그 표를 고쳐 커밋할 때 이 확인이 알린다. 합치는 중이면(`MERGE_HEAD`) 표가
-색인과 같은 부모 모두에서 맞던 원문만 본다. main 을 합치는 커밋을 가지의 HEAD 하나와만 견주면 main
-의 변경이 모두 들어, main 이 이미 깬 원문을 그 커밋의 탓으로 읽는다. 색인을 읽으므로 ruff 훅이 고친
-바이트는 다음 시도에서 본다(고친 시도는 pre-commit 이 실패로 끝낸다). `git commit <경로>` 는 임시
-색인을 `GIT_INDEX_FILE` 로 훅에 넘기고 이 확인은 그 색인을 본다. 색인에도 어느 부모에도 없는
-파일(추적하지 않는 생성물)은 이 커밋이 깰 수 없어 옛 `--check` 처럼 작업 트리에서 읽고, 그래서 그
-파일이 있는 체크아웃에서 커밋한다 (`.scratch/design-refresh/probes/checker_mutations.toml` 의 머리
-주석). 이 커밋이 추적을 끊은 파일은 작업 트리에 남아도 읽지 못했다고 알린다. 못 보는 것: 색인의
-블롭을 그대로 읽어 작업 트리의 줄 끝 변환을 거치지 않는다. `eol=crlf` 인 파일에 CRLF 로 적은 원문은
-디스크에서 맞아도 이 확인에서는 0번이다. 이 저장소는 `* text=auto eol=lf` 라 색인과 작업 트리의 줄
-끝이 같다. `git commit --amend` 의 훅도 HEAD(고칠 커밋)를 부모로 본다. 그 커밋이 훅을
-건너뛰고(`--no-verify`) 넣은 깨진 원문은 부모 판에서도 맞지 않던 원문으로 읽혀 amend 에서 지나간다.
+않은 표는 이 커밋이 고친 파일(지우거나 옮긴 것 포함)을 가리키는 변이만 보고, 부모 버전에서 맞던
+원문이 색인에서 깨졌을 때 알린다. 표가 가리키는 코드만 바뀌고 표는 커밋에 들지 않아, 커밋에 든 표만
+보던 확인을 지나 원문이 0번인 표가 남았다(대기열 312). 부모 버전에서도 맞지 않던 원문은 썩어도
+되고(대기열 73·92), 다시 돌리거나 그 표를 고쳐 커밋할 때 이 확인이 알린다. 합치는
+중이면(`MERGE_HEAD`) 표가 색인과 같은 부모 모두에서 맞던 원문만 본다. main 을 합치는 커밋을 가지의
+HEAD 하나와만 견주면 main 의 변경이 모두 들어, main 이 이미 깬 원문을 그 커밋의 탓으로 읽는다.
+색인을 읽으므로 ruff 훅이 고친 바이트는 다음 시도에서 본다(고친 시도는 pre-commit 이 실패로 끝낸다).
+`git commit <경로>` 는 임시 색인을 `GIT_INDEX_FILE` 로 훅에 넘기고 이 확인은 그 색인을 본다.
+색인에도 어느 부모에도 없는 파일(추적하지 않는 생성물)은 이 커밋이 깰 수 없어 옛 `--check` 처럼 작업
+트리에서 읽고, 그래서 그 파일이 있는 체크아웃에서 커밋한다
+(`.scratch/design-refresh/probes/checker_mutations.toml` 의 머리 주석). 이 커밋이 추적을 끊은 파일은
+작업 트리에 남아도 읽지 못했다고 알린다. 못 보는 것: 색인의 블롭을 그대로 읽어 작업 트리의 줄 끝
+변환을 거치지 않는다. `eol=crlf` 인 파일에 CRLF 로 적은 원문은 디스크에서 맞아도 이 확인에서는
+0번이다. 이 저장소는 `* text=auto eol=lf` 라 색인과 작업 트리의 줄 끝이 같다. `git commit --amend`
+의 훅도 HEAD(고칠 커밋)를 부모로 본다. 그 커밋이 훅을 건너뛰고(`--no-verify`) 넣은 깨진 원문은 부모
+버전에서도 맞지 않던 원문으로 읽혀 amend 에서 지나간다.
 
 고르기. 이름, 번호, `--since <커밋>` 으로 고르고 함께 주면 합친다. 아무것도 주지 않으면 전부다.
 번호는 표에 적힌 차례(1부터)이고, 출력의 줄 머리와 어긋났을 때의 마지막 줄(`다시 돌릴 번호`)에
@@ -51,17 +52,17 @@ LLM 테스트가 대상이면 `PYTHONUTF8=1 uv run --env-file .env python tools/
 기준 ref(`hotfix/*` 는 `origin/main`, 그 밖은 `origin/dev` 가 있으면 그것, 없으면 `origin/main`)다.
 커밋한 표를 다른 워크트리에서 돌리며 `HEAD` 를 주면 표가 같아 고를 것이 없다.
 언제 전체를 돌리나: 시험을 고치거나 지웠으면 전체, 시험을 더하기만 했거나 코드만 바꿨으면 고른
-것(원문을 고쳤거나 더한 변이)이다. 견주는 쪽은 그 표를 마지막으로 돌린 판이다. 시험을 더해서는
+것(원문을 고쳤거나 더한 변이)이다. 견주는 쪽은 그 표를 마지막으로 돌린 버전이다. 시험을 더해서는
 빨갛던 변이가 초록이 되지 않지만, 고치거나 지우면 다른 변이를 잡던 단언이 사라질 수 있다. 시험을
-고친 판에서 그런 일을 전체 실행이 잡았다(일지 2026-10-12-16의 둘째 판). 전체 실행은 셀프 리뷰와
-PR 직전 리뷰(보안·버그·성능)를 반영해 커밋한 뒤에 한 번 돈다. 리뷰가 시험을 고치면 그 전의 실행은
-옛 시험을 잰 것이라, 리뷰 전에 띄운 묶음을 멈추고 다시 돌렸다(셀프 리뷰 전에 약 15분, 대기열 265.
-PR 직전 리뷰 전에 약 13분, 일지 2026-10-16-07). 이 문장을 두고도 리뷰 전에 새 표 둘의 전체를 돌려
-다시 돌았다(대기열 359). 그래서 고르지 않은 전체 실행은 시작 줄에서, 표 자체(표지가 여기 있다)나
-표가 가리키는 파일이나 그 시험(`tests` 인자 가운데 러너의 자리 기준으로 있는 파일, `::` 뒤는 뗀다)에
-커밋하지 않은 변경이 있으면 그 경로를 알린다. 리뷰 전 실행을 가리키는 대리 신호라 막지 않는다. git
-저장소 밖이면 말하지 않는다. 못 보는 것: 코드만 바꾼
-판에서 원문이 그대로인 변이도 둘레의 코드가 바뀌어 결과가 달라질 수 있다. 시험을 더하면 초록을
+고친 버전에서 그런 일을 전체 실행이 잡았다(일지 `2026-10-12-16`의 둘째 버전). 전체 실행은 셀프
+리뷰와 PR 직전 리뷰(보안·버그·성능)를 반영해 커밋한 뒤에 한 번 돈다. 리뷰가 시험을 고치면 그 전의
+실행은 옛 시험을 잰 것이라, 리뷰 전에 띄운 묶음을 멈추고 다시 돌렸다(셀프 리뷰 전에 약 15분, 대기열
+265. PR 직전 리뷰 전에 약 13분, 일지 `2026-10-16-07`). 이 문장을 두고도 리뷰 전에 새 표 둘의 전체를
+돌려 다시 돌았다(대기열 359). 그래서 고르지 않은 전체 실행은 시작 줄에서, 표 자체(표지가 여기
+있다)나 표가 가리키는 파일이나 그 시험(`tests` 인자 가운데 러너의 자리 기준으로 있는 파일, `::` 뒤는
+뗀다)에 커밋하지 않은 변경이 있으면 그 경로를 알린다. 리뷰 전 실행을 가리키는 대리 신호라 막지
+않는다. git 저장소 밖이면 말하지 않는다. 못 보는 것: 코드만 바꾼
+버전에서 원문이 그대로인 변이도 둘레의 코드가 바뀌어 결과가 달라질 수 있다. 시험을 더하면 초록을
 기대한 변이(대조군)가 빨개질 수 있다(일지 2026-10-12-29, `mutate_restore` 표). 고른 것만 돌리면 둘
 다 보지 못한다.
 
@@ -140,6 +141,21 @@ exit 러너의 명령이 pytest 여도 그 출력의 판정 낱말을 거르지 
 출력에서는 앞 블록의 줄이 상한을 채워 마지막 실패 블록의 머리가 안 보일 수 있다. 줄 머리만 보므로
 `Error` 만 있는 줄과 `- ` 로 시작하는 목록 줄도 머리로 받아 상한을 소음이 채울 수 있다. 반대로
 pytest 의 `E ` 접두 줄(`E       TypeError: x`)은 받지 않는다.
+
+출력 전체 파일. 화면은 끝 10줄과 머리 줄 스무 줄뿐이라 표지로 고를 줄이 가려졌다. 그래서 두 가지
+변이는 실패 출력 전체(색 코드를 벗기고 줄 끝은 그대로)를 그 체크아웃의 git
+디렉터리 아래 `mutate-output/<표 파일 이름 stem>-<번호>.txt` 에 쓰고, 그 경로를 `전체 출력:` 줄로
+낸다. 하나는 기대와 어긋난 변이다. 반복이 여럿이면 어긋난 마지막 반복의 출력이다. 다른 하나는 빨강
+이나 처리하지 않은 에러를 기대하는데 `expect_output` 이 빈 변이다. 기대대로 지나가므로 출력을 보려고
+자리표 표지를 넣고 한 바퀴를 더 돌거나 변이를 소스에 손으로 넣던 일(대기열
+mutate-marker-discovery)을 없앤다. 이 변이는 어긋난 반복이 없어 마지막 반복의 출력이다. git
+디렉터리는 추적하지 않는 자리라 `git status` 에 잡히지 않고, 같은 번호는 다시 돌 때 덮어쓰며
+지우지는 않는다. 못 보는 것: 기준선의 출력은 남기지 않는다. 표지가 있는데 기대대로인 변이와 초록을
+기대하고 초록이 난 변이도 남기지 않는다. 지난 실행의 파일이 남아 있어도 이번에 쓰지 않았으면 그 줄이
+나오지 않는다. git 디렉터리를 못 찾거나 쓰지 못하면 파일 없이 지금처럼 돌고 줄도 내지 않는다.
+워크트리의 `.git` 파일이 가리키는 곳이 없어졌으면 그 위쪽 폴더를 만들어 내지 않고 쓰지 못한 것으로
+본다. 되돌림이 막혀 `RestoreError` 가 오른 변이는 파일을 남기기 전에 끝나 파일이 없다. 어느
+줄이 좋은 표지인지는 가르지 않아, 단언 풀이 줄을 고르면 표지의 품질 검사가 거른다.
 
 표지의 메아리. 빨강이나 처리하지 않은 에러를 기대한 변이의 표지가 그 시험 파일(`tests` 인자 가운데
 옵션이 아닌 것을 러너의 자리 기준으로 이은 경로, `::` 뒤는 뗀다)의 원문에 글자 그대로 있으면
@@ -292,7 +308,7 @@ lastfailed 에 남지 않게 한다.
 검사기가 던진 것도 `red_exit = 1` 의 빨강이다. 그런 변이는 표지로 까닭을 가른다.
 
 판정은 출력의 요약 문구에 기댄다. 초록과 빨강을 읽는 문구(vitest 의 `Tests` 줄, playwright 의
-`N passed`·`N failed`, tsc 의 진단 줄)가 도구의 판에서 바뀌면 오류로 기운다. 초록이나 빨강을
+`N passed`·`N failed`, tsc 의 진단 줄)가 도구의 버전에서 바뀌면 오류로 기운다. 초록이나 빨강을
 거르는 표지(vitest 파일 단위 FAIL 의 `[ 파일 ]`, pytest·playwright 의 `N skipped`)가 바뀌면 그것을
 못 봐 수집 오류가 섞인 실패가 빨강으로, skip 이 섞인 통과가 초록으로 지나간다.
 """
@@ -330,6 +346,9 @@ RESTORE_WAITS = (0.2, 0.5, 1.0, 2.0)
 # 도는 동안 그 체크아웃의 git 디렉터리에 두는 표지 `mutate-running-<pid>.json` 의 머리. 편집 훅
 # `tools/hook_edit_during_mutate.py` 의 같은 이름과 같아야 한다(대기열 358)
 MARKER_PREFIX = "mutate-running-"
+# 어긋난 변이의 실패 출력 전체를 남기는 그 체크아웃의 git 디렉터리 아래 폴더. 표지를 고르려면 화면의
+# 끝 열 줄과 머리 줄 스무 줄로 모자라 전체가 필요했다(대기열 mutate-marker-discovery)
+OUTPUT_DIR = "mutate-output"
 
 type Outcome = Literal["green", "red", "unhandled", "error"]
 type JudgeName = Literal["pytest", "vitest", "playwright", "tsc", "exit"]
@@ -760,7 +779,7 @@ def _inside(root: Path, relative: str) -> Path | None:
     return path if path.is_relative_to(root.resolve()) else None
 
 
-type Reader = Callable[[Path], bytes]  # 저장소 안의 경로 → 그 판의 바이트. 없으면 OSError
+type Reader = Callable[[Path], bytes]  # 저장소 안의 경로 → 그 버전의 바이트. 없으면 OSError
 
 
 def _read_disk(path: Path) -> bytes:
@@ -771,7 +790,7 @@ def _mutated(
     root: Path, mutation: Mutation, read: Reader = _read_disk
 ) -> dict[Path, tuple[bytes, bytes]]:
     """파일마다 (원래 바이트, 변이된 바이트). 편집은 적힌 차례로 앞 편집의 결과 위에 들어간다.
-    바이트는 `read` 가 읽는다. 기본은 디스크이고, 색인 확인은 커밋과 색인의 판을 읽는다."""
+    바이트는 `read` 가 읽는다. 기본은 디스크이고, 색인 확인은 커밋과 색인의 버전을 읽는다."""
     files: dict[Path, tuple[bytes, bytes]] = {}
     for edit in mutation.edit:
         path = _inside(root, edit.file)
@@ -1174,6 +1193,25 @@ def _matched(mutation: Mutation, runs: Sequence[_Run]) -> bool:
     return all(run.verdict.outcome == mutation.expect and not run.missing for run in runs)
 
 
+def _needs_marker(mutation: Mutation) -> bool:
+    """빨강이나 처리하지 않은 에러를 기대하는데 표지가 비어 있다. 기대대로 지나가므로 출력을 보려고
+    자리표 표지로 한 바퀴를 더 돌았다(대기열 mutate-marker-discovery)."""
+    return mutation.expect in ("red", "unhandled") and not mutation.expect_output
+
+
+def _keep_output(path: Path, mutation: Mutation, runs: Sequence[_Run]) -> None:
+    """출력 전체(색 코드를 벗긴 것)를 `path` 에 쓴다. 어긋난 마지막 반복의 출력이고, 어긋난 반복이
+    없으면 마지막 반복이다(기대대로인데 표지를 고르려는 변이). 화면은 끝 열 줄과 머리 줄 스무 줄만
+    보여 표지로 고를 줄이 가려졌다(대기열 mutate-marker-discovery). 쓰지 못하면 `OSError` 를 올리고,
+    부르는 쪽(`measure`)이 삼켜 판정에는 영향이 없다."""
+    chosen = next(
+        (run for run in reversed(runs) if run.verdict.outcome != mutation.expect or run.missing),
+        runs[-1],
+    )
+    path.parent.mkdir(exist_ok=True)  # 위쪽이 없으면 OSError 가 올라 쓰기를 포기한다
+    path.write_bytes(chosen.result.plain.encode("utf-8"))  # 줄 끝을 바꾸지 않으려 바이트로 쓴다
+
+
 def _report_mutation(
     number: int,
     mutation: Mutation,
@@ -1181,6 +1219,7 @@ def _report_mutation(
     *,
     matched: bool,
     out: Callable[[str], None],
+    kept: Path | None = None,
 ) -> None:
     outcomes = ", ".join(_LABELS[run.verdict.outcome] for run in runs)
     head = "==" if matched else "!! 어긋남 —"
@@ -1189,6 +1228,8 @@ def _report_mutation(
         f" 결과 {outcomes} — {runs[-1].verdict.summary}"
     )
     _details(runs, out)
+    if kept is not None:
+        out(f"   전체 출력: {kept}")
 
 
 def check(spec: Spec, *, root: Path, out: Callable[[str], None], read: Reader = _read_disk) -> int:
@@ -1220,11 +1261,13 @@ def measure(
     runner: Runner,
     out: Callable[[str], None],
     numbers: Mapping[str, int] | None = None,
+    output_file: Callable[[int], Path] | None = None,
 ) -> int:
     """기준선을 재고 변이를 하나씩 넣어 돌린다. 모두 기대대로면 0, 아니면 1. `numbers` 는 줄 머리와
     `다시 돌릴 번호` 에 다는 표의 번호이고, 없으면 `spec` 안의 차례다. 그래서 `select` 로 좁힌
     `spec` 을 넘기는 쪽은 원본 표의 번호(`_numbers(원본)`)를 함께 넘긴다. 넘기지 않으면 번호가
-    원본과 어긋나 다시 돌릴 번호가 다른 변이를 가리킨다(`main` 이 그렇게 넘긴다)."""
+    원본과 어긋나 다시 돌릴 번호가 다른 변이를 가리킨다(`main` 이 그렇게 넘긴다). `output_file` 은
+    표의 번호를 받아 어긋난 변이의 전체 출력을 쓸 파일을 내고, 없으면 파일을 남기지 않는다."""
     _validate(root, spec)
     if numbers is None:
         numbers = _numbers(spec)
@@ -1241,7 +1284,14 @@ def measure(
     for mutation in spec.mutation:
         runs = _mutation_runs(root, mutation, runners[mutation.runner], runner, out)
         matched = _matched(mutation, runs)
-        _report_mutation(numbers[mutation.name], mutation, runs, matched=matched, out=out)
+        number = numbers[mutation.name]
+        kept = None
+        if output_file is not None and (not matched or _needs_marker(mutation)):
+            path = output_file(number)
+            with contextlib.suppress(OSError):  # 보조 출력이 판정을 바꾸면 안 된다
+                _keep_output(path, mutation, runs)
+                kept = path
+        _report_mutation(number, mutation, runs, matched=matched, out=out, kept=kept)
         if not matched:
             mismatched.append(mutation.name)
 
@@ -1335,8 +1385,8 @@ def _check_files(paths: Sequence[str], *, root: Path, out: Callable[[str], None]
 
 
 _TABLES = "*_mutations.toml"  # 색인 확인이 보는 변이 표. git 의 경로 패턴이라 `*` 가 `/` 도 맞춘다
-_INDEX = ""  # 색인의 판 이름. 블롭 이름이 `:<경로>` 가 된다
-_BROKEN_HERE = "부모 판에서 맞던 원문을 이 커밋이 깼다"
+_INDEX = ""  # 색인의 버전 이름. 블롭 이름이 `:<경로>` 가 된다
+_BROKEN_HERE = "부모 버전에서 맞던 원문을 이 커밋이 깼다"
 # `git cat-file --batch` 의 머리 줄. 없는 것은 `<이름> missing` 따위라 맞지 않는다
 _BATCH_HEAD = re.compile(rb"[0-9a-f]{40,64} ([a-z]+) ([0-9]+)")
 
@@ -1355,7 +1405,8 @@ def _names(output: str) -> list[str]:
 
 def _blobs(root: Path, names: Sequence[str]) -> dict[str, bytes]:
     """`git cat-file --batch` 한 번으로 읽은 블롭. 이름은 `<커밋>:<경로>` 이고 색인은 `:<경로>` 다.
-    그 판에 없거나 블롭이 아닌 것은 빠진다. 줄바꿈이 든 이름은 그 프로토콜로 물을 수 없어 빠진다."""
+    그 버전에 없거나 블롭이 아닌 것은 빠진다. 줄바꿈이 든 이름은 그 프로토콜로 물을 수 없어
+    빠진다."""
     asked = [name for name in dict.fromkeys(names) if "\n" not in name]
     if not asked:
         return {}
@@ -1393,8 +1444,9 @@ def _blobs(root: Path, names: Sequence[str]) -> dict[str, bytes]:
 def _reader(
     root: Path, blobs: Mapping[str, bytes], rev: str, deleted: frozenset[str] | None = None
 ) -> Reader:
-    """`rev` 판의 바이트를 `blobs` 에서 읽는다. `rev` 가 `_INDEX` 면 색인이다. `deleted` 를 주면 그
-    판에 없고 `deleted` 에도 없는 파일(어느 판도 추적하지 않는 파일)은 작업 트리에서 읽는다."""
+    """`rev` 버전의 바이트를 `blobs` 에서 읽는다. `rev` 가 `_INDEX` 면 색인이다. `deleted` 를 주면
+    그 버전에 없고 `deleted` 에도 없는 파일(어느 버전도 추적하지 않는 파일)은 작업 트리에서
+    읽는다."""
     base = root.resolve()
     where = "색인" if rev == _INDEX else f"커밋 {rev[:12]}"
 
@@ -1433,7 +1485,7 @@ class _Relative:
 
 
 def _fits(root: Path, mutation: Mutation, read: Reader) -> bool:
-    """그 판에서 원문이 차례대로 모두 정확히 한 번씩 있다."""
+    """그 버전에서 원문이 차례대로 모두 정확히 한 번씩 있다."""
     try:
         _mutated(root, mutation, read)
     except SpecError:
@@ -1461,8 +1513,8 @@ def _parents(root: Path) -> list[str]:
 
 
 def _fresh(spec: Spec, olds: Sequence[bytes | None]) -> Spec | None:
-    """커밋에 든 표에서 어느 부모 판의 같은 표와도 다른 변이(`changed_names`)만 남긴 표. 없으면
-    None. 부모 판에 표가 없거나 지금의 도구로 읽지 못하면 그 부모와는 모두 다르다고 본다. 표지의
+    """커밋에 든 표에서 어느 부모 버전의 같은 표와도 다른 변이(`changed_names`)만 남긴 표. 없으면
+    None. 부모 버전에 표가 없거나 지금의 도구로 읽지 못하면 그 부모와는 모두 다르다고 본다. 표지의
     메아리는 이 변이만 본다(옛 변이는 소급하지 않는다, 대기열 417)."""
     names = {m.name for m in spec.mutation}
     for old in olds:
@@ -1487,7 +1539,7 @@ class _Watched:
 
 
 class _Authored(NamedTuple):
-    """이 커밋이 더했거나 고친 표. `fresh` 는 그 표에서 어느 부모 판의 같은 표와도 다른 변이다."""
+    """이 커밋이 더했거나 고친 표. `fresh` 는 그 표에서 어느 부모 버전의 같은 표와도 다른 변이다."""
 
     table: str
     spec: Spec
@@ -1495,11 +1547,11 @@ class _Authored(NamedTuple):
 
 
 def staged(*, root: Path, out: Callable[[str], None]) -> int:
-    """커밋에 들 판(색인)의 변이 표 원문을 본다. 모두 맞으면 0, 하나라도 틀리면 2.
+    """커밋에 들 내용(색인)의 변이 표 원문을 본다. 모두 맞으면 0, 하나라도 틀리면 2.
 
     표가 색인과 같은 부모가 하나도 없으면(이 커밋이 표를 더했거나 고쳤다) 모든 원문을 색인에서
     본다. 아니면 이 커밋이 고친 파일을 가리키는 변이만, 표가 같은 부모 모두에서 맞던 원문이 색인에서
-    깨졌을 때 알린다. 부모에서도 맞지 않던 원문은 썩어도 된다(대기열 73·92). 어느 판도 추적하지
+    깨졌을 때 알린다. 부모에서도 맞지 않던 원문은 썩어도 된다(대기열 73·92). 어느 버전도 추적하지
     않는 파일은 작업 트리에서 읽는다."""
     inside = _git(root, "rev-parse", "--is-inside-work-tree")
     if inside.returncode != 0 or inside.stdout.strip() != "true":
@@ -1507,7 +1559,7 @@ def staged(*, root: Path, out: Callable[[str], None]) -> int:
     parents = _parents(root)
     status = {parent: _changes(root, parent) for parent in parents}
     changed = {parent: frozenset(found) for parent, found in status.items()}
-    # 어느 부모에서 지워진 파일. 색인에 없는 파일 가운데 이것 밖의 것은 어느 판도 추적하지 않는다
+    # 어느 부모에서 지워진 파일. 색인에 없는 파일 가운데 이것 밖의 것은 어느 버전도 추적하지 않는다
     deleted = frozenset(
         path for found in status.values() for path, letter in found.items() if letter == "D"
     )
@@ -1572,7 +1624,7 @@ def staged(*, root: Path, out: Callable[[str], None]) -> int:
         problems += len(found)
     for item in watched:
         if not all(_fits(root, item.mutation, _reader(root, blobs, rev)) for rev in item.same):
-            continue  # 부모 판에서도 맞지 않던 원문이다
+            continue  # 부모 버전에서도 맞지 않던 원문이다
         try:
             _mutated(root, item.mutation, index)
         except SpecError as error:
@@ -1780,6 +1832,16 @@ def _running_marker(root: Path, table: Path) -> Generator[None]:
                 marker.unlink(missing_ok=True)
 
 
+def _output_namer(git_dir: Path, table: Path) -> Callable[[int], Path]:
+    """표의 번호를 받아 어긋난 변이의 전체 출력을 쓸 파일을 내는 함수. git 디렉터리는 추적하지 않는
+    자리라 `git status` 와 편집 훅에 잡히지 않고 `.gitignore` 도 필요 없다."""
+
+    def named(number: int) -> Path:
+        return git_dir / OUTPUT_DIR / f"{table.stem}-{number}.txt"
+
+    return named
+
+
 def _run_table(args: _Args, *, root: Path, runner: Runner, out: Callable[[str], None]) -> int:
     """표 하나에서 고른 변이를 잰다. `--check` 면 원문만 본다. 고르지 않은 전체 실행이면 시작
     줄에서 커밋하지 않은 변경을 알린다."""
@@ -1795,8 +1857,17 @@ def _run_table(args: _Args, *, root: Path, runner: Runner, out: Callable[[str], 
         return check_picked(selected, root=root, out=out)
     if not args.picks and args.since is None:
         _note_uncommitted(root, selected, table, out)
+    git_dir = git_dir_of(root)
+    output_file = None if git_dir is None else _output_namer(git_dir, table)
     with _running_marker(root, table):
-        return measure(selected, root=root, runner=runner, out=out, numbers=_numbers(spec))
+        return measure(
+            selected,
+            root=root,
+            runner=runner,
+            out=out,
+            numbers=_numbers(spec),
+            output_file=output_file,
+        )
 
 
 def main(
@@ -1808,7 +1879,7 @@ def main(
 ) -> int:
     if "--staged" in argv:
         if len(argv) != 1:
-            out("--staged 는 다른 인자와 섞지 않는다. 커밋에 들 판(색인)의 표를 모두 본다")
+            out("--staged 는 다른 인자와 섞지 않는다. 커밋에 들 내용(색인)의 표를 모두 본다")
             return 2
         try:
             return staged(root=root, out=out)

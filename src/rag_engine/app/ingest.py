@@ -12,13 +12,18 @@
 아래 새 원본 경로로 옮긴 뒤 갱신으로 다시 처리한다.
 
 지우지 않은 문서에 내용이 같은 수집은 셋으로 갈린다. 그룹이 바뀌었으면 `updated`이고, 앞선 색인이
-실패했으면 `requeued`이며, 아니면 `unchanged`다. 그룹이 바뀌면 같은 작업 단위에서 조각의 복사 칸을
-새 그룹으로 고치고 문서가 빠지는 지식베이스의 살아 있는 판에서 문서의 조각과 색인 상태를 지운다.
+실패했으면 `requeued`이며, 아니면 `unchanged`다. 건너뜀(`skipped`)은 실패가 아니므로 건너뜀 문서에
+내용이 같은 파일을 다시 넣으면 `unchanged`이고 작업이 들어가지 않는다(재시도를 다 써서 색인 상태가
+`failed`인 판이 있으면 앞 문단대로 `requeued`다). 내용이 다르면 보통의 갱신이라
+문서 상태가 `received`로 돌아가고 건너뜀 사유가 사라진다. 그룹이 바뀌면 같은 작업 단위에서 조각의
+복사 칸을 새 그룹으로 고치고 문서가 빠지는 지식베이스의 살아 있는 판에서 문서의 조각과 색인 상태를
+지운다.
 
 지운 문서(`deleted_at`은 있고 `purged_at`은 없다)가 같은 키로 돌아오면 되살림(`restored`)이다. 문서
 UUID를 그대로 두고, 내용이 같으면 보관 조각을 검색 표로 되돌리며(되돌릴 조각이 없는 대상 판이 있을
-때만 작업을 넣는다), 내용이 다르면 보관 조각을 지우고 갱신으로 간다. 정리 작업이 물리 삭제해
-삭제 기록 행만 남은 문서(`purged_at`)가 같은 키로 오면 그 행을 다시 써 UUID를 잇고 `created`다.
+때만 작업을 넣는다. 건너뜀 문서는 조각이 없어도 작업 없이 색인 상태만 다시 쓴다), 내용이 다르면 보관
+조각을 지우고 갱신으로 간다. 정리 작업이 물리 삭제해 삭제 기록 행만 남은 문서(`purged_at`)가 같은
+키로 오면 그 행을 다시 써 UUID를 잇고 `created`다.
 """
 
 import hashlib
@@ -32,18 +37,19 @@ from uuid import UUID
 
 from rag_engine.app.default_records import DEFAULT_NAME
 from rag_engine.app.document_outcome import index_failure_code
-from rag_engine.app.live_versions import live_index_versions
+from rag_engine.app.job_attempt import hold_attempt
+from rag_engine.app.restore_chunks import restore_chunks
+from rag_engine.app.source_lookup import lock_live_source, require_push_source
 from rag_engine.app.version_switch import check_version_switch
 from rag_engine.domain.entities import (
     Document,
     DocumentStatus,
-    IndexState,
-    IndexStateStatus,
-    IndexVersion,
     IndexVersionStatus,
     IngestAction,
+    Job,
     JsonValue,
     KnowledgeBase,
+    Source,
 )
 from rag_engine.domain.errors import (
     DocumentAlreadyExistsError,
@@ -64,7 +70,8 @@ _MAX_ATTEMPTS: Final = 2
 
 @dataclass(frozen=True, slots=True)
 class IngestRequest:
-    """수집 요청의 입력. `key`와 `group`을 주지 않으면 파일 이름과 기본 그룹이다."""
+    """수집 요청의 입력. `key`, `group`, `source`를 주지 않으면 파일 이름, 기본 그룹, 기본 원천
+    `default`다."""
 
     filename: str | None
     data: bytes
@@ -72,6 +79,7 @@ class IngestRequest:
     group: str | None
     metadata: Mapping[str, JsonValue]
     updated_at: datetime | None
+    source: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,7 +105,25 @@ class _Upload:
     metadata: Mapping[str, JsonValue]
     updated_at: datetime | None
     document_id: UUID
-    blob_key: str
+    # 가져오는 원천의 문서는 원본을 파일 저장소에 쓰지 않아 비어 있다.
+    blob_key: str | None
+    change_marker: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PulledDocument:
+    """가져오는 원천에서 읽은 파일 하나. 원본은 파일 저장소에 쓰지 않고 문서 행에 원본 경로를
+    비운다. 그룹은 원천의 그룹이다. `content_hash`는 호출한 쪽(동기화)이 이미 낸 바이트의 해시다."""
+
+    source: Source
+    key: str
+    data: bytes
+    content_hash: str
+    mime: str
+    title: str
+    metadata: Mapping[str, JsonValue]
+    updated_at: datetime | None
+    change_marker: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,10 +162,62 @@ async def ingest_document(
         raise RequestError(ErrorCode.UNSUPPORTED_MEDIA_TYPE, "PDF, DOCX, HWPX만 받는다")
     upload = await _locate(unit_of_work, request, key, mime)
 
-    await blob_store.write(upload.blob_key, request.data)
+    await blob_store.write(_stored_key(upload), request.data)
     recorded = await _record_with_retry(unit_of_work, blob_store, request, upload, request_id, now)
     await _remove_quietly(blob_store, recorded.stale_blob_key)
     return recorded.result
+
+
+async def ingest_pulled_document(
+    unit_of_work: UnitOfWork,
+    pulled: PulledDocument,
+    *,
+    request_id: UUID,
+    now: datetime,
+    holding: Job,
+) -> IngestResult:
+    """동기화가 가져온 파일을 문서로 넣는다. 문서 행과 색인 작업을 한 작업 단위에 쓰고, 그 끝에서
+    `holding`(동기화 작업)의 작업 행 조건을 본다. 어긋나면 작업 단위를 되돌리고 `AttemptLostError`를
+    올린다. 원본은 쓰지 않으므로 지울 원본도 없다."""
+    group_id = pulled.source.group_id
+    if group_id is None:
+        raise RuntimeError("가져오는 원천에 그룹이 없다")
+    async with unit_of_work.begin() as transaction:
+        existing = await transaction.documents.get_by_key(pulled.source.id, pulled.key)
+    upload = _Upload(
+        source_id=pulled.source.id,
+        group_id=group_id,
+        key=pulled.key,
+        title=pulled.title,
+        mime=pulled.mime,
+        size_bytes=len(pulled.data),
+        content_hash=pulled.content_hash,
+        metadata=pulled.metadata,
+        updated_at=pulled.updated_at,
+        document_id=new_id() if existing is None else existing.id,
+        blob_key=None,
+        change_marker=pulled.change_marker,
+    )
+    return (await _record(unit_of_work, upload, request_id, now, holding)).result
+
+
+async def requeue_locked_document(
+    transaction: Transaction, document: Document, *, request_id: UUID, now: datetime
+) -> IngestResult:
+    """문서 행을 잠근 작업 단위에서 그 문서의 색인 작업을 다시 넣는다. 내용은 그대로이고 세대만
+    올린다(앞선 시도의 작업이 아직 돌고 있으면 그 시도의 결과는 버려진다). 문서 상태는 작업이
+    정한다. 동기화가 실패하거나 건너뛴 문서를 다시 시도시킬 때 쓴다."""
+    requeued = replace(document, generation=document.generation + 1, modified_at=now)
+    await transaction.documents.update(requeued)
+    job_id = await _schedule(transaction, requeued, document, request_id, now)
+    return IngestResult(IngestAction.REQUEUED, requeued.id, job_id)
+
+
+def _stored_key(upload: _Upload) -> str:
+    """파일 저장소에 쓴 원본의 경로. 밀어 넣는 원천의 수집만 부른다."""
+    if upload.blob_key is None:
+        raise RuntimeError("원본 경로가 없는 수집이다")
+    return upload.blob_key
 
 
 def _ensure_filename_storable(filename: str | None) -> None:
@@ -162,11 +240,10 @@ def _title(metadata: Mapping[str, JsonValue], name: str) -> str:
 
 
 async def _locate(unit_of_work: UnitOfWork, request: IngestRequest, key: str, mime: str) -> _Upload:
-    """원천과 그룹을 읽고 원본을 둘 경로를 정한다. 없는 그룹이면 원본을 쓰기 전에 거부한다."""
+    """원천과 그룹을 읽고 원본을 둘 경로를 정한다. 없는 원천이나 그룹이면 원본을 쓰기 전에
+    거부한다."""
     async with unit_of_work.begin() as transaction:
-        source = await transaction.catalog.get_source(DEFAULT_NAME)
-        if source is None:
-            raise RuntimeError("기본 원천이 없다. migrate를 돌려야 한다")
+        source = await require_push_source(transaction, request.source)
         group = await transaction.catalog.get_group(request.group or DEFAULT_NAME)
         if group is None:
             raise RequestError(ErrorCode.GROUP_NOT_FOUND, "그 이름의 그룹이 없다")
@@ -253,25 +330,41 @@ async def _write_under_winner(
     if winner is None:
         raise RuntimeError("같은 키의 문서가 있다고 했는데 읽히지 않는다")
     moved = replace(upload, document_id=winner.id, blob_key=_blob_key(winner.id))
-    await blob_store.write(moved.blob_key, request.data)
+    await blob_store.write(_stored_key(moved), request.data)
     return moved
 
 
 async def _record(
-    unit_of_work: UnitOfWork, upload: _Upload, request_id: UUID, now: datetime
+    unit_of_work: UnitOfWork,
+    upload: _Upload,
+    request_id: UUID,
+    now: datetime,
+    holding: Job | None = None,
 ) -> _Recorded:
+    """`holding`은 동기화 작업이다. 주면 작업 단위의 끝(작업 행을 마지막에 잠그는 자리)에서 작업 행
+    조건을 본다."""
     async with unit_of_work.begin() as transaction:
-        existing = await transaction.documents.get_by_key(upload.source_id, upload.key)
-        if existing is None:
-            return await _create(transaction, upload, request_id, now)
-        if existing.id != upload.document_id:
-            # 원본 경로를 정한 뒤에 같은 키의 문서가 생겼다. 원본은 그 문서의 UUID 아래에 있어야
-            # 한다.
-            raise DocumentAlreadyExistsError("원본 경로를 정한 뒤에 같은 키의 문서가 생겼다")
-        locked = await transaction.documents.lock(existing.id)
-        if locked is None:
-            raise RuntimeError("문서 행이 잠그는 사이에 사라졌다")
-        return await _amend(transaction, locked, upload, request_id, now)
+        recorded = await _record_in(transaction, upload, request_id, now)
+        if holding is not None:
+            await hold_attempt(transaction, holding)
+        return recorded
+
+
+async def _record_in(
+    transaction: Transaction, upload: _Upload, request_id: UUID, now: datetime
+) -> _Recorded:
+    await lock_live_source(transaction, upload.source_id)
+    existing = await transaction.documents.get_by_key(upload.source_id, upload.key)
+    if existing is None:
+        return await _create(transaction, upload, request_id, now)
+    if existing.id != upload.document_id:
+        # 원본 경로를 정한 뒤에 같은 키의 문서가 생겼다. 원본은 그 문서의 UUID 아래에 있어야
+        # 한다.
+        raise DocumentAlreadyExistsError("원본 경로를 정한 뒤에 같은 키의 문서가 생겼다")
+    locked = await transaction.documents.lock(existing.id)
+    if locked is None:
+        raise RuntimeError("문서 행이 잠그는 사이에 사라졌다")
+    return await _amend(transaction, locked, upload, request_id, now)
 
 
 def _fresh_document(upload: _Upload, now: datetime, *, generation: int) -> Document:
@@ -298,6 +391,7 @@ def _fresh_document(upload: _Upload, now: datetime, *, generation: int) -> Docum
         purged_at=None,
         created_at=now,
         modified_at=now,
+        change_marker=upload.change_marker,
     )
 
 
@@ -357,6 +451,7 @@ def _refresh_metadata(existing: Document, upload: _Upload) -> Document:
         title=upload.title,
         metadata=upload.metadata,
         updated_at=existing.updated_at if upload.updated_at is None else upload.updated_at,
+        change_marker=upload.change_marker,
     )
 
 
@@ -371,7 +466,7 @@ async def _restore(
     어느 지식베이스에서도 빠질 것이 없다. 그래서 되살린 문서를 처음부터 요청의 그룹에 든 것으로 두고
     지식베이스 행의 잠금과 조각의 복사 칸을 다룬다. 내용이 다르면 보관 조각을 지우고 갱신으로
     간다(`restored`에 작업 ID)."""
-    revived = replace(deleted, deleted_at=None, group_id=upload.group_id)
+    revived = replace(deleted, deleted_at=None, deleted_with_source=False, group_id=upload.group_id)
     if deleted.content_hash != upload.content_hash:
         await transaction.index.delete_archived_chunks(deleted.id)
         return await _update_content(
@@ -387,69 +482,16 @@ async def _restore_chunks(
     request_id: UUID,
     now: datetime,
 ) -> _Recorded:
-    """내용이 같은 되살림이다. 대상 판은 요청의 그룹이 든 지식베이스의 살아 있는 판이다. 만든 내용
-    해시가 같은 보관 조각을 대상 판의 검색 표로 되돌리고 그 판에 `indexed`를 쓴다. 보관 조각은
-    되돌렸든 아니든 모두 지운다. 되돌릴 조각이 없는 대상 판이 있으면 작업을 넣고, 그 판이 건설 중인
-    판이 아니면 `pending`을 쓴다(건설 중인 판에 `pending`을 쓰면 그 문서의 작업이 끝날 때까지 판이
-    전환되지 않을 수 있다. 명세 "재색인 시작" 항목). 건설 중인 판에 `indexed`를 써도 전환 검사를
-    부르지 않는다. 그 판에 색인 상태가 없던 문서의 `indexed` 한 행은 전환 조건(모든 색인 상태가
-    `indexed`나 `failed`)을 새로 채우지 못하고, 검사는 지식베이스 행을 `FOR UPDATE`로 올려 잠가야
-    해서 같은 지식베이스의 되살림끼리 서로를 기다릴 수 있다. 조각이 하나라도 돌아오면 그 조각은 같은
-    해시의 내용을 파싱해 만든 것이므로 문서 상태를 `parsed`로 쓴다(갱신이 `received`로 쓴 뒤 색인
-    작업이 돌기 전에 지운 문서는 작업이 지워져 상태를 고칠 작업이 없다). 문서 행은 새 원본을
-    가리키지 않아 새 원본은 커밋 뒤에 지운다."""
+    """내용이 같은 되살림이다. 요청의 값(그룹, 제목, 메타데이터, 갱신일)을 문서 행에 반영하고 세대를
+    올린 뒤 되살림 본체(`restore_chunks`)에 맡긴다. 건설 중인 판이 전환되는 조건은 모든 색인 상태가
+    `indexed`나 `failed`인 것이고, 되살림이 그 판에 `indexed`를 써도 전환 검사를 부르지 않는 까닭은
+    `restore_chunks` 모듈 독스트링이 푼다. 문서 행은 새 원본을 가리키지 않아 새 원본은 커밋 뒤에
+    지운다."""
     document = replace(
         _refresh_metadata(revived, upload), generation=revived.generation + 1, modified_at=now
     )
-    await _lock_knowledge_bases(transaction, document.group_id, document.group_id)
-    versions = await live_index_versions(transaction, document.group_id)
-    restored = await transaction.index.restore_archived_chunks(
-        document, [version.id for version in versions]
-    )
-    if restored:
-        document = replace(document, status=DocumentStatus.PARSED)
-    await transaction.documents.update(document)
-    await transaction.index.delete_archived_chunks(document.id)
-    for version in versions:
-        if version.id in restored:
-            await transaction.index.save_state(
-                _restored_state(document, version, restored[version.id], now)
-            )
-    unrestored = [version for version in versions if version.id not in restored]
-    job_id: UUID | None = None
-    if unrestored:
-        for version in unrestored:
-            if version.status is not IndexVersionStatus.BUILDING:
-                await transaction.index.save_state(_pending_state(document, version, now))
-        job_id = (await transaction.jobs.enqueue(document.id, request_id, now)).id
+    job_id = await restore_chunks(transaction, document, request_id, now)
     return _Recorded(IngestResult(IngestAction.RESTORED, document.id, job_id), upload.blob_key)
-
-
-def _restored_state(
-    document: Document, version: IndexVersion, chunk_count: int, now: datetime
-) -> IndexState:
-    """보관 조각이 돌아온 판의 색인 상태다. 돌아온 조각이 만든 내용 해시는 문서의 것과 같다."""
-    return IndexState(
-        document_id=document.id,
-        index_version_id=version.id,
-        status=IndexStateStatus.INDEXED,
-        chunk_count=chunk_count,
-        built_content_hash=document.content_hash,
-        error_code=None,
-        updated_at=now,
-    )
-
-
-def _pending_state(document: Document, version: IndexVersion, now: datetime) -> IndexState:
-    return IndexState(
-        document_id=document.id,
-        index_version_id=version.id,
-        status=IndexStateStatus.PENDING,
-        chunk_count=0,
-        built_content_hash=None,
-        error_code=None,
-        updated_at=now,
-    )
 
 
 async def _update_content(
@@ -475,8 +517,10 @@ async def _update_content(
         updated_at=upload.updated_at or now,
         status=DocumentStatus.RECEIVED,
         error_code=None,
+        skip_reason=None,
         generation=existing.generation + 1,
         modified_at=now,
+        change_marker=upload.change_marker,
     )
     await transaction.documents.update(document)
     job_id = await _schedule(transaction, document, existing, request_id, now)

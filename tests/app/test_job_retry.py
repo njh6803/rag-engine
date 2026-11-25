@@ -177,7 +177,7 @@ async def test_원본을_읽지_못하면_blob_store_error로_다시_예약된�
     ingested = await pipeline.ingest(휴가)
     async with pipeline.unit_of_work.begin() as transaction:
         document = await transaction.documents.get(ingested.document_id)
-    assert document is not None
+    assert document is not None and document.blob_path is not None
     await pipeline.blob_store.delete(document.blob_path)
 
     await _attempt(pipeline, _policy(6))
@@ -574,7 +574,7 @@ async def test_파싱이_영구_실패한_작업도_실제_파싱_지연을_싣�
         if payload["event"] == "job_finished"
     ]
     assert [(item["result"], item["error_code"]) for item in finished] == [
-        ("failed", "encrypted_document")
+        ("failed", "parse_failed")
     ]
     assert finished[0]["parse_ms"] > 0
 

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import httpx
 import sqlalchemy as sa
@@ -22,11 +23,13 @@ from tests.support.tei_stub import TeiStub
 
 from rag_engine.adapters.blob_store import LocalBlobStore
 from rag_engine.adapters.chunking import chunker_for
+from rag_engine.adapters.connectors.registry import EntryPointConnectorRegistry
 from rag_engine.adapters.kiwi import tokenize_keywords
 from rag_engine.adapters.parsers.registry import ParserRegistry, discover_parser_specs
 from rag_engine.adapters.parsers.runner import SubprocessParseRunner
 from rag_engine.adapters.postgres.index_maintenance import PostgresIndexMaintenance
 from rag_engine.adapters.postgres.unit_of_work import PostgresUnitOfWork
+from rag_engine.adapters.schedule import CronsimScheduleCalculator
 from rag_engine.adapters.tei import TeiEmbedderPool
 from rag_engine.app.delete_document import delete_document
 from rag_engine.app.index_document import IndexDocumentDeps
@@ -44,7 +47,8 @@ from rag_engine.domain.entities import (
 )
 from rag_engine.domain.identifiers import new_id
 from rag_engine.domain.parsing import ParseRunner
-from rag_engine.domain.ports import EmbedderFor, UnitOfWork
+from rag_engine.domain.ports import ConnectorRegistry, EmbedderFor, UnitOfWork
+from rag_engine.worker.schedule_loop import ScheduleDeps
 
 DIMENSIONS = 16
 LEASE_SECONDS = 600.0
@@ -86,8 +90,18 @@ class Pipeline:
         parse_runner: ParseRunner | None = None,
         unit_of_work: UnitOfWork | None = None,
         retry: RetryPolicy = DEFAULT_RETRY,
+        connectors: ConnectorRegistry | None = None,
+        source_read_timeout_seconds: float = 600.0,
+        max_upload_bytes: int = 100 * 1024 * 1024,
+        deleted_retention_days: int = 30,
+        sync_record_retention_days: int = 90,
     ) -> IndexDocumentDeps:
         return IndexDocumentDeps(
+            connectors=connectors or EntryPointConnectorRegistry(lambda: []),
+            source_read_timeout_seconds=source_read_timeout_seconds,
+            max_upload_bytes=max_upload_bytes,
+            deleted_retention_days=deleted_retention_days,
+            sync_record_retention_days=sync_record_retention_days,
             retry=retry,
             unit_of_work=unit_of_work or self.unit_of_work,
             blob_store=self.blob_store,
@@ -97,6 +111,14 @@ class Pipeline:
             tokenize_keywords=tokenize_keywords,
             now=lambda: self.clock[0],
             maintenance=PostgresIndexMaintenance(self.engine),
+        )
+
+    def schedules(self, unit_of_work: UnitOfWork | None = None) -> ScheduleDeps:
+        """`serve`가 받는 일정 확인 묶음. 시계는 이 파이프라인의 시계이고 계산기는 서울 시각이다."""
+        return ScheduleDeps(
+            unit_of_work or self.unit_of_work,
+            CronsimScheduleCalculator(ZoneInfo("Asia/Seoul")),
+            lambda: self.clock[0],
         )
 
     async def ingest(
@@ -119,7 +141,7 @@ class Pipeline:
         )
 
     async def delete(self, key: str = "규정.docx") -> None:
-        await delete_document(self.unit_of_work, key, now=self.clock[0])
+        await delete_document(self.unit_of_work, key, source_name=None, now=self.clock[0])
 
     async def archived_texts(self, document_id: UUID) -> list[str]:
         """삭제 보관함에 있는 그 문서의 조각 글(순번 순)."""

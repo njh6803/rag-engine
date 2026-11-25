@@ -162,7 +162,7 @@ def test_게이트의_dollar_question_을_읽지_않은_체인은_계속_경고�
 
 def test_and_뒤의_dollar_question_은_게이트가_실패하면_건너뛰어져_읽은_것이_아니다() -> None:
     """PR 직전 리뷰(CodeRabbit): `&&` 뒤 읽기는 게이트가 실패하면 실행되지 않고, 이어지는
-    `echo done` 이 종료 코드를 0으로 덮어쓴다. 옛 판은 이 입력을 경고했다. `||` 뒤 읽기는
+    `echo done` 이 종료 코드를 0으로 덮어쓴다. 옛 버전은 이 입력을 경고했다. `||` 뒤 읽기는
     게이트가 실패해야 실행되니 읽은 것이다."""
     skipped = warnings_for("uv run pytest -q && echo $?; echo done; echo $?")
     on_failure = warnings_for("uv run pytest -q || echo $?; echo done; echo $?")
@@ -174,7 +174,7 @@ def test_and_뒤의_dollar_question_은_게이트가_실패하면_건너뛰어�
 
 def test_백그라운드_ampersand_뒤의_dollar_question_도_읽은_것이_아니다() -> None:
     """PR 봇 1회차(CodeRabbit·claude-review): `pytest & echo $?` 의 `$?` 는 백그라운드 기동의
-    0이라 게이트의 결과가 아니다. 옛 판은 이 입력을 경고했다. 읽힌 것으로 세는 경계는 `;`·개행·
+    0이라 게이트의 결과가 아니다. 옛 버전은 이 입력을 경고했다. 읽힌 것으로 세는 경계는 `;`·개행·
     `||` 뿐이다."""
     background = warnings_for("uv run pytest -q & echo $?; echo done; echo $?")
     newline = warnings_for("uv run pytest -q\necho $?\necho done\necho $?")

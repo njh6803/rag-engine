@@ -32,7 +32,7 @@ Write 는 단계를 닫는 것이 아니라 좁혔다(PR #91 리뷰). 경로만 
 세션을 커밋 전에 일지 이름 시험(`tests/test_journal_names.py`)이 잡기 전에 알리려는 것이다. 새
 파일인지는 Write 결과의 `type` 이 `create` 인지로 가른다(덮어쓰면 `update`, Edit 의 결과에는 그 값이
 없다. 2026-10-16 claude 2.1.300, `.scratch/harness/probes/journal_number_hook/run.py` 의 A). 파일
-이름만 보고 자식 프로세스를 띄우지 않는다. 번호를 대 보던 옛 판은 `tools/sibling_overlap.py` 를
+이름만 보고 자식 프로세스를 띄우지 않는다. 번호를 대 보던 옛 버전은 `tools/sibling_overlap.py` 를
 자식으로 돌려 한 번에 9~11초가 들었고, 시간 제한도 그만큼 길게 잡아야 했다.
 못 보는 것(이름 꼴): 꼴만 맞고 시각이 지금이 아닌 이름(`2026-11-07-9999-x.md`, 어제 시각), 날짜가
 실제로 있는 날인지, Write 가 아닌 길로 만든 일지(Bash 의 `cat >`·`mv`·`git mv`, PowerShell), 이미

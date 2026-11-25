@@ -1,7 +1,8 @@
 """삭제, 되살림, 삭제 기록(명세 "삭제, 되살림, 묘비", 티켓 11).
 
 실제 테스트 PostgreSQL, 실제 DOCX 파서 자식 프로세스, 실제 청커와 Kiwi 위에서 돈다. 임베딩 서버만
-`TeiStub`이다. 정리 작업은 core에 없어 삭제 기록 행은 시험이 데이터베이스에 직접 만든다.
+`TeiStub`이다. 삭제 기록 행은 시험이 데이터베이스에 직접 만든다(정리 작업이 만드는 것은
+`test_cleanup.py`가 본다).
 """
 
 from datetime import timedelta
@@ -15,6 +16,7 @@ from tests.support.pipeline import Pipeline
 
 from rag_engine.app import delete_document as delete_module
 from rag_engine.app import ingest as ingest_module
+from rag_engine.app import restore_chunks as restore_chunks_module
 from rag_engine.app.index_document import index_document
 from rag_engine.domain.entities import (
     Document,
@@ -200,6 +202,9 @@ async def test_건설_중인_판에_보관_조각이_돌아오면_indexed를_쓰
     pipeline: Pipeline, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     building = await pipeline.add_building_version()
+    # 건설 중인 판이 `pending` 문서 없이 색인이나 삭제를 만나면 곧바로 현재 판이 된다. 되살릴 때까지
+    # 건설 중인 판으로 두려고 자리 표시 문서가 `pending`을 붙들게 한다.
+    await pipeline.keep_pending(building)
     ingested = await pipeline.ingest(휴가)
     await _work(pipeline)
     await pipeline.delete()
@@ -209,6 +214,10 @@ async def test_건설_중인_판에_보관_조각이_돌아오면_indexed를_쓰
         checked.append(version)
 
     monkeypatch.setattr(ingest_module, "check_version_switch", record)
+    # 조각을 되돌리는 단계는 `restore_chunks`로 옮겨 갔고 이 모듈은 전환 검사를 부르지 않는다.
+    # 그래서 모듈에 그 이름이 없는 것이 맞고, 누가 그 단계에서 검사를 부르기 시작하면 이 기록이
+    # 잡는다.
+    monkeypatch.setattr(restore_chunks_module, "check_version_switch", record, raising=False)
 
     restored = await pipeline.ingest(휴가)
 
@@ -235,6 +244,7 @@ async def test_내용이_다른_수집으로_되살리면_보관_조각을_지�
     assert await pipeline.archived_texts(ingested.document_id) == []
     assert await pipeline.chunk_texts(ingested.document_id) == []
     (new_blob,) = _blobs(tmp_path)
+    assert document.blob_path is not None
     assert new_blob != old_blob and document.blob_path.endswith(new_blob.name)
     await _work(pipeline)
     texts = await pipeline.chunk_texts(ingested.document_id)
@@ -301,6 +311,7 @@ async def test_삭제_기록_행과_같은_키가_오면_그_행을_다시_써_U
         DocumentStatus.RECEIVED,
     )
     assert (document.created_at, document.modified_at) == (tombstone.created_at, pipeline.clock[0])
+    assert document.blob_path is not None
     assert document.blob_path != tombstone.blob_path
     assert _blobs(tmp_path) == [tmp_path / document.blob_path]
     await _work(pipeline)

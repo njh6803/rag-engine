@@ -45,6 +45,7 @@ compose가 갈린다.
 서버를 되살린다.
 """
 
+import asyncio
 import http.client
 import json
 import os
@@ -67,7 +68,7 @@ import httpx2
 import pytest
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
 ROOT: Final = Path(__file__).resolve().parents[2]
 
@@ -114,6 +115,16 @@ REQUIRED_VALUES: Final = (
 SAMPLE_DIR: Final = ROOT / "tests" / "fixtures"
 QUERY: Final = "연차휴가"
 EXPECTED: Final = "연차휴가는 입사 일 년 뒤부터 발생한다"
+SAMPLE_PDF: Final = "small_text.pdf"
+# 서버 기계의 원천 폴더(설치 폴더의 sources/) 아래에 두는 폴더와 파일, 그 폴더로 만드는 원천의 이름.
+SOURCE_FOLDER: Final = "regulations"
+SOURCE_FILE: Final = "leave.pdf"
+SOURCE_NAME: Final = "regulations"
+# 기다리는 상한이다. 개발 PC에서 손으로 띄운 같은 묶음의 스택에서 동기화 기록은 1초 안에
+# 끝났다(손으로 본 값). 검색에 나오기까지는 임베딩 서버의 상태에 따라 달라 따로 재지 않았다. 둘 다
+# CI의 느린 러너를 넉넉히 덮으려는 값이다.
+SYNC_SECONDS: Final = 120.0
+INDEX_SECONDS: Final = 600.0
 # 15초는 명세가 운영자에게 약속한 수치다(티켓 03, 명세 "단독 compose"). 그래서
 # .claude/rules/tests.md의 "홀로 돌린 시간의 넉넉한 배수" 규칙을 따르지 못한다. 서버 프로세스를
 # 죽이는 시험에서 개발 PC의 손으로 본 값이 8.0초와 9.5초였고(커밋하지 않은 임시 출력), 깨뜨린
@@ -225,12 +236,15 @@ def write_env(directory: Path, namespace: str, version: str, password: str) -> N
 
 def clean_environment() -> dict[str, str]:
     """compose가 자기 `.env`가 아니라 이 셸에서 값을 받지 않게 한다. 이 시험이 보는 값 넷과
-    `COMPOSE_`로 시작하는 변수를 벗긴다."""
+    `COMPOSE_`로 시작하는 변수를 벗긴다. 원천 폴더(`RAG_ENGINE_SOURCES_DIR`)도 벗긴다. 셸에 그
+    값이 있으면 compose가 `.env`보다 먼저 써서, 시험이 만든 표본 폴더가 아니라 다른 폴더를
+    읽는다."""
     return {
         name: value
         for name, value in os.environ.items()
         if name not in REQUIRED_VALUES
         and name != "RAG_ENGINE_SERVER_TMP_SIZE"
+        and name != "RAG_ENGINE_SOURCES_DIR"
         and not name.startswith("COMPOSE_")
     }
 
@@ -535,6 +549,15 @@ def stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Stack]:
             models.mkdir(parents=True)
         own(directory, namespace, version, ["models"], "10001:10001")
 
+        # 운영자가 설치 폴더의 sources/ 아래에 원천 폴더를 만들고 문서를 둔다(안내 6절).
+        # 서버와 작업자가 uid 10001로 읽으므로 폴더와 파일을 모두에게 읽히게 둔다.
+        source_folder = directory / "sources" / SOURCE_FOLDER
+        source_folder.mkdir(parents=True)
+        source_file = source_folder / SOURCE_FILE
+        shutil.copyfile(SAMPLE_DIR / SAMPLE_PDF, source_file)
+        source_folder.chmod(0o755)
+        source_file.chmod(0o644)
+
         built = Stack(project, directory, namespace, version, "", (None, 0.0))
         run(
             [*UP_COMMAND[:2], "-p", project, *UP_COMMAND[2:]],
@@ -761,7 +784,7 @@ def test_nginx_t_c와_nginx_s_reload_c가_종료_코드_0이다(stack: Stack) ->
 
 
 def handshake(cafile: Path, port: int, version: ssl.TLSVersion) -> str | None:
-    """보안 수준을 낮춘(`SECLEVEL=0`) 클라이언트가 `version` 하나만 내밀어 손을 맺은 판. 거부되면
+    """보안 수준을 낮춘(`SECLEVEL=0`) 클라이언트가 `version` 하나만 내밀어 손을 맺은 버전. 거부되면
     None.
 
     수준을 낮추지 않으면 OpenSSL 3 클라이언트가 스스로 1.1을 거부해 서버의 설정과 상관없이 이 확인을
@@ -782,7 +805,7 @@ def handshake(cafile: Path, port: int, version: ssl.TLSVersion) -> str | None:
 
 
 def serve_only(directory: Path, version: ssl.TLSVersion) -> tuple[int, Path, threading.Thread]:
-    """대조군. `version` 하나만 받는 서버를 루프백에 띄워 한 번 받는다. 이 클라이언트가 그 판을
+    """대조군. `version` 하나만 받는 서버를 루프백에 띄워 한 번 받는다. 이 클라이언트가 그 버전을
     실제로 내밀 수 있다는 것을 보인다. 못 내밀면 프록시가 거부해도 서버의 설정과 상관없다.
 
     인증서는 `directory`에 새로 만든다. 스택의 키(`tls/privkey.pem`)는 리눅스에서 `root:101`,
@@ -839,7 +862,7 @@ def test_TLS_1_1만_내밀면_맺지_못하고_1_2와_1_3은_맺는다(stack: St
         "대조군: 이 클라이언트가 TLS 1.1을 내밀지 못한다. 확인이 서버와 상관없이 지난다"
     )
     # nginx 쪽 OpenSSL도 기본 보안 수준에서 1.1을 스스로 거절해, `ssl_protocols`에 1.1을 넣은
-    # 사본으로도 아래 손 맺기가 거부된다(깨뜨린 사본으로 봤다). 그래서 설정이 정한 판 목록을 실행
+    # 사본으로도 아래 손 맺기가 거부된다(깨뜨린 사본으로 봤다). 그래서 설정이 정한 버전 목록을 실행
     # 중인 프록시에서 직접 읽어 맞댄다.
     effective = compose(stack, "exec", "-T", "proxy", "nginx", "-T", "-c", PROXY_MAIN_CONFIG)
     protocols = [
@@ -924,6 +947,123 @@ async def test_임베딩_서버와_PostgreSQL의_로그에_질의와_표본_문�
         assert [needle for needle in needles if needle in log] == [], service
     for service in ("server", "worker", "proxy"):
         assert stack.token not in service_logs(stack, service), service
+
+
+# ------------------------------ 서버 폴더의 문서 ------------------------------
+
+
+class ComposeConfig(BaseModel):
+    """`docker compose config --format json`에서 서비스의 볼륨만 읽는다."""
+
+    services: dict[str, dict[str, object]]
+
+
+def source_mounts(stack: Stack) -> dict[str, dict[str, dict[str, object]]]:
+    """서비스마다 컨테이너 안 경로(`target`)로 찾는 볼륨. compose가 풀어 쓴 모양이다."""
+    config = ComposeConfig.model_validate_json(compose(stack, "config", "--format", "json").stdout)
+    return {
+        name: {
+            str(volume["target"]): volume
+            for volume in _OBJECTS.validate_python(service.get("volumes", []))
+        }
+        for name, service in config.services.items()
+    }
+
+
+def sync_record(stack: Stack, record_id: str) -> dict[str, object]:
+    """원천의 동기화 기록 하나. 끝(`succeeded`나 `failed`)날 때까지 0.5초마다 묻는다."""
+    started = time.monotonic()
+    while True:
+        status, _, body = request(
+            "GET",
+            f"/api/v1/admin/sources/{SOURCE_NAME}/sync-records/{record_id}",
+            headers=bearer(stack),
+            cafile=stack.directory / "tls" / "fullchain.pem",
+        )
+        assert status == 200, body
+        record = json_object(body.decode("utf-8"))
+        if record["status"] in ("succeeded", "failed"):
+            return record
+        assert time.monotonic() - started < SYNC_SECONDS, record
+        time.sleep(0.5)
+
+
+def found_in_source(found: dict[str, object]) -> bool:
+    """검색 결과에 새 원천의 문서(키가 SOURCE_FILE)의 조각이 있는지."""
+    results = found["results"]
+    assert isinstance(results, list)
+    return any(
+        item.get("source") == SOURCE_NAME and item.get("key") == SOURCE_FILE
+        for item in _OBJECTS.validate_python(results)
+    )
+
+
+WRITE_PROBE: Final = (
+    "import errno\n"
+    "try:\n"
+    "    open('/sources/write-probe', 'w').close()\n"
+    "except OSError as error:\n"
+    "    print(errno.errorcode.get(error.errno or 0, str(error.errno)))\n"
+    "else:\n"
+    "    print('WROTE')\n"
+)
+
+
+async def test_서버_폴더의_문서를_동기화하면_검색에_나오고_컨테이너는_그_폴더에_쓰지_못한다(
+    stack: Stack,
+) -> None:
+    # 서버 폴더(설치 폴더의 sources/) 아래 하위 폴더를 원천으로 만들고 지금 동기화한다.
+    # 문서를 넣은 것은 운영자가 서버 기계에서 한 일이고, 컨테이너는 그 폴더를 읽기만 한다.
+    cafile = stack.directory / "tls" / "fullchain.pem"
+    json_headers = bearer(stack) | {"Content-Type": "application/json"}
+    created, _, created_body = request(
+        "POST",
+        "/api/v1/admin/sources",
+        headers=json_headers,
+        body=json.dumps(
+            {
+                "name": SOURCE_NAME,
+                "kind": "pull",
+                "connector": "server_path",
+                "config": {"folder": SOURCE_FOLDER},
+            }
+        ).encode(),
+        cafile=cafile,
+    )
+    assert created == 201, created_body
+
+    accepted, _, accepted_body = request(
+        "POST",
+        f"/api/v1/admin/sources/{SOURCE_NAME}/sync",
+        headers=json_headers,
+        body=b"{}",
+        cafile=cafile,
+    )
+    assert accepted == 202, accepted_body
+    record = sync_record(stack, str(json_object(accepted_body.decode("utf-8"))["sync_record_id"]))
+
+    assert record["status"] == "succeeded", record
+    # 부모 폴더 바로 아래의 README.txt는 어느 원천에도 들지 않으므로 목록은 파일 하나다.
+    assert (record["listed"], record["added"]) == (1, 1), record
+
+    # 색인은 동기화가 끝난 뒤 작업자가 따로 돈다. 새 원천의 문서가 검색에 나올 때까지 기다린다.
+    started = time.monotonic()
+    while True:
+        _, _, _, found = await search(stack)
+        if found_in_source(found):
+            break
+        assert time.monotonic() - started < INDEX_SECONDS, "새 원천의 문서가 검색에 나오지 않는다"
+        await asyncio.sleep(2)
+
+    mounts = source_mounts(stack)
+    for service in ("server", "worker"):
+        mount = mounts[service]["/sources"]
+        assert mount["read_only"] is True, (service, mount)
+        assert Path(str(mount["source"])).resolve() == (stack.directory / "sources").resolve()
+        written = compose(stack, "exec", "-T", service, "python", "-c", WRITE_PROBE)
+        assert written.stdout.strip() == "EROFS", (service, written.stdout, written.stderr)
+    assert "/sources" not in mounts["migrate"]
+    assert not (stack.directory / "sources" / "write-probe").exists()
 
 
 # ------------------------------ 되살아나는 것(서버를 건드린다) ------------------------------

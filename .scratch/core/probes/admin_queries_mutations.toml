@@ -144,13 +144,13 @@ expect_output = ["E           assert False"]
 
 [[mutation.edit]]
 file = "src/rag_engine/adapters/postgres/job_queue.py"
-old = '''            tables.jobs.c.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
+old = '''            tables.jobs.c.document_id == document_id,
+            tables.jobs.c.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value]),
         )
-        return bool(await self._connection.scalar(sa.select(active.exists())))
 '''
-new = '''            tables.jobs.c.status.in_([JobStatus.QUEUED.value]),
+new = '''            tables.jobs.c.document_id == document_id,
+            tables.jobs.c.status.in_([JobStatus.QUEUED.value]),
         )
-        return bool(await self._connection.scalar(sa.select(active.exists())))
 '''
 
 [[mutation]]
@@ -162,7 +162,9 @@ expect_output = ["At index 0 diff: '지움' != '파싱됨'"]
 [[mutation.edit]]
 file = "src/rag_engine/adapters/postgres/document_store.py"
 old = '''            statement = statement.where(
-                documents.c.deleted_at.is_(None), documents.c.status == query.state.value
+                documents.c.deleted_at.is_(None),
+                ~of_deleted_source,
+                documents.c.status == query.state.value,
             )
 '''
 new = '''            statement = statement.where(documents.c.status == query.state.value)

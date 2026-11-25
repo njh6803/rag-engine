@@ -1,6 +1,6 @@
 # rag-engine 단독 설치. 프록시, 검색 서버, 작업자, PostgreSQL, 임베딩 서버를 보통의 Docker 네트워크로 묶고,
 # 서버 앞에서 마이그레이션이 한 번 돈다. 밖으로 열리는 포트는 프록시의 443 하나다.
-# 운영자가 고치는 것은 .env, proxy/, tls/, models/ 의 파일이고 이 파일은 고치지 않는다. 고치면 업그레이드가
+# 운영자가 고치는 것은 .env, proxy/, tls/, models/, sources/ 의 파일이고 이 파일은 고치지 않는다. 고치면 업그레이드가
 # 새 묶음의 compose.yaml 로 바꿀 때 그 고침이 사라진다. 바꿔야 하는 값은 .env 가 받는다.
 # 특히 아래 셋은 바꾸지 않는다.
 # - ports: 밖에 열리는 것은 프록시의 443 하나뿐이다. 서버와 PostgreSQL과 임베딩 서버는 밖에 열지 않는다.
@@ -18,12 +18,14 @@ x-health: &health
   start_period: 30s
   start_interval: 2s
 
-# 서버, 작업자, 마이그레이션은 .env 를 통째로 받고(env_file), 아래 셋은 compose 가 정해 .env 의 값을 덮어쓴다.
+# 서버, 작업자, 마이그레이션은 .env 를 통째로 받고(env_file), 아래 넷은 compose 가 정해 .env 의 값을 덮어쓴다.
 # 리랭커 끝점(RAG_DEFAULT_RERANKER_URL)은 정하지 않는다. 리랭커를 켜는 설치가 .env 에 적는다.
+# RAG_SOURCES_DIR 은 컨테이너 안의 원천 폴더 경로이고, 서버와 작업자의 volumes 가 서버 기계의 폴더를 그 자리에 붙인다.
 x-rag-environment: &rag-environment
   RAG_DATABASE_URL: postgresql://rag:${POSTGRES_PASSWORD:?.env 에 POSTGRES_PASSWORD 가 없다}@postgres:5432/rag
   RAG_DATA_DIR: /data
   RAG_DEFAULT_EMBEDDING_URL: http://embedding:80
+  RAG_SOURCES_DIR: /sources
 
 services:
   proxy:
@@ -75,7 +77,7 @@ services:
       retries: 30
 
   embedding:
-    # 임베딩 서버(TEI)의 CPU 판을 digest 로 고정했다. 이미지의 기본 사용자는 root 라 아래에서 uid 10001 로 바꾼다.
+    # 임베딩 서버(TEI)의 CPU 버전을 digest 로 고정했다. 이미지의 기본 사용자는 root 라 아래에서 uid 10001 로 바꾼다.
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4@sha256:2538ea1c9640d3763b15af668039d24172d063b42337b0c27796fc2be180c78d
     # --max-batch-tokens 는 TEI 기본값 16384 가 아니라 4096 이다. 기본값에서는 컨테이너 하나가 13.25GiB 를 썼다
     # (docker stats 로 손으로 본 값이고 compose.eval.yml 의 머리 주석이 적는다).
@@ -140,8 +142,11 @@ services:
     tmpfs:
       - /tmp:size=${RAG_ENGINE_SERVER_TMP_SIZE:-1g}
     restart: unless-stopped
+    # 서버 기계의 원천 폴더(.env 의 RAG_ENGINE_SOURCES_DIR, 비우면 설치 폴더의 sources/)를 읽기 전용으로 붙인다.
+    # 전파 설정은 넣지 않는다. 공유 폴더를 띄운 뒤에 붙이면 서버와 작업자를 다시 띄운다(설치 안내).
     volumes:
       - data:/data
+      - ${RAG_ENGINE_SOURCES_DIR:-./sources}:/sources:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -163,6 +168,7 @@ services:
     restart: unless-stopped
     volumes:
       - data:/data
+      - ${RAG_ENGINE_SOURCES_DIR:-./sources}:/sources:ro
     # 임베딩 서버가 건강해질 때도 기다린다. 대기열에 작업이 남은 채 다시 띄우면, 모델을 올리는 동안의 임베딩 서버에
     # 닿지 못한 시도가 작업의 재시도 횟수를 쓴다.
     depends_on:

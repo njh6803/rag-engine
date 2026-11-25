@@ -207,7 +207,7 @@ def test_못_보는_것_첫_실패에서_멈춘_변이는_뒤의_시험만_찍�
 
 def test_못_보는_것_뒤의_시험이_걸려도_첫_실패에서_멈춰_빨강이다(tmp_path: Path) -> None:
     """끝까지 돌았다면 test_b 가 60초를 자 시간 제한(40초)을 넘긴 오류였을 변이다. 실제 pytest 로
-    본다. 멈춘 것은 test_b 가 자기 전에 남기는 파일이 없는 것으로 본다. 첫 판은 걸린 시간이
+    본다. 멈춘 것은 test_b 가 자기 전에 남기는 파일이 없는 것으로 본다. 첫 버전은 걸린 시간이
     20초 미만인지 봤는데, 그 안에 기준선과 변이로 pytest 를 두 번 띄우는 시간까지 들어 pytest 두
     벌을 동시에 돌린 부하 아래에서 20.3초와 21.6초로 빨갰다(ADR 0035의 부딪힘. 한 프로세스로는
     4.56초, xdist 8개 홀로는 10.60초였다. 원인이 부하의 지연이라는 것은 어림이다). 시간 제한은
@@ -435,9 +435,9 @@ def _멈추는지(심장: Path) -> bool:
     """기한 안에 손자의 기록 파일이 1초 동안 자라지 않으면 참. 한 번만 견주지 않고 기한까지 거듭
     견준다(`tests/tools/test_run_checks.py` 의 `_stops_growing`). 부하에서는 `taskkill` 이 손자를
     끝냈다고 알리고 러너가 돌아온 뒤에도 손자가 잠깐 더 살아 기록 파일에 쓴 회차가 있었다. 러너가
-    돌아온 직후 0.5초 사이를 한 번만 견주던 판은 그 쓰기를 산 손자로 읽었다(대기열 306, ADR 0035 의
-    2026-10-18 이력. `taskkill /F` 가 끝내기를 시작만 하고 돌아오는 `TerminateProcess` 를 부른다는
-    해석은 어림이다)."""
+    돌아온 직후 0.5초 사이를 한 번만 견주던 버전은 그 쓰기를 산 손자로 읽었다(대기열 306, ADR 0035
+    의 2026-10-18 이력. `taskkill /F` 가 끝내기를 시작만 하고 돌아오는 `TerminateProcess` 를
+    부른다는 해석은 어림이다)."""
     끝 = time.monotonic() + _판정_기한_초
     while time.monotonic() < 끝:
         크기 = 심장.stat().st_size
@@ -481,7 +481,7 @@ def _첫_기다림을_끊는다(
 ) -> None:
     """실제 러너의 첫 기다림(`communicate`)을 `준비됐다` 가 참이 된 뒤 `끊는_예외` 로 끊는다. 뒤의
     기다림(끊은 뒤 남은 출력을 읽는 것, `taskkill` 을 기다리는 것)은 그대로 둔다. 그것까지 끊으면
-    끝내지 못한다. 시간 제한이 실제로 지나기를 기다리던 판은 시험 한 번 13초 가운데 10초를 썼고,
+    끝내지 못한다. 시간 제한이 실제로 지나기를 기다리던 버전은 시험 한 번 13초 가운데 10초를 썼고,
     부하에서 기동이 3초를 넘기면 손자가 뛰기 전에 끊겨 거짓 빨강이 날 수 있었다(대기열 203). 준비를
     30초 넘게 기다리면 그대로 끊어 시험이 단언에서 실패하게 둔다."""
     원래 = subprocess.Popen[str].communicate
@@ -524,8 +524,8 @@ def test_실제_러너는_시간_제한을_넘기면_손자_프로세스까지_�
     try:
         assert 결과.timed_out_after == 60
         assert "손자가 뛴다" in 결과.output
-        # 자식과 손자를 띄우는 시간과 `taskkill` 까지 든다. 8초로 두던 판이 pytest 세 벌을 함께 띄운
-        # 부하에서 13.6초로 빨갰다(ADR 0035 의 2026-10-18 이력)
+        # 자식과 손자를 띄우는 시간과 `taskkill` 까지 든다. 8초로 두던 버전이 pytest 세 벌을 함께
+        # 띄운 부하에서 13.6초로 빨갰다(ADR 0035 의 2026-10-18 이력)
         assert 걸린 < 30
         assert 심장.stat().st_size > 0
         assert _멈추는지(심장), _손자가_산다
@@ -542,8 +542,8 @@ def test_실제_러너는_시간_제한을_실제로_넘긴_명령을_끊는다(
     결과 = run_command([sys.executable, "-c", "import time; time.sleep(60)"], tmp_path, 1)
 
     assert 결과.timed_out_after == 1
-    # 자식을 띄우는 시간과 제한 1초, `taskkill` 이 든다. 8초로 두던 판이 CPU 를 태우는 프로세스 32개
-    # 옆에서 60회차 가운데 7번 빨갰고(가장 긴 것 23.3초) 늘어난 몫은 모두 `taskkill` 이었다(ADR
+    # 자식을 띄우는 시간과 제한 1초, `taskkill` 이 든다. 8초로 두던 버전이 CPU 를 태우는 프로세스
+    # 32개 옆에서 60회차 가운데 7번 빨갰고(가장 긴 것 23.3초) 늘어난 몫은 모두 `taskkill` 이었다(ADR
     # 0035 의 2026-10-19 이력 "손자 없는 시간 제한 시험의 상한을 30초로 넓힌다")
     assert time.monotonic() - 시작 < 30
 
@@ -611,8 +611,8 @@ def test_못_보는_것_고아가_되거나_제_세션을_연_손자는_남고_�
     try:
         assert 결과.timed_out_after == 60
         assert "그만 읽었다" in 결과.output
-        # 시간 제한 시험과 같은 자식과 손자를 띄우는 길이다. 8초로 두던 판이 pre-commit 에서 9.3초로
-        # 빨갰다(일지 2026-10-17-04, ADR 0035 의 2026-10-18 이력)
+        # 시간 제한 시험과 같은 자식과 손자를 띄우는 길이다. 8초로 두던 버전이 pre-commit 에서
+        # 9.3초로 빨갰다(일지 `2026-10-17-04`, ADR 0035 의 2026-10-18 이력)
         assert 걸린 < 30
         assert _자라는지(심장), _손자가_끝났다
     finally:
@@ -1006,7 +1006,7 @@ def _커밋한_표(tmp_path: Path, 내용: str) -> Path:
 
 
 def test_since_는_그_커밋의_같은_표와_견주어_바뀌거나_더한_변이만_돌린다(tmp_path: Path) -> None:
-    """원문이 바뀌거나 더한 변이가 2~5개인 판 둘에서도 표 전체(한 번에 29~34분)를 돌렸다(대기열
+    """원문이 바뀌거나 더한 변이가 2~5개인 버전 둘에서도 표 전체(한 번에 29~34분)를 돌렸다(대기열
     193)."""
     표 = _커밋한_표(tmp_path, _글자_변이("하나", "x") + _글자_변이("둘", "y"))
     표.write_text(
@@ -1044,7 +1044,7 @@ def test_since_로_고를_것이_없으면_아무것도_돌리지_않고_2다(tm
     assert any("HEAD" in 한줄 and "바뀌거나 더한 변이가 없다" in 한줄 for 한줄 in 줄)
 
 
-def test_못_보는_것_since_는_코드나_시험만_바뀐_판에서_고를_것이_없다(tmp_path: Path) -> None:
+def test_못_보는_것_since_는_코드나_시험만_바뀐_버전에서_고를_것이_없다(tmp_path: Path) -> None:
     """`--since` 는 표만 견준다. 코드만 바꿔 둘레가 바뀐 변이도, 시험을 더해 빨개질 수 있는 대조군도
     고르지 않는다(독스트링의 고르기 문단의 못 보는 것, `.claude/rules/tools.md`)."""
     표 = _커밋한_표(tmp_path, _셋())
@@ -1409,7 +1409,7 @@ def test_playwright_의_빨간_테스트는_실패_요약_아래에서_읽는다
 def test_요약_문구가_바뀌면_읽는_문구는_오류로_기울고_거르는_표지는_못_보고_지나간다(
     판정자: JudgeName, 결과: CommandResult, 판정: str
 ) -> None:
-    """도구의 판이 문구를 바꾼 모양을 흉내 낸다. 독스트링의 못 보는 것이 이 여섯이다(셀프 리뷰가
+    """도구의 버전이 문구를 바꾼 모양을 흉내 낸다. 독스트링의 못 보는 것이 이 여섯이다(셀프 리뷰가
     "빨강으로 기울지는 않는다"의 반례 둘을 찾았다)."""
     assert judge(Judging(판정자, diagnostic_in="clients.test-d.ts"), 결과).outcome == 판정
 
@@ -2354,7 +2354,7 @@ def test_pre_commit_처럼_띄우면_틀린_표의_경로를_UTF_8_로_알린다
 _표_경로 = "probes/m_mutations.toml"
 # 초록을 기대해 표지 없는 빨강의 알림(대기열 350)에 걸리지 않는다. 이 절의 시험은 원문만 본다
 _맞는_표 = _변이_파일(old="x = 1", new="x = 2", expect="green")
-_깬_커밋 = "부모 판에서 맞던 원문을 이 커밋이 깼다"
+_깬_커밋 = "부모 버전에서 맞던 원문을 이 커밋이 깼다"
 
 
 def _저장소(tmp_path: Path, 파일들: dict[str, str]) -> Path:
@@ -2378,7 +2378,7 @@ def _색인_확인(root: Path) -> tuple[int, str]:
     return code, "\n".join(줄)
 
 
-def test_색인_확인은_부모_판에서_맞던_원문을_이_커밋이_깨면_표가_커밋에_들지_않아도_알린다(
+def test_색인_확인은_부모_버전에서_맞던_원문을_이_커밋이_깨면_표가_커밋에_들지_않아도_알린다(
     tmp_path: Path,
 ) -> None:
     """표가 가리키는 코드만 바뀌고 표는 커밋에 들지 않으면, 커밋에 든 표만 보던 확인이 지나가
@@ -2393,7 +2393,7 @@ def test_색인_확인은_부모_판에서_맞던_원문을_이_커밋이_깨면
     assert _깬_커밋 in 출력
 
 
-def test_색인_확인은_부모_판에서도_맞지_않던_원문은_알리지_않는다(tmp_path: Path) -> None:
+def test_색인_확인은_부모_버전에서도_맞지_않던_원문은_알리지_않는다(tmp_path: Path) -> None:
     """이 커밋 전부터 썩은 옛 표의 원문은 썩어도 된다(대기열 73·92). 표가 가리키는 파일을 고쳐도
     그 원문은 이 커밋이 깬 것이 아니다."""
     root = _저장소(tmp_path, {"src/m.py": "x = 1\n", _표_경로: _변이_파일(old="z = 1", new="z")})
@@ -2457,7 +2457,8 @@ def test_색인_확인은_커밋에_들지_않은_표가_읽히지_않아도_알
 
 
 def test_색인_확인은_작업_트리가_아니라_커밋에_들_색인을_본다(tmp_path: Path) -> None:
-    """pre-commit 은 스테이지하지 않은 변경을 치워 두고 돌지만, 손으로 쳐도 커밋에 들 판을 본다."""
+    """pre-commit 은 스테이지하지 않은 변경을 치워 두고 돌지만, 손으로 쳐도 커밋에 들 내용을
+    본다."""
     root = _저장소(tmp_path, {"src/m.py": "x = 1\n", _표_경로: _맞는_표})
     _스테이지한다(root, "src/m.py", b"x = 9\n")
     _파일을_둔다(root, "src/m.py", b"x = 1\n")
@@ -2483,7 +2484,7 @@ def test_색인_확인은_원문이_든_파일을_지우거나_옮긴_커밋도_
     tmp_path: Path, 명령: tuple[str, ...]
 ) -> None:
     """pre-commit 은 지운 파일을 훅에 넘기지 않고, 옮긴 파일은 새 이름만 넘긴다. 추적만 끊은 파일은
-    작업 트리에 그대로 있어도 커밋에 들 판에 없다."""
+    작업 트리에 그대로 있어도 커밋에 들 내용에 없다."""
     root = _저장소(tmp_path, {"src/m.py": "x = 1\n", _표_경로: _맞는_표})
     _git(root, *명령)
 
@@ -2494,7 +2495,7 @@ def test_색인_확인은_원문이_든_파일을_지우거나_옮긴_커밋도_
     assert _깬_커밋 in 출력
 
 
-def test_색인_확인은_어느_판도_추적하지_않는_파일을_작업_트리에서_읽는다(tmp_path: Path) -> None:
+def test_색인_확인은_어느_버전도_추적하지_않는_파일을_작업_트리에서_읽는다(tmp_path: Path) -> None:
     """변이 표가 추적하지 않는 생성물을 가리키면(design-card-build 티켓 04 가 지운
     `.scratch/design-refresh/probes/checker_mutations.toml` 이 `ds-bundle/` 을 가리켰다), 옛
     `--check` 처럼 그 파일이 있는 체크아웃에서 작업 트리를 읽는다. 색인만 읽으면 그 표를 고친 커밋이
@@ -2522,8 +2523,8 @@ def test_색인_확인은_어느_판도_추적하지_않는_파일을_작업_트
 def _main_을_합친다(
     root: Path, *, 가지에서: Callable[[], None], main_에서: Callable[[], None]
 ) -> None:
-    """지금 판에서 `topic` 을 따 `가지에서` 를, main 에서 `main_에서` 를 커밋한 뒤 topic 에 main 을
-    합치되 합치는 커밋은 만들지 않는다."""
+    """지금 버전에서 `topic` 을 따 `가지에서` 를, main 에서 `main_에서` 를 커밋한 뒤 topic 에 main
+    을 합치되 합치는 커밋은 만들지 않는다."""
     _git(root, "checkout", "-q", "-b", "topic")
     가지에서()
     _git(root, "commit", "-q", "-m", "가지")
@@ -2552,7 +2553,7 @@ def test_색인_확인은_합칠_때_main_이_이미_깬_원문을_합치는_커
 
 
 def test_색인_확인은_합친_결과가_가지에만_있는_표의_원문을_깨면_알린다(tmp_path: Path) -> None:
-    """가지가 더한 표와 main 이 고친 코드는 따로는 맞았고, 합친 판에서 원문이 깨진다."""
+    """가지가 더한 표와 main 이 고친 코드는 따로는 맞았고, 합친 버전에서 원문이 깨진다."""
     root = _저장소(tmp_path, {"src/m.py": "x = 1\n"})
 
     _main_을_합친다(
@@ -2590,7 +2591,7 @@ def test_못_보는_것_색인_확인은_amend_에서_고칠_커밋이_넣은_�
     tmp_path: Path,
 ) -> None:
     """`git commit --amend` 의 훅도 HEAD(고칠 커밋)를 부모로 본다. HEAD 가 훅을 건너뛰고 넣은 깨진
-    원문은 부모 판에서도 맞지 않던 원문으로 읽힌다(놓친다)."""
+    원문은 부모 버전에서도 맞지 않던 원문으로 읽힌다(놓친다)."""
     root = _저장소(tmp_path, {"src/m.py": "x = 1\n", _표_경로: _맞는_표})
     _스테이지한다(root, "src/m.py", b"x = 9\n")
     _git(root, "commit", "-q", "--no-verify", "-m", "훅을 건너뛰고 깬 커밋")
@@ -2783,8 +2784,8 @@ def test_main_은_테스트를_돌리지_못하면_3이고_변이는_되돌렸�
 
 
 # 커밋된 변이 파일. 도구의 형식이 바뀌면 옛 파일이 조용히 깨진다 — 2026-10-01 에 형식을
-# 넓히며 일곱을 손으로 `--check` 했다(대기열 73). 이 시험은 원문을 보지 않는다. 커밋이 부모 판에서
-# 맞던 원문을 깨는지는 pre-commit 의 `--staged` 가 보고(대기열 312), 부모 판에서도 맞지 않던 옛
+# 넓히며 일곱을 손으로 `--check` 했다(대기열 73). 이 시험은 원문을 보지 않는다. 커밋이 부모 버전에서
+# 맞던 원문을 깨는지는 pre-commit 의 `--staged` 가 보고(대기열 312), 부모 버전에서도 맞지 않던 옛
 # 원문은 썩어도 되어 다시 돌 때 `--check` 가 알린다.
 
 
@@ -3212,7 +3213,7 @@ def test_색인_확인은_시험_파일을_커밋에_들_색인에서_읽는다(
     assert code == 2, 출력
 
 
-def test_색인_확인은_표를_고친_커밋에서도_부모_판과_같은_변이의_표지는_소급하지_않는다(
+def test_색인_확인은_표를_고친_커밋에서도_부모_버전과_같은_변이의_표지는_소급하지_않는다(
     tmp_path: Path,
 ) -> None:
     옛_표 = _메아리_표("test_x")
@@ -3559,7 +3560,7 @@ def test_색인_확인은_커밋에_든_새_표의_표지_품질을_알린다(
     assert 알림 in 출력
 
 
-def test_색인_확인은_부모_판과_같은_변이의_표지_품질은_소급하지_않는다(tmp_path: Path) -> None:
+def test_색인_확인은_부모_버전과_같은_변이의_표지_품질은_소급하지_않는다(tmp_path: Path) -> None:
     옛_표 = _표지_표(None)
     root = _저장소(
         tmp_path,
@@ -3572,3 +3573,264 @@ def test_색인_확인은_부모_판과_같은_변이의_표지_품질은_소급
 
     assert code == 0, 출력
     assert "문제 0" in 출력
+
+
+# --- 어긋난 변이의 전체 출력 파일(대기열 mutate-marker-discovery) ---------------------------------
+
+
+def _긴_빨강(이름: str = "") -> CommandResult:
+    """끝 열 줄과 머리 줄 스무 줄 밖에 단언 풀이 줄이 쌓인 pytest 빨강. 색 코드도 한 줄 든다."""
+    풀이 = "".join(f"E       원인 문구 {이름}{번호}\n" for 번호 in range(40))
+    return CommandResult(
+        1,
+        f"\x1b[31mE       색 있는 줄 {이름}\x1b[0m\n{풀이}"
+        "FAILED tests/test_x.py::test_x - AssertionError\n1 failed in 0.01s\n",
+    )
+
+
+def _출력_파일(root: Path) -> list[Path]:
+    return sorted((root / ".git" / "mutate-output").glob("*.txt"))
+
+
+def _전체_출력_줄(줄: Sequence[str]) -> list[str]:
+    return [한줄 for 한줄 in 줄 if "전체 출력:" in 한줄]
+
+
+def test_어긋난_변이는_실패_출력_전체를_git_디렉터리의_파일로_남기고_경로를_알린다(
+    tmp_path: Path,
+) -> None:
+    """표지는 실제 실패 출력을 본 뒤에야 고를 수 있는데 화면은 끝 열 줄과 머리 줄 스무 줄만 보여
+    풀이 줄이 가려졌다(대기열 mutate-marker-discovery 11회차). 전체가 있어야 한 번에 고른다."""
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+    줄: list[str] = []
+    러너 = _변이면(root / "src/m.py", b"x = 2", _긴_빨강())
+
+    code = main([표], root=root, runner=러너, out=줄.append)
+
+    assert code == 1, 줄
+    파일 = root / ".git" / "mutate-output" / "mutations-1.txt"
+    assert _출력_파일(root) == [파일]
+    내용 = 파일.read_text(encoding="utf-8")
+    assert "원인 문구 0\n" in 내용 and "원인 문구 39\n" in 내용  # 화면의 상한 밖의 줄까지 든다
+    assert "색 있는 줄" in 내용 and "\x1b" not in 내용  # 색 코드는 벗긴다
+    assert 내용.endswith("1 failed in 0.01s\n")
+    assert _전체_출력_줄(줄) == [f"   전체 출력: {파일}"]
+    어긋남 = next(at for at, 한줄 in enumerate(줄) if 한줄.startswith("!!"))
+    assert 줄.index(_전체_출력_줄(줄)[0]) > 어긋남
+
+
+def test_표지가_있는_기대대로의_변이는_출력_파일도_그_줄도_남기지_않는다(tmp_path: Path) -> None:
+    root, 표 = _시험이_든_저장소(tmp_path)
+    글 = Path(표).read_text(encoding="utf-8")
+    Path(표).write_text(
+        글.replace('expect = "red"', 'expect = "red"\nexpect_output = ["원인 문구 39"]'), "utf-8"
+    )
+    줄: list[str] = []
+    러너 = _변이면(root / "src/m.py", b"x = 2", _긴_빨강())
+
+    code = main([표], root=root, runner=러너, out=줄.append)
+
+    assert code == 0, 줄
+    assert _출력_파일(root) == []
+    assert _전체_출력_줄(줄) == []
+
+
+def test_초록을_기대한_기대대로의_변이는_출력_파일을_남기지_않는다(tmp_path: Path) -> None:
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+    줄: list[str] = []
+
+    code = main([표], root=root, runner=lambda argv, cwd, timeout: _초록, out=줄.append)
+
+    assert code == 0, 줄
+    assert _출력_파일(root) == []
+    assert _전체_출력_줄(줄) == []
+
+
+def test_표지가_없는_빨강_기대는_기대대로여도_출력_파일을_남긴다(tmp_path: Path) -> None:
+    """어긋난 것만 남기면 새 변이의 표지를 고르려고 자리표 표지를 넣고 한 바퀴를 더 돌아야 했다
+    (대기열 mutate-marker-discovery). 표지가 없는 빨강은 기대대로 지나가므로 그 출력도 남긴다."""
+    root, 표 = _시험이_든_저장소(tmp_path)
+    줄: list[str] = []
+    러너 = _변이면(root / "src/m.py", b"x = 2", _긴_빨강())
+
+    code = main([표], root=root, runner=러너, out=줄.append)
+
+    assert code == 0, 줄
+    파일 = root / ".git" / "mutate-output" / "mutations-1.txt"
+    assert _출력_파일(root) == [파일]
+    assert "원인 문구 39\n" in 파일.read_text(encoding="utf-8")
+    assert _전체_출력_줄(줄) == [f"   전체 출력: {파일}"]
+
+
+def _반복을_돈다(tmp_path: Path, *, 기대: str, 출력들: list[CommandResult]) -> tuple[Path, int]:
+    """변이를 `출력들` 의 수만큼 반복해 돌리고 반복마다 차례로 그 출력을 내는 러너로 `main` 을
+    부른다. 기준선은 초록이다. 저장소 루트와 종료 코드를 돌려준다."""
+    root, 표 = _시험이_든_저장소(tmp_path, expect=기대)
+    글 = Path(표).read_text(encoding="utf-8")
+    반복 = f'expect = "{기대}"\nrepeat = {len(출력들)}'
+    Path(표).write_text(글.replace(f'expect = "{기대}"', 반복), "utf-8")
+    원본 = root / "src/m.py"
+    남은 = list(출력들)
+
+    def 러너(argv: Sequence[str], cwd: Path, timeout: int) -> CommandResult:
+        return _초록 if b"x = 2" not in 원본.read_bytes() else 남은.pop(0)
+
+    return root, main([표], root=root, runner=러너, out=lambda _: None)
+
+
+@pytest.mark.parametrize(
+    ("기대", "출력들", "남는_반복", "빠지는_반복"),
+    [
+        ("green", [_긴_빨강("첫째 "), _초록], "첫째 ", "1 passed"),
+        ("green", [_긴_빨강("첫째 "), _긴_빨강("둘째 "), _초록], "둘째 ", "첫째 "),
+        ("red", [_긴_빨강("첫째 "), _긴_빨강("둘째 ")], "둘째 ", "첫째 "),
+    ],
+    ids=["어긋난_첫_반복", "어긋난_반복이_둘이면_마지막", "어긋난_반복이_없으면_마지막"],
+)
+def test_반복마다_출력이_다르면_어긋난_마지막_반복을_남기고_없으면_마지막_반복을_남긴다(
+    tmp_path: Path, 기대: str, 출력들: list[CommandResult], 남는_반복: str, 빠지는_반복: str
+) -> None:
+    """어긋난 반복이 하나가 아니어도 첫 반복이나 마지막 반복으로 대신하지 않는다. 표지가 빈 빨강은
+    반복이 모두 기대대로라 어긋난 반복이 없고, 그때는 마지막 반복이다."""
+    root, code = _반복을_돈다(tmp_path, 기대=기대, 출력들=출력들)
+
+    assert code == (0 if 기대 == "red" else 1)
+    내용 = _출력_파일(root)[0].read_text(encoding="utf-8")
+    assert f"원인 문구 {남는_반복}0\n" in 내용
+    assert 빠지는_반복 not in 내용
+
+
+def test_기준선이_빨가면_변이를_넣지_않아_출력_파일도_그_줄도_없다(tmp_path: Path) -> None:
+    root, 표 = _시험이_든_저장소(tmp_path)
+    줄: list[str] = []
+
+    code = main([표], root=root, runner=lambda argv, cwd, timeout: _긴_빨강(), out=줄.append)
+
+    assert code == 1, 줄
+    assert _출력_파일(root) == []
+    assert _전체_출력_줄(줄) == []
+
+
+def test_같은_번호를_다시_돌면_덮어쓰고_이번에_쓰지_않았으면_지난_파일을_지우지_않는다(
+    tmp_path: Path,
+) -> None:
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+    원본 = root / "src/m.py"
+    출력 = [_긴_빨강("지난번 ")]
+    줄: list[str] = []
+
+    def 러너(argv: Sequence[str], cwd: Path, timeout: int) -> CommandResult:
+        return _초록 if b"x = 2" not in 원본.read_bytes() else 출력[0]
+
+    assert main([표], root=root, runner=러너, out=lambda _: None) == 1
+    출력[0] = _긴_빨강("이번 ")
+    assert main([표], root=root, runner=러너, out=lambda _: None) == 1
+    파일 = _출력_파일(root)[0]
+    assert "이번 0" in 파일.read_text(encoding="utf-8")
+    assert "지난번" not in 파일.read_text(encoding="utf-8")
+
+    출력[0] = _초록  # 이번에는 기대대로라 쓰지 않는다
+    assert main([표], root=root, runner=러너, out=줄.append) == 0
+    assert _전체_출력_줄(줄) == []
+    assert "이번 0" in 파일.read_text(encoding="utf-8")  # 지난 파일은 그대로다
+
+
+def test_출력은_줄_끝을_바꾸지_않고_쓴다(tmp_path: Path) -> None:
+    """`write_text` 는 윈도에서 `\\n` 을 `\\r\\n` 으로 바꿔 쓴다. 도구가 받은 출력의 바이트
+    그대로다."""
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+    빨강 = CommandResult(1, "E       첫 줄\nE       둘째 줄\r\n1 failed in 0.01s\n")
+
+    assert main([표], root=root, runner=_변이면(root / "src/m.py", b"x = 2", 빨강), out=print) == 1
+    assert _출력_파일(root)[0].read_bytes() == 빨강.output.encode("utf-8")
+
+
+def test_git_디렉터리가_없으면_출력_파일_없이_지금처럼_돈다(tmp_path: Path) -> None:
+    path = _파일을_둔다(tmp_path, "src/m.py", b"x = 1\n")
+    표 = _변이_파일을_쓴다(tmp_path, _변이_파일(old="x = 1", new="x = 2", expect="green"))
+    줄: list[str] = []
+
+    code = main([표], root=tmp_path, runner=_변이면(path, b"x = 2", _긴_빨강()), out=줄.append)
+
+    assert code == 1, 줄
+    assert _전체_출력_줄(줄) == []
+    assert path.read_bytes() == b"x = 1\n"
+
+
+def test_출력_파일을_쓰지_못해도_종료_코드와_되돌림은_그대로다(tmp_path: Path) -> None:
+    """저장 자리가 파일이라 디렉터리를 만들지 못하는 경우. 보조 출력이 판정을 바꾸면 안 된다."""
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+    (root / ".git" / "mutate-output").write_text("막는 파일", encoding="utf-8")
+    줄: list[str] = []
+    러너 = _변이면(root / "src/m.py", b"x = 2", _긴_빨강())
+
+    code = main([표], root=root, runner=러너, out=줄.append)
+
+    assert code == 1, 줄
+    assert _전체_출력_줄(줄) == []
+    assert (root / "src/m.py").read_bytes() == b"x = 1\n"
+
+
+def test_워크트리의_git_파일이_가리키는_곳이_없으면_그_위쪽_폴더를_만들지_않는다(
+    tmp_path: Path,
+) -> None:
+    """정리된 워크트리에 남은 `.git` 파일이 없어진 관리 폴더를 가리킬 때, 출력 파일을 쓰려고 없는
+    `.git/worktrees/<이름>` 을 통째로 만들면 git 관리 영역에 반쪽짜리 폴더가 생긴다."""
+    path = _파일을_둔다(tmp_path, "src/m.py", b"x = 1\n")
+    없는곳 = tmp_path / "gone" / ".git" / "worktrees" / "wt"
+    (tmp_path / ".git").write_text(f"gitdir: {없는곳}\n", encoding="utf-8")
+    표 = _변이_파일을_쓴다(tmp_path, _변이_파일(old="x = 1", new="x = 2", expect="green"))
+    줄: list[str] = []
+
+    code = main([표], root=tmp_path, runner=_변이면(path, b"x = 2", _긴_빨강()), out=줄.append)
+
+    assert code == 1, 줄
+    assert _전체_출력_줄(줄) == []
+    assert not (tmp_path / "gone").exists()
+    assert path.read_bytes() == b"x = 1\n"
+
+
+def test_되돌림이_막혀_RestoreError_가_오른_변이는_출력_파일을_남기지_못한다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """독스트링의 못 보는 것. 되돌림이 막히면 변이의 보고에 닿기 전에 끝난다."""
+    m, _, 변이 = _두_파일_변이(tmp_path)
+    (tmp_path / ".git").mkdir()
+    저장 = tmp_path / ".git" / "mutate-output"
+
+    with pytest.raises(RestoreError, match="src/m.py"):
+        measure(
+            load_spec(변이),
+            root=tmp_path,
+            runner=_잠그는_러너(m, b"x = 2", monkeypatch),
+            out=lambda _: None,
+            output_file=lambda 번호: 저장 / f"t-{번호}.txt",
+        )
+
+    assert not 저장.exists()
+
+
+def test_워크트리에서는_그_워크트리의_git_디렉터리에_출력_파일을_둔다(tmp_path: Path) -> None:
+    root, _ = _시험이_든_저장소(tmp_path / "main")
+    옆 = tmp_path / "side"
+    _git(root, "worktree", "add", "-q", "-b", "side", str(옆))
+    표 = _변이_파일을_쓴다(tmp_path, _변이_파일(old="x = 1", new="x = 2", expect="green"))
+    줄: list[str] = []
+
+    assert (
+        main([표], root=옆, runner=_변이면(옆 / "src/m.py", b"x = 2", _긴_빨강()), out=줄.append)
+        == 1
+    )
+    파일 = root / ".git" / "worktrees" / "side" / "mutate-output" / "mutations-1.txt"
+    assert 파일.exists(), 줄
+    assert _전체_출력_줄(줄) == [f"   전체 출력: {파일}"]
+    assert _출력_파일(root) == []  # 주 체크아웃의 git 디렉터리에는 쓰지 않는다
+
+
+@pytest.mark.parametrize("고르기", [[], ["1"]], ids=["표_전체", "번호"])
+def test_원문만_보는_check_는_출력_파일을_쓰지_않는다(tmp_path: Path, 고르기: list[str]) -> None:
+    root, 표 = _시험이_든_저장소(tmp_path, expect="green")
+
+    main(["--check", 표, *고르기], root=root, runner=_부르면_안_되는_러너, out=lambda _: None)
+
+    assert not (root / ".git" / "mutate-output").exists()

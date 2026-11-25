@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import os
 import re
+import shlex
 import socket
 import stat
 import subprocess
@@ -127,7 +128,7 @@ def test_이름_풀이가_거절하는_호스트는_예외가_아니라_답하�
     assert not server_answers(host, 5432)
 
 
-def test_기본_주소는_compose_와_같은_판의_이미지_역할_포트를_가리킨다() -> None:
+def test_기본_주소는_compose_와_같은_버전의_이미지_역할_포트를_가리킨다() -> None:
     """compose 파일과 기본 주소가 따로 늙지 않게 한다. 둘 다 사람이 쓰므로 글자로 맞댄다."""
     compose = _글(COMPOSE_FILE)
     parts = urlsplit(TEST_DATABASE_URL)
@@ -167,6 +168,69 @@ def test_CI_의_python_잡은_같은_이미지를_서비스_컨테이너로_띄�
     assert "--health-cmd" in job, "서비스 컨테이너가 준비되기 전에 pytest 가 시작한다"
     expected = f"{TEST_DATABASE_ENV}: postgresql://{parts.username}:{parts.password}@127.0.0.1:5432"
     assert f"{expected}/{database}" in job
+
+
+def _나눠_돌린다(command: str) -> bool:
+    """pytest 명령이 xdist 로 작업자를 둘 이상 띄우는가. `-n`(붙여 쓴 `-nauto`, 긴 이름
+    `--numprocesses`)의 값이 `auto`·`logical` 이거나 2 이상이고, 줄 끝 주석과 `-p no:xdist`
+    (플러그인 끄기)가 없을 때다."""
+    words = shlex.split(command, comments=True)
+    if any("no:xdist" in word for word in words):
+        return False
+    value: str | None = None
+    for position, word in enumerate(words):
+        following = words[position + 1] if position + 1 < len(words) else None
+        if word in ("-n", "--numprocesses"):
+            value = following
+        elif word.startswith("--numprocesses="):
+            value = word.removeprefix("--numprocesses=")
+        elif word.startswith("-n") and not word.startswith("--"):
+            value = word.removeprefix("-n")
+    if value is None:
+        return False
+    return value in ("auto", "logical") or (value.isascii() and value.isdigit() and int(value) >= 2)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run pytest -q -n auto",
+        "uv run pytest -q -n 2",
+        "uv run pytest -q -nauto",
+        "uv run pytest -q --numprocesses=auto",
+        "uv run pytest -q -n logical",
+    ],
+)
+def test_나눠_돌리는_pytest_명령으로_읽는다(command: str) -> None:
+    assert _나눠_돌린다(command)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run pytest -q",
+        "uv run pytest -q -n 0",
+        "uv run pytest -q -n 1",
+        "uv run pytest -q # -n auto",
+        "uv run pytest -q -n auto -p no:xdist",
+        "uv run pytest -q -n auto -pno:xdist",
+        "uv run pytest -q -n ²",
+    ],
+)
+def test_나눠_돌리지_않는_pytest_명령으로_읽는다(command: str) -> None:
+    assert not _나눠_돌린다(command)
+
+
+def test_CI_의_python_잡은_pytest_를_작업자_여럿으로_나눠_돌린다() -> None:
+    """한 프로세스로 돌린 pytest 스텝이 13분 반 안팎이라 잡의 제한 15분을 넘긴 실행이 나왔다
+    (`.scratch/harness/issues/ci-pytest-parallel.md`). 시험은 작업자마다 템플릿 데이터베이스를
+    만들고 시험마다 이름이 다른 복제본을 쓰므로 나눠 돌아도 데이터가 부딪히지 않는다."""
+    commands = re.findall(r"^\s*- run: (uv run pytest\b.*)$", _CI_python_잡(), re.MULTILINE)
+
+    assert len(commands) == 1, (
+        f"python 잡에서 `- run: uv run pytest …` 한 줄 꼴의 스텝이 하나가 아니다: {commands}"
+    )
+    assert _나눠_돌린다(commands[0]), f"pytest 를 나눠 돌리지 않는다: {commands[0]}"
 
 
 def test_데이터베이스_문제가_없으면_None_이다() -> None:
@@ -489,6 +553,12 @@ def test_main_은_준비한_주소를_검사들이_물려받을_환경에_넣는
 
     monkeypatch.setattr(run_checks, "prepare_test_database", 준비된_주소)
     monkeypatch.setattr(run_checks, "run", 환경을_기록하고_통과한다)
+
+    # 진짜 색인에 문서만 스테이징돼 있으면 러너가 데이터베이스를 준비하지 않아 이 시험이 깨진다
+    def 코드를_스테이징했다(_: Path) -> list[str]:
+        return ["src/rag_engine/main.py"]
+
+    monkeypatch.setattr(run_checks, "staged_paths", 코드를_스테이징했다)
 
     assert run_checks.main() == 0
     assert seen == ["postgresql://ready/x"]

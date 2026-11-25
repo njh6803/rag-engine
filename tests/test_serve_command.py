@@ -33,6 +33,22 @@ def test_허용_호스트가_비면_종료_코드_1과_칸_이름을_내고_뜨�
     assert seeded_command_environment not in output.err + output.out
 
 
+def test_모르는_시간대_이름이면_종료_코드_1과_칸_이름을_내고_뜨지_않는다(
+    seeded_command_environment: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("RAG_SCHEDULE_TIMEZONE", "Asia/Seol")
+
+    with pytest.raises(SystemExit) as caught:
+        main(["serve"])
+
+    output = capsys.readouterr()
+    assert caught.value.code == 1
+    assert "RAG_SCHEDULE_TIMEZONE" in output.err
+    assert "Asia/Seol" not in output.err + output.out
+
+
 def _free_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))

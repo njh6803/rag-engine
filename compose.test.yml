@@ -2,7 +2,7 @@
 # pytest 는 아래 주소를 RAG_TEST_DATABASE_URL 로 준 개발자가 쓴다.
 #   docker compose -f compose.test.yml up -d --wait
 #   RAG_TEST_DATABASE_URL=postgresql://rag_test:rag_test@127.0.0.1:55432/rag_test uv run pytest
-# 이미지는 운영과 같은 판이다(ADR 0006, tech.md 테스트 칸). CI 의 python 잡 서비스 컨테이너도 같은 이미지·역할이고,
+# 이미지는 운영과 같은 버전이다(ADR 0006, tech.md 테스트 칸). CI 의 python 잡 서비스 컨테이너도 같은 이미지·역할이고,
 # 주소와 이 파일이 맞는지는 tests/tools/test_run_checks_database.py 가 글자로 맞댄다.
 # POSTGRES_USER 는 이미지가 슈퍼유저로 만들어, 02~03 의 템플릿 데이터베이스를 만들 권한이 있다.
 # 데이터는 tmpfs 에 둔다. 컨테이너를 내리거나 다시 시작하면 사라지고, 시험은 템플릿 데이터베이스를 스스로 만든다.

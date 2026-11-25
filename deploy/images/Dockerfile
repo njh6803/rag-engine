@@ -51,8 +51,8 @@ RUN test -n "${APP_VERSION}" || { echo "APP_VERSION 빌드 인자가 필요하�
 
 # ------------------------------ 두 이미지가 함께 쓰는 바탕 ------------------------------
 FROM ${PYTHON_IMAGE} AS runtime
-# tini 는 컨테이너의 1번 프로세스로 돌며 종료 신호를 앱에 넘기고 끝난 자식 프로세스를 거둔다. 판은 짓는 날 Debian
-# 저장소에서 받으므로 digest 처럼 고정되지 않는다. 그 판은 이미지의 소프트웨어 목록이 적는다.
+# tini 는 컨테이너의 1번 프로세스로 돌며 종료 신호를 앱에 넘기고 끝난 자식 프로세스를 거둔다. 버전은 짓는 날 Debian
+# 저장소에서 받으므로 digest 처럼 고정되지 않는다. 그 버전은 이미지의 소프트웨어 목록이 적는다.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tini \
  && rm -rf /var/lib/apt/lists/*

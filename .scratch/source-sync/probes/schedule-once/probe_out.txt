@@ -1,0 +1,60 @@
+server: ('18.6 (Debian 18.6-1.pgdg13+2)',)
+psycopg: 3.3.8 / libpq 구현: binary
+prepare_threshold: 5
+A. 원천 행 잠금(FOR UPDATE SKIP LOCKED), 원천 하나씩 커밋, 틈 0ms: 넣은 작업 1000건(기대 1000건), 한 원천에 더 들어간 작업 0건, 작업이 없는 원천 0곳, 오류 없음, 3.0초
+A. 원천 행 잠금(FOR UPDATE SKIP LOCKED), 원천 하나씩 커밋, 틈 2ms: 넣은 작업 1000건(기대 1000건), 한 원천에 더 들어간 작업 0건, 작업이 없는 원천 0곳, 오류 없음, 3.7초
+A2. 원천 행 잠금, 시각이 지난 원천을 트랜잭션 하나에서 모두(명세의 모양), 틈 0ms: 넣은 작업 1000건(기대 1000건), 한 원천에 더 들어간 작업 0건, 작업이 없는 원천 0곳, 오류 없음, 4.7초
+A2. 원천 행 잠금, 시각이 지난 원천을 트랜잭션 하나에서 모두(명세의 모양), 틈 2ms: 넣은 작업 1000건(기대 1000건), 한 원천에 더 들어간 작업 0건, 작업이 없는 원천 0곳, 오류 없음, 8.0초
+B. 대조: 잠금 없이 읽고 넣기, 틈 0ms: 넣은 작업 4028건(기대 1000건), 한 원천에 더 들어간 작업 3028건, 작업이 없는 원천 0곳, 오류 없음, 12.7초
+B. 대조: 잠금 없이 읽고 넣기, 틈 2ms: 넣은 작업 4728건(기대 1000건), 한 원천에 더 들어간 작업 3728건, 작업이 없는 원천 0곳, 오류 없음, 16.5초
+C. 조건부 UPDATE 가 돌려준 쪽만 넣기, 틈 0ms: 넣은 작업 1000건(기대 1000건), 한 원천에 더 들어간 작업 0건, 작업이 없는 원천 0곳, 오류 없음, 13.5초
+C. 조건부 UPDATE 가 돌려준 쪽만 넣기, 틈 2ms: 넣은 작업 1000건(기대 1000건), 한 원천에 더 들어간 작업 0건, 작업이 없는 원천 0곳, 오류 없음, 15.8초
+D1. 연결 8개가 같은 원천에 동시에 넣기 50회차, 회차마다 들어간 작업 수의 분포: {1: 50}, 연결 8개가 모두 답하지 않은 회차 0
+D2. 앞 작업이 실행 중일 때 넣기: 들어가지 않았다
+D2. 앞 작업이 끝난 뒤 넣기: 들어갔다
+D3. 술어를 리터럴로 적은 문장: 20번 모두 통과
+D3. 술어를 바인드 값으로 적은 문장: 11번째 실행에서 InvalidColumnReference 42P10
+E1. D 의 유일 색인(빈 값을 서로 다른 값으로 본다)이 있을 때 정리 작업 둘: 들어갔다 / 들어갔다
+E2. NULLS NOT DISTINCT 색인에서 정리 작업 둘: 들어갔다 / UniqueViolation 23505
+E2. 같은 색인에 ON CONFLICT DO NOTHING 으로 셋째: 들어가지 않았다(오류 없음)
+E2. 같은 색인에서 같은 원천의 동기화 작업 둘: 들어갔다 / 들어가지 않았다
+E2. 같은 색인에서 서로 다른 문서의 색인 작업 둘: 들어갔다 / 들어갔다
+F. 대기 중인 색인 작업 100000건, 끝난 색인 작업 100000건, 가장 늦게 들어온 동기화 작업 1건
+F. 지금의 순서(예약 시각, 식별자): 꺼낸 종류 ['index_document'], 가운데값 78.7ms, 가장 긴 것 99.3ms(15번)
+F. 종류로 가른 순서(색인 작업을 뒤로): 꺼낸 종류 ['sync_source'], 가운데값 192.8ms, 가장 긴 것 228.4ms(15번)
+F. 색인 작업이 아닌 것만 먼저 묻기(부분 색인): 꺼낸 종류 ['sync_source'], 가운데값 1.6ms, 가장 긴 것 2.1ms(15번)
+F. 지금 순서의 계획:
+    Limit (actual rows=1.00 loops=1)
+      Buffers: shared hit=2859, temp read=376 written=689
+      ->  LockRows (actual rows=1.00 loops=1)
+            Buffers: shared hit=2859, temp read=376 written=689
+            ->  Sort (actual rows=1.00 loops=1)
+                  Sort Key: run_after, id
+                  Sort Method: external merge  Disk: 5496kB
+                  Buffers: shared hit=2858, temp read=376 written=689
+                  ->  Seq Scan on jobs (actual rows=100001.00 loops=1)
+                        Filter: (((status = 'queued'::text) AND (run_after <= '2026-11-21 06:58:18.665352+00'::timestamp with time zone)) OR ((status = 'running'::text) AND (leased_until <= '2026-11-21 06:58:18.665352+00'::timestamp with time zone)))
+                        Rows Removed by Filter: 100000
+                        Buffers: shared hit=2858
+F. 종류로 가른 순서의 계획:
+    Limit (actual rows=1.00 loops=1)
+      Buffers: shared hit=2859, temp read=376 written=689
+      ->  LockRows (actual rows=1.00 loops=1)
+            Buffers: shared hit=2859, temp read=376 written=689
+            ->  Sort (actual rows=1.00 loops=1)
+                  Sort Key: ((kind = 'index_document'::text)), run_after, id
+                  Sort Method: external merge  Disk: 5496kB
+                  Buffers: shared hit=2858, temp read=376 written=689
+                  ->  Seq Scan on jobs (actual rows=100001.00 loops=1)
+                        Filter: (((status = 'queued'::text) AND (run_after <= '2026-11-21 06:58:18.665352+00'::timestamp with time zone)) OR ((status = 'running'::text) AND (leased_until <= '2026-11-21 06:58:18.665352+00'::timestamp with time zone)))
+                        Rows Removed by Filter: 100000
+                        Buffers: shared hit=2858
+F. 색인 작업이 아닌 것만 묻는 질의의 계획:
+    Limit (actual rows=1.00 loops=1)
+      Buffers: shared hit=3
+      ->  LockRows (actual rows=1.00 loops=1)
+            Buffers: shared hit=3
+            ->  Index Scan using ix_jobs_other_kinds on jobs (actual rows=1.00 loops=1)
+                  Filter: ((kind <> 'index_document'::text) AND (status = ANY ('{queued,running}'::text[])) AND (((status = 'queued'::text) AND (run_after <= '2026-11-21 06:58:18.665352+00'::timestamp with time zone)) OR ((status = 'running'::text) AND (leased_until <= '2026-11-21 06:58:18.665352+00'::timestamp with time zone))))
+                  Index Searches: 1
+                  Buffers: shared hit=2

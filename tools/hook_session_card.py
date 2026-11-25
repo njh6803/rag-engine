@@ -18,7 +18,7 @@ id 가 없었다).
 측정. 데스크톱 앱 세션에서 이 매처의 PreToolUse 훅이 `own_initiative` 호출을 받았고 입력에
 `initiation` 키가 있었다. deny 로 막자 도구 결과가 `PreToolUse:mcp__ccd_session__start_session hook
 error: ` 뒤에 이유 글을 붙인 꼴로 모델에게 갔고 카드 id 가 없었다
-(`.scratch/ticket-for-every-pr/probes/card_block/`, 결과는 같은 `probes/README.md`. 판은 Claude
+(`.scratch/ticket-for-every-pr/probes/card_block/`, 결과는 같은 `probes/README.md`. 버전은 Claude
 Code 2.1.299 로, 출력이 아니라 탐침 세션 기록에서 손으로 봤다). 표본은 호출 하나씩이고 그 탐침은
 래퍼 없이 `settings.local.json` 에 등록했다.
 

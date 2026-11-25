@@ -1,8 +1,10 @@
 """작업·문서 조회의 응답 모델(명세 "관리 API"). 경로의 `v1`이 버전이다(원칙 VII).
 
 칸을 더하는 것은 같은 버전이고 칸을 지우거나 뜻을 바꾸면 `v2`다. 시각은 UTC `Z`로 낸다(ADR 0015).
-`status`는 문서에서는 `received`, `parsed`, `failed`, `deleted` 넷이고, 색인 상태에서는 `pending`,
-`indexed`, `failed`이거나 그 판에 색인 상태 행이 없으면 null이다.
+`status`는 문서에서는 `received`, `parsed`, `failed`, `skipped`, `deleted` 다섯이고, 색인 상태에서는
+`pending`, `indexed`, `failed`이거나 그 판에 색인 상태 행이 없으면 null이다. 건너뜀(`skipped`)은
+실패가 아니다. 암호가 걸렸거나(`encrypted`) 색인할 글이 없어서(`no_text`) 색인할 것이 없는 문서이고,
+까닭은 문서의 `skip_reason`에 실린다. 건너뛴 문서의 색인 상태는 조각 0개인 `indexed`다.
 """
 
 from datetime import UTC, datetime
@@ -19,6 +21,7 @@ from rag_engine.domain.entities import (
     Job,
     JobKind,
     JobStatus,
+    SkipReason,
 )
 from rag_engine.domain.errors import ErrorCode
 from rag_engine.server.tool_support import METADATA
@@ -67,6 +70,10 @@ class DocumentResponse(BaseModel):
     size_bytes: int
     status: DocumentState = Field(description="지운 문서는 `deleted`다")
     error_code: ErrorCode | None = Field(description="파싱이 영구 실패한 문서의 오류 코드")
+    skip_reason: SkipReason | None = Field(
+        description="문서를 건너뛴 까닭(`encrypted`, `no_text`). 건너뛴 문서에만 있다."
+        " 건너뛴 문서를 지우면 상태가 `deleted`로 보여도 까닭은 남는다"
+    )
     metadata: dict[str, JsonValue]
     updated_at: UtcTime
     created_at: UtcTime
@@ -89,6 +96,7 @@ class DocumentResponse(BaseModel):
             size_bytes=document.size_bytes,
             status=document.state,
             error_code=document.error_code,
+            skip_reason=document.skip_reason,
             metadata=METADATA.validate_python(document.metadata),
             updated_at=document.updated_at,
             created_at=document.created_at,
@@ -101,12 +109,23 @@ class DocumentListResponse(BaseModel):
     documents: list[DocumentResponse]
 
 
+class DocumentRestoredResponse(BaseModel):
+    """문서 되살리기의 응답. 되살린 뒤의 문서와, 되돌릴 조각이 없는 판이 있어 색인 작업을 넣었으면
+    그 작업의 식별자다(`GET /jobs/{id}`로 본다)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    document: DocumentResponse
+    job_id: UUID | None = Field(description="넣은 색인 작업의 ID. 넣지 않았으면 null")
+
+
 class JobResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: UUID
     kind: JobKind
-    document_id: UUID
+    document_id: UUID | None = Field(description="색인 작업만 문서를 가리킨다")
+    source: str | None = Field(description="원천 단위 작업이 가리키는 원천의 이름. 그 밖에는 null")
     status: JobStatus = Field(description="그 작업이 끝난 모양이다. 문서의 결과가 아니다")
     attempts: int
     run_after: UtcTime
@@ -119,11 +138,12 @@ class JobResponse(BaseModel):
     finished_at: UtcTime | None
 
     @staticmethod
-    def of(job: Job) -> "JobResponse":
+    def of(job: Job, source: str | None) -> "JobResponse":
         return JobResponse(
             id=job.id,
             kind=job.kind,
             document_id=job.document_id,
+            source=source,
             status=job.status,
             attempts=job.attempts,
             run_after=job.run_after,
@@ -148,7 +168,7 @@ class JobDetailResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     job: JobResponse
-    document: DocumentResponse
+    document: DocumentResponse | None
     active_jobs_remain: bool = Field(
         description="같은 문서에 대기·실행 중인 작업이 남았는지(이 작업 자신이 그렇다면 참)"
     )
@@ -156,7 +176,7 @@ class JobDetailResponse(BaseModel):
     @staticmethod
     def of(report: JobReport) -> "JobDetailResponse":
         return JobDetailResponse(
-            job=JobResponse.of(report.job),
-            document=DocumentResponse.of(report.document),
+            job=JobResponse.of(report.job, report.source),
+            document=None if report.document is None else DocumentResponse.of(report.document),
             active_jobs_remain=report.active_jobs_remain,
         )

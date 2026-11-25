@@ -13,7 +13,7 @@ release-image가 끝난 뒤로는 main이 움직일 때 지난 릴리스 뒤로 
 
 이정표는 `docs/PRD.md`의 성공의 정의가 원천이다. 공개 시연(2027-01 초)은 core, search-eval, release-image이고 그때의 릴리스는 출시 후보다. 0.1(2027-03 초 무렵)은 슬라이스 2까지이고 release-0-1이 정식 릴리스로 낸다. 1.0(2027년 상반기, 어림)은 슬라이스 3까지다.
 
-core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌고 없으면 실패하므로(`docs/constitution/tech.md` 테스트 칸), 검사 러너가 테스트 DB를 띄우는 변경은 core의 첫 티켓(core 01)이고 나머지 core 티켓은 그 티켓 뒤에 선다(설계 일지는 하네스 티켓으로 적었지만 2026-11-10 티켓 세션에서 사용자가 core 01로 골랐다. core 명세 Further Notes). 러너가 pytest를 always_run으로 돌리므로 그 변경 뒤에는 문서 PR과 하네스 chore를 포함한 모든 커밋에 테스트 PostgreSQL이 필요하다. 러너가 Docker로 띄우거나 `RAG_TEST_DATABASE_URL`이 이미 닿는 서버를 가리켜야 하므로, 둘 다 없는 클라우드 세션은 커밋할 수 없다. 이 분기는 core 01이 next-session 결정표 아래의 Docker 갈래로 더했다.
+core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌고 없으면 실패하므로(`docs/constitution/tech.md` 테스트 칸), 검사 러너가 테스트 DB를 띄우는 변경은 core의 첫 티켓(core 01)이고 나머지 core 티켓은 그 티켓 뒤에 선다(설계 일지는 하네스 티켓으로 적었지만 2026-11-10 티켓 세션에서 사용자가 core 01로 골랐다. core 명세 Further Notes). 러너가 pytest를 always_run으로 돌리므로 그 변경 뒤에는 코드나 설정을 바꾸는 커밋(하네스 chore 포함)에 테스트 PostgreSQL이 필요하다. 스테이징한 파일이 전부 문서인 커밋은 러너가 pytest를 데이터베이스를 쓰지 않는 시험 여섯으로 좁히고 서버를 띄우지 않는다(하네스 티켓 `docs-only-commit-narrow-pytest`와 `docs-only-six-state-tests`). 러너가 Docker로 띄우거나 `RAG_TEST_DATABASE_URL`이 이미 닿는 서버를 가리켜야 하므로, 둘 다 없는 클라우드 세션은 코드나 설정을 바꾸는 커밋을 할 수 없다. 이 분기는 core 01이 next-session 결정표 아래의 Docker 갈래로 더했다.
 
 ## 하네스 기능
 
@@ -49,11 +49,11 @@ deploy/images/             이미지 짓기. Dockerfile 하나와 bake 설정(`d
 | 1 | [core](core/plan.md) | 수집, 색인, 검색의 본체 v0. 관리 API로 넣은 문서를 MCP 읽기 도구로 근거 위치와 갱신일이 붙은 조각으로 찾는다 | 없음 | done |
 | 2 | [admin](admin/plan.md) | 관리자 페이지 v0. 현황, 원천, 문서, 검색 시험 화면에서 문서를 올리고 지우며 잘 찾아지는지 확인한다 | source-sync | todo |
 | 2 | [backup-upgrade](backup-upgrade/plan.md) | 색인, 원본 문서, 데이터베이스를 명령 하나로 백업하고 복원하며, 업그레이드 때 다시 색인해야 하는지 알린다 | source-sync | todo |
-| 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 판, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync | todo |
+| 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 릴리스 번호와 계약 버전, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync | todo |
 | 2 | [release-0-1](release-0-1/plan.md) | 첫 정식 릴리스 0.1.0을 낸다. 마지막 출시 후보로 0.1의 성공의 정의를 확인한 뒤 출시 후보 단계를 끝낸다 | release-image, admin, backup-upgrade, diag-bundle | todo |
 | 2 | [release-image](release-image/plan.md) | 릴리스마다 검색 서버와 수집 작업자의 이미지를 내고, 자기 PostgreSQL을 띄우는 단독 compose로 깨끗한 VM에 설치된다 | core | done |
 | 2 | [search-eval](search-eval/plan.md) | 평가 세트로 검색의 상위 k개 적중률을 재고, 기준 보고서보다 떨어지면 CI가 실패한다 | core | done |
-| 2 | [source-sync](source-sync/plan.md) | 원천(업로드, 서버 경로, 수집 API)과 동기화. 원천에서 더하고 고치고 지운 문서가 다음 동기화 뒤 검색에 반영된다 | core, release-image | todo |
+| 2 | [source-sync](source-sync/plan.md) | 원천(업로드, 서버 경로, 수집 API)과 동기화. 원천에서 더하고 고치고 지운 문서가 다음 동기화 뒤 검색에 반영된다 | core, release-image | done |
 | 3 | [change-log](change-log/plan.md) | 관리 변경 기록. 누가 언제 문서, 원천, 설정, 접근 그룹을 바꿨는지 남기고 조회하고 내보낸다 | admin, release-0-1 | todo |
 | 3 | [db-source](db-source/plan.md) | SQL 커넥터. 운영자가 쓴 질의와 매핑으로 데이터베이스에 든 글과 그 첨부를 문서로 수집한다 | source-sync, release-0-1 | todo |
 | 3 | [doc-freshness](doc-freshness/plan.md) | 문서의 갱신일과 시행일을 관리하고, 기한이 지난 문서의 조각에 "오래됨"을 표시한다 | admin, release-0-1 | todo |
@@ -62,4 +62,4 @@ deploy/images/             이미지 짓기. Dockerfile 하나와 bake 설정(`d
 
 ## 프론티어
 
-done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능이다. `source-sync`
+done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능이다. `admin`, `backup-upgrade`, `diag-bundle`

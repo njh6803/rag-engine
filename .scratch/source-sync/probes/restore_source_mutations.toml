@@ -1,0 +1,173 @@
+# source-sync 12(원천 되살리기)의 시험이 되살리기의 각 판정을 하나씩 지켜 보는지 본다. 진행 중인
+# 작업 검사, 보관 기간 검사, 작업의 지움 표시 재확인, 원천과 함께 지웠다는 표시로 문서를 고르는 자리,
+# 따로 지우는 요청이 표시를 걷는 자리, 동기화의 삭제 반영 대상, 폴더 겹침 재확인, 멈춘 문서 잇기를
+# 하나씩 깨뜨린다.
+# 실행: PYTHONUTF8=1 uv run python tools/mutate.py .scratch/source-sync/probes/restore_source_mutations.toml
+
+[[mutation]]
+name = "되살리는 요청이 진행 중인 삭제와 되살리기 작업을 보지 않는다"
+tests = ["tests/server/test_restore_source_round_trip.py::test_지우는_작업이_끝나기_전의_되살리기와_되살리는_작업이_끝나기_전의_지우기는_409다"]
+expect = "red"
+expect_output = ["KeyError: 'code'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/restore_source.py"
+old = '''    await ensure_no_change_in_progress(transaction, locked.id)
+    return locked'''
+new = '''    return locked'''
+
+[[mutation]]
+name = "지우는 요청이 진행 중인 삭제와 되살리기 작업을 보지 않는다"
+tests = ["tests/server/test_restore_source_round_trip.py::test_지우는_작업이_끝나기_전의_되살리기와_되살리는_작업이_끝나기_전의_지우기는_409다"]
+expect = "red"
+expect_output = ["KeyError: 'code'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/delete_source.py"
+old = '''        await ensure_no_change_in_progress(transaction, source.id)
+'''
+new = ''''''
+
+[[mutation]]
+name = "보관 기간이 지난 지운 원천도 되살린다"
+tests = ["tests/server/test_restore_source_round_trip.py::test_보관_기간이_지난_지운_원천은_되살릴_수_없고_지운_채다"]
+expect = "red"
+expect_output = ["KeyError: 'code'"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/restore_source.py"
+old = '''    if locked.deleted_at + timedelta(days=retention_days) <= now:
+        raise RequestError(ErrorCode.SOURCE_RETENTION_EXPIRED, "보관 기간이 지나 되살릴 수 없다")
+'''
+new = ''''''
+
+[[mutation]]
+name = "원천 되살리기 작업이 지움 표시가 선 원천에서도 문서를 되살린다"
+tests = ["tests/app/test_restore_source.py::test_지움_표시가_선_원천에_직접_넣은_되살리기_작업은_문서를_되살리지_않고_끝난다"]
+expect = "red"
+expect_output = ["At index 1 diff: 0 != 1"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/restore_source.py"
+old = '''            raise RuntimeError("원천 되살리기 작업이 가리키는 원천이 없다")
+        if source.deleted_at is not None:
+            return False
+        ids = await transaction.documents.list_ids_deleted_with_source(source.id, BATCH_SIZE)'''
+new = '''            raise RuntimeError("원천 되살리기 작업이 가리키는 원천이 없다")
+        ids = await transaction.documents.list_ids_deleted_with_source(source.id, BATCH_SIZE)'''
+
+[[mutation]]
+name = "원천과 함께 지웠다는 표시가 없는 문서도 되살린다"
+tests = ["tests/server/test_restore_source_round_trip.py::test_지운_원천을_되살리고_작업자를_돌리면_임베딩_없이_검색에_돌아온다"]
+expect = "red"
+expect_output = ["Extra items in the left set:"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/document_store.py"
+old = '''                documents.c.deleted_with_source.is_(True),
+            )
+            .order_by(documents.c.id)'''
+new = '''                documents.c.deleted_at.is_not(None),
+            )
+            .order_by(documents.c.id)'''
+
+[[mutation.edit]]
+file = "src/rag_engine/app/restore_source.py"
+old = '''            and document.deleted_at is not None
+            and document.deleted_with_source
+        ):'''
+new = '''            and document.deleted_at is not None
+        ):'''
+
+[[mutation]]
+name = "수집 API의 삭제가 이미 지운 문서의 표시를 걷지 않는다"
+tests = ["tests/server/test_restore_source_round_trip.py::test_되살리는_요청_뒤에_수집_API로_지운_문서는_돌아오지_않는다"]
+expect = "red"
+expect_output = ["Extra items in the left set:"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/delete_document.py"
+old = '''    return document.deleted_at is not None and document.deleted_with_source
+'''
+new = '''    return False
+'''
+
+[[mutation]]
+name = "동기화의 삭제 반영이 원천과 함께 지웠다는 표시가 남은 문서를 대상으로 삼지 않는다"
+tests = ["tests/app/test_restore_source.py::test_되살린_원천의_동기화는_폴더에서_사라진_문서를_되살리지_않고_따로_지운_문서로_센다"]
+expect = "red"
+expect_output = ["At index 1 diff: 0 != 1"]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/document_store.py"
+old = '''                sa.or_(documents.c.deleted_at.is_(None), documents.c.deleted_with_source.is_(True)),
+            )
+        )
+        return {row.key: row.id for row in rows}'''
+new = '''                documents.c.deleted_at.is_(None),
+            )
+        )
+        return {row.key: row.id for row in rows}'''
+
+[[mutation]]
+name = "가져오는 원천을 되살릴 때 폴더 겹침을 다시 보지 않는다"
+tests = ["tests/server/test_restore_pull_source.py::test_그사이_다른_원천이_겹치는_폴더를_쓰게_됐으면_되살리기는_409이고_원천은_지운_채다"]
+expect = "red"
+expect_output = ["<Response [202 Accepted]>"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''            if shares_folders:
+                await self._reject_overlap(catalog, config, location, own=locked.id)
+'''
+new = ''''''
+
+[[mutation]]
+name = "되살릴 때 다음 실행 시각을 다시 채우지 않는다"
+tests = ["tests/server/test_restore_pull_source.py::test_가져오는_원천을_되살리면_202와_연결_확인이_나오고_다음_실행_시각이_다시_찬다"]
+expect = "red"
+expect_output = ["assert None is not None"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''                next_run_at=self._next_due(locked.schedule, now, paused=locked.paused),'''
+new = '''                next_run_at=None,'''
+
+[[mutation]]
+name = "원천 삭제 작업이 실패로 끝난 원천의 멈춘 문서에 색인 작업을 넣지 않는다"
+tests = ["tests/app/test_restore_source.py::test_원천_삭제_작업이_실패로_끝난_원천을_되살리면_멈춘_문서가_색인되어_검색에_나온다"]
+expect = "red"
+expect_output = ["Right contains one more item: <IndexStateStatus.INDEXED"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/restore_source.py"
+old = '''        ids = await transaction.documents.list_stalled_ids_of_source(source.id, BATCH_SIZE)
+        if not ids:
+            return False'''
+new = '''        return False'''
+
+[[mutation]]
+name = "옛 내용의 해시로 색인된 판도 정착한 판으로 본다"
+tests = ["tests/adapters/test_restore_source_queries.py::test_색인이_멈춘_문서는_정착하지_않은_판이_있는데_색인_작업이_없는_문서다"]
+expect = "red"
+expect_output = ["Right contains one more item: UUID("]
+
+[[mutation.edit]]
+file = "src/rag_engine/adapters/postgres/document_store.py"
+old = '''                        states.c.built_content_hash == documents.c.content_hash,
+'''
+new = '''                        states.c.built_content_hash.is_not(None),
+'''
+
+[[mutation]]
+name = "폴더를 살피는 사이 바뀐 원천의 설정을 잠근 뒤에 다시 읽지 않는다"
+tests = ["tests/server/test_restore_pull_source.py::test_폴더를_살피는_사이_원천의_폴더가_바뀌고_지워져도_바뀐_폴더로_겹침을_다시_본다"]
+expect = "red"
+expect_output = ["At index 0 diff: 202 != 409"]
+
+[[mutation.edit]]
+file = "src/rag_engine/app/pull_sources.py"
+old = '''            if locked_config != config:
+'''
+new = '''            if False:
+'''

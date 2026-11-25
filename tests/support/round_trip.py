@@ -91,11 +91,15 @@ class RoundTrip:
                 data=fields,
             )
 
-    async def delete(self, key: str, *, token: str | None = None) -> httpx.Response:
-        """수집 API의 삭제. 키는 URL 인코딩한 쿼리 매개변수다."""
+    async def delete(
+        self, key: str, *, token: str | None = None, source: str | None = None
+    ) -> httpx.Response:
+        """수집 API의 삭제. 키는 URL 인코딩한 쿼리 매개변수이고 `source`를 적지 않으면 쿼리에서
+        뺀다."""
+        params = {"key": key} if source is None else {"key": key, "source": source}
         async with httpx.AsyncClient() as http:
             return await http.delete(
-                self.server.base_url + INGEST_PATH, headers=self.auth(token), params={"key": key}
+                self.server.base_url + INGEST_PATH, headers=self.auth(token), params=params
             )
 
     async def work(self) -> int:
