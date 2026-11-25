@@ -92,3 +92,91 @@ Critical·Major 없음. 위반 Minor 셋, 주장 검증 Minor 여럿, 판단 항
 **다시 돌린 명령과 결과(2026-11-25, 반영 뒤).** `uv run ruff check .` 통과, `uv run ruff format --check .` 977개 모두 포맷됨, `uv run pyright` 오류 0, `uv run lint-imports` 계약 2개 유지, `tools/check_instructions.py`와 `tools/check_type_escapes.py` 출력 없이 통과, `tests/tools/test_extract_asks.py` 40개 통과, `tools/plan_table.py` 실행(변경 없음), `tools/mutate.py --check`로 변이 13개의 원문이 한 번씩 있음을 확인한 뒤 전체 실행해 13개 모두 기대대로 빨강이었다(표지는 시험 소스에 글자 그대로 있지 않은 실패 출력으로 했다). 전체 테스트(`uv run pytest`)는 커밋이 부르는 pre-commit이 갈음한다. 이 결과는 커밋 뒤 pre-commit 출력으로 확인해 이어 적는다.
 
 **pytest 훅을 건너뛴 커밋(사용자 승인).** 커밋의 pre-commit 전체 시험을 네 번 돌렸고 모두 빨강이었다. 첫 번째는 `kiwipiepy` 토크나이저에서 xdist 작업자가 `Fatal Python error: Aborted`로 죽고 4200초 제한을 넘겼다. 나머지 셋은 5877~5885개가 통과하고 서버 쪽 시험이 4개, 12개, 8개 실패했다. 실패한 시험은 실행마다 달랐고(`test_admin_pull_source_stuck_calls.py`, `test_cleanup_round_trip.py`, `test_delete_restore.py`, `test_serve_command.py`, `test_first_round_trip.py` 등) 대부분이 1.0초 상한을 1.06~1.92초로 넘긴 시간 단언이거나 "serve가 30초 안에 뜨지 않았다", HTTP 연결 오류였다. 그때 이 PC의 CPU는 94~98%였고 다른 세션(`agent` 프로젝트의 pyright, 형제 워크트리의 pytest)이 쓰고 있었다. CPU가 55% 아래로 내려간 뒤에 한 번 더 돌렸으나 같은 모양으로 8개가 실패했다. 같은 시험을 `-n 0`으로 단독 실행(테스트 DB 붙임)하면 26개가 모두 통과했다(186초). 이 변경은 `src/`를 건드리지 않고 도구·시험·문서·변이 표만 더한다. 사용자가 "이번 커밋만 pytest 훅 건너뛰기"를 승인해 `SKIP=pytest`로 커밋하고, 전체 시험은 PR의 CI(`verify`)가 판정한다. 시간 단언 시험이 부하가 있는 병렬 실행에서 흔들리는 문제는 이 티켓의 몫이 아니라 남긴다.
+
+## PR 직전 리뷰
+
+`coderabbit-review` 서브에이전트를 `origin/dev`와 합친 뒤(`fc42c91`)에 돌렸다. 범위는 `origin/dev...HEAD`, 파일 7개다. 아래는 받은 그대로다(하네스가 붙인 두 칸 들여쓰기만 걷었다).
+
+### 보고(받은 그대로)
+
+## 실행 상태 (맨 앞)
+- `Seat:` 줄: `Seat         : not assigned` (Plan: Free, CLI 0.7.5, `Review access` 아래). 종료하지 않고 3단계로 갔다.
+- CLI는 끝까지 돌았다. `coderabbit review --agent --include-untracked --base origin/dev`가 종료 코드 0으로 끝나 `review_completed`(findings 1건)를 냈다. 리뷰 파일은 7개 전부다. 출력은 `C:\Users\User\AppData\Local\Temp\claude\e659c78be23187d6\d449d83d-da0e-46d6-a519-8325d1cd9cd4\scratchpad\cr.out`에 있다.
+- 이 변경의 시험은 `uv run pytest -q -p no:cacheprovider -n 0 tests/tools/test_extract_asks.py`로 40개 통과를 확인했다. 전체 pytest는 돌리지 않았다.
+- 코드는 고치지 않았다. 재현에 쓴 입력 파일은 모두 스크래치패드(`...\scratchpad\`의 gen.py, small.jsonl, big.jsonl, trunc.jsonl, par.jsonl)에만 만들었다.
+- 셀프 리뷰 일지에 이미 있는 지적(BrokenPipe, 이름과 id가 한 맵에 섞임, 같은 질문 글 둘, `rejected` 오인 가능성, `subagents/` 시험 없음 등)은 다시 내지 않았다.
+
+## 유효 (고칠 것)
+
+### Major
+- **[Major] `tools/extract_asks.py:523` (`print(text)`) — 기록에 짝 없는 서로게이트 문자(`\ud800`)가 든 글이 있으면 트레이스백을 내고 종료 1로 끝난다.**
+  - 재현: 호출 줄 `{"type":"assistant","timestamp":"t","message":{"content":[{"type":"tool_use","id":"a1","name":"AskUserQuestion","input":{"questions":[{"question":"Q?","header":"H","multiSelect":false,"options":[{"label":"A","description":"d"}]}]}}]}}`와, 결과 줄 `{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"a1","content":"x"}]},"toolUseResult":{"answers":{"Q?":"\ud800 typed"}}}`를 이 순서로 한 파일에 쓰고(JSON 이스케이프 `\ud800`) `uv run python tools/extract_asks.py asks <파일>`를 돌린다. `UnicodeEncodeError: 'utf-8' codec can't encode character '\ud800' ... surrogates not allowed`가 나고 `echo $?`가 1이다.
+  - 근거: `json.loads`는 `\ud800` 이스케이프를 받아들이는데 `stream.reconfigure(encoding="utf-8")`는 strict라 출력에서 터진다. 독스트링은 종료 1을 "낼 것이 없다"로 정의하는데 이 경우는 내용이 있는데 1로 끝나서, 부르는 쪽이 "없다"로 오독한다. 사용자가 직접 친 답이나 도구 결과 글이 서로게이트를 품는 일은 이모지 잘림 등으로 실제 기록에서 날 수 있다.
+  - 제안: `reconfigure(encoding="utf-8", errors="replace")`(또는 `backslashreplace`)로 하고, `main`이 `UnicodeEncodeError`를 잡아 종료 2로 끝내게 한다. 서로게이트가 든 기록 한 줄을 넣고 종료 0과 출력을 단언하는 시험과 변이 하나를 더한다.
+
+### Minor
+- **[Minor] `tools/extract_asks.py:159-176` (`read_records`) — 기록을 줄 단위로 읽으면서도 파싱한 줄을 전부 리스트에 쌓아 둔다. 쓰지 않을 줄(큰 파일 읽기 결과, `api-request-blob`)까지 메모리에 남는다.**
+  - 재현: 100KB짜리 `tool_result`+`toolUseResult` 줄 400개(파일 80MB)를 `read_records`에 넣으면 tracemalloc 최대치가 약 81MB이고 0.55초다. 곧 파일 크기만큼을 잡는다. 같은 호출이 `api-request-blob`과 `wireToolInputs`에 되풀이되는 실제 기록은 작은 객체가 많아 객체 오버헤드 때문에 보통 파일 크기의 몇 배다. 수십 MB는 괜찮지만 수백 MB 기록은 위험하다.
+  - 근거: 필요한 것은 `assistant`의 `tool_use` 블록, `user`의 `tool_result`, `queue-operation`, `attachment`뿐이다. 읽는 줄 수와 시간은 문제가 아니다(파일을 통째로 읽는 곳은 없고 `for raw in handle`로 읽는다).
+  - 제안: `read_records`를 생성기로 바꾸고, 파싱 전에 `type`이 네 종류가 아닌 줄을 버린다. 또는 파싱 뒤 필요한 필드만 남긴다. `collect_*`는 이미 한 번 훑는 구조라 바꾸기 쉽다.
+- **[Minor] `tools/extract_asks.py:163`와 `:500` — 줄 끝이 UTF-8 중간에서 잘린 파일(세션이 아직 쓰는 중인 기록)이면 파일 전체를 못 읽고 종료 2로 끝난다.**
+  - 재현: 정상 `queue-operation` 줄과 `Agent` 호출 줄 뒤에 바이트 `{"type":"x","k":"\xed\x95`(한글 3바이트 중 2바이트)로 끝나는 줄을 붙인 파일에 `agents`를 돌린다. 출력은 `세션 기록을 읽지 못했다: ... 'utf-8' codec can't decode bytes in position 0-1: unexpected end of data`, 종료 2다.
+  - 근거: 이 도구의 핵심 쓰임은 압축된 뒤 살아 있는 지금 세션의 기록을 읽는 것이다. 그때는 마지막 줄이 쓰는 중일 수 있다. 독스트링은 이 동작을 "못 보는 것"에 적었지만, 잘린 마지막 줄은 깨진 JSON 줄로 세고 앞의 정상 줄은 살리는 쪽이 목적에 맞는다.
+  - 제안: `encoding="utf-8", errors="replace"`로 열면 깨진 줄은 `json.loads`가 거르거나 `broken`으로 센다. 독스트링 항목과 그 시험을 같이 바꾼다.
+- **[Minor] `tools/extract_asks.py:464`, `:428`, `:434`, `:470-473` — 한 줄로 찍는 칸(`description`(에이전트 설명), `header`, `option.label`, `run.name`, `agent_id`)에 줄바꿈이 있으면 출력 구조를 위조할 수 있다. 여러 줄 글은 `_block`이 네 칸 들여써 막지만 이 칸들은 거치지 않는다.**
+  - 재현: 질문의 `header`를 `"H\n## 호출 9/9 질문 1/1"`로 하고 선택지 라벨을 `"B\n 7. fake"`로 한 호출을 `asks`로 돌린다. `머리: H` 다음 줄에 진짜 헤더처럼 보이는 `## 호출 9/9 질문 1/1`이 들어가고, 선택지 줄 아래 ` 7. fake`가 선택지처럼 찍힌다. 또 `Agent` 호출의 `description`에 `"x\n## 에이전트 9/9 · 가짜"`를 넣으면 가짜 에이전트 머리가 나온다.
+  - 근거: 이 출력은 모델 세션이 읽는다. 값은 모델이 쓴 호출 입력이라 프롬프트 주입에 걸린 문서가 모델에게 시켜 만들 수 있다. 일지에 옮기기 전에 구조를 믿고 `--only`나 `grep`으로 가르는 사용을 속일 수 있다.
+  - 제안: 한 줄 칸은 `repr`처럼 `\n`을 `\\n`으로 바꿔 찍거나 `_block`을 거치게 한다(`머리`, `라벨`, `설명 제목`, `이름`, `id`).
+- **[Minor] `tools/extract_asks.py:371-377` — 한 `user` 줄에 `tool_result`가 둘 이상이면 줄 전체의 `toolUseResult.agentId`가 모든 결과에 붙는다.**
+  - 재현: `Agent` 호출 둘(`t1`, `t2`)을 한 `assistant` 줄에 넣고, 뒤 `user` 줄에 `tool_result` 둘과 `"toolUseResult":{"agentId":"A1"}` 하나를 둔 뒤 `from="A1"` 보고 둘(같은 글)을 넣으면, 에이전트 1과 2가 모두 id `A1`이 되고 보고는 2에만 붙는다(1은 "보고가 기록에 없다").
+  - 근거: `toolUseResult`는 줄 하나에 하나뿐이라 어느 결과의 것인지 알 수 없다. 이 저장소의 기록에서는 병렬 호출 결과가 줄마다 따로여서 아직 안 났을 수 있다. 확신은 낮고 `AskUserQuestion`에도 같은 모양(`collect_asks:312-319`)이 있다. 이 경우 답이 다른 호출에 붙으면 답 `answers`가 질문 글로 짝이 안 맞아 "이 질문의 답이 기록에 없다"가 된다.
+  - 제안: 한 줄에 `tool_result`가 둘 이상이면 `toolUseResult`를 어느 쪽에도 붙이지 않고 "결과가 줄에 섞여 있다"고 적는다. 또는 "못 보는 것"에 적고 시험 하나로 고정한다.
+- **[Minor] `tests/tools/test_extract_asks.py:648` (CodeRabbit 지적, 유효) — 한글 출력 시험이 `PYTHONUTF8`과 `PYTHONIOENCODING`을 환경에서 빼기만 하고 비 UTF-8 출력 조건을 강제하지 않는다.**
+  - 근거: 리눅스 CI에서는 환경이 비어도 stdout이 UTF-8이라 `stream.reconfigure`를 지우는 변이(`extract_asks_mutations.toml:153`)가 CI에서 초록이 될 수 있다. 이 PC(윈도 파이프 cp949)에서만 빨강이 난다. `tests.md`의 "이 PC에서 초록인 것은 리눅스에서 돈다는 증거가 아니다"에 걸린다.
+  - 제안: `env["PYTHONIOENCODING"] = "cp949"`와 `PYTHONUTF8` 제거로 비 UTF-8을 강제하고, `decode("utf-8")`로 읽는다. 변이가 어느 OS에서든 빨강이 된다.
+
+### Nit
+- **[Nit] `tools/extract_asks.py:523` — 기록 글을 그대로 찍어서 ESC, BEL 같은 제어 문자(`\x1b]0;…\x07` 등 터미널 제어)도 그대로 터미널에 나간다.** 기록에 웹 페이지나 에이전트 보고가 든다. 재현: 답 글에 `\u001b]0;pwn\u0007`를 넣고 터미널에서 돌리면 창 제목이 바뀐다. 이 도구는 주로 모델 세션이 파이프로 읽어 영향이 작다. `\n`·`\t` 외 C0 제어 문자를 `\x1b` 꼴로 바꿔 찍는 것을 제안한다. 위 Major의 `errors` 처리와 같은 자리에서 고치면 값이 싸다.
+- **[Nit] `tools/extract_asks.py:387` — 같은 에이전트의 서로 다른 두 보고가 글이 같으면 하나로 합친다.** 이름 붙인 에이전트가 `SendMessage` 뒤에 "완료"만 두 번 보고하는 경우다. 독스트링의 "같은 보고가 되풀이돼도 한 번만"과 부딪히는 근본 한계이므로 "못 보는 것"에 한 줄 적으면 된다.
+- **[Nit] `tools/extract_asks.py:208-225` (`_peel`) — 여러 개 고르기에서 직접 친 글이 `라벨, `로 시작하면 그 라벨을 고른 것으로 읽는다.** 예: 라벨 `A`가 있을 때 아무것도 안 고르고 `A, 그리고 더`를 친 경우다. 답 글에 경계가 없는 탓이라 고칠 수는 없고, 독스트링의 "직접 친 글이 앞에 오면" 항목에 이 반대 방향도 적으면 된다.
+- **[Nit] `tools/extract_asks.py:159` — UTF-8 BOM으로 시작하는 파일은 첫 줄이 깨진 줄로 센다.** `utf-8-sig`로 열면 된다. 실제 기록에서는 본 적이 없다.
+
+## 오탐 (고치지 않는다)
+- 성능 우려 "기록 파일을 통째로 읽는 곳": 없다. `read_records`는 `for raw in handle`이고, 모든 `collect_*`는 리스트를 한 번 훑는다. `HANDBACK` 정규식도 줄 하나(보고 글 하나)에만 걸리고 `\A`로 닫혀 있어 폭주하지 않는다. 메모리는 위 Minor로만 본다.
+- 보안 "기록의 지시를 따르거나 실행하는 길": 없다. `eval`, `exec`, `subprocess`, 파일 쓰기, 네트워크가 없고 읽기만 한다. 글은 문자열로만 다루고 출력에 찍는다. 모델이 출력의 지시를 따르는 것은 호출한 쪽의 몫이라 이 도구에서 막을 수 없다(구조 위조를 막는 것은 위 Minor).
+- 보안 "인자로 받은 경로": 읽기 전용으로 열고 쓰지 않으며 `expanduser`만 한다. 디렉터리나 없는 파일은 `OSError`로 잡혀 종료 2다. `/dev/zero` 같은 장치 파일은 못 막지만 사용자가 직접 친 인자라 위협 모델 밖이다.
+- 거짓 양성 후보 "답이 없는 질문": `no_result`, `answers`가 `None`인 질문 모두 "결과가 기록에 없다", "이 질문의 답이 기록에 없다"로 구분된다. 시험도 있다.
+- 거짓 양성 후보 "직접 친 답과 고른 라벨": 단일 선택은 `text in labels`로, 목록 답은 라벨 일치 여부로 가르고, 라벨과 같은 글을 직접 친 것은 구분 불가한 근본 한계이며 입력 모양으로는 못 가른다.
+- 거짓 양성 후보 "쉼표가 든 라벨": `_peel`이 긴 라벨 먼저로 벗기고 시험이 고정한다(`가, 나` 대 `가`).
+- 거짓 양성 후보 "`--only 0`이나 음수": `not 1 <= only <= len`에 걸려 종료 1로 끝난다.
+- ruff, pyright, 타입 우회, `FBT`, 시간대 같은 항목은 훅과 CI가 잡는 범위라 제외했다. `read_records`의 `Json` 재귀 별칭과 `type` 문은 pyright strict 범위다.
+
+## 요약
+- 총 10건: 유효 Major 1, Minor 5(그중 CodeRabbit 1건 포함), Nit 4. 오탐으로 접은 것은 위 일곱 항목이다. CLI 자체 지적은 1건이고 모두 유효(Minor)다. 유효 대 오탐은 CLI 1건 기준 1:0, 내 점검 기준 10:7이다.
+- 좌석 상태: `Seat: not assigned`. 그래도 리뷰는 끝까지 돌았다(`review_completed`).
+- 즉시 고칠 것: 서로게이트 출력 오류(`print`/`reconfigure`의 `errors`)와 잘린 UTF-8 줄 처리(`errors="replace"`)를 한 번에, 한 줄 칸의 줄바꿈 위조, 한글 시험의 cp949 강제.
+
+받는 본 세션에게: 일지를 쓰는 세션이면 이 보고를 받은 이 턴에 일지로 옮긴다. 고친 것과 남긴 것은 지적마다 판정한 턴에 옮긴다(code-review 6단계 끝).
+
+### 판정과 반영(PR 직전 리뷰)
+
+**고친 것.**
+- Major, 서로게이트 출력(`print`): 표준출력과 표준오류를 `errors="backslashreplace"`로 맞춰 짝 없는 `\ud800`을 글자 그대로 `\ud800` 꼴로 낸다. 종료 1이 "낼 것이 없다"와 섞이지 않는다. `main`에서 `UnicodeEncodeError`를 잡아 종료 2로 끝내자는 제안은 따르지 않았다. 출력이 깨지지 않으니 잡을 일이 없다. 시험(`test_짝_없는_서로게이트_문자가_든_글도…`, 스크립트를 부르고 표준출력을 cp949로 강제)과 변이 하나를 더했다.
+- Minor, 잘린 UTF-8 줄: 파일을 `errors="replace"`로 연다. 한글 중간에서 잘린 마지막 줄은 JSON으로 읽히지 않아 읽지 못한 줄로 세고, 앞의 줄은 읽는다. 독스트링의 "못 보는 것" 항목을 새 동작으로 바꿨고, 종료 2로 끝난다던 옛 시험은 새 시험으로 바꿨다. `main`의 `except`에서 `UnicodeDecodeError`를 뺐다.
+- Minor, 메모리: `read_records`가 `assistant`, `user`, `queue-operation`, `attachment`가 아닌 줄(`api-request-blob` 등)을 읽자마자 버린다. 생성기로 바꾸자는 제안은 따르지 않았다. 호출하는 쪽(`collect_*`)이 목록을 여러 번 훑지는 않지만 `Numbered` 모양을 시험 전체가 쓰고, 거르는 것만으로 재현에서 가장 큰 몫(큰 읽기 결과와 `api-request-blob`)이 빠진다. 시험과 변이를 더했다.
+- Minor, 한 줄 칸의 줄바꿈: 머리, 선택지 라벨, 에이전트 설명, 이름, id, 시각을 `one_line`을 거쳐 `\n` 두 글자로 낸다. 가짜 `## 호출`, ` 7.`, `## 에이전트` 줄이 안 생기는지 시험과 변이로 고정했다.
+- Minor, 한 줄에 `tool_result`가 둘 이상: 그 줄의 `toolUseResult`를 어느 쪽에도 붙이지 않는다(`_line_result`). 질문은 구조 없는 결과로, 에이전트는 id 없이 나온다. 실제 기록에서는 본 적이 없지만(결과가 줄마다 따로다) 독스트링의 "못 보는 것"에 적고 시험 둘과 변이 둘을 더했다(러너가 첫 실패에서 멈추므로 시험마다 변이를 따로 둔다).
+- Minor, 한글 시험의 cp949 강제(CodeRabbit): `PYTHONIOENCODING=cp949`를 걸고 `PYTHONUTF8`을 뺀다. 리눅스에서도 `reconfigure`를 지운 변이가 빨강이 된다.
+- Nit, BOM: `utf-8-sig`로 연다. 시험과 변이를 더했다.
+- Nit, 같은 글의 두 보고와 `라벨, 글`로 시작하는 직접 친 글: 둘 다 근본 한계라 독스트링에 적고, 뒤의 것은 시험 하나로 고정했다(앞의 것은 되풀이 걷기 시험이 이미 그 입력이다).
+
+**남긴 것.**
+- Nit, 터미널 제어 문자(ESC 등): 걸러 내지 않고 독스트링의 "못 보는 것"에 적었다. 이 도구의 출력은 주로 모델 세션이 파이프로 읽고, 걸러 내면 일지에 글자 그대로 옮긴다는 약속과 부딪힌다. 사람이 터미널에서 직접 읽다 창 제목이 바뀌는 정도라 막는 값이 작다고 보았다. 못 보는 것 항목은 시험 하나(`test_터미널_제어_문자도_걸러_내지_않고_그대로_낸다`)로 고정했다(걸러 내는 쪽으로 바뀌면 이 시험이 빨강이 된다).
+- 오탐 일곱은 보고의 판정을 그대로 따랐다.
+
+**다시 돌린 명령과 결과.**
+- `uv run pytest -q -p no:cacheprovider -n 0 tests/tools/test_extract_asks.py`: 48개 통과.
+- `uv run ruff format`과 `uv run ruff check`(두 파일): 바꿀 것 없음, 통과. `uv run pyright`(두 파일): 오류 0.
+- `uv run python -X utf8 tools/mutate.py .scratch/harness/probes/extract_asks_mutations.toml --check`: 변이 20개 모두 원문이 한 번씩 있다.
+- `PYTHONUTF8=1 uv run python tools/mutate.py .scratch/harness/probes/extract_asks_mutations.toml`: 기준선 20개 초록, 변이 20개 모두 기대대로 빨강. 커밋하지 않은 변경이 있다는 알림(막지 않는다)이 떴고, 이 실행은 PR 직전 리뷰를 반영한 뒤의 확인이다. 전체 실행은 커밋 뒤에 한 번 더 돈다.
+- 나머지 검증 명령(전체 `pytest`, `lint-imports`, 하네스 검사)은 커밋이 부르는 pre-commit의 결과로 갈음한다. 결과는 커밋 뒤 이 일지와 PR 본문에 적는다.

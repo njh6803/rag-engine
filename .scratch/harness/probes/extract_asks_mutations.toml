@@ -135,12 +135,12 @@ expect_output = ["(읽지 못한 줄 1)"]
 
 [[mutation.edit]]
 file = "tools/extract_asks.py"
-old = '''            else:
+old = '''            if not isinstance(parsed, dict):
                 broken += 1
-    return records, broken'''
-new = '''            else:
+            elif'''
+new = '''            if not isinstance(parsed, dict):
                 pass
-    return records, broken'''
+            elif'''
 
 [[mutation]]
 name = "표준출력을 UTF-8로 맞추지 않는다"
@@ -150,5 +150,82 @@ expect_output = ["UnicodeDecodeError"]
 
 [[mutation.edit]]
 file = "tools/extract_asks.py"
-old = '''            stream.reconfigure(encoding="utf-8")'''
+old = '''            stream.reconfigure(encoding="utf-8", errors="backslashreplace")'''
 new = '''            pass'''
+
+[[mutation]]
+name = "짝 없는 서로게이트 문자를 엄격하게 인코딩한다"
+tests = ["tests/tools/test_extract_asks.py::test_짝_없는_서로게이트_문자가_든_글도_트레이스백_없이_역슬래시_꼴로_낸다"]
+expect = "red"
+expect_output = ["종료 코드 1이다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''            stream.reconfigure(encoding="utf-8", errors="backslashreplace")'''
+new = '''            stream.reconfigure(encoding="utf-8")'''
+
+[[mutation]]
+name = "잘린 마지막 줄의 UTF-8 바이트에서 파일 전체가 터진다"
+tests = ["tests/tools/test_extract_asks.py::test_쓰는_중이라_한글_중간에서_잘린_마지막_줄은_읽지_못한_줄로_세고_앞의_줄은_읽는다"]
+expect = "red"
+expect_output = ["UnicodeDecodeError"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''    with path.open(encoding="utf-8-sig", errors="replace") as handle:'''
+new = '''    with path.open(encoding="utf-8-sig") as handle:'''
+
+[[mutation]]
+name = "BOM이 든 첫 줄을 깨진 줄로 센다"
+tests = ["tests/tools/test_extract_asks.py::test_UTF8_BOM으로_시작하는_파일의_첫_줄도_읽는다"]
+expect = "red"
+expect_output = ["읽은 줄 번호가 []이다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''    with path.open(encoding="utf-8-sig", errors="replace") as handle:'''
+new = '''    with path.open(encoding="utf-8", errors="replace") as handle:'''
+
+[[mutation]]
+name = "필요한 네 종류 밖의 줄도 메모리에 남긴다"
+tests = ["tests/tools/test_extract_asks.py::test_필요한_네_종류_밖의_줄은_읽자마자_버리고_줄_번호는_그대로_둔다"]
+expect = "red"
+expect_output = ["남긴 줄 번호가 [1, 2, 3]이다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''            elif parsed.get("type") in KEPT_TYPES:'''
+new = '''            else:'''
+
+[[mutation]]
+name = "한 줄 칸의 줄바꿈을 그대로 찍는다"
+tests = ["tests/tools/test_extract_asks.py::test_한_줄로_찍는_칸의_줄바꿈은_가짜_머리_줄과_가짜_선택지_줄을_만들지_못한다"]
+expect = "red"
+expect_output = ["가짜 줄이 3개이다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''    return text.replace("\r", "\\r").replace("\n", "\\n")'''
+new = '''    return text'''
+
+[[mutation]]
+name = "한 줄에 결과가 둘이어도 줄의 결과를 붙인다"
+tests = ["tests/tools/test_extract_asks.py::test_한_줄에_tool_result가_둘이면_줄의_결과를_어느_쪽에도_붙이지_않는다"]
+expect = "red"
+expect_output = ["상태가 ['answered', 'answered']이다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''    return record.get("toolUseResult") if len(results) == 1 else None'''
+new = '''    return record.get("toolUseResult")'''
+
+[[mutation]]
+name = "한 줄에 결과가 둘이어도 줄의 에이전트 id를 붙인다"
+tests = ["tests/tools/test_extract_asks.py::test_한_줄에_tool_result가_둘이면_에이전트_id를_어느_쪽에도_붙이지_않는다"]
+expect = "red"
+expect_output = ["에이전트 id가 ['A1', 'A1']이다"]
+
+[[mutation.edit]]
+file = "tools/extract_asks.py"
+old = '''    return record.get("toolUseResult") if len(results) == 1 else None'''
+new = '''    return record.get("toolUseResult")'''

@@ -530,13 +530,46 @@ def test_main은_파일이_없으면_2로_끝난다(
     assert "읽지 못했다" in capsys.readouterr().err
 
 
-def test_main은_utf8이_아닌_바이트가_든_파일을_통째로_읽지_못한_것으로_2로_끝낸다(
+def test_쓰는_중이라_한글_중간에서_잘린_마지막_줄은_읽지_못한_줄로_세고_앞의_줄은_읽는다(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    qs = [_question("저장소는?", ["디스크", "객체 저장소"])]
+    path = _write(
+        tmp_path / "s.jsonl", [_ask_use("t1", qs), _ask_result("t1", qs, {"저장소는?": "디스크"})]
+    )
+    with path.open("ab") as handle:
+        handle.write(b'{"type":"assistant","k":"\xed\x95')  # 한글 3바이트 가운데 2바이트에서 잘렸다
+    assert ea.main(["asks", str(path)]) == 0
+    out = capsys.readouterr().out
+    assert "저장소는?" in out
+    assert "읽지 못한 줄 1" in out
+
+
+def test_UTF8_BOM으로_시작하는_파일의_첫_줄도_읽는다(tmp_path: Path) -> None:
+    qs = [_question("가", ["x", "y"])]
     path = tmp_path / "s.jsonl"
-    path.write_bytes(b'{"type": "system"}\n\xff\xfe{"type": "system"}\n')
-    assert ea.main(["asks", str(path)]) == 2
-    assert "읽지 못했다" in capsys.readouterr().err
+    lines = [json.dumps(r, ensure_ascii=False) for r in (_ask_use("t1", qs),)]
+    path.write_bytes(b"\xef\xbb\xbf" + "\n".join(lines).encode("utf-8") + b"\n")
+    records, broken = ea.read_records(path)
+    numbers = [number for number, _ in records]
+    assert numbers == [1], f"읽은 줄 번호가 {numbers}이다"
+    assert broken == 0
+
+
+def test_필요한_네_종류_밖의_줄은_읽자마자_버리고_줄_번호는_그대로_둔다(tmp_path: Path) -> None:
+    qs = [_question("가", ["x", "y"])]
+    path = _write(
+        tmp_path / "s.jsonl",
+        [
+            {"type": "system", "subtype": "compact_boundary"},
+            _ask_use("t1", qs, kind="api-request-blob"),
+            _ask_use("t2", qs),
+        ],
+    )
+    records, broken = ea.read_records(path)
+    numbers = [number for number, _ in records]
+    assert numbers == [3], f"남긴 줄 번호가 {numbers}이다"
+    assert broken == 0
 
 
 def test_main은_인자가_틀리면_까닭을_적고_2로_끝난다(capsys: pytest.CaptureFixture[str]) -> None:
@@ -644,8 +677,10 @@ def test_main을_스크립트로_실제로_불러_한글이_깨지지_않게_낸
         [_ask_use("t1", qs), _ask_result("t1", qs, {"저장소는 어디에 둘까요?": "객체 저장소"})],
     )
     script = Path(__file__).resolve().parents[2] / "tools" / "extract_asks.py"
-    # 설정의 PYTHONUTF8이 없는 환경에서도 한글이 UTF-8로 나와야 한다(윈도 파이프는 cp949다)
-    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONUTF8", "PYTHONIOENCODING")}
+    # 설정의 PYTHONUTF8이 없는 환경에서도 한글이 UTF-8로 나와야 한다. 윈도 파이프는 cp949라서
+    # 그 조건을 리눅스에서도 같게 만들려고 표준출력 인코딩을 cp949로 강제한다
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONUTF8"}
+    env["PYTHONIOENCODING"] = "cp949"
     done = subprocess.run(
         [sys.executable, str(script), "asks", str(path)],
         capture_output=True,
@@ -674,3 +709,93 @@ def test_여러_개_고르기는_다른_라벨의_앞부분인_라벨보다_긴_
     records = [_ask_use("t1", qs), _ask_result("t1", qs, {"묶음?": "가, 나, 다"})]
     answer = _answer_of(ea.collect_asks(_numbered(records)), 0, 0)
     assert answer.picked == ["가, 나", "다"], f"고른 라벨이 {answer.picked}이다"
+
+
+def test_아무것도_고르지_않고_라벨로_시작하는_글을_쳐도_그_라벨을_고른_것으로_읽는다() -> None:
+    qs = [_question("묶음?", ["하나", "둘"], multi=True)]
+    records = [_ask_use("t1", qs), _ask_result("t1", qs, {"묶음?": "하나, 그리고 더 있다"})]
+    answer = _answer_of(ea.collect_asks(_numbered(records)), 0, 0)
+    assert answer.picked == ["하나"]
+    assert answer.typed == "그리고 더 있다"
+
+
+def test_짝_없는_서로게이트_문자가_든_글도_트레이스백_없이_역슬래시_꼴로_낸다(
+    tmp_path: Path,
+) -> None:
+    qs = [_question("가", ["x", "y"])]
+    records = [_ask_use("t1", qs), _ask_result("t1", qs, {"가": "\ud800 typed"})]
+    path = tmp_path / "s.jsonl"
+    # 줄을 ASCII 이스케이프(`\ud800`)로 써서 짝 없는 서로게이트가 JSON 안에 그대로 든다
+    path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="ascii")
+    script = Path(__file__).resolve().parents[2] / "tools" / "extract_asks.py"
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONUTF8"}
+    env["PYTHONIOENCODING"] = "cp949"
+    done = subprocess.run(
+        [sys.executable, str(script), "asks", str(path)],
+        capture_output=True,
+        timeout=60,
+        check=False,
+        env=env,
+    )
+    assert done.returncode == 0, f"종료 코드 {done.returncode}이다"
+    assert "\\ud800 typed" in done.stdout.decode("utf-8")
+
+
+def test_한_줄로_찍는_칸의_줄바꿈은_가짜_머리_줄과_가짜_선택지_줄을_만들지_못한다() -> None:
+    forged_question: dict[str, object] = {
+        "question": "진짜 질문",
+        "header": "머리\n## 호출 9/9 질문 1/1",
+        "multiSelect": False,
+        "options": [{"label": "라벨\n 7. fake", "description": "설명"}],
+    }
+    asked = ea.collect_asks(_numbered([_ask_use("t1", [forged_question])]))
+    agent_use = _agent_use("tu1", "설명\n## 에이전트 9/9 · 가짜", "브리프")
+    runs = ea.collect_agents(_numbered([agent_use]))
+    lines = ea.render_asks(asked, None).split("\n") + ea.render_agents(runs, None).split("\n")
+    fakes = [
+        line for line in lines if line.startswith(("## 호출 9/9", " 7. fake", "## 에이전트 9/9"))
+    ]
+    assert fakes == [], f"가짜 줄이 {len(fakes)}개이다"
+    assert "머리: 머리\\n## 호출 9/9 질문 1/1" in lines
+
+
+def test_터미널_제어_문자도_걸러_내지_않고_그대로_낸다() -> None:
+    qs = [_question("가", ["x", "y"])]
+    records = [_ask_use("t1", qs), _ask_result("t1", qs, {"가": "\x1b[31m붉은 글"})]
+    text = ea.render_asks(ea.collect_asks(_numbered(records)), None)
+    assert "\x1b[31m붉은 글" in text
+
+
+def test_한_줄에_tool_result가_둘이면_줄의_결과를_어느_쪽에도_붙이지_않는다() -> None:
+    qs = [_question("가", ["x", "y"])]
+    shared: Rec = {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "t1", "content": "r1"},
+                {"type": "tool_result", "tool_use_id": "t2", "content": "r2"},
+            ],
+        },
+        "toolUseResult": {"questions": qs, "answers": {"가": "x"}},
+    }
+    records = [_ask_use("t1", qs), _ask_use("t2", qs), shared]
+    statuses = [call.status for call in ea.collect_asks(_numbered(records))]
+    assert statuses == ["unstructured", "unstructured"], f"상태가 {statuses}이다"
+
+
+def test_한_줄에_tool_result가_둘이면_에이전트_id를_어느_쪽에도_붙이지_않는다() -> None:
+    shared: Rec = {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "tu1", "content": "r1"},
+                {"type": "tool_result", "tool_use_id": "tu2", "content": "r2"},
+            ],
+        },
+        "toolUseResult": {"status": "async_launched", "agentId": "A1"},
+    }
+    records = [_agent_use("tu1", "첫째", "브리프1"), _agent_use("tu2", "둘째", "브리프2"), shared]
+    ids = [run.agent_id for run in ea.collect_agents(_numbered(records))]
+    assert ids == [None, None], f"에이전트 id가 {ids}이다"

@@ -12,7 +12,8 @@
   라벨들과 직접 친 글을 가른다. 답에 붙은 메모와 고른 미리보기도 낸다.
 - `agents`: 서브에이전트(`Agent` 호출)마다 브리프(`prompt`)와 최종 보고를 낸다. 보고는 하네스가
   `queue-operation`으로 넣은 `<agent-message from="…">` 글에서 머리 문단과 두 칸 들여쓰기를 걷은
-  원문이다. 같은 보고가 여러 줄에 되풀이돼도 한 번만 낸다.
+  원문이다. 같은 보고가 여러 줄에 되풀이돼도 한 번만 낸다(그래서 같은 에이전트가 같은 글로 두 번
+  보고해도 한 번으로 센다).
 
 읽는 줄(실제 기록 Claude Code 2.1.309에서 손으로 봤다, 근거는 티켓
 `.scratch/harness/issues/session-asks-extractor.md`).
@@ -21,6 +22,8 @@
 - 답은 `type: user` 줄의 `tool_result`와 같은 줄의 `toolUseResult`(`answers`: 질문 글 → 답,
   `annotations`: 질문 글 → `preview`·`notes`)다. 답은 질문 글로 짝지으므로 질문마다 따로 붙는다.
 - 보고는 `queue-operation`의 `enqueue` 줄과 `attachment`의 `queued_command`에서 읽는다.
+- 위 네 종류(`assistant`, `user`, `queue-operation`, `attachment`) 밖의 줄은 읽자마자 버려, 큰
+  기록을 읽어도 필요한 줄만 메모리에 남는다. 파일은 UTF-8(BOM이 있어도 된다)로 읽는다.
 
 못 보는 것. 아래 항목마다 `tests/tools/test_extract_asks.py`의 시험 하나가 그 입력을 고정한다.
 - 결과에 `toolUseResult`의 `answers`가 없는 호출(옛 기록 모양)은 질문과 선택지만 내고, 답은 결과
@@ -29,7 +32,8 @@
   다른 문자열인 결과(입력 검증 오류, 훅이 막은 것)는 거부가 아니라 오류로 적고 결과 글을 붙인다.
   훅이 막은 호출의 결과 모양은 이 저장소의 기록에서 본 적이 없다.
 - 여러 개를 고르는 질문에서 직접 친 글이 고른 라벨보다 앞에 오면 답 전체를 직접 친 글로 낸다.
-  답 글에 라벨의 경계가 없어서다.
+  답 글에 라벨의 경계가 없어서다. 반대로 아무것도 고르지 않고 `라벨, 글`로 시작하는 글을 쳐도 그
+  라벨을 고른 것으로 읽는다.
 - 답을 질문 글로 짝지으므로 한 호출 안에 같은 질문 글이 둘이면 둘이 같은 답을 받는다.
 - 결과에 `agentId`가 없는 서브에이전트 호출은 동기로 돈 것으로 어림하고, 브리프만 내며 보고는 도구
   결과에 있다고 적는다. 동기 결과가 `agentId`도 함께 가지면 보고를 찾지 못했다고 적는다. 어느 쪽도
@@ -40,9 +44,16 @@
   붙여 띄운 에이전트는 보고가 그 이름으로 돌아오므로 이름으로도 묶고, 같은 이름을 두 번 쓰면 보고는
   나중에 띄운 쪽에 붙는다.
 - 보고 글 하나에 `<agent-message>`가 둘 들어 있으면 첫 보고에 둘째 메시지 전체가 든다.
-- 줄 안에 UTF-8로 읽지 못하는 바이트가 있으면 줄 수를 세지 않고 파일 전체를 읽지 못한 것으로 보아
-  종료 2로 끝난다.
-- 여러 줄 글은 줄마다 네 칸 들여 써서 낸다. 일지에 옮길 때는 그 들여쓰기를 걷고 옮긴다.
+- UTF-8로 읽지 못하는 바이트(세션이 아직 쓰는 중이라 한글 중간에서 잘린 마지막 줄)는 대체 글자로
+  바꿔 읽는다. 그 줄이 JSON으로 읽히지 않으면 읽지 못한 줄로 세고 앞의 줄은 그대로 읽는다.
+- 한 `user` 줄에 `tool_result`가 둘 이상이면 그 줄의 `toolUseResult`가 어느 결과의 것인지 알 수 없어
+  쓰지 않는다. 질문은 구조 없는 결과로, 에이전트는 id 없이 낸다.
+- 기록의 글에 짝 없는 서로게이트 문자(`\ud800` 같은 것)가 있으면 `\ud800` 꼴로 바꿔 낸다. 글자
+  그대로 내지 못하는 그 글자만 그렇다.
+- 터미널 제어 문자(ESC 등)는 걸러 내지 않고 그대로 낸다. 모델 세션이 파이프로 읽는 쓰임이 주라서다.
+- 여러 줄 글은 줄마다 네 칸 들여 써서 낸다. 일지에 옮길 때는 그 들여쓰기를 걷고 옮긴다. 한 줄로 찍는
+  칸(머리, 라벨, 에이전트 설명, 이름, id, 시각)의 줄바꿈은 `\n` 두 글자로 바꿔 구조를 흉내 내지
+  못하게 한다.
 
 쓰임: `uv run python tools/extract_asks.py asks <세션 기록.jsonl> [--only N]`,
 `uv run python tools/extract_asks.py agents <세션 기록.jsonl> [--only N]`. 기록은
@@ -77,6 +88,7 @@ HANDBACK = re.compile(
     r'\A<agent-message from="([^"]+)">\n(.*?)(?:\n</agent-message>)?\s*\Z', re.DOTALL
 )
 REPORT_MARKER = "The report follows:\n"
+KEPT_TYPES = frozenset({"assistant", "user", "queue-operation", "attachment"})
 
 
 @dataclass
@@ -156,11 +168,17 @@ def indent_block(text: str, prefix: str = INDENT) -> str:
     return "\n".join(prefix + line if line else line for line in text.split("\n"))
 
 
+def one_line(text: str) -> str:
+    """한 줄로 찍는 칸의 줄바꿈을 `\\n` 두 글자로 바꿔, 칸 안의 글이 출력 구조를 흉내 내지 못하게
+    한다."""
+    return text.replace("\r", "\\r").replace("\n", "\\n")
+
+
 def read_records(path: Path) -> tuple[list[tuple[int, Record]], int]:
-    """(줄 번호, 줄)과 읽지 못한 줄 수. 줄 번호는 1부터다."""
+    """(줄 번호, 줄)과 읽지 못한 줄 수. 줄 번호는 1부터다. `KEPT_TYPES` 밖의 줄은 버린다."""
     records: list[tuple[int, Record]] = []
     broken = 0
-    with path.open(encoding="utf-8") as handle:
+    with path.open(encoding="utf-8-sig", errors="replace") as handle:
         for number, raw in enumerate(handle, start=1):
             if not raw.strip():
                 continue
@@ -169,10 +187,10 @@ def read_records(path: Path) -> tuple[list[tuple[int, Record]], int]:
             except ValueError:
                 broken += 1
                 continue
-            if isinstance(parsed, dict):
-                records.append((number, parsed))
-            else:
+            if not isinstance(parsed, dict):
                 broken += 1
+            elif parsed.get("type") in KEPT_TYPES:
+                records.append((number, parsed))
     return records, broken
 
 
@@ -254,9 +272,16 @@ def _result_text(part: Record) -> str:
     return "\n".join(texts)
 
 
+def _line_result(record: Record) -> Json | None:
+    """줄의 `toolUseResult`. `tool_result`가 둘 이상이면 어느 결과의 것인지 알 수 없어
+    `None`이다."""
+    results = [part for part in _parts(record) if part.get("type") == "tool_result"]
+    return record.get("toolUseResult") if len(results) == 1 else None
+
+
 def _with_result(call: AskCall, record: Record, part: Record) -> AskCall:
     """결과 줄을 읽어 상태와 답을 채운 새 호출을 준다."""
-    outcome = record.get("toolUseResult")
+    outcome = _line_result(record)
     detail = _obj(outcome)
     answers = _obj(detail.get("answers")) if detail is not None else None
     if answers is not None and detail is not None:
@@ -370,7 +395,7 @@ def collect_agents(records: Numbered) -> list[AgentRun]:
                     by_address[run.name] = run  # 이름을 붙여 띄우면 보고가 그 이름으로 돌아온다
             elif part.get("type") == "tool_result":
                 run = by_tool.get(_str(part.get("tool_use_id")) or "")
-                outcome = _obj(record.get("toolUseResult"))
+                outcome = _obj(_line_result(record))
                 agent_id = _str(outcome.get("agentId")) if outcome is not None else None
                 if run is not None and run.agent_id is None and agent_id is not None:
                     run.agent_id = agent_id
@@ -421,17 +446,17 @@ def _render_question(call: AskCall, index: int, total: int) -> str:
     question = call.questions[index]
     answer = call.answers[index] if index < len(call.answers) else None
     picked = answer.picked if answer is not None else []
-    stamp = f" · {call.timestamp}" if call.timestamp else ""
+    stamp = f" · {one_line(call.timestamp)}" if call.timestamp else ""
     out = [
         f"## 호출 {call.number}/{total} 질문 {index + 1}/{len(call.questions)}"
         f" · 줄 {call.line}{stamp}",
-        f"머리: {question.header}",
+        f"머리: {one_line(question.header)}",
         _block("질문", question.text),
         "선택지:",
     ]
     for number, option in enumerate(question.options, start=1):
         mark = " ← 고른 것" if option.label in picked else ""
-        out.append(f" {number}. {option.label}{mark}")
+        out.append(f" {number}. {one_line(option.label)}{mark}")
         out.append(indent_block(_block("설명", option.description)))
         if option.preview is not None:
             out.append(indent_block(_block("미리보기", option.preview)))
@@ -461,15 +486,16 @@ def render_agents(runs: list[AgentRun], only: int | None) -> str:
     for number, run in enumerate(runs, start=1):
         if only is not None and number != only:
             continue
-        title = run.description or "(설명이 기록에 없다)"
+        title = one_line(run.description or "(설명이 기록에 없다)")
         where = f" · 줄 {run.line}" if run.line is not None else ""
         agent = (
-            run.agent_id
-            or "(에이전트 id가 기록에 없다. 동기로 돈 호출이면 보고는 도구 결과에 있다)"
+            one_line(run.agent_id)
+            if run.agent_id
+            else "(에이전트 id가 기록에 없다. 동기로 돈 호출이면 보고는 도구 결과에 있다)"
         )
         out = [f"## 에이전트 {number}/{len(runs)} · {title}{where}", f"에이전트 id: {agent}"]
         if run.name:
-            out.append(f"이름: {run.name}")
+            out.append(f"이름: {one_line(run.name)}")
         out.append(_block("브리프", run.brief) if run.brief is not None else "브리프가 기록에 없다")
         for index, report in enumerate(run.reports, start=1):
             out.append(_block(f"보고 {index}/{len(run.reports)}", report))
@@ -497,7 +523,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     path = args.path.expanduser()
     try:
         records, broken = read_records(path)
-    except (OSError, UnicodeDecodeError) as problem:
+    except OSError as problem:
         print(f"세션 기록을 읽지 못했다: {path}: {problem}", file=sys.stderr)
         return 2
     only: int | None = args.only
@@ -529,5 +555,5 @@ def main(argv: Sequence[str] | None = None) -> int:
 if __name__ == "__main__":
     for stream in (sys.stdout, sys.stderr):
         if isinstance(stream, io.TextIOWrapper):
-            stream.reconfigure(encoding="utf-8")
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     raise SystemExit(main(sys.argv[1:]))
