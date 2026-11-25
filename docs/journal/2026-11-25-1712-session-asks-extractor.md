@@ -187,3 +187,25 @@ Critical·Major 없음. 위반 Minor 셋, 주장 검증 Minor 여럿, 판단 항
 - 검사는 모두 통과했고 claude-review는 지적이 없었다(`지적 없음`). CodeRabbit이 인라인 코멘트 한 건을 남겼다.
 - **고친 것.** Minor, `read_records`의 `parsed.get("type") in KEPT_TYPES`: `type`이 리스트나 객체인 줄(`{"type": []}`)이면 집합 조회가 `TypeError`를 내고 `main`이 잡지 않아 앞에서 읽은 질문도 못 낸다. 지적이 유효하다고 보고 고쳤다. `type`이 리스트나 객체인 줄은 읽지 못한 줄로 센다. JSON에서 해시할 수 없는 값은 이 둘뿐이라 그 둘만 건드렸다. `type`이 수이거나 없는 줄은 지금처럼 `KEPT_TYPES` 밖이라 조용히 버린다(제안은 문자열이 아니면 모두 읽지 못한 줄로 세자는 것이었으나, 수와 빠진 칸은 기록 모양을 모르는 줄이지 깨진 줄이 아니라고 보아 따르지 않았다). 시험 `test_type이_리스트나_객체인_줄은_터지지_않고_읽지_못한_줄로_센다`와 변이 하나를 더했다.
 - **다시 돌린 명령.** `uv run pytest -q -p no:cacheprovider -n 0 tests/tools/test_extract_asks.py` 통과, `ruff format`·`ruff check`·`pyright`(두 파일) 통과, `tools/mutate.py … --check`로 변이 21개 원문 확인, 변이 표 전체 실행은 21개 모두 기대대로 빨강(새 변이는 20번이고, 집합 조회가 `unhashable type: 'list'`로 터지는 것을 시험이 잡는다). 전체 pytest 등은 커밋의 pre-commit 결과로 갈음한다.
+
+### 둘째 회차(머리 `2447e26`)
+검사는 모두 통과했고 claude-review는 지적 없음이다. CodeRabbit은 `Review rate limited`로 이 머리를 리뷰하지 못했다(마지막으로 리뷰를 받은 커밋은 `1d1b7a5`). 둘째 회차라 Critical·Major만 고치는데 지적이 없어 더 고친 것은 없다.
+
+## 회고
+
+후보 일곱을 냈고 판정은 승인 3, 기각 4, 넘김 0이다. 만료할 항목은 없었다(`tools/queue_open_rows.py`).
+
+- **첫 커밋 시도가 pytest의 4200초 제한까지 돈 뒤에야 변이 표 검사에 거부된 일.** 승인. 사건: 세션 기록 1694번째 줄 근처의 첫 시도 출력에서 `parallel-checks`가 `4200초 시간 제한을 넘겼다`로 끝난 뒤 `check-mutations`가 표지를 거부했다. 층: 훅 순서(`.pre-commit-config.yaml`)로 고친다. 되돌림: PR 하나. 열린 `precommit-mutations-after-tests`의 5회차(단언 풀이 줄 표지가 `parallel-checks` 뒤에 거부됨)와 같은 모양이라 그 항목의 7회차로 더했다.
+- **이름 없는 `--check`가 새 표의 단언 풀이 줄 표지를 못 잡은 일.** 승인. 사건: 같은 시도 앞에서 이름 없는 `--check`가 원문 확인만 하고 지나갔다(세션 기록 1486, 1516번째 줄). 층: 도구(`tools/mutate.py`)가 새 표에도 표지의 품질을 보게 한다. 되돌림: PR 하나. 닫힌 `mutate-marker-discovery`의 8회차와 11회차가 같은 갈래라 새 항목 `mutate-check-new-table-marker-quality`로 12회차를 이었다. 처방이 다르므로(훅 순서 대 도구의 검사 범위) 앞 항목과 따로 두고 서로 가리킨다.
+- **PR 직전 리뷰의 판정문이 압축을 넘어 스크래치 파일에 머문 일.** 승인. 사건: 보고는 받은 턴에 옮겼지만 지적마다의 판정문은 스크래치 파일에 두고 코드를 고쳤고, 압축 뒤 다시 읽어 일지에 옮기며 시험으로 고정하기로 한 항목을 고정하지 않았다고 적은 틀린 문장을 잡았다. 층: 지침(`review-report-journal-lag`의 처방)이 이미 정해진 갈래다. 열린 `review-report-journal-lag`의 14회차로 더했다. 형제 티켓 `review-report-to-journal-on-receipt`가 같은 항목을 다룬다.
+- **전체 pytest가 이 PC의 부하에서 흔들린 일.** 기각. 서버 쪽 시간 단언 시험과 serve 기동 시간 초과가 실행마다 달랐고, 한 번은 `kiwipiepy`에서 xdist 작업자가 죽었다(`Fatal Python error: Aborted`). 받아들여 닫은 종류의 새 사례라 일지에만 적는다. 사용자가 이 커밋만 pytest 훅을 건너뛰기로 승인했고(`2ebf8a9`), 이후 세 커밋은 전체 pytest를 통과했다(병합 커밋 `fc42c91` 1406초, `1d1b7a5` 977초, `2447e26` 591초). 작업을 잃지 않아 손상이 아니다. 작업자가 죽은 한 번은 원인을 가르지 못했다. 같은 모양이 또 나오면 그때가 첫 회차다.
+- **큰 세션 기록에서 Grep이 긴 줄을 생략해 스크래치 스크립트로 잘라 읽은 일.** 기각. 앱의 훅(`hook_grep_omitted`)이 그 자리에서 알렸다.
+- **IDE의 pyright 진단이 낡은 값으로 반복해 뜬 일.** 기각. 저장소 밖 표시이고 CLI의 `uv run pyright`가 판정한다(0 오류).
+- **긴 heredoc과 복합 명령이 가드에 막힌 일.** 기각. 훅과 앱 가드가 그 자리에서 막았고 파일로 쓴 뒤 `cat >>`로 우회하는 길이 있다.
+
+## 다음
+
+- 이 PR이 병합되면 `session-asks-extractor` 티켓과 대기열 `extract-asks-tool`은 닫힌 채다. `grilling` 스킬의 "옮길 때" 포인터가 `tools/extract_asks.py`를 가리킨다.
+- 회차 5 이상인 열린 대기열 항목이 chore 계기다. 이 세션이 회차를 더한 것은 `precommit-mutations-after-tests`(7회차)와 `review-report-journal-lag`(14회차)이고, 새 항목 `mutate-check-new-table-marker-quality`(12회차)는 `tools/mutate.py` 한 파일로 닿는다. 앞의 둘은 `.pre-commit-config.yaml`과 `code-review`·`implement` 스킬이 대상이라 chore 배치에서 `tools/mutate.py`를 고치는 티켓과 겹치지 않게 나눌 수 있다.
+- 형제 `review-report-to-journal-on-receipt`가 `review-report-journal-lag.md`의 같은 승인 줄을 고칠 수 있다. 병합 순서가 뒤이면 충돌을 풀 때 두 쪽 회차 서술을 모두 남긴다.
+- 이 PC가 다른 세션으로 바쁠 때 전체 pytest를 포함한 커밋은 10분에서 23분이 걸렸고, 한 번은 4200초 제한(70분)까지 돌고 끝났다. 같은 모양으로 커밋이 막히면 사용자에게 묻고 건너뛰기는 그 커밋 하나에만 쓴다.
