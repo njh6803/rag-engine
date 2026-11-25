@@ -1,6 +1,6 @@
 # stale-checkout-at-session-start: 지시문 없이 연 세션이 origin/main보다 뒤처진 주 체크아웃의 명세를 읽고, 이미 병합된 결정을 사용자에게 다시 물었다
 
-**상태:** 열림
+**상태:** 만료 2026-11-26
 **어디로:** `tools/hook_prompt_directive.py`(지시문 없이 연 세션의 첫 메시지에 계기를 넣는 훅. 다섯 번째면 그 훅이 `git fetch` 뒤 지금 체크아웃이 `origin/main`보다 뒤처진 커밋 수를 한 줄로 알린다)
 **승인:** 자체 승인 2026-11-11, 1회차(더하는 것이라 다섯 번째에 반영한다), 일지 2026-11-11-1534-doc-permission-list-filter.md, ADR 불필요
 
