@@ -3,7 +3,7 @@ name: code-review
 description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
 ---
 
-<!-- 프로젝트 사본. agent-os가 원본(mattpocock/skills)에 덧댄 버전을 2026-11-09 킥오프에서 옮겼다. 이 주석과 본문의 괄호 속 ADR·대기열·일지 번호는 agent-os의 기록이고(이 저장소의 ADR과 대기열 항목이 아니다), 이 저장소에 맞춰 고친 곳은 계약의 목록, 경계와 냄새의 예, 손으로 치는 검사의 수, 이 저장소에 없는 문서를 가리키던 포인터다. 원본에 더한 것: 4단계의 표준 축 모델과 노력(언제나 sonnet·high, ADR 0033. 처음 규칙은 일지 2026-09-20 첫 회고), 1단계의 미커밋·미추적 범위와 5단계의 범위 한 줄, 6단계의 반영(일지 2026-09-21 리뷰 반영 루프), 2단계의 요구·참고 가름(대기열 26), 2단계 명세 출처의 브랜치가 가리키는 티켓 파일(ADR 0037), 4단계 두 브리프의 주장 검증 목록(대기열 20, 15회차. 근거 문장의 종류는 대기열 45·124, 목록 모양은 대기열 76, 부르는 쪽의 길은 대기열 60, 잔존을 세는 문서는 대기열 87), 6단계 4의 받는 쪽 확인(대기열 3), 2단계의 사용자 답과 옮기는 변경의 옛 판정(대기열 46·181), 4단계의 외부 근거 발췌(대기열 156), 6단계 1의 고친 문장의 근거(대기열 154), 2와 4의 보류·넘김의 책임 근거(대기열 151), 5의 pre-commit 갈음(대기열 180), 4단계 두 브리프의 갈래 밟기(대기열 229), 6단계 1의 반례를 일반 조항으로 올리기(대기열 213)와 새로 쓴 문장을 PR 직전 리뷰에 밀 주장으로 넘기기(대기열 260), 4단계 주장 검증 목록의 코드의 동작을 불러 대 보기(대기열 305), 6단계 끝의 보고를 받은 턴에 일지로 옮기기(대기열 244)와 그 번호 받기의 2 갈래를 도구의 `할 일:` 줄로 줄이기(대기열 251. 일지가 번호를 받지 않게 되며 2026-11-07에 그 문장이 걷혔다). 이 주석이 `tools/check_instructions.py`의 센티널이라 지우면 검사가 빨강이 된다. -->
+<!-- 프로젝트 사본. agent-os가 원본(mattpocock/skills)에 덧댄 버전을 2026-11-09 킥오프에서 옮겼다. 이 주석과 본문의 괄호 속 ADR·대기열·일지 번호는 agent-os의 기록이고(이 저장소의 ADR과 대기열 항목이 아니다), 이 저장소에 맞춰 고친 곳은 계약의 목록, 경계와 냄새의 예, 손으로 치는 검사의 수, 이 저장소에 없는 문서를 가리키던 포인터다. 원본에 더한 것: 4단계의 표준 축 모델과 노력(언제나 sonnet·high, ADR 0033. 처음 규칙은 일지 2026-09-20 첫 회고), 1단계의 미커밋·미추적 범위와 5단계의 범위 한 줄, 6단계의 반영(일지 2026-09-21 리뷰 반영 루프), 2단계의 요구·참고 가름(대기열 26), 2단계 명세 출처의 브랜치가 가리키는 티켓 파일(ADR 0037), 4단계 두 브리프의 주장 검증 목록(대기열 20, 15회차. 근거 문장의 종류는 대기열 45·124, 목록 모양은 대기열 76, 부르는 쪽의 길은 대기열 60, 잔존을 세는 문서는 대기열 87), 6단계 4의 받는 쪽 확인(대기열 3), 2단계의 사용자 답과 옮기는 변경의 옛 판정(대기열 46·181), 4단계의 외부 근거 발췌(대기열 156), 6단계 1의 고친 문장의 근거(대기열 154), 2와 4의 보류·넘김의 책임 근거(대기열 151), 5의 pre-commit 갈음(대기열 180), 4단계 두 브리프의 갈래 밟기(대기열 229), 6단계 1의 반례를 일반 조항으로 올리기(대기열 213)와 새로 쓴 문장을 PR 직전 리뷰에 밀 주장으로 넘기기(대기열 260), 4단계 주장 검증 목록의 코드의 동작을 불러 대 보기(대기열 305), 6단계 끝의 보고를 받은 턴에 일지로 옮기기(대기열 244)와 그 번호 받기의 2 갈래를 도구의 `할 일:` 줄로 줄이기(대기열 251. 일지가 번호를 받지 않게 되며 2026-11-07에 그 문장이 걷혔다), 4단계 두 브리프의 보고 끝 줄(이 저장소 대기열 review-report-journal-lag). 이 주석이 `tools/check_instructions.py`의 센티널이라 지우면 검사가 빨강이 된다. -->
 
 Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
 
@@ -100,18 +100,23 @@ Spawn the Standards sub-agent with `model: sonnet` and `effort: high`, whatever 
 
   **갈래 밟기.** 바뀐 절차를 처음부터 끝까지 한 번에 따르는 길만 보지 않는다. 절차의 중간으로 들어오는 갈래(끊긴 뒤 다시 읽을 때, 컨텍스트 압축 뒤, 한 단계가 실패했을 때, 훅이 계기를 넣을 때 등)를 하나씩 밟아 보고, 틀린 동작(건너뛰는 단계, 두 번 하는 단계, 앞당겨지는 병합, 끊긴 단계를 잘못 가르는 상태 판정 등)이 나는 자리를 낸다. 두 괄호는 예시이고, 중간으로 들어오는 갈래는 모두 밟으며 그 갈래에서 절차가 시키는 대로 했을 때 어긋나는 동작은 모두 낸다.
 
+- 두 축 모두에 **보고 끝 줄**을 시킨다. 브리프에 "보고 맨 끝에 아래 한 줄을 글자 그대로 적는다"를 쓰고 그 줄을 붙여 넣는다. 보고를 받는 턴에 본 세션이 읽는 글은 이 보고이고, 일지로 옮기라는 문장이 있는 6단계 끝은 컨텍스트 압축 뒤에는 맥락에 없을 수 있다. `coderabbit-review`와 `bug-perf-review`의 보고에는 이 줄이 달려 오는데, 셀프 리뷰 두 축의 보고에는 없고, 그 보고가 옮겨지지 않은 채 컨텍스트가 압축되었다(대기열 `review-report-journal-lag` 5회차, 9회차). 5단계에서 두 보고를 나란히 놓을 때 두 보고가 모두 이 줄을 달고 있으면 본 세션이 그중 하나를 지워 한 번만 남게 한다. 보고가 하나뿐이면(명세가 없어 명세 축을 건너뛴 때, 한 축이 실패해 다시 돌린 때) 그 줄을 지우지 않는다.
+
+  `받는 본 세션에게: 일지를 쓰는 세션이면 이 보고를 받은 이 턴에 일지로 옮긴다. 고친 것과 남긴 것은 지적마다 판정한 턴에 옮긴다(code-review 6단계 끝).`
+
 **Spec sub-agent prompt** should include:
 
 - The diff command, the untracked file list, and the commit list.
 - The path or fetched contents of the spec.
 - The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
 - 본 세션이 명세와 diff를 읽고, 명세나 이 변경이 상태(문서 상태, 색인 상태, 작업, 작업 담당 기록, 세대, 색인 판처럼 전이하며 값이 바뀌는 것. 나열은 예시이고 목록이 아니다)를 정하거나 바꾼다고 판정하면, 위 브리프 끝(Under 400 words. 앞)에 한 줄을 그대로 붙여 넣는다: "(d) 전이마다 다른 전이와 동시에 일어나는 교차와, 실패·중단 뒤에 남는 상태를 하나씩 밟아, 지운 것이 되살아나거나 전환이 영영 막히는 자리를 낸다." (d)의 결함은 명세가 침묵한 자리에서 나므로 명세 줄 인용 대신 어느 전이와 어느 전이가 교차하는지를 적게 한다. (a)~(c)는 명세와 요구를 대 보는 갈래라 이 꼴을 덮지 못했다. PR #3의 봇 리뷰가 이 꼴의 지적을 여러 회차에 걸쳐 냈다(대기열 spec-review-transition-crossing의 서술).
+- 위 Standards 브리프의 **보고 끝 줄**도 이 브리프 끝에 같은 말로 붙여 넣는다.
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report.
 
 ### 5. Aggregate
 
-Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings, because the two axes are deliberately separate (see _Why two axes_).
+Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. 두 보고 끝에 붙어 온 `받는 본 세션에게:` 줄은 하나만 남긴다(보고가 하나뿐이면 그 줄을 그대로 둔다). Do **not** merge or rerank findings, because the two axes are deliberately separate (see _Why two axes_).
 
 End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes: that's the reranking the separation exists to prevent.
 

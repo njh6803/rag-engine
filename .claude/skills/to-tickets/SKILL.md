@@ -4,7 +4,7 @@ description: Break a plan, spec, or the current conversation into a set of trace
 disable-model-invocation: true
 ---
 
-<!-- 프로젝트 사본. agent-os가 덧댄 버전을 2026-11-09 킥오프에서 옮겼고, 이 주석과 본문의 괄호 속 ADR·대기열 번호는 agent-os의 기록이다. 원본(mattpocock/skills)에 여섯을 더했다. 1단계의 기능 실행 순서(대기열 7 — 그 순서가 런북에만 있었다), 5단계의 받는 쪽 확인(대기열 3)과 옮기는 테스트의 이음매 확인(대기열 106), 5단계 로컬 파일의 stem이 구현 브랜치가 된다는 것(agent-os ADR 0037), 템플릿 뒤 문단의 경로 규칙을 저장소 관행에 맞춘 것(대기열 400), 2단계의 쉬운 말 문장(이 저장소의 harness 티켓 `plain-words-in-written-artifacts`). 이 주석이 `tools/check_instructions.py`의 센티널이라 지우면 검사가 빨강이 된다. -->
+<!-- 프로젝트 사본. agent-os가 덧댄 버전을 2026-11-09 킥오프에서 옮겼고, 이 주석과 본문의 괄호 속 ADR·대기열 번호는 agent-os의 기록이다. 원본(mattpocock/skills)에 일곱을 더했다. 1단계의 기능 실행 순서(대기열 7 — 그 순서가 런북에만 있었다), 5단계의 받는 쪽 확인(대기열 3)과 옮기는 테스트의 이음매 확인(대기열 106), 5단계 로컬 파일의 stem이 구현 브랜치가 된다는 것(agent-os ADR 0037), 템플릿 뒤 문단의 경로 규칙을 저장소 관행에 맞춘 것(대기열 400), 2단계의 쉬운 말 문장(이 저장소의 harness 티켓 `plain-words-in-written-artifacts`), 1단계의 명세 검토 보고를 받은 턴에 일지로 옮기기(이 저장소 대기열 review-report-journal-lag). 이 주석이 `tools/check_instructions.py`의 센티널이라 지우면 검사가 빨강이 된다. -->
 
 # To Tickets
 
@@ -18,7 +18,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
 
-기능 하나의 순서는 이렇고 이 스킬은 넷째다. 설계 인터뷰(`/grill-with-docs`, 용어는 `GLOSSARY.md`, 결정은 `docs/adr/`) → 명세(`/to-spec`) → 명세 검토(`spec-reviewer` 서브에이전트, 읽기 전용) → **티켓(이 스킬)** → 구현(`/implement`, 티켓마다 새 세션과 `feature/<NN>-<slug>` 브랜치) → 커밋 전 셀프 리뷰(`/code-review`) → PR 직전 CLI(`coderabbit-review`. 못 돌면 `/security-review`와 `bug-perf-review`) → PR·반영·병합(`/git-pr`, `/git-pr-feedback`, `/git-pr-merge`, 계기는 `next-session`). 명세 검토가 안 됐으면 그것부터 한다. 건너뛸지의 기준은 "몇 개를 건드리나"가 아니라 "건드리는 곳마다 새로 정할 것이 있나"다. 첫 기능 전에는 공통 규약(식별자 형식, 에러 봉투, 시간대, 색인 형식의 버전)을 정한다.
+기능 하나의 순서는 이렇고 이 스킬은 넷째다. 설계 인터뷰(`/grill-with-docs`, 용어는 `GLOSSARY.md`, 결정은 `docs/adr/`) → 명세(`/to-spec`) → 명세 검토(`spec-reviewer` 서브에이전트, 읽기 전용) → **티켓(이 스킬)** → 구현(`/implement`, 티켓마다 새 세션과 `feature/<NN>-<slug>` 브랜치) → 커밋 전 셀프 리뷰(`/code-review`) → PR 직전 CLI(`coderabbit-review`. 못 돌면 `/security-review`와 `bug-perf-review`) → PR·반영·병합(`/git-pr`, `/git-pr-feedback`, `/git-pr-merge`, 계기는 `next-session`). 명세 검토가 안 됐으면 그것부터 한다. 명세 검토의 보고는 받은 턴에 이 브랜치의 일지로 옮긴다. 일지가 없으면 머리 한 줄만 든 파일로 먼저 만든다(이름 짓기는 `next-session`의 `merge.md` 3, 옮기는 때는 `code-review` 6단계 끝이 정한다. 미루면 컨텍스트 압축 뒤 요약에서 보고의 판정을 다시 모으게 된다. 대기열 `review-report-journal-lag`). 건너뛸지의 기준은 "몇 개를 건드리나"가 아니라 "건드리는 곳마다 새로 정할 것이 있나"다. 첫 기능 전에는 공통 규약(식별자 형식, 에러 봉투, 시간대, 색인 형식의 버전)을 정한다.
 
 ### 2. Explore the codebase (optional)
 
