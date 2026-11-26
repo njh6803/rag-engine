@@ -27,3 +27,7 @@
 | [0021](0021-push-and-pull-sources-and-source-ownership.md) | 원천은 밀어 넣는 원천과 가져오는 원천으로 가르고, 수집 API는 원천 이름을 받으며, 서버 경로 원천은 붙인 부모 폴더 아래만 읽는다 | accepted | 2026-11-20 |
 | [0022](0022-worker-starts-sync-on-cron-schedule.md) | 동기화는 작업자가 cron 일정으로 시작하고, 목록이 비면 지우지 않으며, 색인할 글이 없는 문서는 건너뜀으로 남긴다 | accepted | 2026-11-20 |
 | [0023](0023-stuck-connector-calls-are-abandoned-and-remembered.md) | 돌아오지 않는 커넥터 호출은 한도까지만 기다리고, 남아 있는 동안 같은 설정으로 다시 부르지 않는다 | accepted | 2026-11-21 |
+| [0024](0024-admin-v0-scope-and-management-api-additions.md) | 관리자 페이지 v0의 일을 기능 셋으로 나누고, 동기화 취소·다시 수집·폴더 목록·검색 시험을 관리 API에 더하며, 검색에 걸린 시간을 표에 남긴다 | accepted | 2026-11-26 |
+| [0025](0025-admin-signs-in-with-operator-accounts-on-a-separate-port.md) | 관리자 페이지는 PostgreSQL에 둔 운영자 계정으로 로그인하고 관리 포트에서 따로 열리며, 인증 토큰은 프로그램이 쓰는 것으로 남는다 | accepted | 2026-11-26 |
+| [0026](0026-web-workspace-stack-follows-agent-os.md) | 관리자 페이지의 웹 워크스페이스는 agent-os ADR 0021의 스택을 따르고, 화면 부품은 agent-os 것을 복사하며, 릴리스 이미지를 하나 더 낸다 | accepted | 2026-11-26 |
+| [0027](0027-principle-ii-covers-typescript.md) | 원칙 II(타입 우회 금지)는 TypeScript에도 걸리고, 그 판정은 typescript-eslint가 한다 | accepted | 2026-11-26 |

@@ -16,7 +16,7 @@
 | 파서, 임베딩, 리랭커 | 파서는 pdfplumber(PDF), python-docx(DOCX), python-hwpx(HWPX, 1.0의 HWP 5.0도 같은 라이브러리). 설치형으로 재배포하므로 라이선스(특히 GPL과 AGPL 계열)를 원문으로 확인한 것만 들인다. PyMuPDF와 pyhwp는 AGPL이라 들이지 않는다. 임베딩과 리랭커는 설치 안의 TEI(text-embeddings-inference) 컨테이너가 돌리고(기본 임베딩 bge-m3, 리랭커 bge-reranker-v2-m3는 켜는 설치에서만) 서버·작업자 이미지에는 torch가 없다. 호출은 `/v1/embeddings`, `/tokenize`, `/rerank`. ADR 0010 |
 | 관련성 판정(LLM) | 검색 평가의 관련성 판정에만 쓴다. Anthropic 공식 SDK `anthropic`(Apache-2.0, major 2로 묶는다)으로 Claude API를 부르고 모델은 설정값이다. 기본은 꺼짐이고 설치처가 끝점 주소, 모델, 키를 모두 설정해야 조립된다. 검색 요청을 처리하는 길에서는 부르지 않는다. ADR 0019 |
 | 설정 | pydantic-settings. 환경 변수 `RAG_*`, `.env`, 비밀 파일. ADR 0015 |
-| 관리자 페이지 | admin 설계 인터뷰가 정한다(pnpm과 Next의 웹 워크스페이스, 또는 서버가 그리는 단순한 화면). 정하면 ADR과 함께 이 칸을 고친다 |
+| 관리자 페이지 | `web/` 아래 pnpm 워크스페이스에 Next로 짓고 Node 서버가 낸다. 스택은 agent-os ADR 0021을 따르고(pnpm 11, Node 24, TypeScript 5.9 strict, Next 16, React 19, Tailwind CSS 4) 화면 부품은 agent-os 것을 복사한다. ADR 0026. 사람은 PostgreSQL에 둔 운영자 계정으로 로그인하고 비밀번호는 `argon2-cffi`(MIT)의 Argon2id로 해시한다. 관리자 페이지는 프록시의 관리 포트(기본 8443)에서 열린다. ADR 0025. TypeScript의 타입 우회는 typescript-eslint가 판정한다. ADR 0027. 아직 짓지 않았고, 도구의 버전과 검증 명령은 web 뼈대를 짓는 티켓이 이 표에 적는다 |
 | 관리 명령 | 표준 라이브러리 argparse. 범위는 서버 없이 해야 하는 것(`serve`, `worker`, `migrate`, `bootstrap-token`)과 `ingest <경로>`이고, 나머지 쓰기는 관리 API다. 명령은 REST와 같은 app 층 유스케이스를 부르고 같은 연결 문자열로 데이터베이스에 직접 붙는다(ADR 0007) |
 | 컨테이너 | Docker 이미지. 서버와 작업자 이미지 둘(ADR 0007). 컨테이너는 root가 아닌 사용자로 돈다. 단독 compose의 기본 컨테이너는 프록시(nginx), 서버, 작업자, PostgreSQL, 임베딩 TEI 다섯이고 서버 앞에 한 번 도는 마이그레이션 서비스를 둔다. 리랭커 TEI는 켜는 설치가 프로필로 더한다. 밖으로 여는 포트는 프록시의 443 하나이고 프록시가 TLS를 끝낸다. 메모리 예산은 TEI 둘을 모두 띄운 설치의 32GB 기준(최소 16GB). 릴리스는 main이 움직이고 지난 릴리스 뒤로 제품 변경이 있을 때 CI가 내고, 이미지 둘을 Docker Hub의 `njh6803/rag-engine-server`와 `njh6803/rag-engine-worker`에 버전 태그로 올리며 이미지마다 SBOM과 취약점 점검 결과를 낸다. 보증하는 환경은 리눅스 x86-64의 Docker Engine과 Docker Compose다. ADR 0020. 릴리스의 차례와 실패한 릴리스를 다시 돌리는 절차는 `docs/constitution/operations.md`가 적는다 |
 | 레지스트리 | 이미지 레지스트리는 Docker Hub이고 개인 계정 `njh6803` 아래 공개 저장소 둘(`rag-engine-server`, `rag-engine-worker`. 짓기 대상 `server`, `worker`와의 대응은 `deploy/images/docker-bake.hcl`이 정한다)에 릴리스마다 올린다. 이미지는 릴리스 워크플로(`release.yml`)가 `docker/bake-action`과 그 bake 설정으로 짓는다. 바탕 이미지와 단독 compose의 바깥 이미지(프록시 nginx, PostgreSQL, TEI)는 digest로 고정한다. ADR 0020 |
@@ -24,4 +24,4 @@
 | 원격·CI | GitHub, GitHub Actions(ubuntu, uv). 로컬 훅과 같은 검사, 계약 시험, 이미지 빌드가 돌고 필수 검사 `verify`가 결과를 모은다(`docs/constitution/operations.md`) |
 | 로깅 | 표준 라이브러리 logging에 우리 포매터를 붙여 JSON Lines를 stdout으로 낸다(ADR 0015). 무엇을 남기지 않는지는 원칙 V |
 
-파이썬 한 패키지를 유지하고 배포가 갈릴 때만 나눈다. 관리자 페이지를 웹 워크스페이스로 짓게 되면 파이썬(`src/`)과 노드(`web/`)의 루트를 나눈다.
+파이썬 한 패키지를 유지하고 배포가 갈릴 때만 나눈다. 관리자 페이지는 웹 워크스페이스로 지으므로 파이썬(`src/`)과 노드(`web/`)의 루트를 나눈다(ADR 0026).
