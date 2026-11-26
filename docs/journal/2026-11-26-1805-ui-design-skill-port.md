@@ -70,6 +70,17 @@ CodeRabbit CLI 0.7.5가 미추적 5개를 포함한 변경 12개 파일을 끝�
 
 손으로 치는 검증 명령(`uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`, `uv run lint-imports`, `uv run python tools/check_instructions.py`, `uv run python tools/run_hooks.py`)이 모두 초록이었다(훅 페이로드 134건, 어긋남 0). 커밋 `e79fd3b`의 검사 러너(`tools/run_checks.py`)는 834초가 걸려 Bash의 600초 시간 제한을 넘고 백그라운드로 넘어갔으며, 열한 검사(pytest 포함)가 모두 통과했다. 인용 대조 경고는 5건이었고(일지 4건, 티켓 1건) 막지 않는 경고다. 일지의 4건은 제 문장을 줄이거나 조사를 바꿔 따옴표에 둔 것이라 따옴표를 뗐고, 티켓의 1건은 고치기 전 문장의 옛 인용이라 그대로 둔다. `tools/sibling_overlap.py`는 번호 겹침 없음이었다. 워크트리 `glossary-release-number-names`가 `.scratch/plan-head.md`와 `.scratch/plan.md`를 함께 고쳤으니 나중에 병합하는 쪽에서 글자 충돌이 날 수 있다.
 
+## PR
+
+PR #126(base dev, 머리 `chore/ui-design-skill-port`)을 열었다. 앱의 PR 도구가 이미 그 PR을 묶고 있었다(`bound: true`).
+
+## PR 봇 회차
+
+1회차(머리 `cc1a8e7`). 검사 열 개가 모두 통과했고(`verify` 포함), 두 봇이 리뷰를 냈다.
+
+- **claude-review.** 지적 없음. 변경이 하네스·문서·훅·시험뿐이라 층 경계, 계약, 플러그인 자리 셋 밖의 새 자리가 없다고 확인했다.
+- **CodeRabbit.** 지적 하나(Minor, 범위 밖 코멘트). `docs/agents/issue-tracker.md` 43행의 설계 줄 규칙이 "설계 줄이 있고 명세가 없으면 명세 차례다"라고만 적어, 이 PR이 더한 "화면 디자인" 절과 어긋난다. 맞다. 이 PR이 새 줄을 더하며 그 문장을 거짓으로 만들었는데 옛 말 잔존 grep이 그 꼴(`명세가 없으면 명세 차례`)을 찾지 않았다. 고쳤다: 43행에 명세 전에 화면을 그린다고 적은 기능은 그릴 화면마다 표에 줄이 있을 때만 명세 차례라는 문장을 더했다. 같은 말을 든 다른 자리를 `git grep`으로 찾았고(결정표와 `hook_grill_design_check.py`의 독스트링) 독스트링은 설계 인터뷰를 부르는 조건(명세도 설계 줄도 없을 때)을 말하고 "명세"는 대비로만 나와 거짓이 되지 않아 그대로 둔다.
+
 ## 회고
 
 `retro`를 돌렸다. 근거는 이 일지와 이 세션이다. 후보는 넷이고 승인 둘, 기각 둘이며 사용자에게 넘긴 것은 없다. 승인한 둘은 대기열에 두었고 이 세션에서 반영한 것은 없어 harness 티켓은 새로 쓰지 않았다.
