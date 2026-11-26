@@ -3,7 +3,7 @@ name: next-session
 description: "다음 작업 지시문을 낸다. PR을 열거나 병합한 뒤(열었으면 병합까지 마친 뒤), 작업을 마치지 못한 채 세션을 끊을 때, 단계 경계에서 인계 계기(hook_handoff)가 왔을 때. 세션을 끝낼지는 지시문의 '어디서'가 정한다."
 ---
 
-<!-- agent-os에서 옮긴 스킬이다(2026-11-09 킥오프 7단계). 본문의 괄호 속 대기열·일지 번호와 사례(세션 수, 초)는 agent-os의 기록이다. 인계 훅 `hook_handoff`는 이 저장소에 복사하지 않아 인계 계기가 오지 않으므로 `handoff.md`와 인계 줄은 쓰이지 않는다. 화면 디자인 단계(`ui-design`)도 복사하지 않아 결정표에서 뺐다. -->
+<!-- agent-os에서 옮긴 스킬이다(2026-11-09 킥오프 7단계). 본문의 괄호 속 대기열·일지 번호와 사례(세션 수, 초)는 agent-os의 기록이다. 인계 훅 `hook_handoff`는 이 저장소에 복사하지 않아 인계 계기가 오지 않으므로 `handoff.md`와 인계 줄은 쓰이지 않는다. 화면 디자인 단계(`ui-design`)는 harness 티켓 ui-design-skill-port가 2026-11-26에 옮겨 결정표의 "화면 디자인" 줄로 든다. -->
 
 # 다음 세션 지시문
 
@@ -57,6 +57,7 @@ PR을 열거나 병합하면 다음 작업의 지시문을 낸다(`docs/constitu
 | 기능의 티켓이 아니라 harness 티켓의 PR(`chore/<slug>`)이었고, 그 PR이 든 주제가 남지 않았다 | 프론티어 | `plan.md`의 프론티어에서 고른 기능으로 이 표의 줄 하나(진행 중인 기능에 `ready-for-agent` 티켓이 남았으면 그것이 먼저다). 대기열의 조건이 차 있어도 chore를 잇지 않는다. chore는 기능의 마지막 티켓 뒤에만 연다(위 줄). agent-os에서 하네스 chore PR 뒤에 대기열 조건이 차면 또 chore로 가던 2026-10-19까지의 이 줄이 chore를 잇달아 불렀다(agent-os ADR 0036). 같은 주제가 남았으면 아래의 "하네스·문서만 고친 PR" 줄이다 | 새 세션 | 고른 줄의 값 |
 | 그 기능의 마지막 티켓이었다 | 다음 프론티어 기능 | `plan.md`에서 고른 기능으로 아래 줄 중 하나 | 새 세션 | 고른 줄의 값 |
 | 기능에 명세(`.scratch/<slug>/spec.md`)도 기능 계획의 `**설계:**` 줄도 없다 | 설계 인터뷰 | `/grill-with-docs` | 새 세션 | `Fable 5.2 / xhigh` |
+| 기능 계획에 `**설계:**` 줄이 있고 `spec.md`가 없으며, `.scratch/<slug>/design/README.md`에 그릴 화면의 줄이 하나라도 없고(폴더나 README가 없어도 그렇다), 기능 계획(`.scratch/<slug>/plan.md`) 본문이 명세 전에 화면을 그린다고 적거나(`design/` 폴더가 아직 없어도 된다) `.scratch/<slug>/design/`에 시작 프롬프트(`*-prompt.md`)가 있다. 이 줄은 아래 "명세" 줄보다 위에 둔다. 아래에 두면 화면이 있는 기능이 "명세" 줄에 먼저 걸려 그림 없이 명세로 간다(ADR 0026) | 화면 디자인 | `/ui-design <slug>` | 새 세션(Docker가 켜진 로컬. 옮긴 화면 파일 `.dc.html`은 문서가 아니라 그 커밋에 테스트 PostgreSQL이 든다) | `Opus 5.5 / xhigh` |
 | 기능 계획에 `**설계:**` 줄이 있고 `spec.md`가 없다 | 명세 | `/to-spec` | 새 세션 | `Fable 5.2 / xhigh` |
 | `spec.md`는 있고 `issues/`가 없다 | 티켓 | 명세 검토(`spec-reviewer` 서브에이전트)가 안 됐으면 그것부터. 그 뒤 `/to-tickets .scratch/<slug>/spec.md` | 새 세션 | `Opus 5.5 / xhigh` |
 | 하네스·문서만 고친 PR이었고 같은 주제가 남았다. 남은 것은 그 PR이 처음에 맡은 일의 나머지이고, 그 PR을 하며 새로 찾아 대기열에 적은 항목은 아니다(agent-os ADR 0036) | 이어서 | 남은 것을 한 줄로. 병합된 티켓은 다시 열지 않으므로 남은 일로 새 이름의 새 harness 티켓을 쓰고 그 stem으로 새 브랜치를 딴다(`docs/agents/issue-tracker.md`) | 이 세션. 컨텍스트가 자산이다 | `없음`. 새 세션으로 열면 새 티켓이라 `Sonnet 5.5 / high`. 그 PR을 한 세션의 지시문의 "다음 단계" 칸이 설계 인터뷰나 명세였으면 `Fable 5.2 / xhigh` |
@@ -64,4 +65,4 @@ PR을 열거나 병합하면 다음 작업의 지시문을 낸다(`docs/constitu
 
 **Docker 갈래.** core 01(테스트 데이터베이스 러너)이 병합된 뒤에는 스테이징한 파일에 문서가 아닌 것이 하나라도 든 커밋(하네스 chore 포함)에 테스트 PostgreSQL이 필요하다. pre-commit의 검사 러너가 pytest 전에 그 서버를 Docker로 띄우기 때문이다(`tools/run_checks.py` 독스트링). 스테이징한 파일이 전부 문서(`is_doc_path`: `docs/`와 `.scratch/` 아래의 `.md`, `.scratch/` 아래의 프로브 출력, 루트의 `CLAUDE.md`·`GLOSSARY.md`·`CODING_STANDARDS.md`·`README.md`)인 커밋은 러너가 pytest를 데이터베이스를 쓰지 않는 문서 시험 여섯으로 좁히고 서버를 띄우지 않아 Docker 없이 커밋된다. 그러니 위 표의 줄이 코드나 설정을 바꾸는 일이면 "어디서"는 Docker가 켜진 로컬 세션이다. Docker도 없고 `RAG_TEST_DATABASE_URL`이 가리키는 닿는 PostgreSQL도 없는 클라우드 세션은 그런 커밋을 할 수 없으므로 열지 않고, 지시문의 "어디서"에 이 갈래를 적는다. 이 세션이 클라우드 세션이면 지시문만 내고 "사람이 Docker가 켜진 기계에서 연다"고 한 줄 보고한 뒤 멈춘다.
 
-`/to-spec`, `/to-tickets`, `/implement`는 사용자만 부르는 스킬이라 모델이 Skill 도구로 부르지 못한다. `/grill-with-docs`는 모델도 부를 수 있다. 어느 쪽이든 시작 프롬프트는 사람이 칠 수 있는 슬래시 명령 그대로 적는다. 새 세션에 어떻게 들어가는지는 `open-session`이 원천이다.
+`/to-spec`, `/to-tickets`, `/implement`는 사용자만 부르는 스킬이라 모델이 Skill 도구로 부르지 못한다. `/grill-with-docs`와 `/ui-design`은 모델도 부를 수 있다. 어느 쪽이든 시작 프롬프트는 사람이 칠 수 있는 슬래시 명령 그대로 적는다. 새 세션에 어떻게 들어가는지는 `open-session`이 원천이다.

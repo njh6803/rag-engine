@@ -509,6 +509,27 @@ expect = "silent"
 note = "줄 끝이 CRLF 인 마크다운 — LF 앞의 CR 은 줄 끝이다"
 payload = { tool_name = "Write", tool_input = { file_path = "${INVISIBLE_DIR}/crlf.md", content = "| a |" } }
 
+# --- hook_ui_design (PostToolUse Write|Edit) ---
+# session_id 를 빼 표지를 쓰지 않는 길(호출마다 알린다)로 돈다. 한 번만 알리는 것은 tests/tools 가 임시 폴더로 본다.
+[[case]]
+hook = "hook_ui_design.py"
+expect = "context"
+note = "기능의 디자인 폴더에 화면 프롬프트를 쓴다(ADR 0026 의 계기)"
+contains = ["/ui-design admin"]
+payload = { tool_name = "Write", tool_input = { file_path = "${ROOT}/.scratch/admin/design/screens-prompt.md", content = "# admin 화면 프롬프트\n" } }
+
+[[case]]
+hook = "hook_ui_design.py"
+expect = "silent"
+note = "같은 기능의 명세 — 디자인 폴더 밖이다"
+payload = { tool_name = "Edit", tool_input = { file_path = "${ROOT}/.scratch/admin/spec.md", old_string = "a", new_string = "b" } }
+
+[[case]]
+hook = "hook_ui_design.py"
+expect = "silent"
+note = "기능 아래 다른 폴더의 design — .scratch 다음 둘째 토막이 아니다"
+payload = { tool_name = "Write", tool_input = { file_path = "${ROOT}/.scratch/harness/probes/design/x.toml", content = "a = 1\n" } }
+
 # --- hook_prompt_directive (UserPromptSubmit) ---
 [[case]]
 hook = "hook_prompt_directive.py"
