@@ -7,9 +7,9 @@
 
 ## 순서
 
-core 다음은 release-image와 search-eval이다. 릴리스 번호를 고정한 이미지가 있어야 클라이언트가 실제 서버로 시험할 수 있고, 공개 문서 묶음을 넣은 공개 시연을 동기화와 관리자 페이지보다 먼저 열 수 있기 때문이다. 공개 시연은 관리 명령으로 문서를 한 번 넣고 동기화를 쓰지 않으므로, core, search-eval, release-image 셋이면 된다. 그래서 source-sync는 release-image 뒤에 서고, 뒤에 오는 행은 release-image가 정한 버전 태그와 단독 compose의 규칙으로 자기 몫(source-sync는 원천 폴더의 볼륨, admin은 관리자 페이지의 이미지)을 더한다. backup-upgrade와 diag-bundle은 원천 설정과 동기화 기록을 다루므로 source-sync 뒤에 선다.
+core 다음은 release-image와 search-eval이다. 릴리스 번호를 고정한 이미지가 있어야 클라이언트가 실제 서버로 시험할 수 있고, 공개 문서 묶음을 넣은 공개 시연을 동기화와 관리자 페이지보다 먼저 열 수 있기 때문이다. 공개 시연은 관리 명령으로 문서를 한 번 넣고 동기화를 쓰지 않으므로, core, search-eval, release-image 셋이면 된다. 그래서 source-sync는 release-image 뒤에 서고, 뒤에 오는 행은 release-image가 정한 버전 태그와 단독 compose의 규칙으로 자기 몫(source-sync는 원천 폴더의 볼륨, admin은 관리자 페이지의 이미지)을 더한다. backup-upgrade와 diag-bundle은 원천 설정과 동기화 기록을 다루므로 source-sync 뒤에 선다. diag-bundle은 admin이 짓는 검색에 걸린 시간의 표도 읽으므로 admin 뒤에도 선다(ADR 0024).
 
-release-image가 끝난 뒤로는 main이 움직일 때 지난 릴리스 뒤로 제품 변경이 있으면 CI가 릴리스를 내고, 정식 릴리스 0.1.0 전에는 출시 후보(`0.1.0-rc.N`)만 난다(ADR 0020). 첫 정식 릴리스는 release-0-1이 낸다. release-0-1은 release-image와 admin, backup-upgrade, diag-bundle이 모두 끝나야 열리고, 슬라이스 3의 기능은 release-0-1을 기다린다. 0.1.0에 실리는 것이 슬라이스 2까지와 맞게 하기 위해서다.
+release-image가 끝난 뒤로는 main이 움직일 때 지난 릴리스 뒤로 제품 변경이 있으면 CI가 릴리스를 내고, 정식 릴리스 0.1.0 전에는 출시 후보(`0.1.0-rc.N`)만 난다(ADR 0020). 첫 정식 릴리스는 release-0-1이 낸다. release-0-1은 release-image와 admin, group-kb, eval-screen, backup-upgrade, diag-bundle이 모두 끝나야 열리고, 슬라이스 3의 기능은 release-0-1을 기다린다. 0.1.0에 실리는 것이 슬라이스 2까지와 맞게 하기 위해서다. group-kb(그룹과 지식베이스 관리)와 eval-screen(검색 평가 화면)은 admin 설계가 admin에서 갈라 낸 기능이고, admin, group-kb, eval-screen의 차례로 선다(ADR 0024).
 
 이정표는 `docs/PRD.md`의 성공의 정의가 원천이다. 공개 시연(2027-01 초)은 core, search-eval, release-image이고 그때의 릴리스는 출시 후보다. 0.1(2027-03 초 무렵)은 슬라이스 2까지이고 release-0-1이 정식 릴리스로 낸다. 1.0(2027년 상반기, 어림)은 슬라이스 3까지다.
 
@@ -19,7 +19,7 @@ core부터 테스트는 Docker로 띄운 PostgreSQL(pgvector)이 있어야 돌�
 
 하네스 기능의 기능 계획은 `**슬라이스:**` 줄이 없어 아래 표와 프론티어에 들지 않는다(`docs/agents/issue-tracker.md`의 전체 계획 절). 그래서 열린 하네스 기능을 여기 적고, 그 기능의 마지막 티켓을 닫는 커밋이 지운다. 티켓의 상태는 그 기능 폴더의 `issues/`에서 본다.
 
-- 열린 하네스 기능이 없다.
+- 그림 스킬 옮기기(티켓은 아직 쓰지 않았다. admin 설계 PR 뒤의 세션이 `.scratch/harness/issues/`에 쓴다): agent-os의 화면 그림 스킬 `ui-design`, 디자인 폴더에 쓸 때 알리는 훅, `next-session` 결정표의 "화면 디자인" 줄, 트래커 문서의 화면 디자인 절을 옮긴다(ADR 0026 "화면 그림을 명세 앞에 둔다"). admin의 명세는 이 일이 끝난 뒤에 쓴다. 결정표만 보면 admin이 명세 쓰기로 가므로, 그 티켓이 지킬 것과 함께 `.scratch/admin/plan.md`의 "차례"에 적어 두었다. 이 줄은 그 티켓을 닫는 커밋이 지운다.
 
 ## 목표 배치
 
@@ -39,7 +39,7 @@ compose.test.yml           슬라이스 1. 테스트 PostgreSQL(pgvector/pgvecto
 evals/public-docs/         슬라이스 2. 검색 평가의 공공 문서 묶음. 문서 파일 폴더 `documents/`, 문서 목록 `documents.json`, 머리 `eval-set.json`, 구성 `config.json`(search-eval 09). 기대 근거 `evidence.jsonl`, 질의 목록 `queries-human.jsonl`과 `queries-keyword.jsonl`, 추론 기록 `records/`(search-eval 10)
 tools/search_eval.py       슬라이스 2. 검색 평가 도구의 명령줄 입구(search-eval 02). 인자 해석과 조립만 하고 묶음의 읽기·쓰기는 adapters, 값과 판정은 domain·app 에 둔다. search-eval 03이 `index`와 `validate --indexed`를, 04가 `run --through fused`를 더했고, 나머지 하위 명령은 05 이후가 더한다
 deploy/images/             이미지 짓기. Dockerfile 하나와 bake 설정(`docker-bake.hcl`)으로 서버와 작업자 둘을 짓는다(ADR 0007, release-image 01). 슬라이스 2의 release-image 가 버전 태그, 단독 compose(프록시, 서버, 작업자, PostgreSQL, 임베딩 TEI. 리랭커 TEI는 켜는 설치의 프로필, ADR 0010 이력 2026-11-17. 프록시와 밖으로 여는 포트는 ADR 0020), SBOM과 CVE 스캔을 더한다
-(관리자 페이지)            슬라이스 2. admin 설계 인터뷰가 화면 스택을 정한다. 웹 워크스페이스면 web/ 에 두고 파이썬과 루트를 나눈다(tech.md)
+web/                       슬라이스 2. 관리자 페이지의 pnpm 워크스페이스(Next). 관리자 페이지 앱 하나와 agent-os에서 복사한 화면 부품 패키지 하나를 두고 파이썬과 루트를 나눈다(ADR 0026, tech.md). admin 의 web 뼈대 티켓이 세우고, 안의 폴더 배치는 admin 명세가 정한다
 ```
 
 첫 슬라이스: 표본 문서 폴더를 관리 API로 수집하면 서버가 PDF, DOCX, HWPX를 파싱, 청킹, 임베딩해 색인을 만들고, MCP 클라이언트가 같은 서버의 `/mcp`(Streamable HTTP)로 접속해 검색 도구를 부르면 근거 위치와 갱신일이 붙은 조각을 받는다. MCP 도구 목록에는 쓰기 도구가 없고, 수집 중에도 검색이 응답한다. 첫 슬라이스가 끝나기 전에는 만들지 않는 것: 원천과 동기화(커넥터 플러그인, 주기 실행, 정리 작업), 관리자 페이지, 이미지와 단독 compose, 스캔본 OCR과 HWP 5.0 바이너리, 접근 그룹으로 거르는 검색(칸은 처음부터 두고 채우기만 한다), 답 생성.
@@ -49,8 +49,10 @@ deploy/images/             이미지 짓기. Dockerfile 하나와 bake 설정(`d
 | 1 | [core](core/plan.md) | 수집, 색인, 검색의 본체 v0. 관리 API로 넣은 문서를 MCP 읽기 도구로 근거 위치와 갱신일이 붙은 조각으로 찾는다 | 없음 | done |
 | 2 | [admin](admin/plan.md) | 관리자 페이지 v0. 현황, 원천, 문서, 검색 시험 화면에서 문서를 올리고 지우며 잘 찾아지는지 확인한다 | source-sync | todo |
 | 2 | [backup-upgrade](backup-upgrade/plan.md) | 색인, 원본 문서, 데이터베이스를 명령 하나로 백업하고 복원하며, 업그레이드 때 다시 색인해야 하는지 알린다 | source-sync | todo |
-| 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 릴리스 번호와 계약 버전, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync | todo |
-| 2 | [release-0-1](release-0-1/plan.md) | 첫 정식 릴리스 0.1.0을 낸다. 마지막 출시 후보로 0.1의 성공의 정의를 확인한 뒤 출시 후보 단계를 끝낸다 | release-image, admin, backup-upgrade, diag-bundle | todo |
+| 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 릴리스 번호와 계약 버전, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync, admin | todo |
+| 2 | [eval-screen](eval-screen/plan.md) | 검색 평가를 관리자 페이지에서 등록하고 돌리고 결과를 본다 | group-kb | todo |
+| 2 | [group-kb](group-kb/plan.md) | 그룹과 지식베이스를 관리자 페이지에서 만들고 고치고 지운다 | admin | todo |
+| 2 | [release-0-1](release-0-1/plan.md) | 첫 정식 릴리스 0.1.0을 낸다. 마지막 출시 후보로 0.1의 성공의 정의를 확인한 뒤 출시 후보 단계를 끝낸다 | release-image, admin, group-kb, eval-screen, backup-upgrade, diag-bundle | todo |
 | 2 | [release-image](release-image/plan.md) | 릴리스마다 검색 서버와 수집 작업자의 이미지를 내고, 자기 PostgreSQL을 띄우는 단독 compose로 깨끗한 VM에 설치된다 | core | done |
 | 2 | [search-eval](search-eval/plan.md) | 평가 세트로 검색의 상위 k개 적중률을 재고, 기준 보고서보다 떨어지면 CI가 실패한다 | core | done |
 | 2 | [source-sync](source-sync/plan.md) | 원천(업로드, 서버 경로, 수집 API)과 동기화. 원천에서 더하고 고치고 지운 문서가 다음 동기화 뒤 검색에 반영된다 | core, release-image | done |
@@ -62,4 +64,4 @@ deploy/images/             이미지 짓기. Dockerfile 하나와 bake 설정(`d
 
 ## 프론티어
 
-done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능이다. `admin`, `backup-upgrade`, `diag-bundle`
+done 이 아니고, Blocked by 가 비었거나 막는 기능이 모두 done 인 기능이다. `admin`, `backup-upgrade`
