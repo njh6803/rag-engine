@@ -1,9 +1,9 @@
-"""원천 되살리기 작업과 동기화(source-sync 티켓 12, 명세 "원천 삭제와 되살리기"와 "동기화의 차례").
+"""원천 복구 작업과 동기화(source-sync 티켓 12, 명세 "원천 삭제와 되살리기"와 "동기화의 차례").
 
 실제 테스트 PostgreSQL과 실제 작업자 루프를 쓴다. 가져오는 원천의 폴더는
-`tests/support/hanging_connectors.py`의 계획이 움직이는 커넥터다. 시험이 보는 것은 원천 되살리기
-작업이 문서를 50건씩 되살리는가, 지움 표시가 선 원천에는 아무것도 되살리지 않는가, 원천 삭제
-작업이 실패로 끝난 원천에서 멈춘 문서가 다시 이어지는가, 되살린 원천의 동기화가 아직 되살리지
+`tests/support/hanging_connectors.py`의 계획이 움직이는 커넥터다. 시험이 보는 것은 원천 복구
+작업이 문서를 50건씩 복구하는가, 지움 표시가 선 원천에는 아무것도 복구하지 않는가, 원천 삭제
+작업이 실패로 끝난 원천에서 멈춘 문서가 다시 이어지는가, 복구한 원천의 동기화가 아직 복구하지
 않은 문서를 어떻게 다루는가다.
 """
 
@@ -192,7 +192,7 @@ async def _record(pipeline: Pipeline, requested: SyncRequested) -> SyncRecord:
 
 
 async def _postpone_restore_job(pipeline: Pipeline) -> None:
-    """원천 되살리기 작업을 뒤로 미룬다. 되살린 원천의 동기화를 그 작업보다 먼저 돌리게 한다."""
+    """원천 복구 작업을 뒤로 미룬다. 복구한 원천의 동기화를 그 작업보다 먼저 돌리게 한다."""
     await _set_restore_run_after(pipeline, NOW + timedelta(hours=1))
 
 
@@ -209,7 +209,7 @@ async def _set_restore_run_after(pipeline: Pipeline, moment: datetime) -> None:
         )
 
 
-async def test_원천_되살리기_작업은_묶음_크기를_넘는_문서도_모두_되살린다(
+async def test_원천_복구_작업은_묶음_크기를_넘는_문서도_모두_복구한다(
     pipeline: Pipeline,
 ) -> None:
     source = await _push_source(pipeline, "묶음")
@@ -227,7 +227,7 @@ async def test_원천_되살리기_작업은_묶음_크기를_넘는_문서도_�
     assert await _counts(pipeline, source) == (total, 0, 0)
 
 
-async def test_지움_표시가_선_원천에_직접_넣은_되살리기_작업은_문서를_되살리지_않고_끝난다(
+async def test_지움_표시가_선_원천에_직접_넣은_복구_작업은_문서를_복구하지_않고_끝난다(
     pipeline: Pipeline,
 ) -> None:
     source = await _push_source(pipeline, "직접")
@@ -246,7 +246,7 @@ async def test_지움_표시가_선_원천에_직접_넣은_되살리기_작업�
     assert await _counts(pipeline, source) == (1, 1, 1)
 
 
-async def test_원천_삭제_작업이_실패로_끝난_원천을_되살리면_멈춘_문서가_색인되어_검색에_나온다(
+async def test_원천_삭제_작업이_실패로_끝난_원천을_복구하면_멈춘_문서가_색인되어_검색에_나온다(
     pipeline: Pipeline,
 ) -> None:
     source = await _push_source(pipeline, "멈춤")
@@ -273,7 +273,7 @@ async def test_원천_삭제_작업이_실패로_끝난_원천을_되살리면_�
     assert await _counts(pipeline, source) == (1, 0, 0)
 
 
-async def test_되살린_원천의_동기화는_폴더에서_사라진_문서를_되살리지_않고_따로_지운_문서로_센다(
+async def test_복구한_원천의_동기화는_폴더에서_사라진_문서를_복구하지_않고_따로_지운_문서로_센다(
     pipeline: Pipeline, world: World
 ) -> None:
     plan = world.plan("공유", {"가.docx": _docx("가"), "나.docx": _docx("나")})
@@ -293,15 +293,15 @@ async def test_되살린_원천의_동기화는_폴더에서_사라진_문서를
 
     record = await _record(pipeline, requested)
     assert (record.status, record.deleted) == (SyncRecordStatus.SUCCEEDED, 1)
-    # 폴더에 남은 나.docx는 동기화가 읽으면서 코어의 되살림으로 되살리고 표시도 걷는다.
+    # 폴더에 남은 나.docx는 동기화가 읽으면서 코어의 복구로 복구하고 표시도 걷는다.
     assert await _marks(pipeline, source) == {"가.docx": (True, False), "나.docx": (False, False)}
     await _release_restore_job(pipeline)
     await _drain_one(pipeline)
-    # 원천 되살리기 작업은 따로 지운 가.docx를 되살리지 않는다.
+    # 원천 복구 작업은 따로 지운 가.docx를 복구하지 않는다.
     assert await _marks(pipeline, source) == {"가.docx": (True, False), "나.docx": (False, False)}
 
 
-async def test_폴더를_비운_되살린_원천의_동기화는_실패하고_표시가_남아_작업_뒤_문서가_돌아온다(
+async def test_폴더를_비운_복구한_원천의_동기화는_실패하고_표시가_남아_작업_뒤_문서가_돌아온다(
     pipeline: Pipeline, world: World
 ) -> None:
     plan = world.plan("비움", {"가.docx": _docx("가"), "나.docx": _docx("나")})

@@ -1,4 +1,4 @@
-"""가져오는 원천을 되살리는 관리 API(source-sync 티켓 12, 명세 "원천 삭제와 되살리기"와 "서버 경로
+"""가져오는 원천을 복구하는 관리 API(source-sync 티켓 12, 명세 "원천 삭제와 되살리기"와 "서버 경로
 커넥터와 원천 폴더"의 겹침 항목).
 
 실제 uvicorn 서버와 실제 파일 시스템을 쓴다. 이 서버에는 작업자가 없으므로, 원천 삭제 작업이
@@ -115,7 +115,7 @@ def _check_at(database_url: str, moment: datetime) -> list[ScheduledSync]:
     return run_in_selector_loop(run())
 
 
-def test_가져오는_원천을_되살리면_202와_연결_확인이_나오고_다음_실행_시각이_다시_찬다(
+def test_가져오는_원천을_복구하면_202와_연결_확인이_나오고_다음_실행_시각이_다시_찬다(
     server: RunningServer,
 ) -> None:
     created = request(
@@ -143,7 +143,7 @@ def test_가져오는_원천을_되살리면_202와_연결_확인이_나오고_�
     assert shown["next_run_at"] is not None
 
 
-def test_지운_원천에는_일정_확인이_동기화를_넣지_않고_되살린_뒤에는_넣는다(
+def test_지운_원천에는_일정_확인이_동기화를_넣지_않고_복구한_뒤에는_넣는다(
     server: RunningServer,
 ) -> None:
     created = request(
@@ -166,7 +166,7 @@ def test_지운_원천에는_일정_확인이_동기화를_넣지_않고_되살�
     assert [item.source for item in _check_at(database_url, FAR_FUTURE)] == ["wiki"]
 
 
-def test_폴더를_여는_호출이_돌아오지_않는_원천도_한도_안에_되살리고_읽지_못했다고_답한다(
+def test_폴더를_여는_호출이_돌아오지_않는_원천도_한도_안에_복구하고_읽지_못했다고_답한다(
     server: RunningServer, gate: Gate
 ) -> None:
     assert create_pull(server, "wiki", STUCK).status_code == 201
@@ -184,7 +184,7 @@ def test_폴더를_여는_호출이_돌아오지_않는_원천도_한도_안에_
     assert elapsed < 4 * TIMEOUT_SECONDS + 10
 
 
-def test_그사이_다른_원천이_겹치는_폴더를_쓰게_됐으면_되살리기는_409이고_원천은_지운_채다(
+def test_그사이_다른_원천이_겹치는_폴더를_쓰게_됐으면_복구는_409이고_원천은_지운_채다(
     server: RunningServer,
 ) -> None:
     assert create_pull(server, "wiki", PARENT_OF_STUCK).status_code == 201
@@ -216,7 +216,7 @@ def test_폴더를_살피는_사이_원천의_폴더가_바뀌고_지워져도_�
     restoring.start()
     assert gate.entered.wait(30)
 
-    # 되살리는 요청이 원천 자신의 폴더를 살피며 붙잡힌 사이, 같은 원천의 폴더가 바뀌고 원천이
+    # 복구하는 요청이 원천 자신의 폴더를 살피며 붙잡힌 사이, 같은 원천의 폴더가 바뀌고 원천이
     # 지워지고 바뀐 폴더를 다른 원천이 쓴다.
     changed = request(server, "PATCH", f"{SOURCES}/wiki", config={"folder": NORMAL})
     assert changed.status_code == 200
@@ -230,7 +230,7 @@ def test_폴더를_살피는_사이_원천의_폴더가_바뀌고_지워져도_�
     assert _shown(server, "wiki")["deleted_at"] is not None
 
 
-def test_폴더를_차지한_다른_원천을_지우고_나면_되살리기를_받는다(server: RunningServer) -> None:
+def test_폴더를_차지한_다른_원천을_지우고_나면_복구를_받는다(server: RunningServer) -> None:
     assert create_pull(server, "wiki", NORMAL).status_code == 201
     _delete_and_finish(server, "wiki")
     # 지운 원천의 폴더는 겹침을 가리는 대상이 아니라서 다른 원천이 같은 폴더를 가질 수 있다.

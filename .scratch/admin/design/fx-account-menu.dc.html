@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>계정 메뉴</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<dc-import name="fx-tokens" menu-open="{{ no }}" admin="{{ no }}" account="kim.dev" role="관리자" account-menu="{{ yes }}" hint-size="100%,760px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1280, "height": 760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { yes: true, no: false };
+  }
+}
+</script>
+</body>
+</html>

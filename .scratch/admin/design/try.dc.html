@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>검색 시험</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important} a{color:var(--accent)} a:hover{color:var(--text)}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="flex: 0 0 var(--spacing-nav); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; gap: var(--spacing-4); padding: var(--spacing-4) var(--spacing-3); background: var(--bg-raised); border-right: 1px solid var(--border);">
+<dc-import name="cmp-nav" current="try" admin="{{ yes }}" hint-size="232px,320px"></dc-import>
+<dc-import name="cmp-account" account="ops-lead" role="시스템 관리자" menu-open="{{ no }}" hint-size="232px,60px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: var(--spacing-8);">
+<div style="max-width: 1040px; display: flex; flex-direction: column; gap: var(--spacing-6);">
+<header class="flex flex-col gap-1">
+<h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">검색 시험</h1>
+<p class="text-body text-text-muted" style="margin: 0;">MCP 클라이언트가 같은 질문으로 검색하면 받는 결과입니다.</p>
+</header>
+
+<form role="search" class="flex flex-col gap-2" style="margin: 0;" onsubmit="return false;">
+<div class="flex items-start gap-2">
+<div style="flex: 1 1 auto; min-width: 0;"><x-import component-from-global-scope="AgentOsUi.TextField" label="질문" hide-label="{{ yes }}" value="월간 점검에서 확인할 항목" placeholder="찾을 내용을 적으세요"></x-import></div>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="primary" type="submit">검색</x-import>
+</div>
+<p class="flex items-center gap-1 text-small text-text-muted" style="margin: 0;"><x-import component-from-global-scope="AgentOsUi.Icon" name="lock" size="14"></x-import>질문은 저장하지 않습니다.</p>
+</form>
+
+<div class="flex flex-wrap items-start" style="gap: var(--spacing-8);">
+<aside aria-labelledby="cond-title" class="flex flex-col" style="flex: 0 0 272px; box-sizing: border-box; gap: var(--spacing-4); padding: var(--spacing-4); border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<h2 id="cond-title" class="text-body font-semibold" style="margin: 0;">검색 조건</h2>
+<label class="flex flex-col gap-2"><span class="text-small font-medium">지식베이스</span><select class="text-body font-mono" style="height: var(--control-h); padding: 0 var(--spacing-3); border: 1px solid var(--border-control); border-radius: var(--radius-m); background: var(--bg); color: var(--text);"><option>default</option></select></label>
+<x-import component-from-global-scope="AgentOsUi.TextField" label="결과 수" type="number" value="10"></x-import>
+<x-import component-from-global-scope="AgentOsUi.TextField" label="최소 점수" optional="{{ yes }}" placeholder="예: 0.5" help="이 점수보다 낮은 조각은 빼고 보입니다."></x-import>
+<fieldset class="flex flex-col" style="gap: var(--spacing-3); margin: 0; padding: var(--spacing-4) 0 0; border: 0; border-top: 1px solid var(--border); min-width: 0;">
+<legend class="text-small font-medium" style="float: left; width: 100%; padding: 0; margin: 0 0 var(--spacing-1);">갱신일 <span class="text-text-muted" style="font-weight: normal;">선택</span></legend>
+<x-import component-from-global-scope="AgentOsUi.TextField" label="이후" type="date" value="2026-11-01"></x-import>
+<x-import component-from-global-scope="AgentOsUi.TextField" label="이전" type="date"></x-import>
+<p class="text-small text-text-muted" style="margin: 0;">문서가 마지막으로 고쳐진 날입니다. 서버 폴더는 파일의 수정 시각입니다. MCP 클라이언트가 최근 문서만 찾을 때 넣는 조건과 같습니다.</p>
+</fieldset>
+</aside>
+
+<section aria-labelledby="result-title" class="flex flex-col gap-3" style="flex: 1 1 480px; min-width: 0;">
+<h2 id="result-title" class="text-body font-semibold" style="margin: 0;">결과 8건, <span class="font-mono text-mono">182ms</span> 걸림</h2>
+
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4">
+<article class="flex flex-col gap-2">
+<div class="flex items-center gap-3 text-small"><span class="font-mono text-mono font-medium">1위</span><span class="font-mono text-mono">점수 0.82</span></div>
+<a href="doc-view.dc.html" class="text-body font-medium" style="width: fit-content;">장비 점검 매뉴얼 v4.pdf</a>
+<p class="text-small text-text-muted" style="margin: 0;"><span class="font-mono text-mono">nas-manuals</span>, 키 <span class="font-mono text-mono">manuals/점검/장비 점검 매뉴얼 v4.pdf</span></p>
+<p class="text-small" style="margin: 0;">12쪽, 3. 점검 주기 &gt; 3.2 월간 점검, 표</p>
+<p class="text-body" style="margin: 0;">월간 점검에서는 배전반 온도, 비상 발전기 시동, 소화 설비 압력을 확인한다. | 항목 | 기준 | 조치 | 배전반 온도 | 60℃ 이하 | 넘으면 부하를 줄이고 보고 | 비상 발전기 시동 | 10초 안에 시동 | 늦으면 정비 요청 | 소화 설비 압력 | 0.7MPa 이상 | 낮으면 충전 요청 |</p>
+<div class="flex items-center gap-4 flex-wrap text-small"><a href="doc-view.dc.html">문서 화면에서 이 조각 보기</a><span class="text-text-muted">갱신 <span class="font-mono text-mono">11-25 14:02</span></span><button type="button" class="text-small" style="margin-left: auto; padding: 0; border: 0; background: transparent; color: var(--accent); font-family: inherit; cursor: pointer;">접기</button></div>
+</article>
+</x-import>
+
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4">
+<article class="flex flex-col gap-2">
+<div class="flex items-center gap-3 text-small"><span class="font-mono text-mono font-medium">2위</span><span class="font-mono text-mono">점수 0.74</span></div>
+<a href="doc-view.dc.html" class="text-body font-medium" style="width: fit-content;">배전반 관리 지침.pdf</a>
+<p class="text-small text-text-muted" style="margin: 0;"><span class="font-mono text-mono">nas-manuals</span>, 키 <span class="font-mono text-mono">manuals/전기/배전반 관리 지침.pdf</span></p>
+<p class="text-small" style="margin: 0;">4쪽, 2. 정기 점검 &gt; 2.1 월간 점검, 문단</p>
+<p class="text-body" style="margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">배전반은 매월 첫째 주에 표면 온도와 이상음을 확인한다. 온도는 적외선 온도계로 재고, 60℃를 넘으면 부하를 나눠 다시 잰다. 결과는 점검 일지의 배전반 칸에 적고, 이상이 있으면 시설 담당에게 알린다.</p>
+<div class="flex items-center gap-4 text-small"><button type="button" class="text-small" style="padding: 0; border: 0; background: transparent; color: var(--accent); font-family: inherit; cursor: pointer;">더 보기</button><span class="text-text-muted">갱신 <span class="font-mono text-mono">11-20 09:41</span></span></div>
+</article>
+</x-import>
+
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4">
+<article class="flex flex-col gap-2">
+<div class="flex items-center gap-3 text-small"><span class="font-mono text-mono font-medium">3위</span><span class="font-mono text-mono">점수 0.69</span></div>
+<a href="doc-view.dc.html" class="text-body font-medium" style="width: fit-content;">장비 점검 매뉴얼 v4.pdf</a>
+<p class="text-small text-text-muted" style="margin: 0;"><span class="font-mono text-mono">nas-manuals</span>, 키 <span class="font-mono text-mono">manuals/점검/장비 점검 매뉴얼 v4.pdf</span></p>
+<p class="text-small" style="margin: 0;">12쪽, 3. 점검 주기 &gt; 3.1 일일 점검, 문단</p>
+<p class="text-body" style="margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">일일 점검은 매일 작업 시작 전에 실시한다. 점검 항목은 전원부 이상음, 냉각팬 작동, 표시등 상태 세 가지다. 이상이 있으면 장비를 멈추고 관리자에게 알린다.</p>
+<div class="flex items-center gap-4 text-small"><button type="button" class="text-small" style="padding: 0; border: 0; background: transparent; color: var(--accent); font-family: inherit; cursor: pointer;">더 보기</button><span class="text-text-muted">갱신 <span class="font-mono text-mono">11-25 14:02</span></span></div>
+</article>
+</x-import>
+
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4">
+<article class="flex flex-col gap-2">
+<div class="flex items-center gap-3 text-small"><span class="font-mono text-mono font-medium">4위</span><span class="font-mono text-mono">점수 0.61</span></div>
+<a href="doc-view.dc.html" class="text-body font-medium" style="width: fit-content;">소화 설비 운영 매뉴얼.pdf</a>
+<p class="text-small text-text-muted" style="margin: 0;"><span class="font-mono text-mono">nas-manuals</span>, 키 <span class="font-mono text-mono">manuals/소방/소화 설비 운영 매뉴얼.pdf</span></p>
+<p class="text-small" style="margin: 0;">7쪽, 3. 점검 &gt; 3.2 압력 확인, 문단</p>
+<p class="text-body" style="margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">소화 설비의 압력계는 매월 확인한다. 바늘이 녹색 칸 안에 있어야 하고, 0.7MPa보다 낮으면 충전 업체에 연락한다. 압력계가 깨졌거나 바늘이 움직이지 않으면 설비를 바꾼다.</p>
+<div class="flex items-center gap-4 text-small"><button type="button" class="text-small" style="padding: 0; border: 0; background: transparent; color: var(--accent); font-family: inherit; cursor: pointer;">더 보기</button><span class="text-text-muted">갱신 <span class="font-mono text-mono">10-30 16:05</span></span></div>
+</article>
+</x-import>
+
+</section>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1280, "height": 1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { yes: true, no: false };
+  }
+}
+</script>
+</body>
+</html>

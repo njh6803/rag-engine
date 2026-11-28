@@ -1,7 +1,7 @@
-"""문서 되살리기의 왕복(source-sync 티켓 13, 명세 "Testing Decisions"의 주 이음매).
+"""문서 복구의 왕복(source-sync 티켓 13, 명세 "Testing Decisions"의 주 이음매).
 
 실제 uvicorn 서버와 실제 작업자(한 번 돌기), 공식 MCP 클라이언트의 `search`를 쓰고 임베딩 서버만
-스텁이다. 지운 문서를 관리 API 호출 하나로 되살리면 임베딩을 다시 하지 않고 검색에 돌아오고, 그사이
+스텁이다. 지운 문서를 관리 API 호출 하나로 복구하면 임베딩을 다시 하지 않고 검색에 돌아오고, 그사이
 색인 판이 바뀌었으면 색인 작업이 들어가 작업자를 돌린 뒤 검색에 나온다. 거절 넷도 HTTP로 본다.
 """
 
@@ -44,7 +44,7 @@ async def _found(round_trip: RoundTrip) -> set[str]:
     return {item.key for item in output(await round_trip.search("연차휴가")).results}
 
 
-async def test_지운_문서를_되살리면_임베딩_없이_검색에_돌아온다(round_trip: RoundTrip) -> None:
+async def test_지운_문서를_복구하면_임베딩_없이_검색에_돌아온다(round_trip: RoundTrip) -> None:
     round_trip.drop_reranker()
     ingested = await round_trip.ingest(*휴가)
     document_id = ingested.json()["document_id"]
@@ -150,7 +150,7 @@ async def test_지운_원천의_문서는_409_source_deleted다(round_trip: Roun
     assert (refused.status_code, refused.json()["code"]) == (409, "source_deleted")
 
 
-async def test_reader_토큰의_되살리기는_403이고_문서는_그대로다(round_trip: RoundTrip) -> None:
+async def test_reader_토큰의_복구는_403이고_문서는_그대로다(round_trip: RoundTrip) -> None:
     ingested = await round_trip.ingest(*휴가)
     await round_trip.delete("규정.docx")
     reader = await round_trip.issue_reader()

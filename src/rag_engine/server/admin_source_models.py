@@ -189,13 +189,13 @@ class SourceDeletionResponse(BaseModel):
 
 
 class SourceRestorationResponse(BaseModel):
-    """원천 되살리기 요청의 응답(202). 문서를 되살리는 일은 뒤에서 이 작업이 한다."""
+    """원천 복구 요청의 응답(202). 문서를 복구하는 일은 뒤에서 이 작업이 한다."""
 
     model_config = ConfigDict(frozen=True)
 
-    job_id: UUID = Field(description="대기열에 넣은 원천 되살리기 작업의 식별자")
+    job_id: UUID = Field(description="대기열에 넣은 원천 복구 작업의 식별자")
     connection_check: ConnectionCheckResponse | None = Field(
-        description="가져오는 원천은 되살린 직후의 연결 확인. 밀어 넣는 원천은 null"
+        description="가져오는 원천은 복구한 직후의 연결 확인. 밀어 넣는 원천은 null"
     )
 
     @staticmethod

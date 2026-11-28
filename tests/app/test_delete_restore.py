@@ -1,4 +1,4 @@
-"""삭제, 되살림, 삭제 기록(명세 "삭제, 되살림, 묘비", 티켓 11).
+"""삭제, 복구, 삭제 기록(명세 "삭제, 되살림, 묘비", 티켓 11).
 
 실제 테스트 PostgreSQL, 실제 DOCX 파서 자식 프로세스, 실제 청커와 Kiwi 위에서 돈다. 임베딩 서버만
 `TeiStub`이다. 삭제 기록 행은 시험이 데이터베이스에 직접 만든다(정리 작업이 만드는 것은
@@ -130,7 +130,7 @@ async def test_없는_키와_삭제_기록_행의_키를_지우면_document_not_
         assert caught.value.code is ErrorCode.DOCUMENT_NOT_FOUND
 
 
-async def test_같은_내용을_되살리면_보관_조각이_돌아와_임베딩과_작업_없이_바로_검색된다(
+async def test_같은_내용을_복구하면_보관_조각이_돌아와_임베딩과_작업_없이_바로_검색된다(
     pipeline: Pipeline, tmp_path: Path
 ) -> None:
     ingested = await pipeline.ingest(휴가)
@@ -156,7 +156,7 @@ async def test_같은_내용을_되살리면_보관_조각이_돌아와_임베�
     assert len(_blobs(tmp_path)) == 1
 
 
-async def test_다른_그룹으로_되살리면_대상이_아닌_판의_보관_조각을_지우고_새_판에_pending을_쓴다(
+async def test_다른_그룹으로_복구하면_대상이_아닌_판의_보관_조각을_지우고_새_판에_pending을_쓴다(
     pipeline: Pipeline,
 ) -> None:
     moved = await pipeline.add_group("팀B")
@@ -202,7 +202,7 @@ async def test_건설_중인_판에_보관_조각이_돌아오면_indexed를_쓰
     pipeline: Pipeline, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     building = await pipeline.add_building_version()
-    # 건설 중인 판이 `pending` 문서 없이 색인이나 삭제를 만나면 곧바로 현재 판이 된다. 되살릴 때까지
+    # 건설 중인 판이 `pending` 문서 없이 색인이나 삭제를 만나면 곧바로 현재 판이 된다. 복구할 때까지
     # 건설 중인 판으로 두려고 자리 표시 문서가 `pending`을 붙들게 한다.
     await pipeline.keep_pending(building)
     ingested = await pipeline.ingest(휴가)
@@ -227,7 +227,7 @@ async def test_건설_중인_판에_보관_조각이_돌아오면_indexed를_쓰
     assert checked == []
 
 
-async def test_내용이_다른_수집으로_되살리면_보관_조각을_지우고_갱신으로_색인한다(
+async def test_내용이_다른_수집으로_복구하면_보관_조각을_지우고_갱신으로_색인한다(
     pipeline: Pipeline, tmp_path: Path
 ) -> None:
     ingested = await pipeline.ingest(휴가)
@@ -251,7 +251,7 @@ async def test_내용이_다른_수집으로_되살리면_보관_조각을_지�
     assert any("출장비" in text for text in texts)
 
 
-async def test_색인되기_전에_지운_갱신_내용을_같은_내용으로_되살리면_옛_글은_돌아오지_않는다(
+async def test_색인되기_전에_지운_갱신_내용을_같은_내용으로_복구하면_옛_글은_돌아오지_않는다(
     pipeline: Pipeline,
 ) -> None:
     ingested = await pipeline.ingest(휴가)
@@ -272,7 +272,7 @@ async def test_색인되기_전에_지운_갱신_내용을_같은_내용으로_�
     assert not any("연차휴가" in text for text in texts)
 
 
-async def test_색인_전에_지운_문서를_옛_내용으로_되살려_조각이_돌아오면_문서_상태도_parsed다(
+async def test_색인_전에_지운_문서를_옛_내용으로_복구해_조각이_돌아오면_문서_상태도_parsed다(
     pipeline: Pipeline,
 ) -> None:
     ingested = await pipeline.ingest(휴가)

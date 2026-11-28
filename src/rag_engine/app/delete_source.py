@@ -9,7 +9,7 @@
 문서를 실제로 옮기는 일은 작업자가 하는 원천 삭제 작업(`delete_source_documents`)이다. 지워지지
 않은 문서를 `BATCH_SIZE`건씩 묶어 묶음마다 작업 단위 하나에서 문서 삭제와 같은 일을 한다. 묶음마다
 맨 먼저 원천 행을 공유 잠금으로 잡고 지움 표시를 다시 본다. 표시가 걷혀 있으면(작업을 대기열에 직접
-넣었다. 지우는 요청과 되살리는 요청은 서로의 작업이 끝나기 전에는 거절되므로 그 밖의 길로는
+넣었다. 지우는 요청과 복구하는 요청은 서로의 작업이 끝나기 전에는 거절되므로 그 밖의 길로는
 걷히지 않지만 묶음마다 다시 본다) 아무것도 옮기지 않고 성공으로 끝난다. 작업 단위의 잠금 순서는 원천
 행, 문서 행(ID 순), 지식베이스 행(ID 순), 작업 행이다. 묶음 안의 문서와 지식베이스 행을 문서마다
 차례로 잠그면 다른 작업 단위(색인 작업)와 서로의 행을 기다릴 수 있어서, 문서 행을 모두 잠근 뒤
@@ -54,7 +54,7 @@ async def request_source_deletion(
 ) -> SourceDeletionRequested:
     """원천에 지움 표시를 쓰고 원천 삭제 작업을 넣는다. `default`와 `upload`는 409
     `source_protected`이고, 이미 지운 원천은 409 `source_deleted`이고, 원천 삭제 작업이나 원천
-    되살리기 작업이 끝나지 않았으면 409 `source_change_in_progress`다."""
+    복구 작업이 끝나지 않았으면 409 `source_change_in_progress`다."""
     async with unit_of_work.begin() as transaction:
         source = await require_source(transaction, name)
         if source.name in PROTECTED_SOURCE_NAMES:

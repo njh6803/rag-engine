@@ -462,7 +462,7 @@ async def test_재시도_소진이_건설_중인_판을_failed로_쓰면_그_판
     assert [version.id for version in checked] == [building.id]
 
 
-async def test_지웠다_되살린_사이에_옛_작업이_재시도를_다_써도_되살린_조각과_상태를_건드리지_않는다(
+async def test_지웠다_복구한_사이에_옛_작업이_재시도를_다_써도_복구한_조각과_상태를_건드리지_않는다(
     pipeline: Pipeline,
 ) -> None:
     document_id = await _index(pipeline, 휴가)

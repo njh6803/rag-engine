@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>문서 하나: 건너뜀</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important} a{color:var(--accent)} a:hover{color:var(--text)}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="flex: 0 0 var(--spacing-nav); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; gap: var(--spacing-4); padding: var(--spacing-4) var(--spacing-3); background: var(--bg-raised); border-right: 1px solid var(--border);">
+<dc-import name="cmp-nav" current="documents" admin="{{ yes }}" hint-size="232px,320px"></dc-import>
+<dc-import name="cmp-account" account="ops-lead" role="시스템 관리자" menu-open="{{ no }}" hint-size="232px,60px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: var(--spacing-8);">
+<div style="max-width: 1040px; display: flex; flex-direction: column; gap: var(--spacing-6);">
+<div class="flex flex-col gap-3">
+<a href="doc-list.dc.html" class="flex items-center gap-1 text-body" style="width: fit-content; text-decoration: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="m15 18-6-6 6-6"></path></svg>문서 목록</a>
+<header class="flex items-start justify-between gap-4 flex-wrap">
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex items-center gap-3 flex-wrap"><h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight); color: {{ titleColor }};">스캔본 계약서.pdf</h1><sc-if value="{{ live }}" hint-placeholder-val="{{ true }}"><dc-import name="cmp-badge" state="skipped" hint-size="64px,22px"></dc-import></sc-if><sc-if value="{{ deleted }}" hint-placeholder-val="{{ false }}"><dc-import name="cmp-badge" state="deleted" hint-size="72px,22px"></dc-import></sc-if></div>
+<p class="text-small text-text-muted" style="margin: 0;">원천 <span class="font-mono text-mono">upload</span>, 키 <span class="font-mono text-mono">스캔본 계약서.pdf</span></p>
+</div>
+<sc-if value="{{ live }}" hint-placeholder-val="{{ true }}">
+<div class="flex items-center gap-2 shrink-0">
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary">원본 내려받기</x-import>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary">다시 수집</x-import>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary">지우기</x-import>
+</div>
+</sc-if>
+<sc-if value="{{ deleted }}" hint-placeholder-val="{{ false }}">
+<div class="flex items-center gap-2 shrink-0"><x-import component-from-global-scope="AgentOsUi.Button" variant="primary">복구</x-import></div>
+</sc-if>
+</header>
+<dl class="flex flex-wrap text-body" style="margin: 0; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<div class="flex flex-col gap-1" style="min-width: 0; padding: var(--spacing-3) var(--spacing-4); border-right: 1px solid var(--border);"><dt class="text-small text-text-muted">형식</dt><dd style="margin: 0;">PDF, 6쪽</dd></div>
+<div class="flex flex-col gap-1" style="min-width: 0; padding: var(--spacing-3) var(--spacing-4); border-right: 1px solid var(--border);"><dt class="text-small text-text-muted">크기</dt><dd class="font-mono text-mono" style="margin: 0;">4.8MB</dd></div>
+<div class="flex flex-col gap-1" style="min-width: 0; padding: var(--spacing-3) var(--spacing-4); border-right: 1px solid var(--border);"><dt class="text-small text-text-muted">갱신</dt><dd class="font-mono text-mono" style="margin: 0;">11-24 10:12</dd></div>
+<div class="flex flex-col gap-1" style="min-width: 0; padding: var(--spacing-3) var(--spacing-4);"><dt class="text-small text-text-muted">지식베이스</dt><dd style="margin: 0;"><span class="font-mono text-mono">default</span> <span class="text-text-muted">색인 버전 3에 없어 검색되지 않습니다</span></dd></div>
+</dl>
+</div>
+
+<sc-if value="{{ live }}" hint-placeholder-val="{{ true }}">
+<x-import component-from-global-scope="AgentOsUi.Alert" tone="info" title="글자가 없어 건너뛰었습니다">
+<p class="text-body" style="margin: 0;">쪽마다 스캔한 그림만 있고 글자가 없어서 색인하지 않았습니다. 이 서버는 그림 속 글자를 읽지 않습니다. 글자가 든 PDF로 다시 올리세요.</p>
+<p class="text-small text-text-muted" style="margin: var(--spacing-1) 0 0;">건너뜀은 실패와 따로 셉니다. 다시 수집해도 파서가 바뀌기 전에는 결과가 같습니다.</p>
+</x-import>
+</sc-if>
+<sc-if value="{{ deleted }}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="AgentOsUi.Alert" tone="warning" title="임시 삭제한 문서입니다">
+<p class="text-body" style="margin: 0;"><span class="font-mono text-mono">11-26 19:45</span>에 지웠습니다. 문서 목록에서는 "지운 문서도 보기"를 켤 때만 나옵니다. <span class="font-mono text-mono">12-26</span>까지 복구할 수 있고, 그 뒤에는 원본과 함께 완전히 지웁니다.</p>
+</x-import>
+</sc-if>
+
+<div class="flex flex-wrap items-start" style="gap: var(--spacing-8);">
+<section aria-label="문서 내용" style="flex: 3 1 420px; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-l); overflow: hidden; background: var(--bg-raised);">
+<div role="tablist" aria-label="문서 보기" class="flex gap-4" style="padding: 0 var(--spacing-4); border-bottom: 1px solid var(--border); background: var(--bg-raised);">
+<span role="tab" aria-selected="true" class="text-body font-medium flex items-center" style="height: var(--control-h); padding: 0 var(--spacing-1); margin-bottom: -1px; border-bottom: 2px solid var(--accent);">파싱 결과</span>
+<span role="tab" aria-selected="false" class="text-body flex items-center" style="height: var(--control-h); padding: 0 var(--spacing-1); margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--text-muted);">원본</span>
+</div>
+<div class="flex items-center justify-center text-center" style="min-height: 200px; padding: var(--spacing-6);"><p class="text-body text-text-muted" style="margin: 0;">읽힌 글이 없습니다. 원본 탭에서 스캔한 쪽을 볼 수 있습니다.</p></div>
+</section>
+<section aria-labelledby="chunks-title" class="flex flex-col" style="flex: 2 1 300px; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-l); overflow: hidden; background: var(--bg-raised);">
+<div class="flex items-center" style="min-height: var(--control-h); padding: var(--spacing-2) var(--spacing-4); background: var(--bg);"><h2 id="chunks-title" class="text-body font-semibold" style="margin: 0;">조각 0</h2></div>
+<p class="text-small text-text-muted" style="margin: 0; padding: var(--spacing-4); border-top: 1px solid var(--border);">이 문서에는 조각이 없습니다.</p>
+</section>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"deleted": {"editor": "boolean", "default": false}, "$preview": {"width": 1280, "height": 780}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const deleted = this.props.deleted ?? false;
+    return { yes: true, no: false, deleted, live: !deleted, titleColor: deleted ? 'var(--text-muted)' : 'var(--text)' };
+  }
+}
+</script>
+</body>
+</html>

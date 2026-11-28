@@ -1,4 +1,4 @@
-"""삭제·되살림과 색인 작업이 엇갈릴 때 결과가 새 상태로 모이는지 본다(명세 Testing Decisions의
+"""삭제·복구와 색인 작업이 엇갈릴 때 결과가 새 상태로 모이는지 본다(명세 Testing Decisions의
 동시성 교차, 티켓 11).
 
 실제 테스트 PostgreSQL 위에서 끼어들 순간을 정한다. 작업이 임베딩이나 파싱을 하는 동안 다른
@@ -59,7 +59,7 @@ async def test_삭제가_첫째_단계_앞에_커밋됐으면_작업은_세대�
     assert await pipeline.chunk_texts(ingested.document_id) == []
 
 
-async def test_지운_뒤_되살린_사이에_옛_작업이_영구_실패해도_되살린_조각을_건드리지_않는다(
+async def test_지운_뒤_복구한_사이에_옛_작업이_영구_실패해도_복구한_조각을_건드리지_않는다(
     pipeline: Pipeline,
 ) -> None:
     ingested = await pipeline.ingest(휴가)

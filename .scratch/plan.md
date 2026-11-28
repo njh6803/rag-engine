@@ -47,7 +47,7 @@ web/                       슬라이스 2. 관리자 페이지의 pnpm 워크스
 | 슬라이스 | 기능 | 내용 | Blocked by | Status |
 |---|---|---|---|---|
 | 1 | [core](core/plan.md) | 수집, 색인, 검색의 본체 v0. 관리 API로 넣은 문서를 MCP 읽기 도구로 근거 위치와 갱신일이 붙은 조각으로 찾는다 | 없음 | done |
-| 2 | [admin](admin/plan.md) | 관리자 페이지 v0. 현황, 원천, 문서, 검색 시험 화면에서 문서를 올리고 지우며 잘 찾아지는지 확인한다 | source-sync | todo |
+| 2 | [admin](admin/plan.md) | 관리자 페이지 v0. 대시보드, 원천, 문서, 검색 시험 화면에서 문서를 올리고 지우며 잘 찾아지는지 확인한다 | source-sync | todo |
 | 2 | [backup-upgrade](backup-upgrade/plan.md) | 색인, 원본 문서, 데이터베이스를 명령 하나로 백업하고 복원하며, 업그레이드 때 다시 색인해야 하는지 알린다 | source-sync | todo |
 | 2 | [diag-bundle](diag-bundle/plan.md) | 진단 묶음 명령. 릴리스 번호와 계약 버전, 색인 상태, 원천의 동기화 기록, 검색 지연을 비밀 없이 한 파일로 묶는다 | source-sync, admin | todo |
 | 2 | [eval-screen](eval-screen/plan.md) | 검색 평가를 관리자 페이지에서 등록하고 돌리고 결과를 본다 | group-kb | todo |

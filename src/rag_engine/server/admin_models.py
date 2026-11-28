@@ -110,7 +110,7 @@ class DocumentListResponse(BaseModel):
 
 
 class DocumentRestoredResponse(BaseModel):
-    """문서 되살리기의 응답. 되살린 뒤의 문서와, 되돌릴 조각이 없는 판이 있어 색인 작업을 넣었으면
+    """문서 복구의 응답. 복구한 뒤의 문서와, 되돌릴 조각이 없는 판이 있어 색인 작업을 넣었으면
     그 작업의 식별자다(`GET /jobs/{id}`로 본다)."""
 
     model_config = ConfigDict(frozen=True)

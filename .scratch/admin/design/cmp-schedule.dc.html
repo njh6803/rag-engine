@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>부품: 일정 고르기</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<fieldset data-theme="nokcheong" data-mode="light" class="flex flex-col gap-2" style="margin: 0; padding: 0; border: 0; min-width: 0; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<legend class="text-body font-medium" style="padding: 0; margin-bottom: var(--spacing-2);">일정</legend>
+
+<label class="flex items-center gap-2 flex-wrap text-body" style="min-height: var(--control-h);"><input type="radio" name="schedule" checked="{{ is.daily }}" style="margin: 0; accent-color: var(--accent);"><span style="min-width: 120px;">매일</span><select aria-label="매일 시각" class="font-mono text-mono" style="height: var(--control-h); padding: 0 var(--spacing-2); border: 1px solid var(--border-control); border-radius: var(--radius-m); background: var(--bg); color: var(--text);"><option>02:00</option><option>03:00</option><option>04:00</option></select></label>
+
+<label class="flex items-center gap-2 flex-wrap text-body" style="min-height: var(--control-h);"><input type="radio" name="schedule" checked="{{ is.weekly }}" style="margin: 0; accent-color: var(--accent);"><span style="min-width: 120px;">매주</span><select aria-label="요일" class="text-body" style="height: var(--control-h); padding: 0 var(--spacing-2); border: 1px solid var(--border-control); border-radius: var(--radius-m); background: var(--bg); color: var(--text); font-family: inherit;"><option>월요일</option><option>화요일</option><option>수요일</option></select><select aria-label="매주 시각" class="font-mono text-mono" style="height: var(--control-h); padding: 0 var(--spacing-2); border: 1px solid var(--border-control); border-radius: var(--radius-m); background: var(--bg); color: var(--text);"><option>03:00</option><option>02:00</option></select></label>
+
+<label class="flex items-center gap-2 flex-wrap text-body" style="min-height: var(--control-h);"><input type="radio" name="schedule" checked="{{ is.interval }}" style="margin: 0; accent-color: var(--accent);"><span style="min-width: 120px;">정해 둔 간격마다</span><select aria-label="간격" class="text-body" style="height: var(--control-h); padding: 0 var(--spacing-2); border: 1px solid var(--border-control); border-radius: var(--radius-m); background: var(--bg); color: var(--text); font-family: inherit;"><option>6시간</option><option>1시간</option><option>30분</option><option>12시간</option></select></label>
+
+<div class="flex flex-col gap-2">
+<label class="flex items-center gap-2 text-body" style="min-height: var(--control-h);"><input type="radio" name="schedule" checked="{{ is.cron }}" style="margin: 0; accent-color: var(--accent);"><span>직접 쓰기(cron 표현식)</span></label>
+<sc-if value="{{ is.cron }}" hint-placeholder-val="{{ false }}">
+<div style="padding-left: var(--spacing-6); max-width: 360px;">
+<sc-if value="{{ cronOk }}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="AgentOsUi.TextField" label="cron 표현식" hide-label="{{ yes }}" value="*/30 8-18 * * 1-5" help="분, 시, 일, 월, 요일 다섯 칸을 띄어 씁니다."></x-import></sc-if>
+<sc-if value="{{ cronBad }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="AgentOsUi.TextField" label="cron 표현식" hide-label="{{ yes }}" value="*/30 8-18 * *" error="다섯 칸이어야 합니다. 지금은 네 칸입니다."></x-import></sc-if>
+</div>
+</sc-if>
+</div>
+
+<label class="flex items-center gap-2 text-body" style="min-height: var(--control-h);"><input type="radio" name="schedule" checked="{{ is.none }}" style="margin: 0; accent-color: var(--accent);"><span>일정 없음</span><span class="text-small text-text-muted">사람이 지금 동기화를 누를 때만 읽어 옵니다.</span></label>
+
+<sc-if value="{{ hasExplain }}" hint-placeholder-val="{{ true }}">
+<p class="flex items-center gap-2 text-body" style="margin: var(--spacing-1) 0 0; padding: var(--spacing-2) var(--spacing-3); border-radius: var(--radius-m); background: var(--bg-raised); border: 1px solid var(--border);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; color: var(--text-muted);"><circle vector-effect="non-scaling-stroke" cx="12" cy="12" r="10"></circle><polyline vector-effect="non-scaling-stroke" points="12 6 12 12 16 14"></polyline></svg><span>{{ explain }}</span></p>
+</sc-if>
+</fieldset>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"mode": {"editor": "enum", "options": ["daily", "weekly", "interval", "cron", "cron-error", "none"], "default": "daily"}, "$preview": {"width": 480, "height": 360}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode ?? 'daily';
+    const kind = mode === 'cron-error' ? 'cron' : mode;
+    const is = { daily: false, weekly: false, interval: false, cron: false, none: false };
+    is[kind] = true;
+    const explains = {
+      daily: '매일 02:00에 동기화합니다. 다음 실행은 11-27 02:00입니다.',
+      weekly: '매주 월요일 03:00에 동기화합니다. 다음 실행은 11-30 03:00입니다.',
+      interval: '6시간마다(00:00, 06:00, 12:00, 18:00) 동기화합니다. 다음 실행은 11-27 00:00입니다.',
+      cron: '평일 08:00부터 18:30까지 30분마다 동기화합니다. 다음 실행은 11-27 08:00입니다.',
+      none: '일정이 없습니다. 지금 동기화를 누를 때만 읽어 옵니다.'
+    };
+    return {
+      yes: true, is,
+      cronOk: mode === 'cron', cronBad: mode === 'cron-error',
+      hasExplain: mode !== 'cron-error',
+      explain: explains[kind]
+    };
+  }
+}
+</script>
+</body>
+</html>

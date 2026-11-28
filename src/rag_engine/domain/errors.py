@@ -57,7 +57,7 @@ class ErrorCode(StrEnum):
     # `connector_error`, `source_deleted`가 쓰인다. `source_deleted`는 Problem Details에도 쓰여
     # 지운 원천을 고치거나 수집을 보내는 요청을 409로 거절한다. `source_protected`는 `default`와
     # `upload`를 지우려는 요청을 거절한다. `source_not_deleted`, `source_change_in_progress`,
-    # `source_retention_expired`는 원천을 되살리거나 지우는 요청을 거절하는 HTTP 코드다.
+    # `source_retention_expired`는 원천을 복구하거나 지우는 요청을 거절하는 HTTP 코드다.
     SOURCE_UNREADABLE = "source_unreadable"
     SOURCE_CHANGED = "source_changed"
     NOTHING_ACCEPTED = "nothing_accepted"
@@ -69,7 +69,7 @@ class ErrorCode(StrEnum):
     SOURCE_NOT_DELETED = "source_not_deleted"
     SOURCE_CHANGE_IN_PROGRESS = "source_change_in_progress"
     SOURCE_RETENTION_EXPIRED = "source_retention_expired"
-    # 문서 되살리기가 지워지지 않은 문서를 거절하는 코드. Problem Details에만 쓰인다.
+    # 문서 복구가 지워지지 않은 문서를 거절하는 코드. Problem Details에만 쓰인다.
     DOCUMENT_NOT_DELETED = "document_not_deleted"
     # 관련성 판정기(ADR 0019). 평가 도구만 쓰고 작업 행과 응답에는 나가지 않는다.
     JUDGE_UNAVAILABLE = "judge_unavailable"

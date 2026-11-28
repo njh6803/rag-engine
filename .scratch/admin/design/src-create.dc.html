@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>원천 만들기</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important} a{color:var(--accent)} a:hover{color:var(--text)}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="flex: 0 0 var(--spacing-nav); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; gap: var(--spacing-4); padding: var(--spacing-4) var(--spacing-3); background: var(--bg-raised); border-right: 1px solid var(--border);">
+<dc-import name="cmp-nav" current="sources" admin="{{ yes }}" hint-size="232px,320px"></dc-import>
+<dc-import name="cmp-account" account="ops-lead" role="시스템 관리자" menu-open="{{ no }}" hint-size="232px,60px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: var(--spacing-8);">
+<div style="max-width: 1040px; display: flex; flex-direction: column; gap: var(--spacing-6);">
+<div class="flex flex-col gap-3">
+<a href="src-list.dc.html" class="flex items-center gap-1 text-body" style="width: fit-content; text-decoration: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="m15 18-6-6 6-6"></path></svg>원천 목록</a>
+<div class="flex flex-col gap-1">
+<h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">원천 만들기</h1>
+<p class="text-body text-text-muted" style="margin: 0;">문서를 가져올 곳을 하나 더합니다.</p>
+</div>
+</div>
+
+<form class="flex flex-col" style="gap: var(--spacing-6); max-width: 640px; margin: 0;" onsubmit="return false;">
+<x-import component-from-global-scope="AgentOsUi.TextField" label="이름" value="nas-contracts" help="만든 뒤에는 바꿀 수 없습니다."></x-import>
+
+<fieldset class="flex flex-col gap-2" style="margin: 0; padding: 0; border: 0; min-width: 0;">
+<legend class="text-body font-medium" style="padding: 0; margin-bottom: var(--spacing-2);">종류</legend>
+<label class="flex items-start gap-3" style="padding: var(--spacing-3); border: 1px solid var(--accent); border-radius: var(--radius-m); background: var(--bg-selected); cursor: pointer;"><input type="radio" name="kind" checked style="margin: 3px 0 0; accent-color: var(--accent);"><span class="flex flex-col gap-1"><span class="text-body font-medium">서버 폴더</span><span class="text-small text-text-muted">서버가 정해 둔 일정에 폴더를 읽어 옵니다. 폴더에서 지운 파일은 검색에서도 빠집니다.</span></span></label>
+<label class="flex items-start gap-3" style="padding: var(--spacing-3); border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--bg); cursor: pointer;"><input type="radio" name="kind" style="margin: 3px 0 0; accent-color: var(--accent);"><span class="flex flex-col gap-1"><span class="text-body font-medium">수집 API</span><span class="text-small text-text-muted">다른 시스템이 수집 API로 문서를 보내 줍니다. 일정이 없고 폴더를 고르지 않습니다.</span></span></label>
+</fieldset>
+
+<div class="flex flex-col gap-2">
+<span id="pick-label" class="text-body font-medium">폴더</span>
+<div role="group" aria-labelledby="pick-label" style="border: 1px solid var(--border-control); border-radius: var(--radius-m); overflow: hidden;">
+<nav aria-label="폴더 위치" class="flex items-center gap-1 flex-wrap text-small" style="padding: var(--spacing-2) var(--spacing-3); background: var(--bg-raised); border-bottom: 1px solid var(--border);"><span class="text-text-muted">원천 폴더</span><span class="font-mono text-mono text-text-muted">/srv/rag-sources</span></nav>
+<ul role="listbox" aria-label="폴더" style="list-style: none; margin: 0; padding: var(--spacing-1);">
+<li role="option" aria-selected="true" class="flex items-center gap-2" style="height: var(--row-h); padding: 0 var(--spacing-2); border-radius: var(--radius-s); background: var(--bg-selected);"><x-import component-from-global-scope="AgentOsUi.Icon" name="check" size="16" label="골랐음"></x-import><span class="font-mono text-mono" style="flex: 1;">contracts</span><span class="text-small text-text-muted">파일 214개</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-muted);"><path vector-effect="non-scaling-stroke" d="m9 18 6-6-6-6"></path></svg></li>
+<li role="option" aria-selected="false" aria-disabled="true" class="flex items-center gap-2" style="height: var(--row-h); padding: 0 var(--spacing-2); border-radius: var(--radius-s); color: var(--text-disabled);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg><span class="font-mono text-mono" style="flex: 1;">handbook</span><span class="text-small">nas-handbook이 씁니다</span></li>
+<li role="option" aria-selected="false" aria-disabled="true" class="flex items-center gap-2" style="height: var(--row-h); padding: 0 var(--spacing-2); border-radius: var(--radius-s); color: var(--text-disabled);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg><span class="font-mono text-mono" style="flex: 1;">manuals</span><span class="text-small">nas-manuals가 씁니다</span></li>
+<li role="option" aria-selected="false" aria-disabled="true" class="flex items-center gap-2" style="height: var(--row-h); padding: 0 var(--spacing-2); border-radius: var(--radius-s); color: var(--text-disabled);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg><span class="font-mono text-mono" style="flex: 1;">policies</span><span class="text-small">nas-policies가 씁니다</span></li>
+<li role="option" aria-selected="false" class="flex items-center gap-2" style="height: var(--row-h); padding: 0 var(--spacing-2); border-radius: var(--radius-s);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-muted);"><path vector-effect="non-scaling-stroke" d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg><span class="font-mono text-mono" style="flex: 1;">shared</span><span class="text-small text-text-muted">파일 1,920개</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-muted);"><path vector-effect="non-scaling-stroke" d="m9 18 6-6-6-6"></path></svg></li>
+</ul>
+</div>
+<div class="flex items-center gap-3 flex-wrap">
+<span class="text-small text-text-muted">한 폴더는 원천 하나만 씁니다. 화살표를 누르면 그 안의 폴더로 들어갑니다.</span>
+<span style="margin-left: auto;"><x-import component-from-global-scope="AgentOsUi.Button" variant="secondary" type="button">연결 확인</x-import></span>
+</div>
+</div>
+
+<x-import component-from-global-scope="AgentOsUi.TextField" label="그룹" value="legal" help="이 원천이 가져온 문서가 속하는 그룹입니다. 접근 그룹을 쓰는 설치에서는 이 그룹에 연결된 접근 그룹만 문서를 봅니다."></x-import>
+
+<dc-import name="cmp-schedule" mode="daily" hint-size="100%,320px"></dc-import>
+
+<x-import component-from-global-scope="AgentOsUi.TextField" variant="multi" rows="3" label="제외 패턴" optional="{{ yes }}" placeholder="**/~$*" help="한 줄에 하나씩 씁니다. 경로나 이름이 맞는 파일은 받지 않습니다."></x-import>
+
+<div class="flex items-center gap-3 flex-wrap" style="padding-top: var(--spacing-4); border-top: 1px solid var(--border);">
+<x-import component-from-global-scope="AgentOsUi.Button" variant="primary" type="submit">만들기</x-import>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary" type="button">취소</x-import>
+<span class="text-small text-text-muted">만든 뒤 원천 화면에서 지금 동기화를 누르면 곧바로 읽어 옵니다.</span>
+</div>
+</form>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1280, "height": 1340}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { yes: true, no: false };
+  }
+}
+</script>
+</body>
+</html>

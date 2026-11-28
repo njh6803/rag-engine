@@ -8,8 +8,8 @@
 
 실행 중인 작업은 건드리지 않는다. 첫째 단계에서 지워진 문서를 보면 성공으로 끝나고, 그 뒤에
 지워졌으면 셋째 단계의 세대 대조가 막는다. 이미 지운 문서의 삭제는 아무것도 바꾸지 않는다. 다만
-원천과 함께 지워졌다는 표시가 남은 문서는 표시를 걷어 따로 지운 문서로 만든다(원천 되살리기
-작업이 되살리지 않게 한다). 키가 없거나 정리 작업이 물리 삭제해 삭제 기록 행만 남은 문서는
+원천과 함께 지워졌다는 표시가 남은 문서는 표시를 걷어 따로 지운 문서로 만든다(원천 복구
+작업이 복구하지 않게 한다). 키가 없거나 정리 작업이 물리 삭제해 삭제 기록 행만 남은 문서는
 `document_not_found`다.
 """
 
@@ -45,7 +45,7 @@ async def delete_document(
 
 
 def holds_source_deletion_mark(document: Document) -> bool:
-    """원천과 함께 지워졌다는 표시가 남은 문서인가. 원천 되살리기 작업이 아직 되살리지 않은
+    """원천과 함께 지워졌다는 표시가 남은 문서인가. 원천 복구 작업이 아직 복구하지 않은
     문서다."""
     return document.deleted_at is not None and document.deleted_with_source
 
@@ -54,8 +54,8 @@ async def detach_from_source_deletion(
     transaction: Transaction, document: Document, now: datetime
 ) -> None:
     """원천과 함께 지워졌다는 표시가 남은 문서의 표시를 걷고 따로 지운 문서로 만든다. 지운 시각은
-    `now`로 다시 쓴다. 그 문서를 되살리지 말라는 요청(수집 API의 삭제, 동기화의 삭제 반영)이 뒤따라
-    오는 원천 되살리기 작업을 막는 길이다. 부르는 쪽이 `holds_source_deletion_mark`로 표시가 있는
+    `now`로 다시 쓴다. 그 문서를 복구하지 말라는 요청(수집 API의 삭제, 동기화의 삭제 반영)이 뒤따라
+    오는 원천 복구 작업을 막는 길이다. 부르는 쪽이 `holds_source_deletion_mark`로 표시가 있는
     문서임을 문서 행을 잠근 채 먼저 확인한다."""
     await transaction.documents.update(
         replace(document, deleted_at=now, deleted_with_source=False, modified_at=now)
@@ -68,7 +68,7 @@ async def delete_locked_document(
     """이미 잠근, 아직 지워지지 않은 문서를 임시 삭제한다. 작업 단위 하나가 문서 하나를 지우는
     규칙이고 수집 API의 삭제와 동기화의 삭제 반영과 원천 삭제 작업이 함께 쓴다. 부르는 쪽이 문서
     행을 먼저 잠그고, 작업 행은 이 함수 뒤에 잠근다(잠금 순서). `with_source`는 원천 삭제 작업이
-    준다. 원천과 함께 지워졌다는 표시를 세워, 뒤에 원천을 되살릴 때 따로 지운 문서와 가른다."""
+    준다. 원천과 함께 지워졌다는 표시를 세워, 뒤에 원천을 복구할 때 따로 지운 문서와 가른다."""
     knowledge_bases = await transaction.catalog.list_knowledge_bases_of_group(document.group_id)
     await transaction.catalog.lock_knowledge_bases(
         [knowledge_base.id for knowledge_base in knowledge_bases], LockMode.UPDATE

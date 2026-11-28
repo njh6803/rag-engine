@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>로그인 화면의 알림</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="box-sizing: border-box; min-height: 600px; padding: var(--spacing-6); background: var(--bg-raised); color: var(--text); font-family: var(--sans);">
+<div class="gap-4" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));">
+<section class="flex flex-col gap-2">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">로그아웃한 뒤</h2>
+<div style="border: 1px solid var(--border); border-radius: var(--radius-m); overflow: hidden;"><dc-import name="fx-login" notice="logout" hint-size="100%,520px"></dc-import></div>
+</section>
+<section class="flex flex-col gap-2">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">로그인이 끝난 뒤</h2>
+<div style="border: 1px solid var(--border); border-radius: var(--radius-m); overflow: hidden;"><dc-import name="fx-login" notice="expired" hint-size="100%,520px"></dc-import></div>
+</section>
+<section class="flex flex-col gap-2">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">링크로 비밀번호를 정한 뒤</h2>
+<div style="border: 1px solid var(--border); border-radius: var(--radius-m); overflow: hidden;"><dc-import name="fx-login" notice="password-set" hint-size="100%,520px"></dc-import></div>
+</section>
+<section class="flex flex-col gap-2">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">https가 아닌 주소로 열었을 때</h2>
+<div style="border: 1px solid var(--border); border-radius: var(--radius-m); overflow: hidden;"><dc-import name="fx-login" notice="insecure" hint-size="100%,520px"></dc-import></div>
+</section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1600, "height": 600}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

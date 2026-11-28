@@ -1,6 +1,6 @@
-"""원천 되살리기가 쓰는 포트의 PostgreSQL 구현(source-sync 티켓 12).
+"""원천 복구가 쓰는 포트의 PostgreSQL 구현(source-sync 티켓 12).
 
-원천 되살리기 요청이 쓰는 `mark_source_restored`와 `has_active_source_job`, 원천 되살리기 작업이
+원천 복구 요청이 쓰는 `mark_source_restored`와 `has_active_source_job`, 원천 복구 작업이
 묶음을 고르는 `list_ids_deleted_with_source`와 `list_stalled_ids_of_source`를 본다.
 """
 
@@ -37,7 +37,7 @@ LEASE_SECONDS = 600.0
 DIMENSIONS = 3
 
 
-async def test_원천_되살리기는_지움_표시를_걷고_다음_실행_시각을_쓴다(engine: AsyncEngine) -> None:
+async def test_원천_복구는_지움_표시를_걷고_다음_실행_시각을_쓴다(engine: AsyncEngine) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
     _, group = await seed_source_and_group(unit_of_work)
     # 다음 실행 시각은 가져오는 원천만 가질 수 있다(밀어 넣는 원천은 제약이 막는다).
@@ -71,7 +71,7 @@ async def test_원천_되살리기는_지움_표시를_걷고_다음_실행_시�
     assert (again.deleted_at, again.next_run_at) == (None, None)
 
 
-async def test_원천_삭제나_되살리기_작업이_대기나_실행_중인지_원천_종류마다_본다(
+async def test_원천_삭제나_복구_작업이_대기나_실행_중인지_원천_종류마다_본다(
     engine: AsyncEngine,
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)
@@ -121,7 +121,7 @@ async def test_끝난_작업은_대기나_실행_중이_아니므로_다음_요�
     assert (running, finished) == (True, False)
 
 
-async def test_원천과_함께_지운_문서의_ID는_ID_순으로_한도까지_나오고_되살리면_빠진다(
+async def test_원천과_함께_지운_문서의_ID는_ID_순으로_한도까지_나오고_복구하면_빠진다(
     engine: AsyncEngine, empty_database_url: str
 ) -> None:
     unit_of_work = PostgresUnitOfWork(engine)

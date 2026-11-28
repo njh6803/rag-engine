@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>원천 지우기 확인 창</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="position: relative; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<dc-import name="src-detail" hint-size="100%,780px"></dc-import>
+<div aria-hidden="true" style="position: absolute; inset: 0; background: var(--text); opacity: 0.32;"></div>
+<div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--spacing-4);">
+<dialog open aria-labelledby="delete-title" class="shadow-float" style="position: static; box-sizing: border-box; width: 100%; max-width: 480px; margin: 0; padding: var(--spacing-6); border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised); color: var(--text); display: flex; flex-direction: column; gap: var(--spacing-6);">
+<h2 id="delete-title" class="text-body font-semibold" style="margin: 0;"><span class="font-mono">nas-manuals</span>를 지웁니다</h2>
+<p class="text-body" style="margin: 0;">이 원천의 문서 1,104건이 곧바로 검색에서 빠지고 일정이 멈춥니다. 서버 폴더의 파일은 건드리지 않습니다.</p>
+<p class="flex items-start gap-2 text-small text-text-muted" style="margin: 0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px;"><circle vector-effect="non-scaling-stroke" cx="12" cy="12" r="10"></circle><polyline vector-effect="non-scaling-stroke" points="12 6 12 12 16 14"></polyline></svg><span>30일 안에는 원천 목록의 "지운 원천도 보기"에서 복구할 수 있습니다. 그 뒤에는 문서와 함께 완전히 지웁니다.</span></p>
+<div class="flex items-center gap-2 flex-wrap" style="justify-content: flex-end; padding-top: var(--spacing-4); border-top: 1px solid var(--border);">
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary" type="button">취소</x-import>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="danger" type="button">지우기</x-import>
+</div>
+</dialog>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1280, "height": 780}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

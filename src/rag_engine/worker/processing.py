@@ -218,7 +218,7 @@ async def _dispatch(
     deps: IndexDocumentDeps, job: Job, timer: IndexTimer, lease_seconds: float | None
 ) -> IndexResult:
     """작업의 종류로 유스케이스를 고른다. 색인 작업은 `index_document`, 동기화 작업은
-    `sync_source`, 원천 삭제 작업은 `delete_source_documents`, 원천 되살리기 작업은
+    `sync_source`, 원천 삭제 작업은 `delete_source_documents`, 원천 복구 작업은
     `restore_source_documents`, 정리 작업은 `run_cleanup`이다."""
     if job.kind is JobKind.INDEX_DOCUMENT:
         return await _leased(deps, job, lease_seconds, lambda: index_document(deps, job, timer))

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>부품: 옆 탐색</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<nav aria-label="관리자 페이지" data-theme="nokcheong" data-mode="light" class="flex flex-col gap-1" style="background: var(--bg-raised); color: var(--text); font-family: var(--sans);">
+<div class="font-semibold text-body" style="height: var(--spacing-nav-item); display: flex; align-items: center; padding: 0 var(--spacing-3); margin-bottom: var(--spacing-2);">rag-engine</div>
+<a href="dash.dc.html" aria-current="{{ ac.dashboard }}" class="flex items-center gap-2 text-body" style="height: var(--spacing-nav-item); padding: 0 var(--spacing-3); border-radius: var(--radius-m); text-decoration: none; background: {{ bg.dashboard }}; color: {{ fg.dashboard }}; font-weight: {{ fw.dashboard }};"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0;"><rect vector-effect="non-scaling-stroke" width="7" height="9" x="3" y="3" rx="1"></rect><rect vector-effect="non-scaling-stroke" width="7" height="5" x="14" y="3" rx="1"></rect><rect vector-effect="non-scaling-stroke" width="7" height="9" x="14" y="12" rx="1"></rect><rect vector-effect="non-scaling-stroke" width="7" height="5" x="3" y="16" rx="1"></rect></svg>대시보드</a>
+<a href="src-list.dc.html" aria-current="{{ ac.sources }}" class="flex items-center gap-2 text-body" style="height: var(--spacing-nav-item); padding: 0 var(--spacing-3); border-radius: var(--radius-m); text-decoration: none; background: {{ bg.sources }}; color: {{ fg.sources }}; font-weight: {{ fw.sources }};"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0;"><path vector-effect="non-scaling-stroke" d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>원천</a>
+<a href="doc-list.dc.html" aria-current="{{ ac.documents }}" class="flex items-center gap-2 text-body" style="height: var(--spacing-nav-item); padding: 0 var(--spacing-3); border-radius: var(--radius-m); text-decoration: none; background: {{ bg.documents }}; color: {{ fg.documents }}; font-weight: {{ fw.documents }};"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0;"><path vector-effect="non-scaling-stroke" d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path vector-effect="non-scaling-stroke" d="M14 2v4a2 2 0 0 0 2 2h4"></path><path vector-effect="non-scaling-stroke" d="M10 9H8"></path><path vector-effect="non-scaling-stroke" d="M16 13H8"></path><path vector-effect="non-scaling-stroke" d="M16 17H8"></path></svg>문서</a>
+<a href="try.dc.html" aria-current="{{ ac.try }}" class="flex items-center gap-2 text-body" style="height: var(--spacing-nav-item); padding: 0 var(--spacing-3); border-radius: var(--radius-m); text-decoration: none; background: {{ bg.try }}; color: {{ fg.try }}; font-weight: {{ fw.try }};"><x-import component-from-global-scope="AgentOsUi.Icon" name="search" size="16"></x-import>검색 시험</a>
+<a href="fx-tokens.dc.html" aria-current="{{ ac.tokens }}" class="flex items-center gap-2 text-body" style="height: var(--spacing-nav-item); padding: 0 var(--spacing-3); border-radius: var(--radius-m); text-decoration: none; background: {{ bg.tokens }}; color: {{ fg.tokens }}; font-weight: {{ fw.tokens }};"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0;"><path vector-effect="non-scaling-stroke" d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"></path><circle vector-effect="non-scaling-stroke" cx="16.5" cy="7.5" r=".5"></circle></svg>토큰</a>
+<sc-if value="{{ admin }}" hint-placeholder-val="{{ true }}">
+<a href="fx-accounts.dc.html" aria-current="{{ ac.accounts }}" class="flex items-center gap-2 text-body" style="height: var(--spacing-nav-item); padding: 0 var(--spacing-3); border-radius: var(--radius-m); text-decoration: none; background: {{ bg.accounts }}; color: {{ fg.accounts }}; font-weight: {{ fw.accounts }};"><x-import component-from-global-scope="AgentOsUi.Icon" name="users" size="16"></x-import>계정</a>
+</sc-if>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"current": {"editor": "enum", "options": ["dashboard", "sources", "documents", "try", "tokens", "accounts", "none"], "default": "dashboard"}, "admin": {"editor": "boolean", "default": true}, "$preview": {"width": 256, "height": 420}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const cur = this.props.current ?? 'dashboard';
+    const keys = ['dashboard', 'sources', 'documents', 'try', 'tokens', 'accounts'];
+    const bg = {}, fg = {}, fw = {}, ac = {};
+    for (const k of keys) {
+      const on = k === cur;
+      bg[k] = on ? 'var(--bg-selected)' : 'transparent';
+      fg[k] = on ? 'var(--text)' : 'var(--text-muted)';
+      fw[k] = on ? 'var(--font-weight-medium)' : 'var(--font-weight-regular)';
+      ac[k] = on ? 'page' : undefined;
+    }
+    return { bg, fg, fw, ac, admin: this.props.admin ?? true };
+  }
+}
+</script>
+</body>
+</html>

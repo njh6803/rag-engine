@@ -9,14 +9,14 @@
 
 `DELETE /sources/{name}`은 지움 표시를 쓰고 원천 삭제 작업을 넣어 202와 그 작업의 식별자로
 답한다. 문서를 옮기는 일은 작업자가 뒤에서 한다. `default`와 `upload`는 409 `source_protected`다.
-원천 삭제나 되살리기 작업이 끝나지 않았으면 409 `source_change_in_progress`다. 지운 원천은 보기,
-되살리기, 동기화 기록 보기만 받고, 고치기, 지우기, 연결 확인, 지금 동기화, 일시 중지, 다시 시작은
+원천 삭제나 복구 작업이 끝나지 않았으면 409 `source_change_in_progress`다. 지운 원천은 보기,
+복구, 동기화 기록 보기만 받고, 고치기, 지우기, 연결 확인, 지금 동기화, 일시 중지, 다시 시작은
 409 `source_deleted`다.
 
-`POST /sources/{name}/restore`는 보관 기간(`RAG_DELETED_RETENTION_DAYS`) 안의 지운 원천을 되살린다.
-지움 표시를 걷고 원천 되살리기 작업을 넣어 202와 그 작업의 식별자로 답한다. 가져오는 원천은
-되살린 직후의 연결 확인(`connection_check`)도 함께 낸다. 지운 원천이 아니면 409
-`source_not_deleted`, 보관 기간이 지났으면 409 `source_retention_expired`, 원천 삭제나 되살리기
+`POST /sources/{name}/restore`는 보관 기간(`RAG_DELETED_RETENTION_DAYS`) 안의 지운 원천을 복구한다.
+지움 표시를 걷고 원천 복구 작업을 넣어 202와 그 작업의 식별자로 답한다. 가져오는 원천은
+복구한 직후의 연결 확인(`connection_check`)도 함께 낸다. 지운 원천이 아니면 409
+`source_not_deleted`, 보관 기간이 지났으면 409 `source_retention_expired`, 원천 삭제나 복구
 작업이 끝나지 않았으면 409 `source_change_in_progress`, 서버 경로 원천의 폴더가 그사이 다른
 원천과 겹치게 됐으면 409 `source_folder_overlap`이다.
 
@@ -112,7 +112,7 @@ _DELETE_PROBLEMS: dict[int | str, dict[str, object]] = {
         "model": ProblemDetails,
         "description": (
             "`default`와 `upload`는 지울 수 없다(`source_protected`). 이미 지운 원천이다"
-            "(`source_deleted`). 원천을 지우거나 되살리는 작업이 아직 끝나지 않았다"
+            "(`source_deleted`). 원천을 지우거나 복구하는 작업이 아직 끝나지 않았다"
             "(`source_change_in_progress`)"
         ),
     },
@@ -123,7 +123,7 @@ _RESTORE_PROBLEMS: dict[int | str, dict[str, object]] = {
         "model": ProblemDetails,
         "description": (
             "지운 원천이 아니다(`source_not_deleted`)거나 보관 기간이 지났다"
-            "(`source_retention_expired`)거나 원천을 지우거나 되살리는 작업이 아직 끝나지 않았다"
+            "(`source_retention_expired`)거나 원천을 지우거나 복구하는 작업이 아직 끝나지 않았다"
             "(`source_change_in_progress`)거나 폴더가 다른 원천과 겹친다(`source_folder_overlap`)"
         ),
     },

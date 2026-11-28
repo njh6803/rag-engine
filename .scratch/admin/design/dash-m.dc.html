@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>대시보드, 375</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important} a{color:var(--accent)} a:hover{color:var(--text)}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<dc-import name="cmp-topbar" current="dashboard" admin="{{ yes }}" account="ops-lead" role="시스템 관리자" menu-open="{{ no }}" hint-size="100%,96px"></dc-import>
+<main style="box-sizing: border-box; padding: var(--spacing-4); display: flex; flex-direction: column; gap: var(--spacing-6);">
+<header class="flex flex-col gap-3">
+<div class="flex flex-col gap-1">
+<h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">대시보드</h1>
+<p class="text-body text-text-muted" style="margin: 0;">30초마다 새로 읽습니다. 19:38에 읽었습니다.</p>
+</div>
+<div><x-import component-from-global-scope="AgentOsUi.Button" variant="secondary">새로 고침</x-import></div>
+</header>
+
+<section aria-label="숫자" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-3);">
+<x-import component-from-global-scope="AgentOsUi.Card" padding="3"><span class="text-small text-text-muted">문서</span><span style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold);">1,284</span></x-import>
+<x-import component-from-global-scope="AgentOsUi.Card" padding="3"><span class="text-small text-text-muted">조각</span><span style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold);">18,902</span></x-import>
+<x-import component-from-global-scope="AgentOsUi.Card" padding="3"><span class="text-small text-text-muted">수집 대기</span><a href="doc-list.dc.html" aria-label="수집 대기 문서 3건 보기" style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold);">3</a></x-import>
+<x-import component-from-global-scope="AgentOsUi.Card" padding="3"><span class="text-small text-text-muted">실패</span><a href="doc-list.dc.html" aria-label="실패한 문서 2건 보기" class="flex items-center gap-1" style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold); color: var(--danger);"><x-import component-from-global-scope="AgentOsUi.Icon" name="circle-x" size="20"></x-import>2</a></x-import>
+<div style="grid-column: span 2; display: flex; flex-direction: column;">
+<x-import component-from-global-scope="AgentOsUi.Card" padding="3"><span class="text-small text-text-muted">최근 검색 지연</span><div class="flex flex-wrap items-center gap-4"><span><span class="font-mono" style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold);">182ms</span> <span class="text-small text-text-muted">가운데값</span></span><span><span class="font-mono" style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold);">640ms</span> <span class="text-small text-text-muted">느린 쪽</span></span></div></x-import>
+</div>
+</section>
+
+<section aria-labelledby="h-src" class="flex flex-col gap-2">
+<h2 id="h-src" class="text-body font-semibold" style="margin: 0;">원천</h2>
+<ul class="flex flex-col" style="list-style: none; margin: 0; padding: 0;">
+<li class="flex flex-col gap-1" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);"><div class="flex items-center justify-between gap-2"><a href="src-detail.dc.html" class="font-mono text-mono">nas-manuals</a><span class="text-small text-text-muted">서버 폴더</span></div><div class="flex items-center gap-2 flex-wrap"><dc-import name="cmp-badge" state="failed" hint-size="52px,22px"></dc-import><span class="font-mono text-mono text-text-muted">11-26 17:36</span></div><span class="text-small text-text-muted">다음 실행 <span class="font-mono">11-27 02:00</span></span></li>
+<li class="flex flex-col gap-1" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);"><div class="flex items-center justify-between gap-2"><a href="src-running.dc.html" class="font-mono text-mono">nas-handbook</a><span class="text-small text-text-muted">서버 폴더</span></div><div class="flex items-center gap-2 flex-wrap"><dc-import name="cmp-badge" state="syncing" hint-size="76px,22px"></dc-import><span class="text-small text-text-muted">12분째</span></div><span class="text-small text-text-muted">다음 실행 <span class="font-mono">11-27 00:00</span></span></li>
+<li class="flex flex-col gap-1" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);"><div class="flex items-center justify-between gap-2"><a href="src-paused.dc.html" class="font-mono text-mono">nas-policies</a><span class="text-small text-text-muted">서버 폴더</span></div><div class="flex items-center gap-2 flex-wrap"><dc-import name="cmp-badge" state="done" hint-size="52px,22px"></dc-import><span class="font-mono text-mono text-text-muted">11-23 03:00</span></div><div class="flex items-center gap-2"><span class="text-small text-text-muted">다음 실행</span><dc-import name="cmp-badge" state="paused" hint-size="72px,22px"></dc-import></div></li>
+<li class="flex flex-col gap-1" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);"><div class="flex items-center justify-between gap-2"><a href="src-list.dc.html" class="font-mono text-mono">groupware-push</a><span class="text-small text-text-muted">수집 API</span></div><span class="text-small text-text-muted">일정 없음</span></li>
+<li class="flex flex-col gap-1" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);"><div class="flex items-center justify-between gap-2"><a href="src-list.dc.html" class="font-mono text-mono">upload</a><span class="text-small text-text-muted">파일 올리기</span></div><span class="text-small text-text-muted">일정 없음</span></li>
+</ul>
+</section>
+
+<section aria-labelledby="h-idx">
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4">
+<h2 id="h-idx" class="text-body font-semibold" style="margin: 0;">색인</h2>
+<dl class="flex flex-col gap-2 text-body" style="margin: 0;">
+<div class="flex justify-between gap-3"><dt class="text-text-muted">지식베이스</dt><dd class="font-mono text-mono" style="margin: 0;">default</dd></div>
+<div class="flex justify-between gap-3"><dt class="text-text-muted">현재 색인 버전</dt><dd class="font-mono text-mono" style="margin: 0;">3</dd></div>
+<div class="flex justify-between gap-3"><dt class="text-text-muted">조각</dt><dd class="font-mono text-mono" style="margin: 0;">18,902</dd></div>
+</dl>
+<p class="text-small text-text-muted" style="margin: 0;">만드는 중인 색인 버전이 없습니다.</p>
+</x-import>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 375, "height": 1560}}'>
+class Component extends DCLogic {
+  renderVals() { return { yes: true, no: false }; }
+}
+</script>
+</body>
+</html>

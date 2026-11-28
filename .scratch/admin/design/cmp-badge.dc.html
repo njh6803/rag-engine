@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>부품: 상태 배지</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<span data-theme="nokcheong" data-mode="light" class="text-badge" style="display: inline-flex; align-items: center; gap: var(--spacing-1); width: fit-content; height: var(--spacing-badge); box-sizing: border-box; padding: 0 var(--spacing-2) 0 var(--spacing-badge-start); border: 1px solid var(--border); border-radius: var(--radius-s); background: transparent; white-space: nowrap; flex-shrink: 0; vertical-align: middle; font-family: var(--sans); color: {{ color }};">
+<sc-if value="{{ icon.check }}" hint-placeholder-val="{{ true }}"><x-import component-from-global-scope="AgentOsUi.Icon" name="circle-check" size="14"></x-import></sc-if>
+<sc-if value="{{ icon.x }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="AgentOsUi.Icon" name="circle-x" size="14"></x-import></sc-if>
+<sc-if value="{{ icon.minus }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="AgentOsUi.Icon" name="circle-minus" size="14"></x-import></sc-if>
+<sc-if value="{{ icon.pause }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="AgentOsUi.Icon" name="circle-pause" size="14"></x-import></sc-if>
+<sc-if value="{{ icon.clock }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0;"><circle vector-effect="non-scaling-stroke" cx="12" cy="12" r="10"></circle><polyline vector-effect="non-scaling-stroke" points="12 6 12 12 16 14"></polyline></svg></sc-if>
+<sc-if value="{{ icon.refresh }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0;"><path vector-effect="non-scaling-stroke" d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path vector-effect="non-scaling-stroke" d="M21 3v5h-5"></path><path vector-effect="non-scaling-stroke" d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path vector-effect="non-scaling-stroke" d="M8 16H3v5"></path></svg></sc-if>
+<sc-if value="{{ icon.trash }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0;"><path vector-effect="non-scaling-stroke" d="M3 6h18"></path><path vector-effect="non-scaling-stroke" d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path vector-effect="non-scaling-stroke" d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg></sc-if>
+{{ label }}
+</span>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"state": {"editor": "enum", "options": ["pending", "running", "syncing", "indexed", "done", "active", "skipped", "failed", "canceled", "paused", "deleted"], "default": "indexed"}, "$preview": {"width": 160, "height": 40}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const table = {
+      pending: ['대기', 'clock', 'var(--text-muted)'],
+      running: ['수집 중', 'refresh', 'var(--info)'],
+      syncing: ['동기화 중', 'refresh', 'var(--info)'],
+      indexed: ['성공', 'check', 'var(--success)'],
+      done: ['성공', 'check', 'var(--success)'],
+      active: ['활성', 'check', 'var(--success)'],
+      skipped: ['건너뜀', 'minus', 'var(--text-muted)'],
+      failed: ['실패', 'x', 'var(--danger)'],
+      canceled: ['취소됨', 'minus', 'var(--text-muted)'],
+      paused: ['일시 중지', 'pause', 'var(--warning)'],
+      deleted: ['임시 삭제', 'trash', 'var(--text-muted)']
+    };
+    const row = table[this.props.state ?? 'indexed'] ?? table.indexed;
+    const icon = { check: false, x: false, minus: false, pause: false, clock: false, refresh: false, trash: false };
+    icon[row[1]] = true;
+    return { label: row[0], icon, color: row[2] };
+  }
+}
+</script>
+</body>
+</html>

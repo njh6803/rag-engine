@@ -343,14 +343,14 @@ class DocumentStore(Protocol):
         ...
 
     async def list_held_keys_of_source(self, source_id: UUID) -> dict[str, UUID]:
-        """그 원천의, 지워지지 않은 문서와 원천과 함께 지워졌다는 표시가 남은 문서(원천 되살리기
-        작업이 아직 되살리지 않은 문서)의 키마다 문서 ID를 낸다. 동기화가 삭제 반영 대상을 고르는 데
+        """그 원천의, 지워지지 않은 문서와 원천과 함께 지워졌다는 표시가 남은 문서(원천 복구
+        작업이 아직 복구하지 않은 문서)의 키마다 문서 ID를 낸다. 동기화가 삭제 반영 대상을 고르는 데
         쓴다. 표시가 남은 문서도 원천 폴더에 파일이 없으면 따로 지운 문서가 되어야 하기 때문이다."""
         ...
 
     async def list_ids_deleted_with_source(self, source_id: UUID, limit: int) -> list[UUID]:
         """그 원천의, 원천과 함께 지워졌다는 표시가 남은 문서(삭제 기록 행이 아닌 것)의 ID를 ID
-        순으로 `limit`개까지 낸다. 원천 되살리기 작업이 묶음을 고르는 데 쓴다. 되살린 문서는 다음에
+        순으로 `limit`개까지 낸다. 원천 복구 작업이 묶음을 고르는 데 쓴다. 복구한 문서는 다음에
         부를 때 빠지므로 되풀이해 부르면 끝에 이른다."""
         ...
 
@@ -365,13 +365,13 @@ class DocumentStore(Protocol):
 
     async def has_documents_held_by_source(self, source_id: UUID) -> bool:
         """그 원천에 빈 목록 판정이 있는 문서로 셀 문서가 하나라도 있는가. 지워지지 않은 문서와,
-        원천과 함께 지워졌다는 표시가 남은 문서(원천 되살리기 작업이 아직 되살리지 않은 문서)를
+        원천과 함께 지워졌다는 표시가 남은 문서(원천 복구 작업이 아직 복구하지 않은 문서)를
         센다. 완전히 지워져 삭제 기록 행만 남은 문서는 세지 않는다."""
         ...
 
     async def has_documents_deleted_with_source(self, source_id: UUID) -> bool:
         """그 원천에 원천과 함께 지워졌다는 표시가 남은 문서(삭제 기록 행이 아닌 것)가 있는가.
-        정리 작업이 멈춘 원천 되살리기 작업을 찾는 데 쓴다."""
+        정리 작업이 멈춘 원천 복구 작업을 찾는 데 쓴다."""
         ...
 
     async def has_undeleted_documents(self, source_id: UUID) -> bool:
@@ -382,8 +382,8 @@ class DocumentStore(Protocol):
     async def list_purgeable_ids(self, deleted_before: datetime, limit: int) -> list[UUID]:
         """보관 기간이 지난 임시 삭제 문서의 ID를 ID 순으로 `limit`개까지 낸다. 지운 시각이
         `deleted_before` 이전이거나 같고, 완전히 지우지 않았고, 원천과 함께 지워졌다는 표시가 없는
-        문서다. 표시가 있는 문서는 원천을 완전히 지울 때 함께 지우거나 원천 되살리기 작업이
-        되살린다. 문서를 지우면 다음에 부를 때 빠지므로 되풀이해 부르면 끝에 이른다."""
+        문서다. 표시가 있는 문서는 원천을 완전히 지울 때 함께 지우거나 원천 복구 작업이
+        복구한다. 문서를 지우면 다음에 부를 때 빠지므로 되풀이해 부르면 끝에 이른다."""
         ...
 
     async def purge(self, document: Document, purged_at: datetime) -> None:
@@ -422,7 +422,7 @@ class VectorIndex(Protocol):
 
     async def update_chunk_copies(self, document: Document) -> None:
         """그 문서의 모든 판의 조각(물러난 판의 것도)에서 복사 칸(그룹, 갱신일, 시행일, 접근 그룹)을
-        문서 행의 지금 값으로 고친다. 삭제 보관함은 되살림이 문서 행의 값으로 다시 쓰므로 건드리지
+        문서 행의 지금 값으로 고친다. 삭제 보관함은 복구가 문서 행의 값으로 다시 쓰므로 건드리지
         않는다."""
         ...
 
@@ -550,7 +550,7 @@ class JobQueue(Protocol):
         ...
 
     async def delete_jobs_of_source(self, source_id: UUID) -> None:
-        """그 원천을 가리키는 작업 행(동기화, 원천 삭제, 원천 되살리기)을 상태와 상관없이 모두
+        """그 원천을 가리키는 작업 행(동기화, 원천 삭제, 원천 복구)을 상태와 상관없이 모두
         지운다. 원천 행을 지우기 전에 부른다."""
         ...
 
@@ -590,7 +590,7 @@ class JobQueue(Protocol):
 
     async def has_active_source_job(self, source_id: UUID, kinds: Sequence[JobKind]) -> bool:
         """그 원천에 `kinds` 가운데 한 종류의 작업이 대기(`queued`)나 실행 중(`running`)인지
-        본다. 원천을 지우거나 되살리는 요청이 앞의 작업이 끝났는지 볼 때 쓴다."""
+        본다. 원천을 지우거나 복구하는 요청이 앞의 작업이 끝났는지 볼 때 쓴다."""
         ...
 
     async def claim(self, worker_id: str, now: datetime, lease_seconds: float) -> Job | None:

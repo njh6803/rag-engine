@@ -3,7 +3,7 @@
 실제 uvicorn 서버와 실제 작업자(한 번 돌기), 공식 MCP 클라이언트의 `search`를 쓰고 임베딩 서버만
 스텁이다. 시각은 데이터베이스의 지운 시각을 31일 전으로 옮겨 보관 기간(30일)을 넘긴다. 정리 작업은
 작업 행을 직접 넣어 시작한다(일정 확인은 작업자가 상시로 돌 때만 돈다). 정리 작업이 지운 문서는
-되살리는 요청이 404가 되고, 지운 원천의 이름은 다시 쓸 수 있고, 주인 없는 원본만 치워지며, 서버
+복구하는 요청이 404가 되고, 지운 원천의 이름은 다시 쓸 수 있고, 주인 없는 원본만 치워지며, 서버
 폴더의 파일은 그대로다.
 """
 
@@ -69,7 +69,7 @@ def _blob_path(server: RunningServer, document_id: str) -> Path:
     return server.settings.data_dir / path
 
 
-async def test_보관_기간이_지난_지운_문서는_되살리는_요청이_404이고_원본_파일도_사라진다(
+async def test_보관_기간이_지난_지운_문서는_복구하는_요청이_404이고_원본_파일도_사라진다(
     round_trip: RoundTrip,
 ) -> None:
     server = round_trip.server
@@ -142,7 +142,7 @@ async def test_주인_없는_묵은_원본만_치우고_서버_폴더와_그_밖
     assert owned.exists()
 
 
-async def test_되살리는_요청만_보낸_원천의_문서는_정리_작업이_지우지_않고_작업자가_되살린다(
+async def test_복구하는_요청만_보낸_원천의_문서는_정리_작업이_지우지_않고_작업자가_복구한다(
     round_trip: RoundTrip,
 ) -> None:
     server = round_trip.server
@@ -150,7 +150,7 @@ async def test_되살리는_요청만_보낸_원천의_문서는_정리_작업�
     assert _admin(server, "DELETE", f"{SOURCES}/wiki").status_code == 202
     await round_trip.work()
     assert _admin(server, "POST", f"{SOURCES}/wiki/restore").status_code == 202
-    # 되살리는 작업이 돌기 전에 문서의 지운 시각만 보관 기간 밖으로 옮긴다. 정리 작업이 먼저 돈다.
+    # 복구하는 작업이 돌기 전에 문서의 지운 시각만 보관 기간 밖으로 옮긴다. 정리 작업이 먼저 돈다.
     _sql(
         server,
         "UPDATE documents SET deleted_at = now() - interval '31 days' WHERE deleted_with_source",

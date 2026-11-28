@@ -80,7 +80,7 @@ class ConnectionCheck:
 
 @dataclass(frozen=True, slots=True)
 class PullRestoration:
-    """가져오는 원천 되살리기 요청의 결과. 문서를 되살리는 작업의 식별자와 되살린 직후의 연결
+    """가져오는 원천 복구 요청의 결과. 문서를 복구하는 작업의 식별자와 복구한 직후의 연결
     확인이다."""
 
     job_id: UUID
@@ -270,10 +270,10 @@ class PullSources:
     async def restore(
         self, name: str, *, request_id: UUID, now: datetime, retention_days: int
     ) -> PullRestoration:
-        """지운 가져오는 원천을 되살린다. 서버 경로 원천이면 되살리기 전에 폴더가 다른 원천과 겹치지
+        """지운 가져오는 원천을 복구한다. 서버 경로 원천이면 복구하기 전에 폴더가 다른 원천과 겹치지
         않는지 다시 보고(그사이 다른 원천이 그 폴더를 가졌을 수 있다), 겹치면 409
         `source_folder_overlap`이다. 지움 표시를 걷고 다음 실행 시각을 일정대로 다시 채우고 원천
-        되살리기 작업을 넣은 뒤 연결을 확인해 결과를 함께 답한다."""
+        복구 작업을 넣은 뒤 연결을 확인해 결과를 함께 답한다."""
         async with self._unit_of_work.begin() as transaction:
             current = await require_source(transaction, name)
         connector, config = _connection_of(current)
@@ -310,7 +310,7 @@ class PullSources:
     async def _survey_own_folder(
         self, name: str, connector: str, config: Mapping[str, JsonValue]
     ) -> FolderLocation | None:
-        """되살릴 원천 자신의 폴더를 실제로 찾는다. 없거나 읽지 못하거나 답이 느리면 `None`이다."""
+        """복구할 원천 자신의 폴더를 실제로 찾는다. 없거나 읽지 못하거나 답이 느리면 `None`이다."""
         found = await self._registry.survey_folders([FolderTarget(name, connector, config)])
         return found[0] if found else None
 
@@ -417,7 +417,7 @@ class PullSources:
         own: UUID | None,
     ) -> None:
         """다른 원천의 폴더와 같거나 그 안에 있거나 그것을 품으면 409다. 실제 폴더로 가르고, 폴더가
-        지금 없거나 답하지 않는 원천(`location`이 `None`인 되살리는 원천 자신도 같다)과는 저장해 둔
+        지금 없거나 답하지 않는 원천(`location`이 `None`인 복구하는 원천 자신도 같다)과는 저장해 둔
         경로의 글자로 견준다."""
         folder = _folder_of(folder_config)
         others = [

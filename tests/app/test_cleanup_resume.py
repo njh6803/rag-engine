@@ -1,9 +1,9 @@
-"""정리 작업의 다섯째 단계와 로그, 되살리기와의 겹침(source-sync 티켓 14, 명세 "정리 작업").
+"""정리 작업의 다섯째 단계와 로그, 복구와의 겹침(source-sync 티켓 14, 명세 "정리 작업").
 
-다섯째 단계는 재시도를 다 쓰고 멈춘 원천 삭제 작업과 원천 되살리기 작업을 다시 넣는다. 시험은
+다섯째 단계는 재시도를 다 쓰고 멈춘 원천 삭제 작업과 원천 복구 작업을 다시 넣는다. 시험은
 작업 행을 `failed`로 직접 써서 멈춘 모양을 만들고, 정리 작업을 한 번 돌린 뒤 작업자를 돌려 문서가
-모두 옮겨지거나 되살아나는지 본다. 정리 작업이 끝에 남기는 한 줄의 로그와, 정리 작업이 원천을
-지우는 도중에 끼어든 문서 되살리기가 500이 아니라 404로 끝나는 것도 여기서 본다.
+모두 옮겨지거나 복구되는지 본다. 정리 작업이 끝에 남기는 한 줄의 로그와, 정리 작업이 원천을
+지우는 도중에 끼어든 문서 복구가 500이 아니라 404로 끝나는 것도 여기서 본다.
 """
 
 import asyncio
@@ -110,7 +110,7 @@ async def test_재시도를_다_쓰고_멈춘_원천_삭제_작업을_다시_넣
     assert (await run_cleanup_at(pipeline)).jobs_requeued == 0
 
 
-async def test_재시도를_다_쓰고_멈춘_원천_되살리기_작업을_다시_넣어_문서를_모두_되살린다(
+async def test_재시도를_다_쓰고_멈춘_원천_복구_작업을_다시_넣어_문서를_모두_복구한다(
     pipeline: Pipeline,
 ) -> None:
     source = await _seed(pipeline)
@@ -122,7 +122,7 @@ async def test_재시도를_다_쓰고_멈춘_원천_되살리기_작업을_다�
         now=pipeline.clock[0],
         retention_days=RETENTION_DAYS,
     )
-    # 표시를 걷은 뒤 되살리기 작업이 문서를 되살리지 못한 채 재시도를 다 썼다.
+    # 표시를 걷은 뒤 복구 작업이 문서를 복구하지 못한 채 재시도를 다 썼다.
     await _fail(pipeline, restored.job_id)
     assert await _documents(pipeline, source) == (3, 3, 3)
 
@@ -135,7 +135,7 @@ async def test_재시도를_다_쓰고_멈춘_원천_되살리기_작업을_다�
     assert (await run_cleanup_at(pipeline)).jobs_requeued == 0
 
 
-async def test_문서를_모두_되살린_뒤_실패로_끝난_되살리기_작업도_다시_넣는다(
+async def test_문서를_모두_복구한_뒤_실패로_끝난_복구_작업도_다시_넣는다(
     pipeline: Pipeline,
 ) -> None:
     source = await _seed(pipeline)
@@ -148,7 +148,7 @@ async def test_문서를_모두_되살린_뒤_실패로_끝난_되살리기_작�
         retention_days=RETENTION_DAYS,
     )
     await drain(pipeline)
-    # 문서는 모두 되살았는데 색인이 멈춘 문서를 잇는 단계에서 실패로 끝난 작업이다.
+    # 문서는 모두 복구됐는데 색인이 멈춘 문서를 잇는 단계에서 실패로 끝난 작업이다.
     await _fail(pipeline, restored.job_id)
     assert await _documents(pipeline, source) == (3, 0, 0)
 
@@ -306,7 +306,7 @@ async def _purge_source_with_crossing_request(
     return code
 
 
-async def test_원천을_지우는_도중에_끼어든_문서_되살리기는_500이_아니라_404로_끝난다(
+async def test_원천을_지우는_도중에_끼어든_문서_복구는_500이_아니라_404로_끝난다(
     pipeline: Pipeline,
 ) -> None:
     code = await _purge_source_with_crossing_request(pipeline, _document_refused)
@@ -314,7 +314,7 @@ async def test_원천을_지우는_도중에_끼어든_문서_되살리기는_50
     assert code is ErrorCode.DOCUMENT_NOT_FOUND
 
 
-async def test_원천을_지우는_도중에_끼어든_원천_되살리기는_500이_아니라_404로_끝난다(
+async def test_원천을_지우는_도중에_끼어든_원천_복구는_500이_아니라_404로_끝난다(
     pipeline: Pipeline,
 ) -> None:
     code = await _purge_source_with_crossing_request(pipeline, _source_refused)

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>대시보드</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important} a{color:var(--accent)} a:hover{color:var(--text)}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="flex: 0 0 var(--spacing-nav); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; gap: var(--spacing-4); padding: var(--spacing-4) var(--spacing-3); background: var(--bg-raised); border-right: 1px solid var(--border);">
+<dc-import name="cmp-nav" current="dashboard" admin="{{ yes }}" hint-size="232px,320px"></dc-import>
+<dc-import name="cmp-account" account="ops-lead" role="시스템 관리자" menu-open="{{ no }}" hint-size="232px,60px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: var(--spacing-8);">
+<div style="max-width: 1040px; display: flex; flex-direction: column; gap: var(--spacing-6);">
+<header class="flex items-start justify-between gap-4 flex-wrap">
+<div class="flex flex-col gap-1 min-w-0">
+<h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">대시보드</h1>
+<p class="text-body text-text-muted" style="margin: 0;">30초마다 새로 읽습니다. 19:38에 읽었습니다.</p>
+</div>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary">새로 고침</x-import>
+</header>
+
+<sc-if value="{{ failed }}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="AgentOsUi.Alert" tone="warning" title="값을 새로 읽지 못했습니다">19:39부터 서버에 닿지 않습니다. 아래는 19:38에 읽은 값입니다. 서버가 돌고 있는지 확인하세요.</x-import>
+</sc-if>
+
+<sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4">
+<div class="flex flex-col gap-3" style="padding: var(--spacing-4) 0; align-items: flex-start;">
+<p class="text-body text-text-muted" style="margin: 0;">아직 문서가 없습니다. 파일을 올리거나 원천을 만드세요.</p>
+<div class="flex flex-wrap gap-2"><x-import component-from-global-scope="AgentOsUi.Button" variant="primary">파일 올리기</x-import><x-import component-from-global-scope="AgentOsUi.Button" variant="secondary">원천 만들기</x-import></div>
+</div>
+</x-import>
+</sc-if>
+
+<sc-if value="{{ hasData }}" hint-placeholder-val="{{ true }}">
+<section aria-label="숫자" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--spacing-3);">
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4"><span class="text-small text-text-muted">문서</span><span style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold);">1,284</span></x-import>
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4"><span class="text-small text-text-muted">조각</span><span style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold);">18,902</span></x-import>
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4"><span class="text-small text-text-muted">수집 대기</span><a href="doc-list.dc.html" aria-label="수집 대기 문서 3건 보기" style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold);">3</a></x-import>
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4"><span class="text-small text-text-muted">실패</span><a href="doc-list.dc.html" aria-label="실패한 문서 2건 보기" class="flex items-center gap-1" style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold); color: var(--danger);"><x-import component-from-global-scope="AgentOsUi.Icon" name="circle-x" size="20"></x-import>2</a></x-import>
+<div style="grid-column: span 2; display: flex; flex-direction: column;">
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4"><span class="text-small text-text-muted">최근 검색 지연</span><div class="flex flex-wrap items-center gap-4"><span><span class="font-mono" style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold);">182ms</span> <span class="text-small text-text-muted">가운데값</span></span><span><span class="font-mono" style="font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-semibold);">640ms</span> <span class="text-small text-text-muted">느린 쪽</span></span></div></x-import>
+</div>
+</section>
+
+<div class="flex flex-wrap" style="gap: var(--spacing-6); align-items: flex-start;">
+<section aria-labelledby="h-src" class="flex flex-col gap-2" style="flex: 2 1 520px; min-width: 0;">
+<h2 id="h-src" class="text-body font-semibold" style="margin: 0;">원천</h2>
+<div style="overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<table class="w-full text-table" style="border-collapse: collapse;">
+<thead><tr style="border-bottom: 1px solid var(--border); background: var(--bg);">
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">이름</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">종류</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">마지막 동기화</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">다음 실행</th>
+</tr></thead>
+<tbody>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><a href="src-detail.dc.html" class="font-mono text-mono">nas-manuals</a></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">서버 폴더</td><td style="padding: 0 var(--spacing-3);"><div class="flex items-center gap-2"><dc-import name="cmp-badge" state="failed" hint-size="52px,22px"></dc-import><span class="font-mono text-mono text-text-muted">11-26 17:36</span></div></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">11-27 02:00</span></td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><a href="src-running.dc.html" class="font-mono text-mono">nas-handbook</a></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">서버 폴더</td><td style="padding: 0 var(--spacing-3);"><div class="flex items-center gap-2"><dc-import name="cmp-badge" state="syncing" hint-size="76px,22px"></dc-import><span class="text-small text-text-muted">12분째</span></div></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">11-27 00:00</span></td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><a href="src-paused.dc.html" class="font-mono text-mono">nas-policies</a></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">서버 폴더</td><td style="padding: 0 var(--spacing-3);"><div class="flex items-center gap-2"><dc-import name="cmp-badge" state="done" hint-size="52px,22px"></dc-import><span class="font-mono text-mono text-text-muted">11-23 03:00</span></div></td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="paused" hint-size="72px,22px"></dc-import></td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><a href="src-list.dc.html" class="font-mono text-mono">groupware-push</a></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">수집 API</td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">일정 없음</span></td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">일정 없음</span></td></tr>
+<tr><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><a href="src-list.dc.html" class="font-mono text-mono">upload</a></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">파일 올리기</td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">일정 없음</span></td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">일정 없음</span></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section aria-labelledby="h-idx" style="flex: 1 1 260px; min-width: 0;">
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4">
+<h2 id="h-idx" class="text-body font-semibold" style="margin: 0;">색인</h2>
+<dl class="flex flex-col gap-2 text-body" style="margin: 0;">
+<div class="flex justify-between gap-3"><dt class="text-text-muted">지식베이스</dt><dd class="font-mono text-mono" style="margin: 0;">default</dd></div>
+<div class="flex justify-between gap-3"><dt class="text-text-muted">현재 색인 버전</dt><dd class="font-mono text-mono" style="margin: 0;">3</dd></div>
+<div class="flex justify-between gap-3"><dt class="text-text-muted">조각</dt><dd class="font-mono text-mono" style="margin: 0;">18,902</dd></div>
+</dl>
+<p class="text-small text-text-muted" style="margin: 0;">만드는 중인 색인 버전이 없습니다.</p>
+</x-import>
+</section>
+</div>
+</sc-if>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"mode": {"editor": "enum", "options": ["normal", "failed", "empty"], "default": "normal"}, "$preview": {"width": 1280, "height": 860}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.mode ?? 'normal';
+    return { yes: true, no: false, failed: mode === 'failed', empty: mode === 'empty', hasData: mode !== 'empty' };
+  }
+}
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@
 옮겨 정리 작업을 한 번 돌린다. 여기서 보는 것은 앞의 네 단계다. 보관 기간이 지난 지운 문서를
 완전히 지우는 것(원천과 함께 지워졌다는 표시가 있는 문서는 건드리지 않는다), 보관 기간이 지난
 지운 원천을 지우는 것, 주인 없는 원본을 치우는 것, 오래된 동기화 기록을 지우는 것이다. 멈춘 원천
-삭제와 되살리기를 다시 잇는 다섯째 단계는 `test_cleanup_resume.py`가 본다.
+삭제와 복구를 다시 잇는 다섯째 단계는 `test_cleanup_resume.py`가 본다.
 """
 
 import os
@@ -218,7 +218,7 @@ async def test_보관_기간이_지난_지운_문서는_삭제_기록만_남기�
 
 
 async def test_지운_시각에서_보관_일수가_꼭_지난_문서부터_지운다(pipeline: Pipeline) -> None:
-    # 되살리는 요청이 `삭제 시각 + 보관 일수 <= 지금`이면 거절하는 것과 같은 경계다.
+    # 복구하는 요청이 `삭제 시각 + 보관 일수 <= 지금`이면 거절하는 것과 같은 경계다.
     result = await pipeline.ingest(_docx(), "경계.docx")
     await pipeline.delete("경계.docx")
 
@@ -263,11 +263,11 @@ async def test_이미_삭제_기록이_된_문서는_다시_세지_않는다(pip
 async def test_원천과_함께_지운_표시가_남은_문서는_보관_기간이_지나도_지우지_않는다(
     pipeline: Pipeline,
 ) -> None:
-    source = await push_source(pipeline, "되살림")
+    source = await push_source(pipeline, "복구")
     document_id = await ingest_into(pipeline, source, "규정.docx")
     await drain(pipeline)
     await delete_source_and_drain(pipeline, source)
-    # 지운 원천을 되살리는 요청만 보내고 작업자는 아직 돌리지 않았다. 문서는 표시가 남은 채
+    # 지운 원천을 복구하는 요청만 보내고 작업자는 아직 돌리지 않았다. 문서는 표시가 남은 채
     # 숨어 있다.
     await request_source_restoration(
         pipeline.unit_of_work,
