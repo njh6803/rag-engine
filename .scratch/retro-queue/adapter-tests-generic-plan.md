@@ -1,6 +1,6 @@
 # adapter-tests-generic-plan: 어댑터 시험이 연결을 새로 만들어 써서 준비된 문장의 일반 계획에서만 나는 결함을 PR 직전 리뷰까지 못 잡았다
 
-**상태:** 열림
+**상태:** 만료 2026-11-28
 **어디로:** `tests/conftest.py`의 `engine` 픽스처와 시험용 엔진을 만드는 자리(시험 연결이 `plan_cache_mode=force_generic_plan`으로 열려 첫 실행부터 일반 계획을 밟게 하는 검사. 처방의 효과는 반영할 때 `tests/adapters/test_job_queue.py`의 열다섯 번 넣기 시험이 빨개지는지로 먼저 잰다)
 **승인:** 자체 승인 2026-11-11, 3회차(더하는 것이라 다섯 번째에 반영한다. 첫 사건은 PR 직전 `bug-perf-review`가 잡았고 병합 전이라 손상이 아니다), 일지 2026-11-11-0314-core-05-ingest-api.md, 2026-11-11-0615-core-07-first-search-round-trip.md, 2026-11-13-2245-search-eval-01-ports.md(3회차. `diagnose_candidates`를 INDEX와 EXACT로 한 연결에서 번갈아 부르면 준비된 일반 계획이 `enable_indexscan`을 무시하는 결함을 PR 직전 CodeRabbit CLI가 잡았다), ADR 불필요
 

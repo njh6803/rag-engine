@@ -1,6 +1,6 @@
 # ticket-dep-closure-check: 수용 기준이 Blocked by의 닫힘 밖에 있는 앞 티켓의 기능을 써 셀프 리뷰 두 축이 잡았다
 
-**상태:** 열림
+**상태:** 만료 2026-11-28
 **어디로:** `tools/check_ticket_deps.py`(같은 기능의 티켓 본문이 번호로 가리킨 더 작은 번호의 티켓이 그 티켓의 Blocked by 닫힘에 없으면 알린다) + pre-commit. 뒤 번호를 가리키는 말(14가 채운다)은 세지 않는다
 **승인:** 자체 승인 2026-11-10, 2회차(to-tickets의 Blocked by 지침을 어긴 사건이라 회차를 센다. 더하는 것이라 다섯 번째에 반영한다), 일지 2026-11-10-1828-core-tickets.md, 2026-11-12-1419-dev-branch-model.md(2회차), ADR 불필요
 
