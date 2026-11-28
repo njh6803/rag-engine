@@ -124,7 +124,7 @@ async def test_재색인_중_그_지식베이스에_든_새_문서는_전환을_
     assert await _keys(round_trip, "복지") == ["복지.docx"]
 
 
-async def test_재색인_중_되돌릴_조각_없이_되살린_문서는_전환을_막지_않고_새_현재_판에_든다(
+async def test_재색인_중_되돌릴_조각_없이_복구한_문서는_전환을_막지_않고_새_현재_판에_든다(
     round_trip: RoundTrip,
 ) -> None:
     round_trip.drop_reranker()
@@ -145,7 +145,7 @@ async def test_재색인_중_되돌릴_조각_없이_되살린_문서는_전환�
     assert await _keys(round_trip, "출장비") == ["출장.docx"]
 
 
-async def test_판_전환을_사이에_둔_되살림은_작업_뒤_새_현재_판에서_찾는다(
+async def test_판_전환을_사이에_둔_복구는_작업_뒤_새_현재_판에서_찾는다(
     round_trip: RoundTrip,
 ) -> None:
     round_trip.drop_reranker()

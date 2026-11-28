@@ -5,21 +5,21 @@
 1. 보관 기간(`RAG_DELETED_RETENTION_DAYS`)이 지난 임시 삭제 문서를 `BATCH_SIZE`건씩 작업 단위
    하나에서 완전히 지운다. 문서 행을 잠그고 아직 지워져 있고 기간이 지났는지 다시 본 뒤 삭제
    보관함의 조각과 파싱 결과를 지우고, 원본 경로를 비우고 완전히 지운 시각을 적는다(그 행이 삭제
-   기록으로 남는다). 원천과 함께 지워졌다는 표시가 있는 문서는 건드리지 않는다. 원천을 되살리면
-   작업자가 되살리고, 원천을 지우면 둘째 단계가 함께 지운다. 원본 파일은 그 작업 단위를 커밋한
+   기록으로 남는다). 원천과 함께 지워졌다는 표시가 있는 문서는 건드리지 않는다. 원천을 복구하면
+   작업자가 복구하고, 원천을 지우면 둘째 단계가 함께 지운다. 원본 파일은 그 작업 단위를 커밋한
    뒤에 지운다.
 2. 보관 기간이 지난 지운 원천을 지운다. 원천 행을 잠그고 그 원천의 문서(삭제 기록 행까지)를
    `BATCH_SIZE`건씩 지운 뒤, 마지막 묶음과 같은 작업 단위에서 그 원천의 작업, 동기화 기록, 원천
-   행을 지운다. 이름은 그때부터 다시 쓸 수 있다. 되살리는 요청이 그사이 끼어들면 원천 행 잠금이
+   행을 지운다. 이름은 그때부터 다시 쓸 수 있다. 복구하는 요청이 그사이 끼어들면 원천 행 잠금이
    차례를 정한다. 원천 삭제 작업이 멈춰 지워지지 않은 문서가 남았어도 같이 지우므로, 그 문서의
    색인 상태가 사라져 판이 전환될 수 있는 건설 중인 판마다 전환 검사를 부른다.
 3. 어느 문서 행도 가리키지 않고 쓴 지 24시간이 지난 원본 파일을 치운다. 데이터 폴더의 원본
    폴더(`blobs/`) 아래만 훑는다. 서버 폴더(`RAG_SOURCES_DIR`)와 그 밖의 파일은 건드리지 않는다.
 4. 끝난 지 `RAG_SYNC_RECORD_RETENTION_DAYS`가 지난 동기화 기록을 지운다. 끝나지 않은 기록과
    원천마다 가장 최근 기록 하나는 남긴다.
-5. 재시도를 다 쓰고 멈춘 원천 삭제 작업과 원천 되살리기 작업을 다시 넣는다. 지운 원천은 지워지지
+5. 재시도를 다 쓰고 멈춘 원천 삭제 작업과 원천 복구 작업을 다시 넣는다. 지운 원천은 지워지지
    않은 문서가 남았을 때, 지우지 않은 원천은 원천과 함께 지워졌다는 표시가 남은 문서가 있거나
-   가장 나중 원천 되살리기 작업이 실패로 끝났을 때다. 대기 중이거나 실행 중인 작업이 있으면 넣지
+   가장 나중 원천 복구 작업이 실패로 끝났을 때다. 대기 중이거나 실행 중인 작업이 있으면 넣지
    않는다.
 
 작업 단위의 잠금 순서는 원천 행, 문서 행(ID 순), 지식베이스 행(ID 순), 작업 행이다. 쓰는 작업
@@ -75,7 +75,7 @@ class CleanupCounts:
 
 class _Batch(Enum):
     """원천을 지우는 작업 단위 하나의 끝. `MORE`는 문서가 더 남았을 수 있고, `DONE`은 원천 행까지
-    지웠고, `RACED`는 그사이 원천이 되살아났거나 사라진 것이다."""
+    지웠고, `RACED`는 그사이 원천이 복구됐거나 사라진 것이다."""
 
     MORE = auto()
     DONE = auto()
@@ -113,7 +113,7 @@ async def _purge_documents(deps: CleanupDeps, job: Job) -> int:
 
 
 async def _purge_document_batch(deps: CleanupDeps, job: Job, cutoff: datetime) -> int:
-    """묶음 하나를 지우고 지운 수를 낸다. 고른 문서가 모두 그사이 되살아났으면 0이다."""
+    """묶음 하나를 지우고 지운 수를 낸다. 고른 문서가 모두 그사이 복구됐으면 0이다."""
     async with deps.unit_of_work.begin() as transaction:
         ids = await transaction.documents.list_purgeable_ids(cutoff, BATCH_SIZE)
         documents = await _lock_documents(
@@ -131,7 +131,7 @@ async def _purge_document_batch(deps: CleanupDeps, job: Job, cutoff: datetime) -
 
 
 def _is_purgeable(document: Document, cutoff: datetime) -> bool:
-    """잠근 뒤에 다시 보는 조건. 고른 뒤에 되살아났거나 원천과 함께 지워졌다고 표시된 문서는
+    """잠근 뒤에 다시 보는 조건. 고른 뒤에 복구됐거나 원천과 함께 지워졌다고 표시된 문서는
     지우지 않는다."""
     return (
         document.deleted_at is not None
@@ -157,7 +157,7 @@ async def _purge_sources(deps: CleanupDeps, job: Job) -> int:
 
 
 async def _purge_source(deps: CleanupDeps, job: Job, source_id: UUID, cutoff: datetime) -> bool:
-    """원천 하나를 끝까지 지운다. 지웠으면 참이다. 그사이 되살아났거나 사라졌으면 거짓이고, 그
+    """원천 하나를 끝까지 지운다. 지웠으면 참이다. 그사이 복구됐거나 사라졌으면 거짓이고, 그
     원천은 다음에 고르지 않는다."""
     while True:
         batch = await _purge_source_batch(deps, job, source_id, cutoff)
@@ -247,7 +247,7 @@ async def _requeue_stalled_jobs(deps: CleanupDeps, job: Job) -> int:
 
 
 async def _requeue_if_stalled(deps: CleanupDeps, job: Job, source_id: UUID) -> bool:
-    """원천 하나의 멈춘 작업을 다시 넣었으면 참이다. 원천 행을 잠가 지우는 요청과 되살리는
+    """원천 하나의 멈춘 작업을 다시 넣었으면 참이다. 원천 행을 잠가 지우는 요청과 복구하는
     요청이 끼어들지 못하게 한다."""
     async with deps.unit_of_work.begin() as transaction:
         source = await transaction.catalog.lock_source(source_id)
@@ -275,7 +275,7 @@ async def _requeue_if_stalled(deps: CleanupDeps, job: Job, source_id: UUID) -> b
 
 async def _last_job_failed(transaction: Transaction, source_id: UUID, kind: JobKind) -> bool:
     """그 원천의 그 종류 작업 가운데 가장 나중에 만든 것이 재시도를 다 쓰고 실패로 끝났는가. 문서를
-    모두 되살린 뒤 색인이 멈춘 문서를 잇는 단계에서 실패한 작업은 표시가 남은 문서가 없어 이것으로
+    모두 복구한 뒤 색인이 멈춘 문서를 잇는 단계에서 실패한 작업은 표시가 남은 문서가 없어 이것으로
     찾는다."""
     latest = await transaction.jobs.latest_source_job(source_id, kind)
     return latest is not None and latest.status is JobStatus.FAILED

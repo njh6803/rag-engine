@@ -6,7 +6,7 @@
 
 [[mutation]]
 name = "되살리는 요청이 진행 중인 삭제와 되살리기 작업을 보지 않는다"
-tests = ["tests/server/test_restore_source_round_trip.py::test_지우는_작업이_끝나기_전의_되살리기와_되살리는_작업이_끝나기_전의_지우기는_409다"]
+tests = ["tests/server/test_restore_source_round_trip.py::test_지우는_작업이_끝나기_전의_복구와_복구하는_작업이_끝나기_전의_지우기는_409다"]
 expect = "red"
 expect_output = ["KeyError: 'code'"]
 
@@ -18,7 +18,7 @@ new = '''    return locked'''
 
 [[mutation]]
 name = "지우는 요청이 진행 중인 삭제와 되살리기 작업을 보지 않는다"
-tests = ["tests/server/test_restore_source_round_trip.py::test_지우는_작업이_끝나기_전의_되살리기와_되살리는_작업이_끝나기_전의_지우기는_409다"]
+tests = ["tests/server/test_restore_source_round_trip.py::test_지우는_작업이_끝나기_전의_복구와_복구하는_작업이_끝나기_전의_지우기는_409다"]
 expect = "red"
 expect_output = ["KeyError: 'code'"]
 
@@ -30,35 +30,35 @@ new = ''''''
 
 [[mutation]]
 name = "보관 기간이 지난 지운 원천도 되살린다"
-tests = ["tests/server/test_restore_source_round_trip.py::test_보관_기간이_지난_지운_원천은_되살릴_수_없고_지운_채다"]
+tests = ["tests/server/test_restore_source_round_trip.py::test_보관_기간이_지난_지운_원천은_복구할_수_없고_지운_채다"]
 expect = "red"
 expect_output = ["KeyError: 'code'"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/restore_source.py"
 old = '''    if locked.deleted_at + timedelta(days=retention_days) <= now:
-        raise RequestError(ErrorCode.SOURCE_RETENTION_EXPIRED, "보관 기간이 지나 되살릴 수 없다")
+        raise RequestError(ErrorCode.SOURCE_RETENTION_EXPIRED, "보관 기간이 지나 복구할 수 없다")
 '''
 new = ''''''
 
 [[mutation]]
 name = "원천 되살리기 작업이 지움 표시가 선 원천에서도 문서를 되살린다"
-tests = ["tests/app/test_restore_source.py::test_지움_표시가_선_원천에_직접_넣은_되살리기_작업은_문서를_되살리지_않고_끝난다"]
+tests = ["tests/app/test_restore_source.py::test_지움_표시가_선_원천에_직접_넣은_복구_작업은_문서를_복구하지_않고_끝난다"]
 expect = "red"
 expect_output = ["At index 1 diff: 0 != 1"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/restore_source.py"
-old = '''            raise RuntimeError("원천 되살리기 작업이 가리키는 원천이 없다")
+old = '''            raise RuntimeError("원천 복구 작업이 가리키는 원천이 없다")
         if source.deleted_at is not None:
             return False
         ids = await transaction.documents.list_ids_deleted_with_source(source.id, BATCH_SIZE)'''
-new = '''            raise RuntimeError("원천 되살리기 작업이 가리키는 원천이 없다")
+new = '''            raise RuntimeError("원천 복구 작업이 가리키는 원천이 없다")
         ids = await transaction.documents.list_ids_deleted_with_source(source.id, BATCH_SIZE)'''
 
 [[mutation]]
 name = "원천과 함께 지웠다는 표시가 없는 문서도 되살린다"
-tests = ["tests/server/test_restore_source_round_trip.py::test_지운_원천을_되살리고_작업자를_돌리면_임베딩_없이_검색에_돌아온다"]
+tests = ["tests/server/test_restore_source_round_trip.py::test_지운_원천을_복구하고_작업자를_돌리면_임베딩_없이_검색에_돌아온다"]
 expect = "red"
 expect_output = ["Extra items in the left set:"]
 
@@ -81,7 +81,7 @@ new = '''            and document.deleted_at is not None
 
 [[mutation]]
 name = "수집 API의 삭제가 이미 지운 문서의 표시를 걷지 않는다"
-tests = ["tests/server/test_restore_source_round_trip.py::test_되살리는_요청_뒤에_수집_API로_지운_문서는_돌아오지_않는다"]
+tests = ["tests/server/test_restore_source_round_trip.py::test_복구하는_요청_뒤에_수집_API로_지운_문서는_돌아오지_않는다"]
 expect = "red"
 expect_output = ["Extra items in the left set:"]
 
@@ -94,7 +94,7 @@ new = '''    return False
 
 [[mutation]]
 name = "동기화의 삭제 반영이 원천과 함께 지웠다는 표시가 남은 문서를 대상으로 삼지 않는다"
-tests = ["tests/app/test_restore_source.py::test_되살린_원천의_동기화는_폴더에서_사라진_문서를_되살리지_않고_따로_지운_문서로_센다"]
+tests = ["tests/app/test_restore_source.py::test_복구한_원천의_동기화는_폴더에서_사라진_문서를_복구하지_않고_따로_지운_문서로_센다"]
 expect = "red"
 expect_output = ["At index 1 diff: 0 != 1"]
 
@@ -111,7 +111,7 @@ new = '''                documents.c.deleted_at.is_(None),
 
 [[mutation]]
 name = "가져오는 원천을 되살릴 때 폴더 겹침을 다시 보지 않는다"
-tests = ["tests/server/test_restore_pull_source.py::test_그사이_다른_원천이_겹치는_폴더를_쓰게_됐으면_되살리기는_409이고_원천은_지운_채다"]
+tests = ["tests/server/test_restore_pull_source.py::test_그사이_다른_원천이_겹치는_폴더를_쓰게_됐으면_복구는_409이고_원천은_지운_채다"]
 expect = "red"
 expect_output = ["<Response [202 Accepted]>"]
 
@@ -124,7 +124,7 @@ new = ''''''
 
 [[mutation]]
 name = "되살릴 때 다음 실행 시각을 다시 채우지 않는다"
-tests = ["tests/server/test_restore_pull_source.py::test_가져오는_원천을_되살리면_202와_연결_확인이_나오고_다음_실행_시각이_다시_찬다"]
+tests = ["tests/server/test_restore_pull_source.py::test_가져오는_원천을_복구하면_202와_연결_확인이_나오고_다음_실행_시각이_다시_찬다"]
 expect = "red"
 expect_output = ["assert None is not None"]
 
@@ -135,7 +135,7 @@ new = '''                next_run_at=None,'''
 
 [[mutation]]
 name = "원천 삭제 작업이 실패로 끝난 원천의 멈춘 문서에 색인 작업을 넣지 않는다"
-tests = ["tests/app/test_restore_source.py::test_원천_삭제_작업이_실패로_끝난_원천을_되살리면_멈춘_문서가_색인되어_검색에_나온다"]
+tests = ["tests/app/test_restore_source.py::test_원천_삭제_작업이_실패로_끝난_원천을_복구하면_멈춘_문서가_색인되어_검색에_나온다"]
 expect = "red"
 expect_output = ["Right contains one more item: <IndexStateStatus.INDEXED"]
 

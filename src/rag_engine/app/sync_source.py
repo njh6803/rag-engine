@@ -393,8 +393,8 @@ def _applies_empty(job: Job) -> bool:
 
 
 async def _held_keys(deps: SyncDeps, source: Source) -> dict[str, UUID]:
-    """그 원천의, 지워지지 않은 문서와 원천과 함께 지워졌다는 표시가 남은 문서(원천 되살리기
-    작업이 아직 되살리지 않았다)의 키마다 문서 ID."""
+    """그 원천의, 지워지지 않은 문서와 원천과 함께 지워졌다는 표시가 남은 문서(원천 복구
+    작업이 아직 복구하지 않았다)의 키마다 문서 ID."""
     async with deps.unit_of_work.begin() as transaction:
         return await transaction.documents.list_held_keys_of_source(source.id)
 
@@ -404,8 +404,8 @@ async def _apply_deletions(
 ) -> None:
     """후보에 키가 없는 문서를 문서마다 작업 단위 하나에서 임시 삭제한다. 읽지 못해 실패로 센
     파일은 후보에 있으므로 지우지 않고, 읽다가 `too_large`가 난 파일은 후보에서 빠졌으므로 그 키의
-    문서를 지운다. 되살린 원천의 문서를 되살리는 작업이 아직 끝나지 않았으면 표시가 남은 문서도
-    대상이다. 원천 폴더에 파일이 없는 그 문서는 되살리지 않고 따로 지운 문서로 만든다. 넣은 문서의
+    문서를 지운다. 복구한 원천의 문서를 복구하는 작업이 아직 끝나지 않았으면 표시가 남은 문서도
+    대상이다. 원천 폴더에 파일이 없는 그 문서는 복구하지 않고 따로 지운 문서로 만든다. 넣은 문서의
     색인이 끝나기를 기다리지 않는다."""
     for key, document_id in (await _held_keys(deps, source)).items():
         if key not in kept:

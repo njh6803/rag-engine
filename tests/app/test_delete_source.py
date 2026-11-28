@@ -343,7 +343,7 @@ async def test_원천_삭제_작업은_묶음_크기를_넘는_문서도_모두_
 async def test_지움_표시가_걷힌_원천에_직접_넣은_삭제_작업은_문서를_지우지_않고_성공으로_끝난다(
     pipeline: Pipeline,
 ) -> None:
-    source = await _push_source(pipeline, "되살림")
+    source = await _push_source(pipeline, "복구")
     await _ingest_into(pipeline, source, "규정.docx")
     async with pipeline.unit_of_work.begin() as transaction:
         queued = await transaction.jobs.enqueue_source_job(

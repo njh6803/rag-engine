@@ -86,7 +86,7 @@ new = '''        paths = _blob_paths(documents)
 name = "원천 행을 마지막 문서 묶음과 다른 작업 단위에서 지운다"
 tests = ["tests/app/test_cleanup_resume.py"]
 expect = "red"
-expect_output = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_문서_되살리기는_500이_아니라_404로_끝난다"]
+expect_output = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_문서_복구는_500이_아니라_404로_끝난다"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/cleanup.py"
@@ -154,7 +154,7 @@ new = ''''''
 name = "문서를 모두 되살린 뒤 실패로 끝난 되살리기 작업을 다시 넣지 않는다"
 tests = ["tests/app/test_cleanup_resume.py"]
 expect = "red"
-expect_output = ["tests/app/test_cleanup_resume.py::test_문서를_모두_되살린_뒤_실패로_끝난_되살리기_작업도_다시_넣는다"]
+expect_output = ["tests/app/test_cleanup_resume.py::test_문서를_모두_복구한_뒤_실패로_끝난_복구_작업도_다시_넣는다"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/cleanup.py"
@@ -180,7 +180,7 @@ new = '''            stalled = True'''
 name = "가장 나중 작업이 성공으로 끝났어도 되살리기 작업을 다시 넣는다"
 tests = ["tests/app/test_cleanup_resume.py"]
 expect = "red"
-expect_output = ["tests/app/test_cleanup_resume.py::test_재시도를_다_쓰고_멈춘_원천_되살리기_작업을_다시_넣어_문서를_모두_되살린다"]
+expect_output = ["tests/app/test_cleanup_resume.py::test_재시도를_다_쓰고_멈춘_원천_복구_작업을_다시_넣어_문서를_모두_복구한다"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/cleanup.py"
@@ -214,7 +214,7 @@ new = ''''''
 name = "문서 되살리기가 사라진 원천을 만나면 500을 낸다"
 tests = ["tests/app/test_cleanup_resume.py"]
 expect = "red"
-expect_output = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_문서_되살리기는_500이_아니라_404로_끝난다"]
+expect_output = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_문서_복구는_500이_아니라_404로_끝난다"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/restore_document.py"
@@ -237,9 +237,9 @@ new = '''jobs.c.kind == JobKind.CLEANUP.value, jobs.c.created_at > since)'''
 
 [[mutation]]
 name = "원천 되살리기가 사라진 원천을 만나면 500을 낸다"
-tests = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_원천_되살리기는_500이_아니라_404로_끝난다"]
+tests = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_원천_복구는_500이_아니라_404로_끝난다"]
 expect = "red"
-expect_output = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_원천_되살리기는_500이_아니라_404로_끝난다"]
+expect_output = ["tests/app/test_cleanup_resume.py::test_원천을_지우는_도중에_끼어든_원천_복구는_500이_아니라_404로_끝난다"]
 
 [[mutation.edit]]
 file = "src/rag_engine/app/restore_source.py"

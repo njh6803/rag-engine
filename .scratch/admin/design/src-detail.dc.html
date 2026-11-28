@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>원천 하나: 동기화 기록</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important} a{color:var(--accent)} a:hover{color:var(--text)}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="flex: 0 0 var(--spacing-nav); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; gap: var(--spacing-4); padding: var(--spacing-4) var(--spacing-3); background: var(--bg-raised); border-right: 1px solid var(--border);">
+<dc-import name="cmp-nav" current="sources" admin="{{ yes }}" hint-size="232px,320px"></dc-import>
+<dc-import name="cmp-account" account="ops-lead" role="시스템 관리자" menu-open="{{ no }}" hint-size="232px,60px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: var(--spacing-8);">
+<div style="max-width: 1040px; display: flex; flex-direction: column; gap: var(--spacing-6);">
+<div class="flex flex-col gap-3">
+<a href="src-list.dc.html" class="flex items-center gap-1 text-body" style="width: fit-content; text-decoration: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="m15 18-6-6 6-6"></path></svg>원천 목록</a>
+<header class="flex items-start justify-between gap-4 flex-wrap">
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex items-center gap-3"><h1 class="font-mono" style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">nas-manuals</h1><dc-import name="cmp-badge" state="failed" hint-size="52px,22px"></dc-import></div>
+<p class="text-body text-text-muted" style="margin: 0;">서버가 매일 02:00에 폴더 manuals를 읽어 옵니다.</p>
+</div>
+<div class="flex items-center gap-2 shrink-0" style="position: relative;">
+<x-import component-from-global-scope="AgentOsUi.Button" variant="primary">지금 동기화</x-import>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary">일시 중지</x-import>
+<x-import component-from-global-scope="AgentOsUi.IconButton" icon="ellipsis" label="nas-manuals의 동작" variant="secondary"></x-import>
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="nas-manuals의 동작" class="shadow-float flex flex-col" style="position: absolute; top: calc(100% + var(--spacing-1)); right: 0; z-index: 3; min-width: 160px; padding: var(--spacing-1); background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-m);">
+<button type="button" role="menuitem" class="text-body" style="height: var(--control-h); padding: 0 var(--spacing-3); border: 0; border-radius: var(--radius-s); background: var(--bg-hover); color: var(--text); font-family: inherit; text-align: left; cursor: pointer;">연결 확인</button>
+<div role="separator" style="height: 1px; margin: var(--spacing-1) 0; background: var(--border);"></div>
+<button type="button" role="menuitem" class="text-body" style="height: var(--control-h); padding: 0 var(--spacing-3); border: 0; border-radius: var(--radius-s); background: transparent; color: var(--danger); font-family: inherit; text-align: left; cursor: pointer;">지우기</button>
+</div>
+</sc-if>
+</div>
+</header>
+<dl class="flex flex-wrap text-body" style="margin: 0; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<div class="flex flex-col gap-1" style="min-width: 0; padding: var(--spacing-3) var(--spacing-4); border-right: 1px solid var(--border);"><dt class="text-small text-text-muted">종류</dt><dd style="margin: 0;">서버 폴더</dd></div>
+<div class="flex flex-col gap-1" style="min-width: 0; padding: var(--spacing-3) var(--spacing-4); border-right: 1px solid var(--border);"><dt class="text-small text-text-muted">폴더</dt><dd class="font-mono text-mono" style="margin: 0;">manuals</dd></div>
+<div class="flex flex-col gap-1" style="min-width: 0; padding: var(--spacing-3) var(--spacing-4); border-right: 1px solid var(--border);"><dt class="text-small text-text-muted">그룹</dt><dd class="font-mono text-mono" style="margin: 0;">engineering</dd></div>
+<div class="flex flex-col gap-1" style="min-width: 0; padding: var(--spacing-3) var(--spacing-4); border-right: 1px solid var(--border);"><dt class="text-small text-text-muted">문서</dt><dd style="margin: 0;"><span class="font-mono text-mono">1,104</span> <span class="text-text-muted">실패 <a href="doc-list.dc.html">2</a>, 건너뜀 <a href="doc-list.dc.html">5</a></span></dd></div>
+<div class="flex flex-col gap-1" style="min-width: 0; padding: var(--spacing-3) var(--spacing-4);"><dt class="text-small text-text-muted">다음 실행</dt><dd class="font-mono text-mono" style="margin: 0;">11-27 02:00</dd></div>
+</dl>
+</div>
+
+<div role="tablist" aria-label="원천 보기" class="flex gap-4" style="border-bottom: 1px solid var(--border);">
+<button type="button" role="tab" aria-selected="true" class="text-body font-medium" style="height: var(--control-h); padding: 0 var(--spacing-1); margin-bottom: -1px; border: 0; border-bottom: 2px solid var(--accent); background: transparent; color: var(--text); font-family: inherit; font-weight: var(--font-weight-medium); cursor: pointer;">동기화 기록</button>
+<a href="src-settings.dc.html" role="tab" aria-selected="false" class="text-body flex items-center" style="height: var(--control-h); padding: 0 var(--spacing-1); margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--text-muted); text-decoration: none;">설정</a>
+</div>
+
+<div style="overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<table class="w-full text-table" aria-label="동기화 기록" style="border-collapse: collapse;">
+<thead><tr style="border-bottom: 1px solid var(--border); background: var(--bg);">
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">시작 시각</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">계기</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">상태</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: right; white-space: nowrap;">더함</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: right; white-space: nowrap;">바꿈</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: right; white-space: nowrap;">지움</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: right; white-space: nowrap;">건너뜀</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: right; white-space: nowrap;">실패</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: right; white-space: nowrap;">걸린 시간</th>
+</tr></thead>
+<tbody class="font-mono text-mono">
+<tr><td style="height: var(--row-h); padding: 0 var(--spacing-3);">11-26 17:36</td><td class="font-sans text-table" style="padding: 0 var(--spacing-3);">손으로</td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="failed" hint-size="52px,22px"></dc-import></td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">2초</td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td colspan="9" class="font-sans text-table" style="padding: 0 var(--spacing-3) var(--spacing-3);"><span class="flex items-center gap-2" style="color: var(--danger);"><x-import component-from-global-scope="AgentOsUi.Icon" name="circle-x" size="16"></x-import>폴더를 읽을 수 없습니다. 서버에 폴더가 붙어 있는지 보고, ⋯ 메뉴의 연결 확인을 눌러 보세요.</span></td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);">11-26 02:00</td><td class="font-sans text-table" style="padding: 0 var(--spacing-3);">일정</td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="done" hint-size="52px,22px"></dc-import></td><td style="padding: 0 var(--spacing-3); text-align: right;">3</td><td style="padding: 0 var(--spacing-3); text-align: right;">9</td><td style="padding: 0 var(--spacing-3); text-align: right;">1</td><td style="padding: 0 var(--spacing-3); text-align: right;">1</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">3분 10초</td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);">11-25 02:00</td><td class="font-sans text-table" style="padding: 0 var(--spacing-3);">일정</td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="done" hint-size="52px,22px"></dc-import></td><td style="padding: 0 var(--spacing-3); text-align: right;">2</td><td style="padding: 0 var(--spacing-3); text-align: right;">4</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">2</td><td style="padding: 0 var(--spacing-3); text-align: right;">2분 48초</td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);">11-24 02:00</td><td class="font-sans text-table" style="padding: 0 var(--spacing-3);">일정</td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="done" hint-size="52px,22px"></dc-import></td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">1분 02초</td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);">11-23 09:12</td><td class="font-sans text-table" style="padding: 0 var(--spacing-3);">손으로</td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="canceled" hint-size="64px,22px"></dc-import></td><td style="padding: 0 var(--spacing-3); text-align: right;">210</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">3</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">6분 40초</td></tr>
+<tr><td style="height: var(--row-h); padding: 0 var(--spacing-3);">11-23 02:00</td><td class="font-sans text-table" style="padding: 0 var(--spacing-3);">일정</td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="done" hint-size="52px,22px"></dc-import></td><td style="padding: 0 var(--spacing-3); text-align: right;">1,099</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">4</td><td style="padding: 0 var(--spacing-3); text-align: right;">0</td><td style="padding: 0 var(--spacing-3); text-align: right;">41분 15초</td></tr>
+</tbody>
+</table>
+</div>
+<p class="text-small text-text-muted" style="margin: 0;">동기화 기록은 끝난 뒤 90일 동안 둡니다.</p>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"menuOpen": {"editor": "boolean", "default": false}, "$preview": {"width": 1280, "height": 780}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { yes: true, no: false, menuOpen: this.props.menuOpen ?? false };
+  }
+}
+</script>
+</body>
+</html>

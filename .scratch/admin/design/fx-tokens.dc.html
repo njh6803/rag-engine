@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>토큰</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="flex: 0 0 var(--spacing-nav); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; gap: var(--spacing-4); padding: var(--spacing-4) var(--spacing-3); background: var(--bg-raised); border-right: 1px solid var(--border);">
+<dc-import name="cmp-nav" current="tokens" admin="{{ admin }}" hint-size="232px,320px"></dc-import>
+<dc-import name="cmp-account" account="{{ account }}" role="{{ role }}" menu-open="{{ accountMenu }}" hint-size="232px,60px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: var(--spacing-8);">
+<div style="max-width: 1040px; display: flex; flex-direction: column; gap: var(--spacing-6);">
+<header class="flex items-start justify-between gap-4 flex-wrap">
+<div class="flex flex-col gap-1 min-w-0" style="max-width: 680px;">
+<div class="flex items-center gap-2"><h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">토큰</h1><span class="text-body text-text-muted">4</span></div>
+<p class="text-body text-text-muted" style="margin: 0;">프로그램(MCP 클라이언트, 문서를 보내는 시스템, 스크립트)이 이 서버를 부를 때 내는 인증 토큰입니다. 사람은 운영자 계정으로 로그인합니다.</p>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary">새로 고침</x-import>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="primary">토큰 발급</x-import>
+</div>
+</header>
+
+<div class="flex flex-col gap-3">
+<div style="overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<table class="w-full text-table" aria-label="토큰" style="border-collapse: collapse;">
+<thead><tr style="border-bottom: 1px solid var(--border); background: var(--bg);">
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">이름</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">역할</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">지식베이스</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">만료</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">만든 시각</th>
+<th scope="col" style="width: 48px;"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">동작</span></th>
+</tr></thead>
+<tbody>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><span class="font-mono text-mono">claude-desktop-team</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono">reader</span></td><td style="padding: 0 var(--spacing-3);">전부</td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">없음</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">2026-11-06 13:20</span></td><td style="padding: 0 var(--spacing-1); text-align: right;"><x-import component-from-global-scope="AgentOsUi.IconButton" icon="ellipsis" label="claude-desktop-team의 동작" size="s"></x-import></td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><span class="font-mono text-mono">groupware-push</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono">admin</span></td><td style="padding: 0 var(--spacing-3);">전부</td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono">2027-05-31 00:00</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">2026-11-04 16:05</span></td><td style="padding: 0 var(--spacing-1); text-align: right;"><x-import component-from-global-scope="AgentOsUi.IconButton" icon="ellipsis" label="groupware-push의 동작" size="s"></x-import></td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><span class="font-mono text-mono">support-bot</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono">reader</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono">default</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono">2026-12-31 00:00</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">2026-11-12 09:30</span></td><td style="padding: 0 var(--spacing-1); text-align: right;"><x-import component-from-global-scope="AgentOsUi.IconButton" icon="ellipsis" label="support-bot의 동작" size="s"></x-import></td></tr>
+<tr><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><span class="font-mono text-mono">ops-script</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono">admin</span></td><td style="padding: 0 var(--spacing-3);">전부</td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">없음</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">2026-11-02 10:20</span></td><td style="position: relative; padding: 0 var(--spacing-1); text-align: right;"><x-import component-from-global-scope="AgentOsUi.IconButton" icon="ellipsis" label="ops-script의 동작" size="s"></x-import>
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="ops-script의 동작" class="shadow-float flex flex-col" style="position: absolute; bottom: calc(100% - var(--spacing-1)); right: var(--spacing-2); z-index: 3; min-width: 160px; padding: var(--spacing-1); background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-m); text-align: left;">
+<button type="button" role="menuitem" class="text-body" style="height: var(--control-h); padding: 0 var(--spacing-3); border: 0; border-radius: var(--radius-s); background: var(--bg-hover); color: var(--danger); font-family: inherit; text-align: left; cursor: pointer;">회수</button>
+</div>
+</sc-if>
+</td></tr>
+</tbody>
+</table>
+</div>
+<p class="text-small text-text-muted" style="margin: 0;">reader는 MCP의 검색 도구만, admin은 관리 API와 수집 API와 MCP를 모두 부릅니다. 회수한 토큰은 목록에서 빠집니다.</p>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"menuOpen": {"editor": "boolean", "default": true}, "admin": {"editor": "boolean", "default": true}, "account": {"editor": null, "default": "ops-lead"}, "role": {"editor": null, "default": "시스템 관리자"}, "accountMenu": {"editor": "boolean", "default": false}, "$preview": {"width": 1280, "height": 760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      menuOpen: this.props.menuOpen ?? true,
+      admin: this.props.admin ?? true,
+      account: this.props.account ?? 'ops-lead',
+      role: this.props.role ?? '시스템 관리자',
+      accountMenu: this.props.accountMenu ?? false
+    };
+  }
+}
+</script>
+</body>
+</html>

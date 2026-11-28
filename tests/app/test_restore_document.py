@@ -1,7 +1,7 @@
-"""문서 되살리기(source-sync 티켓 13, 명세 "문서 되살리기").
+"""문서 복구(source-sync 티켓 13, 명세 "문서 되살리기").
 
 실제 테스트 PostgreSQL, 실제 DOCX 파서 자식 프로세스, 실제 청커와 Kiwi 위에서 돈다. 임베딩 서버만
-`TeiStub`이다. 되살림 한 건이 작업 단위 하나에서 조각을 돌려놓는지, 되돌릴 조각이 없는 판에만 작업을
+`TeiStub`이다. 복구 한 건이 작업 단위 하나에서 조각을 돌려놓는지, 되돌릴 조각이 없는 판에만 작업을
 넣는지, 건너뜀 문서는 색인 상태만 다시 쓰는지, 거절하는 넷과 잠금 순서를 본다.
 """
 
@@ -216,7 +216,7 @@ async def test_건너뜀_문서는_조각이_없어_대상_판마다_색인_상�
     assert pipeline.stub.count(EMBEDDINGS) == embeddings
 
 
-async def test_수집_API가_같은_키로_되살려도_건너뜀_문서는_작업을_넣지_않는다(
+async def test_수집_API가_같은_키로_복구해도_건너뜀_문서는_작업을_넣지_않는다(
     pipeline: Pipeline,
 ) -> None:
     document_id = await _indexed_and_deleted(pipeline)
@@ -259,7 +259,7 @@ async def test_지워지지_않은_문서는_409_document_not_deleted다(pipelin
     assert (await _document(pipeline, ingested.document_id)).deleted_at is None
 
 
-async def test_두_번째_되살리기는_409_document_not_deleted다(pipeline: Pipeline) -> None:
+async def test_두_번째_복구는_409_document_not_deleted다(pipeline: Pipeline) -> None:
     document_id = await _indexed_and_deleted(pipeline)
     await _restore(pipeline, document_id)
 
@@ -296,7 +296,7 @@ async def test_지운_원천의_문서는_409_source_deleted다(pipeline: Pipeli
     assert (await _document(pipeline, document_id)).deleted_at is not None
 
 
-async def test_보관_기간이_지났어도_정리_작업이_아직_지우지_않았으면_되살린다(
+async def test_보관_기간이_지났어도_정리_작업이_아직_지우지_않았으면_복구한다(
     pipeline: Pipeline,
 ) -> None:
     document_id = await _indexed_and_deleted(pipeline)
@@ -312,14 +312,14 @@ async def test_보관_기간이_지났어도_정리_작업이_아직_지우지_�
     assert (await _document(pipeline, document_id)).deleted_at is None
 
 
-async def test_원천을_지우는_요청이_먼저_잡은_원천이면_되살리기는_기다렸다_source_deleted로_끝난다(
+async def test_원천을_지우는_요청이_먼저_잡은_원천이면_복구는_기다렸다_source_deleted로_끝난다(
     pipeline: Pipeline,
 ) -> None:
     document_id = await _indexed_and_deleted(pipeline)
     async with pipeline.unit_of_work.begin() as transaction:
         await transaction.catalog.lock_source(pipeline.source.id)
         await transaction.catalog.mark_source_deleted(pipeline.source.id, NOW)
-        # 삭제 요청의 작업 단위가 아직 커밋하지 않았다. 이때 온 되살리기는 원천 행을 기다린다.
+        # 삭제 요청의 작업 단위가 아직 커밋하지 않았다. 이때 온 복구는 원천 행을 기다린다.
         crossing = asyncio.create_task(_refused(pipeline, document_id))
         await asyncio.sleep(0.3)
         assert not crossing.done()
@@ -329,14 +329,14 @@ async def test_원천을_지우는_요청이_먼저_잡은_원천이면_되살�
     assert (await _document(pipeline, document_id)).deleted_at is not None
 
 
-async def test_문서_행을_잡은_작업이_문서를_정리하면_기다린_되살리기는_404로_끝난다(
+async def test_문서_행을_잡은_작업이_문서를_정리하면_기다린_복구는_404로_끝난다(
     pipeline: Pipeline,
 ) -> None:
     document_id = await _indexed_and_deleted(pipeline)
     async with pipeline.unit_of_work.begin() as transaction:
         locked = await transaction.documents.lock(document_id)
         assert locked is not None
-        # 정리 작업이 문서 행을 잡은 채 완전히 지우는 중이다. 이때 온 되살리기는 문서 행을 기다린다.
+        # 정리 작업이 문서 행을 잡은 채 완전히 지우는 중이다. 이때 온 복구는 문서 행을 기다린다.
         crossing = asyncio.create_task(_refused(pipeline, document_id))
         await asyncio.sleep(0.3)
         assert not crossing.done()

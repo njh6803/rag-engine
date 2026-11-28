@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>파일 올리기 창</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="box-sizing: border-box; min-height: 640px; padding: var(--spacing-8); background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="display: grid; gap: var(--spacing-6); grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); align-items: start;">
+
+<section class="flex flex-col gap-3">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">처음 열었을 때</h2>
+<div role="dialog" aria-labelledby="up1" class="shadow-float flex flex-col gap-4" style="box-sizing: border-box; padding: var(--spacing-6); border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<div class="flex items-center justify-between gap-2"><h3 id="up1" class="text-body font-semibold" style="margin: 0;">파일 올리기</h3><x-import component-from-global-scope="AgentOsUi.IconButton" icon="x" label="닫기" size="s"></x-import></div>
+<div class="flex flex-col items-center gap-3 text-center" style="padding: var(--spacing-8) var(--spacing-4); border: 1px dashed var(--border-control); border-radius: var(--radius-m); background: var(--bg);">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-muted);"><path vector-effect="non-scaling-stroke" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline vector-effect="non-scaling-stroke" points="17 8 12 3 7 8"></polyline><line vector-effect="non-scaling-stroke" x1="12" x2="12" y1="3" y2="15"></line></svg>
+<span class="text-body">파일을 여기에 끌어 놓으세요</span>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary" type="button">파일 고르기</x-import>
+</div>
+<p class="text-small text-text-muted" style="margin: 0;">PDF, DOCX, HWPX 파일을 하나에 100MB까지 받습니다. 올린 문서는 원천 <span class="font-mono text-mono">upload</span>에 들어갑니다.</p>
+</div>
+</section>
+
+<section class="flex flex-col gap-3">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">올리는 중</h2>
+<div role="dialog" aria-labelledby="up2" class="shadow-float flex flex-col gap-4" style="box-sizing: border-box; padding: var(--spacing-6); border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<div class="flex items-center justify-between gap-2"><h3 id="up2" class="text-body font-semibold" style="margin: 0;">파일 올리기</h3><x-import component-from-global-scope="AgentOsUi.IconButton" icon="x" label="닫기" size="s"></x-import></div>
+<ul class="flex flex-col gap-4" style="list-style: none; margin: 0; padding: 0;">
+<li class="flex flex-col gap-2">
+<div class="flex items-center justify-between gap-2"><span class="text-body">점검 일지 2026-11.pdf</span><span class="font-mono text-mono text-small text-text-muted">3.1MB</span></div>
+<x-import component-from-global-scope="AgentOsUi.Progress" value="{{ sent }}" max="{{ size }}" label="2.0MB / 3.1MB 올림"></x-import>
+</li>
+<li class="flex items-center justify-between gap-2" style="padding-top: var(--spacing-3); border-top: 1px solid var(--border);">
+<span class="flex flex-col gap-1"><span class="text-body">설비 교체 계획.docx</span><span class="text-small text-text-muted">올렸습니다. 차례가 오면 수집합니다.</span></span>
+<dc-import name="cmp-badge" state="pending" hint-size="52px,22px"></dc-import>
+</li>
+</ul>
+<p class="text-small text-text-muted" style="margin: 0;">창을 닫아도 올리기는 이어집니다. 문서 목록에서 상태를 봅니다.</p>
+</div>
+</section>
+
+<section class="flex flex-col gap-3">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">받지 않은 파일이 있을 때</h2>
+<div role="dialog" aria-labelledby="up3" class="shadow-float flex flex-col gap-4" style="box-sizing: border-box; padding: var(--spacing-6); border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<div class="flex items-center justify-between gap-2"><h3 id="up3" class="text-body font-semibold" style="margin: 0;">파일 올리기</h3><x-import component-from-global-scope="AgentOsUi.IconButton" icon="x" label="닫기" size="s"></x-import></div>
+<ul class="flex flex-col gap-3" style="list-style: none; margin: 0; padding: 0;">
+<li class="flex items-start gap-2"><span style="color: var(--danger); flex-shrink: 0;"><x-import component-from-global-scope="AgentOsUi.Icon" name="circle-x" size="16" label="받지 않음"></x-import></span><span class="flex flex-col gap-1"><span class="text-body">회의록.pptx</span><span class="text-small text-text-muted">이 형식은 받지 않습니다. PDF, DOCX, HWPX만 받습니다.</span></span></li>
+<li class="flex items-start gap-2"><span style="color: var(--danger); flex-shrink: 0;"><x-import component-from-global-scope="AgentOsUi.Icon" name="circle-x" size="16" label="받지 않음"></x-import></span><span class="flex flex-col gap-1"><span class="text-body">도면 묶음.pdf <span class="font-mono text-mono text-small text-text-muted">142MB</span></span><span class="text-small text-text-muted">100MB를 넘어 받지 않습니다. 파일을 나눠 올리세요.</span></span></li>
+<li class="flex items-start gap-2" style="padding-top: var(--spacing-3); border-top: 1px solid var(--border);"><span style="color: var(--success); flex-shrink: 0;"><x-import component-from-global-scope="AgentOsUi.Icon" name="circle-check" size="16" label="올림"></x-import></span><span class="flex flex-col gap-1"><span class="text-body">점검 일지 2026-11.pdf</span><span class="text-small text-text-muted">올렸습니다. 차례가 오면 수집합니다.</span></span></li>
+</ul>
+<div class="flex" style="justify-content: flex-end;"><x-import component-from-global-scope="AgentOsUi.Button" variant="secondary" type="button">다른 파일 고르기</x-import></div>
+</div>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1280, "height": 640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { sent: 20, size: 31 };
+  }
+}
+</script>
+</body>
+</html>

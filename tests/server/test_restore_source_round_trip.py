@@ -1,8 +1,8 @@
-"""원천 되살리기의 왕복(source-sync 티켓 12, 명세 "Testing Decisions"의 주 이음매).
+"""원천 복구의 왕복(source-sync 티켓 12, 명세 "Testing Decisions"의 주 이음매).
 
 실제 uvicorn 서버와 실제 작업자(한 번 돌기), 공식 MCP 클라이언트의 `search`를 쓰고 임베딩 서버만
-스텁이다. 지운 원천을 되살리고 작업자를 돌리면 문서가 임베딩을 다시 하지 않고 검색에 돌아오고,
-되살리고 지우는 요청이 서로 엇갈리지 않는다.
+스텁이다. 지운 원천을 복구하고 작업자를 돌리면 문서가 임베딩을 다시 하지 않고 검색에 돌아오고,
+복구하고 지우는 요청이 서로 엇갈리지 않는다.
 """
 
 import httpx
@@ -55,7 +55,7 @@ async def _delete_and_drain(round_trip: RoundTrip) -> None:
     await round_trip.work()
 
 
-async def test_지운_원천을_되살리고_작업자를_돌리면_임베딩_없이_검색에_돌아온다(
+async def test_지운_원천을_복구하고_작업자를_돌리면_임베딩_없이_검색에_돌아온다(
     round_trip: RoundTrip,
 ) -> None:
     await _seed(round_trip)
@@ -69,7 +69,7 @@ async def test_지운_원천을_되살리고_작업자를_돌리면_임베딩_�
     assert restored.status_code == 202
     job = _admin(round_trip.server, "GET", f"{JOBS}/{restored.json()['job_id']}").json()["job"]
     assert (job["kind"], job["status"], job["source"]) == ("restore_source", "queued", "wiki")
-    # 표시를 걷은 순간부터 원천은 다시 요청을 받는다. 문서는 작업자가 되살리는 대로 돌아온다.
+    # 표시를 걷은 순간부터 원천은 다시 요청을 받는다. 문서는 작업자가 복구하는 대로 돌아온다.
     shown = _admin(round_trip.server, "GET", f"{SOURCES}/wiki").json()
     assert shown["deleted_at"] is None
     assert restored.json()["connection_check"] is None
@@ -91,7 +91,7 @@ async def test_지운_원천을_되살리고_작업자를_돌리면_임베딩_�
     assert marks == [("a.docx", True, False), ("b.docx", False, False)]
 
 
-async def test_되살린_원천은_작업자를_돌리기_전에도_수집을_받는다(round_trip: RoundTrip) -> None:
+async def test_복구한_원천은_작업자를_돌리기_전에도_수집을_받는다(round_trip: RoundTrip) -> None:
     await _seed(round_trip)
     await _delete_and_drain(round_trip)
     assert _admin(round_trip.server, "POST", f"{SOURCES}/wiki/restore").status_code == 202
@@ -103,7 +103,7 @@ async def test_되살린_원천은_작업자를_돌리기_전에도_수집을_�
     assert set(await _found(round_trip)) == {"a.docx", "b.docx", "c.docx", "d.docx"}
 
 
-async def test_되살리는_요청_뒤에_수집_API로_지운_문서는_돌아오지_않는다(
+async def test_복구하는_요청_뒤에_수집_API로_지운_문서는_돌아오지_않는다(
     round_trip: RoundTrip,
 ) -> None:
     ids = await _seed(round_trip)
@@ -124,7 +124,7 @@ async def test_되살리는_요청_뒤에_수집_API로_지운_문서는_돌아�
     assert row == (False,)
 
 
-async def test_내용을_바꿔_넣고_색인이_돌기_전에_지웠다_되살리면_새_내용이_나온다(
+async def test_내용을_바꿔_넣고_색인이_돌기_전에_지웠다_복구하면_새_내용이_나온다(
     round_trip: RoundTrip,
 ) -> None:
     _create_push(round_trip.server, "wiki")
@@ -145,7 +145,7 @@ async def test_내용을_바꿔_넣고_색인이_돌기_전에_지웠다_되살�
     assert "연차휴가" not in texts["a.docx"]
 
 
-async def test_지우는_작업이_끝나기_전의_되살리기와_되살리는_작업이_끝나기_전의_지우기는_409다(
+async def test_지우는_작업이_끝나기_전의_복구와_복구하는_작업이_끝나기_전의_지우기는_409다(
     round_trip: RoundTrip,
 ) -> None:
     await _seed(round_trip)
@@ -177,7 +177,7 @@ async def test_지워지지_않은_원천과_없는_원천은_409와_404다(roun
     assert (missing.status_code, missing.json()["code"]) == (404, "source_not_found")
 
 
-async def test_보관_기간이_지난_지운_원천은_되살릴_수_없고_지운_채다(round_trip: RoundTrip) -> None:
+async def test_보관_기간이_지난_지운_원천은_복구할_수_없고_지운_채다(round_trip: RoundTrip) -> None:
     await _seed(round_trip)
     await _delete_and_drain(round_trip)
     with psycopg.connect(round_trip.server.settings.database_url, autocommit=True) as connection:
@@ -192,7 +192,7 @@ async def test_보관_기간이_지난_지운_원천은_되살릴_수_없고_지
     assert set(await _found(round_trip)) == {"d.docx"}
 
 
-async def test_default와_upload는_지운_적이_없어_되살리면_source_not_deleted다(
+async def test_default와_upload는_지운_적이_없어_복구하면_source_not_deleted다(
     round_trip: RoundTrip,
 ) -> None:
     for name in ("default", "upload"):
@@ -201,8 +201,8 @@ async def test_default와_upload는_지운_적이_없어_되살리면_source_not
         assert (response.status_code, response.json()["code"]) == (409, "source_not_deleted")
 
 
-async def test_되살린_원천의_문서는_문서_조회에_다시_읽힌다(round_trip: RoundTrip) -> None:
-    # 지운 원천은 문서 조회에서 지워진 것으로 읽힌다(티켓 11). 되살리면 다시 읽힌다.
+async def test_복구한_원천의_문서는_문서_조회에_다시_읽힌다(round_trip: RoundTrip) -> None:
+    # 지운 원천은 문서 조회에서 지워진 것으로 읽힌다(티켓 11). 복구하면 다시 읽힌다.
     ids = await _seed(round_trip)
     await _delete_and_drain(round_trip)
     hidden = error_body(await round_trip.get_document(ids["a.docx"]))

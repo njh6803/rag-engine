@@ -121,7 +121,7 @@ async def test_삭제_반영은_임베딩_서버가_답하지_않아도_같은_�
     assert await pipeline.chunk_texts(added.id) == []
 
 
-async def test_지운_파일이_다시_생기면_다음_동기화가_그_문서를_되살린다(
+async def test_지운_파일이_다시_생기면_다음_동기화가_그_문서를_복구한다(
     pipeline: Pipeline,
 ) -> None:
     source, folder, registry = await _seed(pipeline, "규정.docx", "지침.docx")
@@ -434,7 +434,7 @@ async def test_이미_지워진_문서만_남은_원천은_폴더가_비어도_�
 async def test_원천과_함께_지워졌다는_표시가_남은_문서도_있는_문서로_세어_빈_폴더를_실패로_닫는다(
     pipeline: Pipeline,
 ) -> None:
-    """원천을 되살린 뒤 원천 되살리기 작업이 아직 되살리지 않은 문서는 지워진 채 표시만 남는다."""
+    """원천을 복구한 뒤 원천 복구 작업이 아직 복구하지 않은 문서는 지워진 채 표시만 남는다."""
     source, folder, registry = await _seed(pipeline, "규정.docx")
     async with pipeline.engine.begin() as connection:
         await connection.execute(

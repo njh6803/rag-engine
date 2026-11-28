@@ -57,7 +57,7 @@ class SyncRecordResponse(BaseModel):
     started_at: UtcTime | None
     finished_at: UtcTime | None
     listed: int | None = Field(description="받은 목록의 건수. 목록을 받지 못했으면 null")
-    added: int = Field(description="새 문서로 넣은 파일(되살린 것 포함)")
+    added: int = Field(description="새 문서로 넣은 파일(복구한 것 포함)")
     updated: int = Field(description="내용이 바뀌어 다시 넣은 파일")
     deleted: int = Field(description="삭제 반영으로 임시 삭제한 문서")
     unchanged: int = Field(description="내용이 그대로인 파일")

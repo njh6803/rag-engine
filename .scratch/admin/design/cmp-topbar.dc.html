@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>부품: 위 막대(375)</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<header data-theme="nokcheong" data-mode="light" style="position: relative; box-sizing: border-box; padding: var(--spacing-2) var(--spacing-4); display: flex; flex-direction: column; gap: var(--spacing-1); background: var(--bg-raised); border-bottom: 1px solid var(--border); color: var(--text); font-family: var(--sans);">
+<div class="flex items-center justify-between gap-3" style="min-height: 40px;">
+<span class="font-semibold text-body">rag-engine</span>
+<button type="button" aria-haspopup="menu" aria-expanded="{{ expanded }}" aria-label="계정 메뉴 열기, {{ account }}, {{ role }}" class="flex items-center gap-1" style="height: var(--control-h); padding: 0 var(--spacing-2); border: 0; border-radius: var(--radius-m); background: {{ buttonBg }}; color: var(--text); font: inherit; cursor: pointer;"><span class="font-mono text-mono font-medium">{{ account }}</span><span style="display: inline-flex; color: var(--text-muted);"><x-import component-from-global-scope="AgentOsUi.Icon" name="chevrons-up-down" size="16"></x-import></span></button>
+</div>
+<nav aria-label="관리자 페이지" class="flex items-center gap-1" style="overflow-x: auto; padding-bottom: var(--spacing-1);">
+<a href="dash.dc.html" aria-current="{{ ac.dashboard }}" class="text-body shrink-0" style="height: 32px; display: flex; align-items: center; padding: 0 var(--spacing-2); border-radius: var(--radius-m); text-decoration: none; white-space: nowrap; background: {{ bg.dashboard }}; color: {{ fg.dashboard }}; font-weight: {{ fw.dashboard }};">대시보드</a>
+<a href="src-list.dc.html" aria-current="{{ ac.sources }}" class="text-body shrink-0" style="height: 32px; display: flex; align-items: center; padding: 0 var(--spacing-2); border-radius: var(--radius-m); text-decoration: none; white-space: nowrap; background: {{ bg.sources }}; color: {{ fg.sources }}; font-weight: {{ fw.sources }};">원천</a>
+<a href="doc-list.dc.html" aria-current="{{ ac.documents }}" class="text-body shrink-0" style="height: 32px; display: flex; align-items: center; padding: 0 var(--spacing-2); border-radius: var(--radius-m); text-decoration: none; white-space: nowrap; background: {{ bg.documents }}; color: {{ fg.documents }}; font-weight: {{ fw.documents }};">문서</a>
+<a href="try.dc.html" aria-current="{{ ac.try }}" class="text-body shrink-0" style="height: 32px; display: flex; align-items: center; padding: 0 var(--spacing-2); border-radius: var(--radius-m); text-decoration: none; white-space: nowrap; background: {{ bg.try }}; color: {{ fg.try }}; font-weight: {{ fw.try }};">검색 시험</a>
+<a href="fx-tokens.dc.html" aria-current="{{ ac.tokens }}" class="text-body shrink-0" style="height: 32px; display: flex; align-items: center; padding: 0 var(--spacing-2); border-radius: var(--radius-m); text-decoration: none; white-space: nowrap; background: {{ bg.tokens }}; color: {{ fg.tokens }}; font-weight: {{ fw.tokens }};">토큰</a>
+<sc-if value="{{ admin }}" hint-placeholder-val="{{ true }}">
+<a href="fx-accounts.dc.html" aria-current="{{ ac.accounts }}" class="text-body shrink-0" style="height: 32px; display: flex; align-items: center; padding: 0 var(--spacing-2); border-radius: var(--radius-m); text-decoration: none; white-space: nowrap; background: {{ bg.accounts }}; color: {{ fg.accounts }}; font-weight: {{ fw.accounts }};">계정</a>
+</sc-if>
+</nav>
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="계정 메뉴" class="shadow-float flex flex-col" style="position: absolute; top: 48px; right: var(--spacing-4); z-index: 3; min-width: 200px; padding: var(--spacing-1); background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-m);">
+<div class="flex flex-col" style="padding: var(--spacing-2) var(--spacing-3);"><span class="font-mono text-mono font-medium">{{ account }}</span><span class="text-small text-text-muted">{{ role }}</span></div>
+<a href="fx-my-password.dc.html" role="menuitem" class="flex items-center text-body" style="height: var(--control-h); padding: 0 var(--spacing-3); border-radius: var(--radius-s); background: var(--bg-hover); color: var(--text); text-decoration: none; white-space: nowrap;">비밀번호 바꾸기</a>
+<a href="fx-login-notices.dc.html" role="menuitem" class="flex items-center text-body" style="height: var(--control-h); padding: 0 var(--spacing-3); border-radius: var(--radius-s); color: var(--text); text-decoration: none; white-space: nowrap;">로그아웃</a>
+</div>
+</sc-if>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"current": {"editor": "enum", "options": ["dashboard", "sources", "documents", "try", "tokens", "accounts", "none"], "default": "dashboard"}, "admin": {"editor": "boolean", "default": true}, "account": {"editor": null, "default": "ops-lead"}, "role": {"editor": null, "default": "시스템 관리자"}, "menuOpen": {"editor": "boolean", "default": false}, "$preview": {"width": 375, "height": 160}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const cur = this.props.current ?? 'dashboard';
+    const open = this.props.menuOpen ?? false;
+    const keys = ['dashboard', 'sources', 'documents', 'try', 'tokens', 'accounts'];
+    const bg = {}, fg = {}, fw = {}, ac = {};
+    for (const k of keys) {
+      const on = k === cur;
+      bg[k] = on ? 'var(--bg-selected)' : 'transparent';
+      fg[k] = on ? 'var(--text)' : 'var(--text-muted)';
+      fw[k] = on ? 'var(--font-weight-medium)' : 'var(--font-weight-regular)';
+      ac[k] = on ? 'page' : undefined;
+    }
+    return {
+      bg, fg, fw, ac,
+      admin: this.props.admin ?? true,
+      account: this.props.account ?? 'ops-lead',
+      role: this.props.role ?? '시스템 관리자',
+      menuOpen: open,
+      expanded: open ? 'true' : 'false',
+      buttonBg: open ? 'var(--bg-active)' : 'transparent'
+    };
+  }
+}
+</script>
+</body>
+</html>

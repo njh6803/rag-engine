@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>검색 시험 375</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important} a{color:var(--accent)} a:hover{color:var(--text)}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<dc-import name="cmp-topbar" current="try" admin="{{ yes }}" account="ops-lead" role="시스템 관리자" menu-open="{{ no }}" hint-size="100%,96px"></dc-import>
+<main style="box-sizing: border-box; padding: var(--spacing-4); display: flex; flex-direction: column; gap: var(--spacing-4);">
+<header class="flex flex-col gap-1">
+<h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">검색 시험</h1>
+<p class="text-small text-text-muted" style="margin: 0;">MCP 클라이언트가 같은 질문으로 검색하면 받는 결과입니다.</p>
+</header>
+
+<form role="search" class="flex flex-col gap-2" style="margin: 0;" onsubmit="return false;">
+<x-import component-from-global-scope="AgentOsUi.TextField" label="질문" hide-label="{{ yes }}" value="월간 점검에서 확인할 항목" placeholder="찾을 내용을 적으세요"></x-import>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="primary" type="submit">검색</x-import>
+<p class="flex items-center gap-1 text-small text-text-muted" style="margin: 0;"><x-import component-from-global-scope="AgentOsUi.Icon" name="lock" size="14"></x-import>질문은 저장하지 않습니다.</p>
+</form>
+
+<details style="border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<summary class="flex items-center justify-between gap-2 text-body" style="min-height: var(--control-h); padding: 0 var(--spacing-3); cursor: pointer; list-style: none;"><span class="font-medium">조건</span><span class="text-small text-text-muted"><span class="font-mono text-mono">default</span>, 10건, 최소 점수 없음</span></summary>
+<div class="flex flex-col" style="gap: var(--spacing-4); padding: var(--spacing-4) var(--spacing-3); border-top: 1px solid var(--border);">
+<label class="flex flex-col gap-2"><span class="text-small font-medium">지식베이스</span><select class="text-body font-mono" style="height: var(--control-h); padding: 0 var(--spacing-3); border: 1px solid var(--border-control); border-radius: var(--radius-m); background: var(--bg); color: var(--text);"><option>default</option></select></label>
+<x-import component-from-global-scope="AgentOsUi.TextField" label="결과 수" type="number" value="10"></x-import>
+<x-import component-from-global-scope="AgentOsUi.TextField" label="최소 점수" optional="{{ yes }}" placeholder="예: 0.5" help="이 점수보다 낮은 조각은 빼고 보입니다."></x-import>
+<fieldset class="flex flex-col" style="gap: var(--spacing-3); margin: 0; padding: var(--spacing-4) 0 0; border: 0; border-top: 1px solid var(--border); min-width: 0;">
+<legend class="text-small font-medium" style="float: left; width: 100%; padding: 0; margin: 0 0 var(--spacing-1);">갱신일 <span class="text-text-muted" style="font-weight: normal;">선택</span></legend>
+<x-import component-from-global-scope="AgentOsUi.TextField" label="이후" type="date" value="2026-11-01"></x-import>
+<x-import component-from-global-scope="AgentOsUi.TextField" label="이전" type="date"></x-import>
+<p class="text-small text-text-muted" style="margin: 0;">문서가 마지막으로 고쳐진 날입니다. 서버 폴더는 파일의 수정 시각입니다. MCP 클라이언트가 최근 문서만 찾을 때 넣는 조건과 같습니다.</p>
+</fieldset>
+</div>
+</details>
+
+<section aria-labelledby="result-title" class="flex flex-col gap-3">
+<h2 id="result-title" class="text-body font-semibold" style="margin: 0;">결과 8건, <span class="font-mono text-mono">182ms</span> 걸림</h2>
+
+<x-import component-from-global-scope="AgentOsUi.Card" padding="3">
+<article class="flex flex-col gap-2">
+<div class="flex items-center gap-3 text-small"><span class="font-mono text-mono font-medium">1위</span><span class="font-mono text-mono">점수 0.82</span></div>
+<a href="doc-view.dc.html" class="text-body font-medium">장비 점검 매뉴얼 v4.pdf</a>
+<p class="text-small text-text-muted" style="margin: 0; overflow-wrap: anywhere;"><span class="font-mono text-mono">nas-manuals</span>, 키 <span class="font-mono text-mono">manuals/점검/장비 점검 매뉴얼 v4.pdf</span></p>
+<p class="text-small" style="margin: 0;">12쪽, 3. 점검 주기 &gt; 3.2 월간 점검, 표</p>
+<p class="text-body" style="margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">월간 점검에서는 배전반 온도, 비상 발전기 시동, 소화 설비 압력을 확인한다. | 항목 | 기준 | 조치 | 배전반 온도 | 60℃ 이하 | 넘으면 부하를 줄이고 보고 |</p>
+<div class="flex items-center gap-4 text-small"><button type="button" class="text-small" style="padding: 0; border: 0; background: transparent; color: var(--accent); font-family: inherit; cursor: pointer;">더 보기</button><span class="text-text-muted">갱신 <span class="font-mono text-mono">11-25 14:02</span></span></div>
+</article>
+</x-import>
+
+<x-import component-from-global-scope="AgentOsUi.Card" padding="3">
+<article class="flex flex-col gap-2">
+<div class="flex items-center gap-3 text-small"><span class="font-mono text-mono font-medium">2위</span><span class="font-mono text-mono">점수 0.74</span></div>
+<a href="doc-view.dc.html" class="text-body font-medium">배전반 관리 지침.pdf</a>
+<p class="text-small text-text-muted" style="margin: 0; overflow-wrap: anywhere;"><span class="font-mono text-mono">nas-manuals</span>, 키 <span class="font-mono text-mono">manuals/전기/배전반 관리 지침.pdf</span></p>
+<p class="text-small" style="margin: 0;">4쪽, 2. 정기 점검 &gt; 2.1 월간 점검, 문단</p>
+<p class="text-body" style="margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">배전반은 매월 첫째 주에 표면 온도와 이상음을 확인한다. 온도는 적외선 온도계로 재고, 60℃를 넘으면 부하를 나눠 다시 잰다.</p>
+<div class="flex items-center gap-4 text-small"><button type="button" class="text-small" style="padding: 0; border: 0; background: transparent; color: var(--accent); font-family: inherit; cursor: pointer;">더 보기</button><span class="text-text-muted">갱신 <span class="font-mono text-mono">11-20 09:41</span></span></div>
+</article>
+</x-import>
+
+<x-import component-from-global-scope="AgentOsUi.Card" padding="3">
+<article class="flex flex-col gap-2">
+<div class="flex items-center gap-3 text-small"><span class="font-mono text-mono font-medium">3위</span><span class="font-mono text-mono">점수 0.69</span></div>
+<a href="doc-view.dc.html" class="text-body font-medium">장비 점검 매뉴얼 v4.pdf</a>
+<p class="text-small text-text-muted" style="margin: 0; overflow-wrap: anywhere;"><span class="font-mono text-mono">nas-manuals</span>, 키 <span class="font-mono text-mono">manuals/점검/장비 점검 매뉴얼 v4.pdf</span></p>
+<p class="text-small" style="margin: 0;">12쪽, 3. 점검 주기 &gt; 3.1 일일 점검, 문단</p>
+<p class="text-body" style="margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">일일 점검은 매일 작업 시작 전에 실시한다. 점검 항목은 전원부 이상음, 냉각팬 작동, 표시등 상태 세 가지다.</p>
+<div class="flex items-center gap-4 text-small"><button type="button" class="text-small" style="padding: 0; border: 0; background: transparent; color: var(--accent); font-family: inherit; cursor: pointer;">더 보기</button><span class="text-text-muted">갱신 <span class="font-mono text-mono">11-25 14:02</span></span></div>
+</article>
+</x-import>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 375, "height": 1400}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { yes: true, no: false };
+  }
+}
+</script>
+</body>
+</html>

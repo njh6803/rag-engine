@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>원본 탭의 상태</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="box-sizing: border-box; min-height: 520px; padding: var(--spacing-8); background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="display: grid; gap: var(--spacing-6); grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); align-items: start;">
+
+<section class="flex flex-col gap-3">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">화면에서 볼 수 없는 형식(<span class="font-sans">2026 출장 규정.docx</span>)</h2>
+<div style="border: 1px solid var(--border); border-radius: var(--radius-m); overflow: hidden;">
+<div role="tablist" aria-label="문서 보기" class="flex gap-4" style="padding: 0 var(--spacing-4); border-bottom: 1px solid var(--border); background: var(--bg-raised);">
+<span role="tab" aria-selected="false" class="text-body flex items-center" style="height: var(--control-h); padding: 0 var(--spacing-1); margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--text-muted);">파싱 결과</span>
+<span role="tab" aria-selected="true" class="text-body font-medium flex items-center" style="height: var(--control-h); padding: 0 var(--spacing-1); margin-bottom: -1px; border-bottom: 2px solid var(--accent);">원본</span>
+</div>
+<div class="flex flex-col items-center justify-center gap-3 text-center" style="min-height: 280px; padding: var(--spacing-6); background: var(--bg-raised);">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-muted);"><path vector-effect="non-scaling-stroke" d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path vector-effect="non-scaling-stroke" d="M14 2v4a2 2 0 0 0 2 2h4"></path><path vector-effect="non-scaling-stroke" d="M10 9H8"></path><path vector-effect="non-scaling-stroke" d="M16 13H8"></path><path vector-effect="non-scaling-stroke" d="M16 17H8"></path></svg>
+<p class="text-body text-text-muted" style="margin: 0;">이 형식은 화면에서 볼 수 없습니다. 내려받아 여세요.</p>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary" type="button">원본 내려받기</x-import>
+<p class="text-small text-text-muted" style="margin: 0;">원본 탭에서 띄우는 것은 PDF뿐입니다. DOCX와 HWPX는 파싱 결과 탭에서 읽힌 글을 봅니다.</p>
+</div>
+</div>
+</section>
+
+<section class="flex flex-col gap-3">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">원본을 읽지 못했을 때(<span class="font-sans">장비 점검 매뉴얼 v4.pdf</span>)</h2>
+<div style="border: 1px solid var(--border); border-radius: var(--radius-m); overflow: hidden;">
+<div role="tablist" aria-label="문서 보기" class="flex gap-4" style="padding: 0 var(--spacing-4); border-bottom: 1px solid var(--border); background: var(--bg-raised);">
+<span role="tab" aria-selected="false" class="text-body flex items-center" style="height: var(--control-h); padding: 0 var(--spacing-1); margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--text-muted);">파싱 결과</span>
+<span role="tab" aria-selected="true" class="text-body font-medium flex items-center" style="height: var(--control-h); padding: 0 var(--spacing-1); margin-bottom: -1px; border-bottom: 2px solid var(--accent);">원본</span>
+</div>
+<div class="flex flex-col gap-3" style="min-height: 280px; box-sizing: border-box; padding: var(--spacing-4); background: var(--bg-raised);">
+<x-import component-from-global-scope="AgentOsUi.Alert" tone="warning" title="원본을 읽지 못했습니다">
+<p class="text-body" style="margin: 0;">서버에서 폴더 <span class="font-mono text-mono">manuals</span>가 보이지 않아 원본을 띄우지 못했습니다. 파싱 결과와 조각은 색인에 있어 그대로 봅니다.</p>
+<p class="text-small text-text-muted" style="margin: var(--spacing-1) 0 0;">폴더가 다시 붙으면 이 탭을 다시 누르세요. 원천 화면의 연결 확인으로 폴더가 보이는지 먼저 볼 수 있습니다.</p>
+</x-import>
+</div>
+</div>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1280, "height": 520}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

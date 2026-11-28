@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>로그인</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important} a{color:var(--accent)} a:hover{color:var(--text)}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="box-sizing: border-box; min-height: 100vh; display: flex; justify-content: center; padding: calc(var(--spacing-8) * 3) var(--spacing-4) var(--spacing-8); background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: var(--spacing-6);">
+<span class="text-body font-semibold">rag-engine</span>
+
+<sc-if value="{{ form }}" hint-placeholder-val="{{ true }}">
+<header class="flex flex-col gap-1">
+<h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">로그인</h1>
+<p class="text-body text-text-muted" style="margin: 0;">운영자 계정으로 로그인합니다.</p>
+</header>
+
+<sc-if value="{{ is.failed }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="AgentOsUi.Alert" tone="danger" title="로그인하지 못했습니다"><p class="text-body" style="margin: 0;">계정 이름이나 비밀번호가 맞지 않거나, 지금은 이 계정으로 로그인할 수 없습니다. 비밀번호를 잊었거나 계정이 잠겼으면 시스템 관리자에게 비밀번호 링크를 받으세요.</p></x-import></sc-if>
+<sc-if value="{{ is.logout }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="AgentOsUi.Alert" tone="info" title="로그아웃했습니다"></x-import></sc-if>
+<sc-if value="{{ is.expired }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="AgentOsUi.Alert" tone="info" title="로그인이 끝났습니다"><p class="text-body" style="margin: 0;">오래 쓰지 않았거나 서버가 로그인을 끊었습니다. 다시 로그인하세요.</p></x-import></sc-if>
+<sc-if value="{{ is.passwordSet }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="AgentOsUi.Alert" tone="info" title="비밀번호를 정했습니다"><p class="text-body" style="margin: 0;">정한 비밀번호로 로그인하세요.</p></x-import></sc-if>
+<sc-if value="{{ is.insecure }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="AgentOsUi.Alert" tone="warning" title="이 주소에서는 로그인할 수 없습니다"><p class="text-body" style="margin: 0;">로그인은 https 주소나 이 서버 자신(localhost)에서만 됩니다.</p></x-import></sc-if>
+
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4">
+<form class="flex flex-col" style="gap: var(--spacing-6); margin: 0; padding: var(--spacing-2);" onsubmit="return false;">
+<x-import component-from-global-scope="AgentOsUi.TextField" label="계정 이름" value="{{ account }}"></x-import>
+<x-import component-from-global-scope="AgentOsUi.TextField" label="비밀번호" type="password"></x-import>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="primary" type="submit" disabled="{{ is.insecure }}">로그인</x-import>
+</form>
+</x-import>
+</sc-if>
+
+<sc-if value="{{ is.first }}" hint-placeholder-val="{{ false }}">
+<header class="flex flex-col gap-1">
+<h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">첫 계정을 만듭니다</h1>
+<p class="text-body text-text-muted" style="margin: 0;">아직 운영자 계정이 없습니다. 서버에서 아래 명령으로 시스템 관리자를 만드세요. 비밀번호는 명령이 묻습니다.</p>
+</header>
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4">
+<div class="flex flex-col gap-3" style="padding: var(--spacing-2);">
+<div class="flex items-start gap-2" style="padding: var(--spacing-3); border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--bg-raised);">
+<code class="font-mono text-mono" style="flex: 1; min-width: 0; overflow-wrap: anywhere;">docker compose exec server rag-engine create-system-admin &lt;계정 이름&gt;</code>
+<x-import component-from-global-scope="AgentOsUi.IconButton" icon="copy" label="명령 복사" size="s"></x-import>
+</div>
+<p class="text-small text-text-muted" style="margin: 0;">배포 파일 묶음을 푼 폴더(compose.yaml이 있는 곳)에서 칩니다.</p>
+<div class="flex items-center justify-between gap-3 flex-wrap" style="padding-top: var(--spacing-2);">
+<span class="text-body">만든 뒤 이 화면을 새로 고치세요.</span>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary" type="button">새로 고침</x-import>
+</div>
+</div>
+</x-import>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"notice": {"editor": "enum", "options": ["none", "failed", "logout", "expired", "password-set", "insecure", "first"], "default": "failed"}, "$preview": {"width": 1280, "height": 800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const notice = this.props.notice ?? 'failed';
+    const is = {
+      failed: notice === 'failed', logout: notice === 'logout', expired: notice === 'expired',
+      passwordSet: notice === 'password-set', insecure: notice === 'insecure', first: notice === 'first'
+    };
+    return { yes: true, no: false, is, form: !is.first, account: is.failed ? 'kim.dev' : '' };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>검색 시험의 상태</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="box-sizing: border-box; min-height: 460px; padding: var(--spacing-8); background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="display: grid; gap: var(--spacing-6); grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); align-items: start;">
+
+<section class="flex flex-col gap-3">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">결과가 없을 때</h2>
+<div class="flex flex-col gap-3" style="padding: var(--spacing-4); border: 1px solid var(--border); border-radius: var(--radius-m);">
+<h3 class="text-body font-semibold" style="margin: 0;">결과 0건, <span class="font-mono text-mono">96ms</span> 걸림</h3>
+<div class="flex flex-col items-center gap-2 text-center" style="padding: var(--spacing-8) var(--spacing-4); border-radius: var(--radius-m); background: var(--bg-raised);">
+<x-import component-from-global-scope="AgentOsUi.Icon" name="search" size="20"></x-import>
+<p class="text-body" style="margin: 0;">맞는 조각이 없습니다.</p>
+<p class="text-small text-text-muted" style="margin: 0;">질문을 다른 말로 바꾸거나, 최소 점수를 낮추거나, 갱신일 범위를 넓혀 보세요.</p>
+</div>
+</div>
+</section>
+
+<section class="flex flex-col gap-3">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">현재 색인 버전이 없을 때</h2>
+<x-import component-from-global-scope="AgentOsUi.Alert" tone="warning" title="지식베이스 default에는 아직 현재 색인 버전이 없습니다">
+<p class="text-body" style="margin: 0;">색인을 다 만들기 전이라 검색할 수 없습니다. MCP 클라이언트가 같은 질문을 보내도 결과를 받지 못합니다.</p>
+<p class="text-small text-text-muted" style="margin: var(--spacing-1) 0 0;">대시보드의 색인 칸에서 만드는 중인 색인 버전을 확인하고, 끝난 뒤 다시 검색하세요.</p>
+</x-import>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1280, "height": 460}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

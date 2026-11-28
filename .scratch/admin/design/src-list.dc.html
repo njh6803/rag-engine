@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>원천 목록</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important} a{color:var(--accent)} a:hover{color:var(--text)}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<div style="flex: 0 0 var(--spacing-nav); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; gap: var(--spacing-4); padding: var(--spacing-4) var(--spacing-3); background: var(--bg-raised); border-right: 1px solid var(--border);">
+<dc-import name="cmp-nav" current="sources" admin="{{ yes }}" hint-size="232px,320px"></dc-import>
+<dc-import name="cmp-account" account="ops-lead" role="시스템 관리자" menu-open="{{ no }}" hint-size="232px,60px"></dc-import>
+</div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: var(--spacing-8);">
+<div style="max-width: 1040px; display: flex; flex-direction: column; gap: var(--spacing-6);">
+<header class="flex items-start justify-between gap-4 flex-wrap">
+<div class="flex flex-col gap-1 min-w-0" style="max-width: 680px;">
+<div class="flex items-center gap-2"><h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">원천</h1><span class="text-body text-text-muted">{{ count }}</span></div>
+<p class="text-body text-text-muted" style="margin: 0;">문서를 가져오는 곳입니다. 서버 폴더는 정해 둔 일정에 서버가 읽어 오고, 수집 API와 파일 올리기는 다른 시스템이나 사람이 보내 줍니다.</p>
+</div>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="primary">원천 만들기</x-import>
+</header>
+
+<sc-if value="{{ deleted }}" hint-placeholder-val="{{ false }}">
+<x-import component-from-global-scope="AgentOsUi.Card" padding="4">
+<x-import component-from-global-scope="AgentOsUi.Progress" value="{{ restored }}" max="{{ total }}" label="nas-manuals를 복구하는 중입니다. 문서 412 / 1,104"></x-import>
+<p class="text-small text-text-muted" style="margin: 0;">복구한 문서는 곧바로 검색에 다시 나옵니다. 복구하는 동안에도 일정대로 동기화하고, 지금 동기화도 누를 수 있습니다.</p>
+</x-import>
+</sc-if>
+
+<div class="flex flex-wrap gap-3" style="align-items: flex-end;">
+<div style="flex: 1 1 240px; max-width: 320px;"><x-import component-from-global-scope="AgentOsUi.TextField" label="이름" placeholder="이름으로 찾기"></x-import></div>
+<label class="flex flex-col gap-2"><span class="text-small font-medium">종류</span><select class="text-body" style="min-width: 160px; height: var(--control-h); padding: 0 var(--spacing-3); border: 1px solid var(--border-control); border-radius: var(--radius-m); background: var(--bg); color: var(--text); font-family: inherit;"><option>모든 종류</option><option>서버 폴더</option><option>수집 API</option><option>파일 올리기</option></select></label>
+<label class="flex flex-col gap-2"><span class="text-small font-medium">상태</span><select class="text-body" style="min-width: 160px; height: var(--control-h); padding: 0 var(--spacing-3); border: 1px solid var(--border-control); border-radius: var(--radius-m); background: var(--bg); color: var(--text); font-family: inherit;"><option>모든 상태</option><option>실패</option><option>동기화 중</option><option>일시 중지</option></select></label>
+<div style="margin-left: auto; min-height: var(--control-h); display: flex; align-items: center;"><x-import component-from-global-scope="AgentOsUi.Switch" label="지운 원천도 보기" checked="{{ deleted }}"></x-import></div>
+</div>
+
+<div style="overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-l); background: var(--bg-raised);">
+<table class="w-full text-table" aria-label="원천" style="border-collapse: collapse;">
+<thead><tr style="border-bottom: 1px solid var(--border); background: var(--bg);">
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">이름</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">종류</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">상태</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">일정</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">마지막 동기화</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: left; white-space: nowrap;">다음 실행</th>
+<th scope="col" class="text-small font-medium text-text-muted" style="height: var(--row-h); padding: 0 var(--spacing-3); text-align: right; white-space: nowrap;">문서</th>
+</tr></thead>
+<tbody>
+<sc-if value="{{ live }}" hint-placeholder-val="{{ true }}">
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><a href="src-detail.dc.html" class="font-mono text-mono">nas-manuals</a></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">서버 폴더</td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="failed" hint-size="52px,22px"></dc-import></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">매일 02:00</td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">11-26 17:36</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">11-27 02:00</span></td><td class="font-mono text-mono" style="padding: 0 var(--spacing-3); text-align: right;">1,104</td></tr>
+</sc-if>
+<sc-if value="{{ deleted }}" hint-placeholder-val="{{ false }}">
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><a href="src-detail.dc.html" class="font-mono text-mono">nas-manuals</a></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">서버 폴더</td><td style="padding: 0 var(--spacing-3);"><span class="text-small">복구 중</span></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">매일 02:00</td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">11-26 17:36</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">11-27 02:00</span></td><td class="font-mono text-mono" style="padding: 0 var(--spacing-3); text-align: right;">1,104</td></tr>
+</sc-if>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><a href="src-running.dc.html" class="font-mono text-mono">nas-handbook</a></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">서버 폴더</td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="syncing" hint-size="76px,22px"></dc-import></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">6시간마다</td><td style="padding: 0 var(--spacing-3);"><span class="text-small text-text-muted">12분째 동기화 중</span></td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">11-27 00:00</span></td><td class="font-mono text-mono" style="padding: 0 var(--spacing-3); text-align: right;">146</td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><a href="src-paused.dc.html" class="font-mono text-mono">nas-policies</a></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">서버 폴더</td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="paused" hint-size="72px,22px"></dc-import></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">매주 월요일 03:00</td><td style="padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">11-23 03:00</span></td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">없음</span></td><td class="font-mono text-mono" style="padding: 0 var(--spacing-3); text-align: right;">14</td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><span class="font-mono text-mono">groupware-push</span></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">수집 API</td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">동기화 없음</span></td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">없음</span></td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">없음</span></td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">없음</span></td><td class="font-mono text-mono" style="padding: 0 var(--spacing-3); text-align: right;">8</td></tr>
+<tr style="border-bottom: 1px solid var(--border);"><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><span class="font-mono text-mono">upload</span></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;">파일 올리기</td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">동기화 없음</span></td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">없음</span></td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">없음</span></td><td style="padding: 0 var(--spacing-3);"><span class="text-text-muted">없음</span></td><td class="font-mono text-mono" style="padding: 0 var(--spacing-3); text-align: right;">12</td></tr>
+<sc-if value="{{ deleted }}" hint-placeholder-val="{{ false }}">
+<tr><td style="height: var(--row-h); padding: 0 var(--spacing-3);"><span class="font-mono text-mono text-text-muted">nas-archive</span></td><td style="padding: 0 var(--spacing-3); white-space: nowrap;" class="text-text-muted">서버 폴더</td><td style="padding: 0 var(--spacing-3);"><dc-import name="cmp-badge" state="deleted" hint-size="72px,22px"></dc-import></td><td colspan="3" style="padding: var(--spacing-1) var(--spacing-3);"><div class="flex items-center gap-3 flex-wrap"><span class="text-small text-text-muted"><span class="font-mono text-mono">11-12</span>에 지웠습니다. <span class="font-mono text-mono">12-12</span>까지 복구할 수 있습니다.</span><x-import component-from-global-scope="AgentOsUi.Button" variant="secondary" type="button">복구</x-import></div></td><td class="font-mono text-mono text-text-muted" style="padding: 0 var(--spacing-3); text-align: right;">87</td></tr>
+</sc-if>
+</tbody>
+</table>
+</div>
+<sc-if value="{{ deleted }}" hint-placeholder-val="{{ false }}">
+<p class="text-small text-text-muted" style="margin: 0;">지운 원천은 30일 동안 복구할 수 있고, 그 뒤에는 그 원천의 문서와 함께 완전히 지웁니다.</p>
+</sc-if>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"deleted": {"editor": "boolean", "default": false}, "$preview": {"width": 1280, "height": 660}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const deleted = this.props.deleted ?? false;
+    return { yes: true, no: false, deleted, live: !deleted, count: 5, restored: 412, total: 1104 };
+  }
+}
+</script>
+</body>
+</html>

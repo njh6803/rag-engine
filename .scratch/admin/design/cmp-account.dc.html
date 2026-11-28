@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>부품: 계정 자리</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="position: relative; padding-top: var(--spacing-3); border-top: 1px solid var(--border); background: var(--bg-raised); color: var(--text); font-family: var(--sans);">
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="계정 메뉴" class="shadow-float flex flex-col" style="position: absolute; bottom: calc(100% + var(--spacing-1)); left: 0; right: 0; z-index: 3; padding: var(--spacing-1); background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-m);">
+<a href="fx-my-password.dc.html" role="menuitem" class="flex items-center text-body" style="height: var(--control-h); padding: 0 var(--spacing-3); border-radius: var(--radius-s); background: var(--bg-hover); color: var(--text); text-decoration: none; white-space: nowrap;">비밀번호 바꾸기</a>
+<a href="fx-login-notices.dc.html" role="menuitem" class="flex items-center text-body" style="height: var(--control-h); padding: 0 var(--spacing-3); border-radius: var(--radius-s); color: var(--text); text-decoration: none; white-space: nowrap;">로그아웃</a>
+</div>
+</sc-if>
+<button type="button" aria-haspopup="menu" aria-expanded="{{ expanded }}" class="flex items-center gap-2 w-full" style="min-height: 48px; padding: var(--spacing-2) var(--spacing-3); border: 0; border-radius: var(--radius-m); background: {{ buttonBg }}; color: var(--text); font: inherit; text-align: left; cursor: pointer;">
+<span class="flex flex-col flex-1 min-w-0"><span class="font-mono text-mono font-medium">{{ account }}</span><span class="text-small text-text-muted">{{ role }}</span></span>
+<span style="display: inline-flex; color: var(--text-muted);"><x-import component-from-global-scope="AgentOsUi.Icon" name="chevrons-up-down" size="16"></x-import></span>
+</button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"account": {"editor": null, "default": "ops-lead"}, "role": {"editor": null, "default": "시스템 관리자"}, "menuOpen": {"editor": "boolean", "default": false}, "$preview": {"width": 256, "height": 160}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const open = this.props.menuOpen ?? false;
+    return {
+      account: this.props.account ?? 'ops-lead',
+      role: this.props.role ?? '시스템 관리자',
+      menuOpen: open,
+      expanded: open ? 'true' : 'false',
+      buttonBg: open ? 'var(--bg-active)' : 'transparent'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>연결 확인의 결과</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" class="flex flex-col" style="gap: var(--spacing-6); box-sizing: border-box; min-height: 460px; padding: var(--spacing-8); background: var(--bg); color: var(--text); font-family: var(--sans);">
+<p class="text-body text-text-muted" style="margin: 0; max-width: 720px;">연결 확인은 원천 화면의 ⋯ 메뉴와 원천 만들기의 폴더 칸에서 누릅니다. 폴더를 한 번 읽어 보기만 하고 문서는 바꾸지 않습니다. 결과는 머리 아래에 알림으로 뜨고 닫을 때까지 남습니다.</p>
+<div style="display: grid; gap: var(--spacing-6); grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));">
+<section class="flex flex-col gap-3">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">읽을 수 있을 때</h2>
+<x-import component-from-global-scope="AgentOsUi.Alert" tone="info" title="폴더를 읽었습니다">
+<p class="text-body" style="margin: 0;">폴더 <span class="font-mono text-mono">manuals</span>에서 파일 1,116개를 찾았습니다. 그 가운데 12개는 수집 정책에 걸려 받지 않습니다.</p>
+<p class="text-small text-text-muted" style="margin: var(--spacing-1) 0 0;">확인한 때 <span class="font-mono text-mono">11-26 19:40</span></p>
+</x-import>
+</section>
+<section class="flex flex-col gap-3">
+<h2 class="text-small font-medium text-text-muted" style="margin: 0;">읽을 수 없을 때</h2>
+<x-import component-from-global-scope="AgentOsUi.Alert" tone="danger" title="폴더를 읽을 수 없습니다">
+<p class="text-body" style="margin: 0;">서버에서 <span class="font-mono text-mono">/srv/rag-sources/manuals</span>가 보이지 않습니다. 폴더가 서버에 붙어 있는지 확인한 뒤 다시 확인하세요.</p>
+<div style="margin-top: var(--spacing-3);"><x-import component-from-global-scope="AgentOsUi.Button" variant="secondary" type="button">다시 확인</x-import></div>
+</x-import>
+</section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1280, "height": 460}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

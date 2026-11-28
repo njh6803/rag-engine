@@ -1,6 +1,6 @@
 # mutation-rerun-after-code-fix: 코드를 고친 뒤 변이 표를 `--check`만 하면 `expect = "red"`가 거짓이 된 변이를 놓친다
 
-**상태:** 열림
+**상태:** 만료 2026-11-28
 **어디로:** `.claude/skills/implement/SKILL.md`(변이 단계의 "코드를 옮기거나 고쳤으면 그 코드를 겨누던 변이 파일을 `--check`로 본다" 문장에, 고친 코드가 변이가 겨누던 갈래를 대신 받게 되면 그 변이를 실제로 돌려 빨강을 다시 본다는 것을 더한다)
 **승인:** 자체 승인 2026-11-12, 2회차(더하는 것이라 다섯 번째에 반영한다), 일지 2026-11-12-1116-core-13-lease-worker-process.md, 2026-11-12-1644-core-14-reindex-version-switch.md(2회차), ADR 불필요
 

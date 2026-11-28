@@ -1,7 +1,7 @@
-"""삭제, 되살림, 삭제 기록을 HTTP 표면으로 본다(티켓 11, 스토리 5, 6).
+"""삭제, 복구, 삭제 기록을 HTTP 표면으로 본다(티켓 11, 스토리 5, 6).
 
 서버는 실제 uvicorn이고 검색과 문서 조회는 공식 MCP SDK의 클라이언트로 `/mcp`에 접속해 부른다.
-작업자는 같은 설정으로 한 번 돈다. 임베딩 서버만 스텁이다. 판 전환을 사이에 둔 되살림은
+작업자는 같은 설정으로 한 번 돈다. 임베딩 서버만 스텁이다. 판 전환을 사이에 둔 복구는
 `test_reindex_switch.py`가 본다.
 """
 
@@ -124,7 +124,7 @@ async def test_슬래시와_한글이_든_키를_URL_인코딩한_쿼리로_지�
     assert deleted_at is not None
 
 
-async def test_같은_내용으로_되살리면_작업_없이_바로_검색되고_새_원본이_남지_않는다(
+async def test_같은_내용으로_복구하면_작업_없이_바로_검색되고_새_원본이_남지_않는다(
     round_trip: RoundTrip,
 ) -> None:
     round_trip.drop_reranker()
@@ -147,7 +147,7 @@ async def test_같은_내용으로_되살리면_작업_없이_바로_검색되�
     assert await _default_document_count(round_trip) == 1
 
 
-async def test_다른_그룹으로_되살리면_새_그룹의_지식베이스에_작업_뒤에_검색된다(
+async def test_다른_그룹으로_복구하면_새_그룹의_지식베이스에_작업_뒤에_검색된다(
     round_trip: RoundTrip,
 ) -> None:
     round_trip.drop_reranker()
@@ -169,7 +169,7 @@ async def test_다른_그룹으로_되살리면_새_그룹의_지식베이스에
     assert await _keys(round_trip, "연차휴가") == []
 
 
-async def test_갱신한_내용이_색인되기_전에_지웠다_같은_내용으로_되살려도_옛_글은_나오지_않는다(
+async def test_갱신한_내용이_색인되기_전에_지웠다_같은_내용으로_복구해도_옛_글은_나오지_않는다(
     round_trip: RoundTrip,
 ) -> None:
     round_trip.drop_reranker()
@@ -192,7 +192,7 @@ async def test_갱신한_내용이_색인되기_전에_지웠다_같은_내용�
     assert await _keys(round_trip, "출장비") == []
 
 
-async def test_다른_내용으로_되살리면_갱신한_내용이_색인되고_옛_원본이_남지_않는다(
+async def test_다른_내용으로_복구하면_갱신한_내용이_색인되고_옛_원본이_남지_않는다(
     round_trip: RoundTrip,
 ) -> None:
     round_trip.drop_reranker()

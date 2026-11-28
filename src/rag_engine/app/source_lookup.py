@@ -46,8 +46,8 @@ async def require_pull_source(transaction: Transaction, name: str) -> Source:
 
 
 async def ensure_no_change_in_progress(transaction: Transaction, source_id: UUID) -> None:
-    """원천 삭제 작업이나 원천 되살리기 작업이 대기 중이거나 실행 중이면 409
-    `source_change_in_progress`다. 지우는 요청과 되살리는 요청이 원천 행을 잠근 뒤에 부른다. 두
+    """원천 삭제 작업이나 원천 복구 작업이 대기 중이거나 실행 중이면 409
+    `source_change_in_progress`다. 지우는 요청과 복구하는 요청이 원천 행을 잠근 뒤에 부른다. 두
     작업이 같은 원천의 문서를 서로 반대쪽으로 옮기지 못하게 한다."""
     busy = await transaction.jobs.has_active_source_job(
         source_id, (JobKind.DELETE_SOURCE, JobKind.RESTORE_SOURCE)
@@ -55,7 +55,7 @@ async def ensure_no_change_in_progress(transaction: Transaction, source_id: UUID
     if busy:
         raise RequestError(
             ErrorCode.SOURCE_CHANGE_IN_PROGRESS,
-            "원천을 지우거나 되살리는 작업이 아직 끝나지 않았다",
+            "원천을 지우거나 복구하는 작업이 아직 끝나지 않았다",
         )
 
 

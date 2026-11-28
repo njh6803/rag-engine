@@ -1,6 +1,6 @@
 # scratch-compose-syntax-check: 프로브 폴더에 커밋한 compose 파일의 구문 오류를 아무 검사도 보지 않아 PR 직전 리뷰가 잡았다
 
-**상태:** 열림
+**상태:** 만료 2026-11-28
 **어디로:** `tools/run_checks.py`의 `CHECKS`(저장소가 추적하는 `compose*.yml`과 `.scratch/**/compose*.yml`을 `docker compose -f <파일> config --quiet`로 판정하는 검사. 이 저장소에는 `compose.test.yml`도 있어 같은 검사가 그 파일도 지킨다)
 **승인:** 자체 승인 2026-11-13, 1회차(더하는 것이라 다섯 번째에 반영한다. 병합 전에 PR 직전 `bug-perf-review`가 잡았으므로 손상이 아니다), 일지 2026-11-13-0615-search-latency-probe.md, ADR 불필요
 

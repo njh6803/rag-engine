@@ -50,3 +50,7 @@ search-eval 12(Claude 판정기)를 구현하며 사용자가 승인했다. 앞 
 ### 2026-11-21 포트 열에 `ConnectorRegistry`, `ScheduleCalculator`, `SyncRecordStore`를 더한다
 
 명세(`.scratch/source-sync/spec.md`)가 정했다. ADR 0021과 ADR 0022가 원천과 동기화를 정하면서 자리 셋이 필요해졌다. 커넥터를 이름으로 찾는 자리, 다음 실행 시각을 계산하는 자리(ADR 0022 "계산하는 라이브러리"가 포트 뒤에 두기로 했다), 동기화 기록을 저장하는 자리다. 두 ADR은 그 이름을 적지 않았고, 이름을 명세가 정했다. 본문의 포트 열 목록에 셋이 든다. `ConnectorRegistry`는 커넥터의 이름과 원천의 설정을 받아 그 커넥터를 만들어 내고 인터페이스 버전을 판정한다. `ScheduleCalculator`는 일정 표현식을 확인하고 다음 실행 시각을 낸다. `SyncRecordStore`는 동기화 기록을 저장한다. 본문의 열에 처음부터 있던 `Connector`는 Protocol이 아직 없었고 이 기능이 처음 만든다(`src/rag_engine/domain/ports.py`의 머리 설명이 그렇게 적어 두었다). 같은 설명이 함께 적은 `Transform`의 Protocol은 변환 인터페이스를 넘겨받은 db-source가 만든다(ADR 0021). `SyncRecordStore`는 작업 단위 안에서 얻는다. 동기화 기록을 동기화 작업을 넣는 같은 작업 단위에서 만들기 때문이다. 그래서 한 트랜잭션을 공유하는 포트는 Catalog, DocumentStore, VectorIndex, JobQueue, SyncRecordStore 다섯이다. `ConnectorRegistry`와 `ScheduleCalculator`는 작업 단위 밖에서 부른다. 새 포트를 두지 않고 기존 포트의 몫을 넓힌 것도 있다. 원천의 저장은 `Catalog`에, 변경 확인값과 건너뜀과 원천 단위의 삭제·되살림은 `DocumentStore`와 `VectorIndex`에, 새 작업 종류와 꺼내는 순서는 `JobQueue`에, 원본의 열거는 `BlobStore`에 더한다(명세의 "층과 포트"). 메서드의 이름은 구현 티켓이 정한다. 층과 의존 방향은 바뀌지 않는다.
+
+### 2026-11-27 용어집이 되살림의 이름을 복구로 바꿨다
+
+`GLOSSARY.md`가 "되살림"의 이름을 "복구"로 바꿨다. 앞 이력 2026-11-21의 "원천 단위의 삭제·되살림"은 "삭제·복구"로 읽는다. 이름만 바뀌었고 이 ADR의 결정은 그대로이며, 코드의 영어 식별자(`restore_*`), 관리 API 경로(`/restore`), 오류 코드도 그대로다. 바꾼 것은 사람이 읽는 글(주석, 독스트링, 오류 응답의 제목과 문구, API 칸의 설명, 한국어 시험 이름)이다. 바꾼 까닭과 고르지 않은 안은 ADR 0013의 이력 2026-11-27 "용어집이 되살림의 이름을 복구로 바꿨다"에 있다.

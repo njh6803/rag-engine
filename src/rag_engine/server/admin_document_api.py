@@ -1,11 +1,11 @@
-"""문서 되살리기의 관리 API(source-sync 명세 "문서 되살리기", 스토리 33). `admin` 토큰의 몫이다.
+"""문서 복구의 관리 API(source-sync 명세 "문서 되살리기", 스토리 33). `admin` 토큰의 몫이다.
 
-`POST /documents/{document_id}/restore`는 밀어 넣는 원천의 지운 문서 하나를 되살려 200으로 답한다.
-응답은 되살린 문서와, 되돌릴 조각이 없는 색인 판이 있어 넣은 색인 작업의 식별자(없으면 null)다.
+`POST /documents/{document_id}/restore`는 밀어 넣는 원천의 지운 문서 하나를 복구해 200으로 답한다.
+응답은 복구한 문서와, 되돌릴 조각이 없는 색인 판이 있어 넣은 색인 작업의 식별자(없으면 null)다.
 없는 문서와 삭제 기록은 404 `document_not_found`, 지워지지 않은 문서는 409 `document_not_deleted`,
 가져오는 원천의 문서는 409 `wrong_source_kind`, 지운 원천의 문서는 409 `source_deleted`다. 보관
-기간이 지났는지는 보지 않는다. 가져오는 원천의 문서는 API로 되살리지 않고, 원천 폴더에 파일을 되돌려
-놓으면 다음 동기화가 되살린다.
+기간이 지났는지는 보지 않는다. 가져오는 원천의 문서는 API로 복구하지 않고, 원천 폴더에 파일을 되돌려
+놓으면 다음 동기화가 복구한다.
 """
 
 from datetime import UTC, datetime
@@ -44,8 +44,8 @@ def build_admin_document_router(unit_of_work: UnitOfWork) -> APIRouter:
             request_id=request_id_of(request.scope),
             now=datetime.now(UTC),
         )
-        # 되살린 작업 단위가 끝난 뒤 읽는다. 그 사이 다른 요청이 문서를 다시 지우면 응답의 문서가
-        # 이미 다시 지워진 모양(`deleted_at`이 찬 것)일 수 있다. 되살리기는 그 전에 끝나 있다.
+        # 복구한 작업 단위가 끝난 뒤 읽는다. 그 사이 다른 요청이 문서를 다시 지우면 응답의 문서가
+        # 이미 다시 지워진 모양(`deleted_at`이 찬 것)일 수 있다. 복구는 그 전에 끝나 있다.
         report = await get_document_report(unit_of_work, restored.document_id)
         return DocumentRestoredResponse(
             document=DocumentResponse.of(report), job_id=restored.job_id

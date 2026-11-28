@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>원천 목록 375</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important} a{color:var(--accent)} a:hover{color:var(--text)}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<dc-import name="cmp-topbar" current="sources" admin="{{ yes }}" account="ops-lead" role="시스템 관리자" menu-open="{{ no }}" hint-size="100%,96px"></dc-import>
+<main style="box-sizing: border-box; padding: var(--spacing-4); display: flex; flex-direction: column; gap: var(--spacing-4);">
+<header class="flex flex-col gap-2">
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2"><h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">원천</h1><span class="text-body text-text-muted">5</span></div>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="primary">원천 만들기</x-import>
+</div>
+<p class="text-small text-text-muted" style="margin: 0;">문서를 가져오는 곳입니다. 서버 폴더는 정해 둔 일정에 서버가 읽어 오고, 수집 API와 파일 올리기는 다른 시스템이나 사람이 보내 줍니다.</p>
+</header>
+
+<x-import component-from-global-scope="AgentOsUi.TextField" label="원천 찾기" hide-label="{{ yes }}" placeholder="이름으로 찾기"></x-import>
+<div class="flex items-center gap-2 flex-wrap">
+<select aria-label="종류" class="text-body" style="flex: 1 1 140px; height: var(--control-h); padding: 0 var(--spacing-3); border: 1px solid var(--border-control); border-radius: var(--radius-m); background: var(--bg); color: var(--text); font-family: inherit;"><option>모든 종류</option><option>서버 폴더</option><option>수집 API</option><option>파일 올리기</option></select>
+<select aria-label="상태" class="text-body" style="flex: 1 1 140px; height: var(--control-h); padding: 0 var(--spacing-3); border: 1px solid var(--border-control); border-radius: var(--radius-m); background: var(--bg); color: var(--text); font-family: inherit;"><option>모든 상태</option><option>실패</option><option>동기화 중</option><option>일시 중지</option></select>
+</div>
+<x-import component-from-global-scope="AgentOsUi.Switch" label="지운 원천도 보기" checked="{{ no }}"></x-import>
+
+<ul aria-label="원천" class="flex flex-col" style="list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border);">
+<li class="flex flex-col gap-2" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center justify-between gap-2"><a href="src-detail.dc.html" class="font-mono text-mono">nas-manuals</a><dc-import name="cmp-badge" state="failed" hint-size="52px,22px"></dc-import></div>
+<div class="text-small text-text-muted">서버 폴더, 매일 02:00, 문서 <span class="font-mono text-mono">1,104</span></div>
+<div class="text-small text-text-muted">마지막 <span class="font-mono text-mono">11-26 17:36</span>, 다음 <span class="font-mono text-mono">11-27 02:00</span></div>
+</li>
+<li class="flex flex-col gap-2" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center justify-between gap-2"><a href="src-running.dc.html" class="font-mono text-mono">nas-handbook</a><dc-import name="cmp-badge" state="syncing" hint-size="76px,22px"></dc-import></div>
+<div class="text-small text-text-muted">서버 폴더, 6시간마다, 문서 <span class="font-mono text-mono">146</span></div>
+<div class="text-small text-text-muted">12분째 동기화 중, 다음 <span class="font-mono text-mono">11-27 00:00</span></div>
+</li>
+<li class="flex flex-col gap-2" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center justify-between gap-2"><a href="src-paused.dc.html" class="font-mono text-mono">nas-policies</a><dc-import name="cmp-badge" state="paused" hint-size="72px,22px"></dc-import></div>
+<div class="text-small text-text-muted">서버 폴더, 매주 월요일 03:00, 문서 <span class="font-mono text-mono">14</span></div>
+<div class="text-small text-text-muted">마지막 <span class="font-mono text-mono">11-23 03:00</span>, 다음 없음</div>
+</li>
+<li class="flex flex-col gap-2" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center justify-between gap-2"><span class="font-mono text-mono">groupware-push</span><span class="text-small text-text-muted">동기화 없음</span></div>
+<div class="text-small text-text-muted">수집 API, 문서 <span class="font-mono text-mono">8</span></div>
+</li>
+<li class="flex flex-col gap-2" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center justify-between gap-2"><span class="font-mono text-mono">upload</span><span class="text-small text-text-muted">동기화 없음</span></div>
+<div class="text-small text-text-muted">파일 올리기, 문서 <span class="font-mono text-mono">12</span></div>
+</li>
+</ul>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 375, "height": 1200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { yes: true, no: false };
+  }
+}
+</script>
+</body>
+</html>

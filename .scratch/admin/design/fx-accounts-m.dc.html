@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>운영자 계정 375</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/agent-os/styles.css">
+<link rel="stylesheet" href="ds/agent-os/fonts/fonts.css">
+<link rel="stylesheet" href="ds/agent-os/_ds_bundle.css">
+<script src="ds/agent-os/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>body{margin:0} .h-control,select,[role="menuitem"],[role="tab"]{padding-bottom:2px!important}</style></helmet>
+<div data-theme="nokcheong" data-mode="light" style="min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: var(--sans);">
+<dc-import name="cmp-topbar" current="accounts" admin="{{ yes }}" account="ops-lead" role="시스템 관리자" menu-open="{{ no }}" hint-size="100%,96px"></dc-import>
+<main style="box-sizing: border-box; padding: var(--spacing-4); display: flex; flex-direction: column; gap: var(--spacing-4);">
+<header class="flex flex-col gap-2">
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2"><h1 style="margin: 0; font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--text-title--font-weight);">운영자 계정</h1><span class="text-body text-text-muted">6</span></div>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="primary">계정 만들기</x-import>
+</div>
+<p class="text-small text-text-muted" style="margin: 0;">관리자 페이지에 로그인하는 계정을 만들고 막습니다. 시스템 관리자에게만 보입니다.</p>
+</header>
+
+<div class="flex items-center justify-between gap-3 flex-wrap">
+<x-import component-from-global-scope="AgentOsUi.Switch" label="비활성 계정도 보기" checked="{{ yes }}"></x-import>
+<x-import component-from-global-scope="AgentOsUi.Button" variant="secondary">새로 고침</x-import>
+</div>
+
+<ul aria-label="운영자 계정" class="flex flex-col" style="list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border);">
+<li class="flex flex-col gap-2" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center gap-2" style="min-height: 32px;"><span class="font-mono text-mono font-medium">ops-lead</span><span class="text-small text-text-muted">지금 계정</span></div>
+<div class="flex items-center gap-2 flex-wrap"><span class="text-small">시스템 관리자</span><dc-import name="cmp-badge" state="active" hint-size="52px,22px"></dc-import></div>
+<div class="text-small text-text-muted">만든 시각 <span class="font-mono text-mono">2026-11-02 10:00</span></div>
+</li>
+<li class="flex flex-col gap-2" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center justify-between gap-2"><span class="font-mono text-mono font-medium">kim.dev</span><x-import component-from-global-scope="AgentOsUi.IconButton" icon="ellipsis" label="kim.dev의 동작" size="s"></x-import></div>
+<div class="flex items-center gap-2 flex-wrap"><span class="text-small">관리자</span><dc-import name="cmp-badge" state="active" hint-size="52px,22px"></dc-import></div>
+<div class="text-small text-text-muted">만든 시각 <span class="font-mono text-mono">2026-11-03 09:12</span></div>
+</li>
+<li class="flex flex-col gap-2" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center justify-between gap-2"><span class="font-mono text-mono font-medium">park.sre</span><x-import component-from-global-scope="AgentOsUi.IconButton" icon="ellipsis" label="park.sre의 동작" size="s"></x-import></div>
+<div class="flex items-center gap-2 flex-wrap"><span class="text-small">관리자</span><dc-import name="cmp-badge" state="active" hint-size="52px,22px"></dc-import><x-import component-from-global-scope="AgentOsUi.AccountStatusBadge" status="locked"></x-import><span class="font-mono text-mono text-small text-text-muted">15:42까지</span></div>
+<div class="text-small text-text-muted">만든 시각 <span class="font-mono text-mono">2026-11-05 14:30</span></div>
+</li>
+<li class="flex flex-col gap-2" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center justify-between gap-2"><span class="font-mono text-mono font-medium">lee.qa</span><x-import component-from-global-scope="AgentOsUi.IconButton" icon="ellipsis" label="lee.qa의 동작" size="s"></x-import></div>
+<div class="flex items-center gap-2 flex-wrap"><span class="text-small">관리자</span><x-import component-from-global-scope="AgentOsUi.AccountStatusBadge" status="password-unset"></x-import></div>
+<div class="text-small text-text-muted">만든 시각 <span class="font-mono text-mono">2026-11-26 15:18</span></div>
+</li>
+<li class="flex flex-col gap-2" style="padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center justify-between gap-2"><span class="font-mono text-mono font-medium">choi.ml</span><x-import component-from-global-scope="AgentOsUi.IconButton" icon="ellipsis" label="choi.ml의 동작" size="s"></x-import></div>
+<div class="flex items-center gap-2 flex-wrap"><span class="text-small">관리자</span><dc-import name="cmp-badge" state="active" hint-size="52px,22px"></dc-import></div>
+<div class="text-small text-text-muted">만든 시각 <span class="font-mono text-mono">2026-11-10 11:05</span></div>
+</li>
+<li class="flex flex-col gap-2" style="position: relative; padding: var(--spacing-3) 0; border-bottom: 1px solid var(--border);">
+<div class="flex items-center justify-between gap-2"><span class="font-mono text-mono font-medium text-text-muted">han.old</span><x-import component-from-global-scope="AgentOsUi.IconButton" icon="ellipsis" label="han.old의 동작" size="s"></x-import></div>
+<div class="flex items-center gap-2 flex-wrap"><span class="text-small">관리자</span><x-import component-from-global-scope="AgentOsUi.AccountStatusBadge" status="inactive"></x-import></div>
+<div class="text-small text-text-muted">만든 시각 <span class="font-mono text-mono">2026-11-04 08:40</span></div>
+<div role="menu" aria-label="han.old의 동작" class="shadow-float flex flex-col" style="position: absolute; top: 48px; right: 0; z-index: 3; min-width: 200px; padding: var(--spacing-1); background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-m);">
+<button type="button" role="menuitem" class="text-body" style="height: var(--control-h); padding: 0 var(--spacing-3); border: 0; border-radius: var(--radius-s); background: var(--bg-hover); color: var(--text); font-family: inherit; text-align: left; cursor: pointer;">활성으로 바꾸기</button>
+</div>
+</li>
+</ul>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 375, "height": 1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { yes: true, no: false };
+  }
+}
+</script>
+</body>
+</html>
